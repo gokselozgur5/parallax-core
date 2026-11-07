@@ -26,11 +26,13 @@ import numpy as np
 
 from parallax.attention import CausalSelfAttention, apply_rope
 from parallax.bench import count_parameters, estimate_flops_per_token
+from parallax.checkpoint import load_checkpoint
 from parallax.engine import Value
 from parallax.generator import CharTokenizer, generate, sample_next_token
 from parallax.loss import compute_perplexity, cross_entropy_loss
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.optim import AdamW
+from parallax.quant import quantize_model
 from parallax.tensor import Tensor
 from parallax.viz import to_mermaid
 
@@ -52,6 +54,13 @@ DEMO_CONFIG = ParallaxLMConfig(
 )
 DEMO_MODEL = ParallaxLM(DEMO_CONFIG)
 DEMO_OPTIM = AdamW(DEMO_MODEL.parameters(), lr=0.04, weight_decay=0.01)
+
+# Active model pointer and state
+CURRENT_MODEL = DEMO_MODEL
+CURRENT_CONFIG = DEMO_CONFIG
+CURRENT_TOKENIZER = TOKENIZER
+IS_QUANTIZED = False
+CURRENT_DATASET = "parallax"
 
 # Perform quick initial warmup training
 tokens_arr = np.array(TOKENIZER.encode(CORPUS), dtype=np.int64)
@@ -90,6 +99,10 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_train_step(req)
         elif parsed.path == "/api/model_info":
             self.handle_model_info()
+        elif parsed.path == "/api/load_checkpoint":
+            self.handle_load_checkpoint(req)
+        elif parsed.path == "/api/toggle_quant":
+            self.handle_toggle_quant(req)
         else:
             self.send_error(404, "Endpoint not found")
 
@@ -110,24 +123,29 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def handle_model_info(self):
-        params = count_parameters(DEMO_MODEL)
-        flops = estimate_flops_per_token(DEMO_CONFIG)
+        global CURRENT_MODEL, CURRENT_CONFIG, CURRENT_TOKENIZER, IS_QUANTIZED, CURRENT_DATASET
+        params = count_parameters(CURRENT_MODEL)
+        flops = estimate_flops_per_token(CURRENT_CONFIG)
         self.send_json({
             "config": {
-                "vocab_size": DEMO_CONFIG.vocab_size,
-                "embed_dim": DEMO_CONFIG.embed_dim,
-                "num_heads": DEMO_CONFIG.num_heads,
-                "num_layers": DEMO_CONFIG.num_layers,
-                "max_seq_len": DEMO_CONFIG.max_seq_len,
-                "tie_weights": DEMO_CONFIG.tie_weights,
+                "vocab_size": CURRENT_CONFIG.vocab_size,
+                "embed_dim": CURRENT_CONFIG.embed_dim,
+                "num_heads": CURRENT_CONFIG.num_heads,
+                "num_kv_heads": CURRENT_CONFIG.num_kv_heads,
+                "num_layers": CURRENT_CONFIG.num_layers,
+                "max_seq_len": CURRENT_CONFIG.max_seq_len,
+                "use_swiglu": CURRENT_CONFIG.use_swiglu,
+                "tie_weights": CURRENT_CONFIG.tie_weights,
             },
             "params": params,
             "flops_per_token": flops,
-            "corpus": CORPUS,
-            "vocab": TOKENIZER.chars,
+            "dataset": CURRENT_DATASET,
+            "is_quantized": IS_QUANTIZED,
+            "vocab": CURRENT_TOKENIZER.chars,
         })
 
     def handle_generate(self, req: Dict[str, Any]):
+        global CURRENT_MODEL, CURRENT_TOKENIZER
         prompt_text = req.get("prompt", "par")
         max_new = int(req.get("max_new_tokens", 20))
         temp = float(req.get("temperature", 0.7))
@@ -138,13 +156,13 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         use_cache = bool(req.get("use_cache", True))
 
         # Encode prompt using tokenizer (fallback to char ID 0 if unknown)
-        prompt_ids = TOKENIZER.encode(prompt_text)
+        prompt_ids = CURRENT_TOKENIZER.encode(prompt_text)
         if not prompt_ids:
             prompt_ids = [0]
 
         t0 = time.perf_counter()
         generated_ids = generate(
-            DEMO_MODEL,
+            CURRENT_MODEL,
             prompt_ids,
             max_new_tokens=max_new,
             temperature=temp,
@@ -154,7 +172,7 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         )
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
 
-        gen_text = TOKENIZER.decode(generated_ids)
+        gen_text = CURRENT_TOKENIZER.decode(generated_ids)
         new_tokens_count = len(generated_ids) - len(prompt_ids)
         tokens_per_sec = (new_tokens_count / (elapsed_ms / 1000.0)) if elapsed_ms > 0 else 0.0
 
@@ -165,7 +183,52 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
             "elapsed_ms": round(elapsed_ms, 2),
             "tokens_per_sec": round(tokens_per_sec, 1),
             "use_cache": use_cache,
+            "is_quantized": IS_QUANTIZED,
         })
+
+    def handle_load_checkpoint(self, req: Dict[str, Any]):
+        global CURRENT_MODEL, CURRENT_CONFIG, CURRENT_TOKENIZER, CURRENT_DATASET, IS_QUANTIZED
+        dataset = req.get("dataset", "shakespeare")
+
+        if dataset == "shakespeare":
+            ckpt_path = os.path.join(REPO_ROOT, "data", "shakespeare_model.npz")
+            txt_path = os.path.join(REPO_ROOT, "data", "shakespeare.txt")
+            if os.path.exists(ckpt_path) and os.path.exists(txt_path):
+                with open(txt_path, "r", encoding="utf-8") as f:
+                    sh_text = f.read()
+                CURRENT_TOKENIZER = CharTokenizer(sh_text)
+                CURRENT_MODEL, step = load_checkpoint(ckpt_path)
+                CURRENT_CONFIG = CURRENT_MODEL.config
+                CURRENT_DATASET = "shakespeare"
+                IS_QUANTIZED = False
+                self.send_json({"status": "ok", "dataset": "shakespeare", "step": step})
+                return
+
+        # Fallback / Reset to default Parallax MicroLM
+        CURRENT_MODEL = DEMO_MODEL
+        CURRENT_CONFIG = DEMO_CONFIG
+        CURRENT_TOKENIZER = TOKENIZER
+        CURRENT_DATASET = "parallax"
+        IS_QUANTIZED = False
+        self.send_json({"status": "ok", "dataset": "parallax", "step": 40})
+
+    def handle_toggle_quant(self, req: Dict[str, Any]):
+        global CURRENT_MODEL, IS_QUANTIZED
+        enable_quant = bool(req.get("quantize", True))
+
+        if enable_quant and not IS_QUANTIZED:
+            CURRENT_MODEL = quantize_model(CURRENT_MODEL)
+            IS_QUANTIZED = True
+        elif not enable_quant and IS_QUANTIZED:
+            # Reload from checkpoint or base model
+            if CURRENT_DATASET == "shakespeare":
+                ckpt_path = os.path.join(REPO_ROOT, "data", "shakespeare_model.npz")
+                CURRENT_MODEL, _ = load_checkpoint(ckpt_path)
+            else:
+                CURRENT_MODEL = DEMO_MODEL
+            IS_QUANTIZED = False
+
+        self.send_json({"status": "ok", "is_quantized": IS_QUANTIZED})
 
     def handle_attention(self, req: Dict[str, Any]):
         text = req.get("text", "PARALLAX")[:16]  # Max 16 chars for responsive matrix

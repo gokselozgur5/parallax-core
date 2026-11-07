@@ -87,3 +87,38 @@ def test_studio_train_step_api(studio_server_url):
     assert len(resp["losses"]) == 2
     assert "perplexity" in resp
     assert resp["step_count"] > 0
+
+
+def test_studio_checkpoint_and_quant_apis(studio_server_url):
+    # Test loading Shakespeare checkpoint
+    post_data = json.dumps({"dataset": "shakespeare"}).encode()
+    req = urllib.request.Request(
+        f"{studio_server_url}/api/load_checkpoint",
+        data=post_data,
+        headers={"Content-Type": "application/json"},
+    )
+    resp = json.loads(urllib.request.urlopen(req).read().decode())
+    assert resp["status"] == "ok"
+    assert resp["dataset"] == "shakespeare"
+
+    # Test toggling INT8 quantization
+    quant_data = json.dumps({"quantize": True}).encode()
+    req2 = urllib.request.Request(
+        f"{studio_server_url}/api/toggle_quant",
+        data=quant_data,
+        headers={"Content-Type": "application/json"},
+    )
+    resp2 = json.loads(urllib.request.urlopen(req2).read().decode())
+    assert resp2["status"] == "ok"
+    assert resp2["is_quantized"] is True
+
+    # Test generation under INT8 mode
+    gen_data = json.dumps({"prompt": "First", "max_new_tokens": 5, "use_cache": True}).encode()
+    req3 = urllib.request.Request(
+        f"{studio_server_url}/api/generate",
+        data=gen_data,
+        headers={"Content-Type": "application/json"},
+    )
+    resp3 = json.loads(urllib.request.urlopen(req3).read().decode())
+    assert resp3["is_quantized"] is True
+    assert "output_text" in resp3

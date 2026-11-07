@@ -124,13 +124,14 @@ def generate(
     context = tokens[-max_seq_len:]
     idx = np.array([context], dtype=np.int64)
 
-    # Initialize empty caches per layer
+    # Initialize empty caches per layer (respecting GQA num_kv_heads if configured)
     B = 1
     num_heads = model.config.num_heads
+    num_kv_heads = model.config.num_kv_heads if model.config.num_kv_heads is not None else num_heads
     head_dim = model.config.embed_dim // num_heads
     kv_caches: List[Tuple[np.ndarray, np.ndarray]] = [
-        (np.empty((B, num_heads, 0, head_dim), dtype=np.float64),
-         np.empty((B, num_heads, 0, head_dim), dtype=np.float64))
+        (np.empty((B, num_kv_heads, 0, head_dim), dtype=np.float64),
+         np.empty((B, num_kv_heads, 0, head_dim), dtype=np.float64))
         for _ in range(model.config.num_layers)
     ]
 
