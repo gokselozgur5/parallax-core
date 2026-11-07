@@ -23,6 +23,8 @@ from parallax.loss import cross_entropy_loss
 from parallax.optim import AdamW
 from parallax.generator import CharTokenizer, generate
 from parallax.viz import format_attention_heatmap, to_mermaid
+from parallax.tokenizer import BPETokenizer
+from parallax.bench import count_parameters, estimate_flops_per_token, benchmark_inference, format_benchmark_table
 
 
 def header(title: str) -> None:
@@ -182,6 +184,37 @@ def experiment_4_train_micro_lm():
     print(f'Prompt: "par" -> Output: "{generated_text}"')
 
 
+def experiment_5_kv_cache_benchmark():
+    header("Experiment 5: KV Cache Speedup & Model Profiling")
+    config = ParallaxLMConfig(
+        vocab_size=128,
+        embed_dim=48,
+        num_heads=3,
+        num_layers=3,
+        max_seq_len=64,
+        use_rope=True,
+    )
+    model = ParallaxLM(config)
+
+    print("Model Architecture Profile:")
+    params = count_parameters(model)
+    print(f"  Embedding Params : {params['embedding']:,}")
+    print(f"  Attention Params : {params['attention']:,}")
+    print(f"  MLP Params       : {params['mlp']:,}")
+    print(f"  Norm Params      : {params['norm']:,}")
+    print(f"  LM Head Params   : {params['head']:,}")
+    print(f"  Total Parameters : {params['total']:,}")
+
+    flops = estimate_flops_per_token(config)
+    print(f"  Estimated FLOPs/Token: {flops:,} FLOPs\n")
+
+    print("Benchmarking Autoregressive Generation (16 prompt tokens -> 24 new tokens):")
+    uncached, cached = benchmark_inference(model, prompt_len=16, gen_len=24, num_runs=3)
+
+    print("\nResults:")
+    print(format_benchmark_table([uncached, cached]))
+
+
 def main():
     print("""
 =================================================================
@@ -192,13 +225,14 @@ Choose an experiment to explore:
   2. Causal Attention Matrix (Q @ K^T Softmax Heatmap)
   3. Rotary Positional Embedding (RoPE Angle Visualizer)
   4. Train Micro ParallaxLM & Generate Text
-  5. Run All Experiments in Sequence
+  5. KV Cache Speedup Benchmark & FLOPs Profiler
+  6. Run All Experiments in Sequence
   0. Exit
 """)
     if len(sys.argv) > 1:
         choice = sys.argv[1].strip()
     else:
-        choice = input("Enter option [1-5]: ").strip()
+        choice = input("Enter option [1-6]: ").strip()
 
     if choice == "1":
         experiment_1_single_neuron()
@@ -208,11 +242,14 @@ Choose an experiment to explore:
         experiment_3_rope_rotation()
     elif choice == "4":
         experiment_4_train_micro_lm()
-    elif choice in ("5", "all", ""):
+    elif choice == "5":
+        experiment_5_kv_cache_benchmark()
+    elif choice in ("6", "all", ""):
         experiment_1_single_neuron()
         experiment_2_attention_matrix()
         experiment_3_rope_rotation()
         experiment_4_train_micro_lm()
+        experiment_5_kv_cache_benchmark()
     else:
         print("Exiting.")
 
