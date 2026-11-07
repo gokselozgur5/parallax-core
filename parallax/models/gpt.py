@@ -7,7 +7,7 @@ causal multi-head self-attention, and MLP feed-forward blocks.
 
 from dataclasses import dataclass
 import math
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 import numpy as np
 from parallax.attention import CausalSelfAttention
 from parallax.nn import Linear, Module, Parameter, RMSNorm
@@ -63,16 +63,28 @@ class TransformerBlock(Module):
         self.mlp_norm = RMSNorm(embed_dim)
         self.mlp = MLP(embed_dim)
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(
+        self,
+        x: Tensor,
+        kv_cache: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+    ) -> Union[Tensor, Tuple[Tensor, Tuple[np.ndarray, np.ndarray]]]:
         # Pre-LN Residual stream: x + Attn(RMSNorm(x))
         norm_x = self.attn_norm(x)
-        attn_out = self.attn(norm_x)
+        if kv_cache is not None:
+            attn_out, new_cache = self.attn(norm_x, kv_cache=kv_cache)
+        else:
+            attn_out = self.attn(norm_x)
+            new_cache = None
+
         x = x + attn_out
 
         # Second Pre-LN Residual stream: x + MLP(RMSNorm(x))
         norm_mlp_x = self.mlp_norm(x)
         mlp_out = self.mlp(norm_mlp_x)
         x = x + mlp_out
+
+        if kv_cache is not None:
+            return x, new_cache
         return x
 
 
@@ -128,14 +140,25 @@ class ParallaxLM(Module):
         self.final_norm = RMSNorm(config.embed_dim)
         self.lm_head = Linear(config.embed_dim, config.vocab_size, bias=False)
 
-    def forward(self, idx: np.ndarray) -> Tensor:
+    def forward(
+        self,
+        idx: np.ndarray,
+        kv_caches: Optional[List[Tuple[np.ndarray, np.ndarray]]] = None,
+    ) -> Union[Tensor, Tuple[Tensor, List[Tuple[np.ndarray, np.ndarray]]]]:
         # idx: [batch_size, seq_len]
         x = self.token_embeddings(idx)
 
-        # Propagate through stacked Transformer blocks
-        for block in self.blocks:
-            x = block(x)
+        new_caches: List[Tuple[np.ndarray, np.ndarray]] = []
+        for i, block in enumerate(self.blocks):
+            if kv_caches is not None:
+                x, updated_cache = block(x, kv_cache=kv_caches[i])
+                new_caches.append(updated_cache)
+            else:
+                x = block(x)
 
         x = self.final_norm(x)
         logits = self.lm_head(x)  # [B, T, vocab_size]
+
+        if kv_caches is not None:
+            return logits, new_caches
         return logits

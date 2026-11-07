@@ -6,13 +6,13 @@ causal upper-triangular masking, multi-head projection, and RoPE dynamics.
 """
 
 import math
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 import numpy as np
 from parallax.nn import Linear, Module, Parameter
 from parallax.tensor import Tensor, unbroadcast_grad
 
 
-def apply_rope(x: np.ndarray, seq_dim: int = 1) -> np.ndarray:
+def apply_rope(x: np.ndarray, seq_dim: int = 1, offset: int = 0) -> np.ndarray:
     """Applies Rotary Positional Embedding (RoPE) to an ndarray.
 
     Rotates adjacent pairs of features by position-dependent angles:
@@ -21,6 +21,8 @@ def apply_rope(x: np.ndarray, seq_dim: int = 1) -> np.ndarray:
     Args:
         x: Array of shape [batch, seq_len, num_heads, head_dim]
            or [batch, seq_len, dim]
+        seq_dim: Axis of sequence length.
+        offset: Starting position offset (used during KV cache autoregression).
     """
     orig_shape = x.shape
     seq_len = orig_shape[seq_dim]
@@ -32,8 +34,8 @@ def apply_rope(x: np.ndarray, seq_dim: int = 1) -> np.ndarray:
     freq_seq = np.arange(half_dim, dtype=np.float64)
     inv_freq = 1.0 / (10000.0 ** (freq_seq / half_dim))
 
-    # Positions: [seq_len, 1]
-    positions = np.arange(seq_len, dtype=np.float64)[:, None]
+    # Positions: [seq_len, 1] offset by starting position
+    positions = (np.arange(seq_len, dtype=np.float64) + float(offset))[:, None]
     # Angles: [seq_len, half_dim]
     angles = positions * inv_freq[None, :]
 
@@ -82,7 +84,11 @@ class CausalSelfAttention(Module):
         self.v_proj = Linear(embed_dim, embed_dim, bias=False)
         self.out_proj = Linear(embed_dim, embed_dim, bias=False)
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(
+        self,
+        x: Tensor,
+        kv_cache: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+    ) -> Union[Tensor, Tuple[Tensor, Tuple[np.ndarray, np.ndarray]]]:
         # x shape: [batch_size, seq_len, embed_dim]
         B, T, C = x.shape
 
@@ -96,20 +102,37 @@ class CausalSelfAttention(Module):
         k_heads = np.transpose(k.data.reshape(B, T, self.num_heads, self.head_dim), (0, 2, 1, 3))
         v_heads = np.transpose(v.data.reshape(B, T, self.num_heads, self.head_dim), (0, 2, 1, 3))
 
+        past_len = 0
+        if kv_cache is not None:
+            past_k, past_v = kv_cache
+            past_len = past_k.shape[2]  # [B, num_heads, past_len, head_dim]
+
         if self.use_rope:
-            # Apply RoPE on sequence dimension (axis 2)
-            # Temporarily transpose to [B, T, num_heads, head_dim] for rope
+            # Apply RoPE on sequence dimension with past_len offset
             q_rope_in = np.transpose(q_heads, (0, 2, 1, 3))
             k_rope_in = np.transpose(k_heads, (0, 2, 1, 3))
-            q_heads = np.transpose(apply_rope(q_rope_in, seq_dim=1), (0, 2, 1, 3))
-            k_heads = np.transpose(apply_rope(k_rope_in, seq_dim=1), (0, 2, 1, 3))
+            q_heads = np.transpose(apply_rope(q_rope_in, seq_dim=1, offset=past_len), (0, 2, 1, 3))
+            k_heads = np.transpose(apply_rope(k_rope_in, seq_dim=1, offset=past_len), (0, 2, 1, 3))
 
-        # 3. Scaled dot-product: Q @ K^T -> [B, num_heads, T, T]
+        # Update and concatenate KV cache if provided
+        updated_kv_cache: Optional[Tuple[np.ndarray, np.ndarray]] = None
+        if kv_cache is not None:
+            past_k, past_v = kv_cache
+            k_heads = np.concatenate([past_k, k_heads], axis=2)
+            v_heads = np.concatenate([past_v, v_heads], axis=2)
+            updated_kv_cache = (k_heads, v_heads)
+
+        total_kv_len = k_heads.shape[2]
+
+        # 3. Scaled dot-product: Q @ K^T -> [B, num_heads, T, total_kv_len]
         scores = (q_heads @ np.swapaxes(k_heads, -1, -2)) * self.scale
 
-        # 4. Causal masking (upper triangular mask with -inf)
-        causal_mask = np.triu(np.ones((T, T), dtype=bool), k=1)
-        scores = np.where(causal_mask[None, None, :, :], -1e9, scores)
+        # 4. Causal masking
+        if T > 1 or past_len > 0:
+            q_indices = np.arange(past_len, past_len + T)[:, None]
+            k_indices = np.arange(total_kv_len)[None, :]
+            causal_mask = k_indices > q_indices  # [T, total_kv_len]
+            scores = np.where(causal_mask[None, None, :, :], -1e9, scores)
 
         # 5. Numerically stable softmax
         exp_scores = np.exp(scores - np.max(scores, axis=-1, keepdims=True))
@@ -126,6 +149,10 @@ class CausalSelfAttention(Module):
 
         def _backward() -> None:
             # Analytical backpropagation through attention mechanism
+            if kv_cache is not None:
+                # KV cached incremental step during inference is strictly forward/eval
+                return
+
             dout = attn_out.grad  # [B, T, C]
             if dout is None:
                 return
@@ -141,11 +168,10 @@ class CausalSelfAttention(Module):
             d_attn = dout_heads @ np.swapaxes(v_heads, -1, -2)
 
             # Backprop through softmax:
-            # d_scores = attn * (d_attn - sum(d_attn * attn, axis=-1, keepdims=True))
             sum_dattn_attn = np.sum(d_attn * attn_weights, axis=-1, keepdims=True)
             d_scores = attn_weights * (d_attn - sum_dattn_attn)
-            # Masked positions receive zero gradient
-            d_scores = np.where(causal_mask[None, None, :, :], 0.0, d_scores)
+            if T > 1 or past_len > 0:
+                d_scores = np.where(causal_mask[None, None, :, :], 0.0, d_scores)
             d_scores = d_scores * self.scale
 
             # dL/dQ = d_scores @ K
@@ -167,4 +193,6 @@ class CausalSelfAttention(Module):
 
         # 8. Final projection layer
         proj_out = self.out_proj(attn_out)
+        if kv_cache is not None:
+            return proj_out, updated_kv_cache
         return proj_out
