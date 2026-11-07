@@ -125,3 +125,126 @@ def compute_policy_gradient_step(
         logits.grad += dlogits[None, :, :]
 
     return policy_loss
+
+
+def compute_sequence_log_probs(
+    logits: Tensor,
+    targets: np.ndarray,
+    mask: Optional[np.ndarray] = None,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Computes per-sequence summed log-probabilities of target tokens given logits,
+
+    along with analytical gradients with respect to logits.
+
+    Args:
+        logits: Tensor of shape [B, T, V]
+        targets: np.ndarray of shape [B, T] with token indices
+        mask: Optional binary mask [B, T] (1.0 for valid completion tokens, 0.0 for prompt/pad)
+
+    Returns:
+        seq_log_probs: np.ndarray of shape [B], sum of log probabilities per sequence
+        dlogits: np.ndarray of shape [B, T, V], gradient of seq_log_probs w.r.t logits
+                 d(sum log P)/d(logits) = 1_target - softmax(logits)
+    """
+    logits_data = logits.data  # [B, T, V]
+    B, T, V = logits_data.shape
+
+    # Numerically stable softmax
+    max_l = np.max(logits_data, axis=-1, keepdims=True)
+    exp_l = np.exp(logits_data - max_l)
+    sum_exp = np.sum(exp_l, axis=-1, keepdims=True)
+    probs = exp_l / sum_exp
+    log_probs = (logits_data - max_l) - np.log(sum_exp)
+
+    # Gather log probs for target indices
+    b_idx = np.arange(B)[:, None]
+    t_idx = np.arange(T)[None, :]
+    selected_log_probs = log_probs[b_idx, t_idx, targets]  # [B, T]
+
+    if mask is not None:
+        selected_log_probs = selected_log_probs * mask
+        active_mask = mask[:, :, None]
+    else:
+        active_mask = 1.0
+
+    seq_log_probs = np.sum(selected_log_probs, axis=-1)  # [B]
+
+    # Analytical gradient: d(sum_t log P(y_t))/d(logits) = 1_target - probs
+    dlogits = np.zeros_like(logits_data)
+    dlogits[b_idx, t_idx, targets] = 1.0
+    dlogits = (dlogits - probs) * active_mask
+
+    return seq_log_probs, dlogits
+
+
+def dpo_loss(
+    policy_chosen_logits: Tensor,
+    policy_rejected_logits: Tensor,
+    ref_chosen_logits: np.ndarray,
+    ref_rejected_logits: np.ndarray,
+    chosen_targets: np.ndarray,
+    rejected_targets: np.ndarray,
+    beta: float = 0.1,
+    chosen_mask: Optional[np.ndarray] = None,
+    rejected_mask: Optional[np.ndarray] = None,
+) -> Tuple[float, float, float]:
+    """Computes the Direct Preference Optimization (DPO) loss from first principles:
+
+    L_DPO = - E_{(x, y_w, y_l)} [ log sigma( beta * log(pi_theta(y_w|x) / pi_ref(y_w|x))
+                                           - beta * log(pi_theta(y_l|x) / pi_ref(y_l|x)) ) ]
+
+    Implicit reward: r(x, y) = beta * (log pi_theta(y|x) - log pi_ref(y|x))
+
+    Gradients are directly accumulated into policy_chosen_logits.grad and
+    policy_rejected_logits.grad.
+
+    Returns:
+        loss_val: scalar float value of the DPO loss
+        implicit_reward_chosen: float reward score of chosen candidate
+        implicit_reward_rejected: float reward score of rejected candidate
+    """
+    # 1. Compute policy log probabilities and gradient accumulators
+    pi_logp_w, d_pi_w = compute_sequence_log_probs(policy_chosen_logits, chosen_targets, chosen_mask)
+    pi_logp_l, d_pi_l = compute_sequence_log_probs(policy_rejected_logits, rejected_targets, rejected_mask)
+
+    # 2. Compute reference log probabilities (treated as constants, no gradient)
+    ref_w_tensor = Tensor(ref_chosen_logits, requires_grad=False)
+    ref_l_tensor = Tensor(ref_rejected_logits, requires_grad=False)
+    ref_logp_w, _ = compute_sequence_log_probs(ref_w_tensor, chosen_targets, chosen_mask)
+    ref_logp_l, _ = compute_sequence_log_probs(ref_l_tensor, rejected_targets, rejected_mask)
+
+    # 3. Log ratios & implicit rewards
+    log_ratio_w = pi_logp_w - ref_logp_w
+    log_ratio_l = pi_logp_l - ref_logp_l
+
+    implicit_r_w = beta * log_ratio_w
+    implicit_r_l = beta * log_ratio_l
+
+    # Margin h = beta * (log_ratio_w - log_ratio_l)
+    h = implicit_r_w - implicit_r_l
+
+    # L_DPO = - log sigma(h) = softplus(-h) = log(1 + exp(-h))
+    # Numerically stable calculation:
+    loss_per_sample = np.where(h > 0, np.log1p(np.exp(-h)), -h + np.log1p(np.exp(h)))
+    loss_val = float(np.mean(loss_per_sample))
+
+    # 4. Analytical Gradients w.r.t logits:
+    # d L_DPO / d h = - (1 - sigma(h)) = - sigma(-h)
+    # sigma(-h) = 1 / (1 + exp(h))
+    sig_neg_h = 1.0 / (1.0 + np.exp(np.clip(h, -50, 50)))  # Shape: [B]
+    B = float(len(h))
+    grad_scale = sig_neg_h / B  # [B]
+
+    # dL / d(logits_w) = - beta * grad_scale * d_pi_w
+    # dL / d(logits_l) = + beta * grad_scale * d_pi_l
+    grad_w = - beta * grad_scale[:, None, None] * d_pi_w
+    grad_l = + beta * grad_scale[:, None, None] * d_pi_l
+
+    # Execute backward pass through the DAG with the calculated output gradients
+    if policy_chosen_logits.requires_grad:
+        policy_chosen_logits.backward(grad=grad_w)
+    if policy_rejected_logits.requires_grad:
+        policy_rejected_logits.backward(grad=grad_l)
+
+    return loss_val, float(np.mean(implicit_r_w)), float(np.mean(implicit_r_l))
+

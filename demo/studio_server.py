@@ -33,7 +33,12 @@ from parallax.loss import compute_perplexity, cross_entropy_loss
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.optim import AdamW
 from parallax.quant import quantize_model
-from parallax.rl import RewardModel, bradley_terry_reward_loss, compute_policy_gradient_step
+from parallax.rl import (
+    RewardModel,
+    bradley_terry_reward_loss,
+    compute_policy_gradient_step,
+    dpo_loss,
+)
 from parallax.tensor import Tensor
 from parallax.viz import to_mermaid
 
@@ -114,6 +119,8 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_rl_train_preference(req)
         elif parsed.path == "/api/rl/policy_step":
             self.handle_rl_policy_step(req)
+        elif parsed.path == "/api/rl/dpo_step":
+            self.handle_rl_dpo_step(req)
         else:
             self.send_error(404, "Endpoint not found")
 
@@ -422,6 +429,57 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
             "cand_b": {"text": text_b, "reward": round(r_b, 3)},
             "advantage": round(best_reward - baseline, 3),
             "winner": "Candidate A" if r_a >= r_b else "Candidate B",
+        })
+
+    def handle_rl_dpo_step(self, req: Dict[str, Any]):
+        chosen_text = req.get("chosen", "parallax builds clarity and depth")
+        rejected_text = req.get("rejected", "parallax creates confusion and noise")
+        beta = float(req.get("beta", 0.1))
+        steps = int(req.get("steps", 3))
+
+        chosen_ids = CURRENT_TOKENIZER.encode(chosen_text) or [0]
+        rejected_ids = CURRENT_TOKENIZER.encode(rejected_text) or [0]
+
+        # Align length with pad for batch forward
+        max_l = max(len(chosen_ids), len(rejected_ids))
+        c_padded = chosen_ids + [0] * (max_l - len(chosen_ids))
+        r_padded = rejected_ids + [0] * (max_l - len(rejected_ids))
+
+        idx_c = np.array([c_padded], dtype=np.int64)
+        idx_r = np.array([r_padded], dtype=np.int64)
+
+        # Reference model frozen outputs (using current model before DPO steps as reference)
+        ref_c_logits = CURRENT_MODEL(idx_c).data.copy()
+        ref_r_logits = CURRENT_MODEL(idx_r).data.copy()
+
+        losses = []
+        implicit_rw = 0.0
+        implicit_rl = 0.0
+
+        for _ in range(steps):
+            DEMO_OPTIM.zero_grad()
+            p_c = CURRENT_MODEL(idx_c)
+            p_r = CURRENT_MODEL(idx_r)
+
+            loss, implicit_rw, implicit_rl = dpo_loss(
+                policy_chosen_logits=p_c,
+                policy_rejected_logits=p_r,
+                ref_chosen_logits=ref_c_logits,
+                ref_rejected_logits=ref_r_logits,
+                chosen_targets=idx_c,
+                rejected_targets=idx_r,
+                beta=beta,
+            )
+            DEMO_OPTIM.step()
+            losses.append(round(loss, 4))
+
+        margin = implicit_rw - implicit_rl
+        self.send_json({
+            "status": "ok",
+            "losses": losses,
+            "implicit_reward_chosen": round(implicit_rw, 3),
+            "implicit_reward_rejected": round(implicit_rl, 3),
+            "implicit_margin": round(margin, 3),
         })
 
 

@@ -168,4 +168,24 @@ def test_studio_rl_apis(studio_server_url):
     assert "advantage" in resp3
     assert "winner" in resp3
 
+    # 4. Test DPO step
+    dpo_data = json.dumps({
+        "chosen": "parallax builds clarity and depth",
+        "rejected": "parallax creates confusion and noise",
+        "steps": 2,
+        "beta": 0.1
+    }).encode()
+    req4 = urllib.request.Request(
+        f"{studio_server_url}/api/rl/dpo_step",
+        data=dpo_data,
+        headers={"Content-Type": "application/json"},
+    )
+    resp4 = json.loads(urllib.request.urlopen(req4).read().decode())
+    assert resp4["status"] == "ok"
+    assert "losses" in resp4
+    assert "implicit_reward_chosen" in resp4
+    assert "implicit_reward_rejected" in resp4
+    assert "implicit_margin" in resp4
+
+
 
