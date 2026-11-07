@@ -27,19 +27,28 @@ class Module:
         raise NotImplementedError
 
     def parameters(self) -> List[Parameter]:
-        """Returns all learnable parameters belonging to this module and submodules."""
+        """Returns all unique learnable parameters belonging to this module and submodules."""
         params: List[Parameter] = []
-        for name, value in self.__dict__.items():
-            if isinstance(value, Parameter):
-                params.append(value)
-            elif isinstance(value, Module):
-                params.extend(value.parameters())
-            elif isinstance(value, list):
-                for item in value:
-                    if isinstance(item, Module):
-                        params.extend(item.parameters())
-                    elif isinstance(item, Parameter):
-                        params.append(item)
+        seen_ids = set()
+
+        def collect(m: Module) -> None:
+            for name, value in m.__dict__.items():
+                if isinstance(value, Parameter):
+                    if id(value) not in seen_ids:
+                        seen_ids.add(id(value))
+                        params.append(value)
+                elif isinstance(value, Module):
+                    collect(value)
+                elif isinstance(value, list):
+                    for item in value:
+                        if isinstance(item, Module):
+                            collect(item)
+                        elif isinstance(item, Parameter):
+                            if id(item) not in seen_ids:
+                                seen_ids.add(id(item))
+                                params.append(item)
+
+        collect(self)
         return params
 
     def zero_grad(self) -> None:

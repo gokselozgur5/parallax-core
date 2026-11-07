@@ -96,6 +96,7 @@ class ParallaxLMConfig:
     num_layers: int = 3
     max_seq_len: int = 128
     use_rope: bool = True
+    tie_weights: bool = False
 
 
 class Embedding(Module):
@@ -139,6 +140,10 @@ class ParallaxLM(Module):
         ]
         self.final_norm = RMSNorm(config.embed_dim)
         self.lm_head = Linear(config.embed_dim, config.vocab_size, bias=False)
+
+        # Weight Tying (Press & Wolf, 2016): share embedding and unembedding weights
+        if config.tie_weights:
+            self.lm_head.weight = self.token_embeddings.weight
 
     def forward(
         self,
