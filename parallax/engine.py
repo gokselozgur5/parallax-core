@@ -5,6 +5,7 @@ Defines the foundational Value object that encapsulates a scalar value,
 tracks its computation graph lineage, and stores gradient metadata.
 """
 
+import math
 from typing import Callable, List, Set, Tuple, Union
 
 ScalarLike = Union[int, float, "Value"]
@@ -85,6 +86,72 @@ class Value:
     def __rtruediv__(self, other: ScalarLike) -> "Value":
         other = other if isinstance(other, Value) else Value(other)
         return other / self
+
+    def exp(self) -> "Value":
+        out = Value(math.exp(self.data), (self,), "exp")
+
+        def _backward() -> None:
+            self.grad += out.data * out.grad
+
+        out._backward = _backward
+        return out
+
+    def log(self) -> "Value":
+        assert self.data > 0, "Logarithm undefined for non-positive values"
+        out = Value(math.log(self.data), (self,), "log")
+
+        def _backward() -> None:
+            self.grad += (1.0 / self.data) * out.grad
+
+        out._backward = _backward
+        return out
+
+    def relu(self) -> "Value":
+        out = Value(self.data if self.data > 0 else 0.0, (self,), "ReLU")
+
+        def _backward() -> None:
+            self.grad += (1.0 if self.data > 0 else 0.0) * out.grad
+
+        out._backward = _backward
+        return out
+
+    def tanh(self) -> "Value":
+        t = math.tanh(self.data)
+        out = Value(t, (self,), "tanh")
+
+        def _backward() -> None:
+            self.grad += (1.0 - t**2) * out.grad
+
+        out._backward = _backward
+        return out
+
+    def sigmoid(self) -> "Value":
+        s = 1.0 / (1.0 + math.exp(-self.data))
+        out = Value(s, (self,), "sigmoid")
+
+        def _backward() -> None:
+            self.grad += (s * (1.0 - s)) * out.grad
+
+        out._backward = _backward
+        return out
+
+    def gelu(self) -> "Value":
+        """Gaussian Error Linear Unit (standard tanh approximation)."""
+        x = self.data
+        cdf = 0.5 * (1.0 + math.tanh(math.sqrt(2.0 / math.pi) * (x + 0.044715 * (x**3))))
+        out = Value(x * cdf, (self,), "GELU")
+
+        def _backward() -> None:
+            # Analytical derivative of GELU approximation
+            inner = math.sqrt(2.0 / math.pi) * (x + 0.044715 * (x**3))
+            tanh_val = math.tanh(inner)
+            sech2_val = 1.0 - tanh_val**2
+            d_inner = math.sqrt(2.0 / math.pi) * (1.0 + 3.0 * 0.044715 * (x**2))
+            d_cdf = 0.5 * sech2_val * d_inner
+            self.grad += (cdf + x * d_cdf) * out.grad
+
+        out._backward = _backward
+        return out
 
     def backward(self) -> None:
         """Executes backpropagation using reverse topological sort."""

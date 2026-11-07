@@ -17,7 +17,7 @@ def compute_numerical_gradient(
     """Computes numerical gradient of a scalar function using central differences.
 
     Args:
-        fn: Function taking float or Value inputs and returning scalar/Value.
+        fn: Function taking Value inputs and returning scalar/Value.
         inputs: List of float inputs to the function.
         eps: Small perturbation for finite difference approximation.
 
@@ -26,11 +26,11 @@ def compute_numerical_gradient(
     """
     grads = []
     for i in range(len(inputs)):
-        inputs_pos = list(inputs)
-        inputs_neg = list(inputs)
+        inputs_pos = [Value(x) for x in inputs]
+        inputs_neg = [Value(x) for x in inputs]
 
-        inputs_pos[i] += eps
-        inputs_neg[i] -= eps
+        inputs_pos[i].data += eps
+        inputs_neg[i].data -= eps
 
         out_pos = fn(*inputs_pos)
         out_neg = fn(*inputs_neg)
