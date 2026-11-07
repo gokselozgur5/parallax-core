@@ -1,13 +1,102 @@
 """
-Optimization algorithms for neural network training.
+Optimization algorithms, gradient management, and learning rate schedules.
 
-Implements AdamW (Loshchilov & Hutter, 2017) with decoupled weight decay,
-first and second moment estimation, and bias correction.
+Implements:
+- AdamW (Loshchilov & Hutter, 2017) with decoupled weight decay
+- Global gradient norm clipping (`clip_grad_norm_`)
+- Learning rate schedulers: CosineAnnealingWithWarmup, LinearWarmup
 """
 
-from typing import List, Tuple
+import math
+from typing import List, Optional, Tuple
 import numpy as np
 from parallax.nn import Parameter
+
+
+def clip_grad_norm_(parameters: List[Parameter], max_norm: float, eps: float = 1e-6) -> float:
+    """Clips the global norm of parameter gradients.
+
+    Args:
+        parameters: List of Parameters whose gradients should be clipped.
+        max_norm: Upper bound on the global gradient L2 norm.
+        eps: Small constant to prevent division by zero.
+
+    Returns:
+        Total L2 norm of the gradients prior to clipping.
+    """
+    total_sq_sum = 0.0
+    grads = [p.grad for p in parameters if p.grad is not None]
+
+    if not grads:
+        return 0.0
+
+    for g in grads:
+        total_sq_sum += float(np.sum(g**2))
+
+    total_norm = math.sqrt(total_sq_sum)
+    clip_coef = max_norm / (total_norm + eps)
+
+    if clip_coef < 1.0:
+        for g in grads:
+            g *= clip_coef
+
+    return total_norm
+
+
+class LRScheduler:
+    """Base class for learning rate schedulers."""
+
+    def __init__(self, optimizer: "AdamW", base_lr: Optional[float] = None):
+        self.optimizer = optimizer
+        self.base_lr = base_lr if base_lr is not None else optimizer.lr
+        self.step_count = 0
+
+    def get_lr(self, step: int) -> float:
+        raise NotImplementedError
+
+    def step(self) -> float:
+        self.step_count += 1
+        lr = self.get_lr(self.step_count)
+        self.optimizer.lr = lr
+        return lr
+
+
+class CosineAnnealingWithWarmup(LRScheduler):
+    """Cosine learning rate decay with linear warmup.
+
+    - Warmup phase: linearly scales LR from min_lr (or 0) to base_lr
+    - Cosine decay phase: cosine decay from base_lr down to min_lr
+    - After total_steps: stays at min_lr
+    """
+
+    def __init__(
+        self,
+        optimizer: "AdamW",
+        warmup_steps: int,
+        total_steps: int,
+        min_lr: float = 0.0,
+        base_lr: Optional[float] = None,
+    ):
+        super().__init__(optimizer, base_lr=base_lr)
+        assert total_steps >= warmup_steps, "total_steps must be >= warmup_steps"
+        self.warmup_steps = warmup_steps
+        self.total_steps = total_steps
+        self.min_lr = min_lr
+
+    def get_lr(self, step: int) -> float:
+        if step <= self.warmup_steps:
+            # Linear warmup
+            if self.warmup_steps == 0:
+                return self.base_lr
+            return self.min_lr + (self.base_lr - self.min_lr) * (step / self.warmup_steps)
+
+        if step > self.total_steps:
+            return self.min_lr
+
+        # Cosine decay
+        progress = (step - self.warmup_steps) / (self.total_steps - self.warmup_steps)
+        cosine_decay = 0.5 * (1.0 + math.cos(math.pi * progress))
+        return self.min_lr + (self.base_lr - self.min_lr) * cosine_decay
 
 
 class AdamW:
