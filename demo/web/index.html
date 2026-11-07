@@ -92,6 +92,26 @@
           </div>
         </div>
 
+        <!-- Model Selection & Quantization Controls -->
+        <div class="pt-2 border-t border-slate-800/80 space-y-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Pretrained Checkpoint</label>
+            <select id="model-dataset-select" onchange="switchDataset(this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs font-mono text-slate-100 focus:outline-none focus:border-teal-500">
+              <option value="parallax" selected>Parallax Core MicroLM (In-Memory)</option>
+              <option value="shakespeare">Shakespeare Playwright (SwiGLU + GQA)</option>
+            </select>
+          </div>
+
+          <!-- INT8 Quantization Toggle -->
+          <label class="flex items-center justify-between cursor-pointer p-2.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-slate-700">
+            <div>
+              <span class="text-xs font-medium text-slate-200 block">INT8 Quantization Mode</span>
+              <span class="text-[11px] text-slate-400 block">Pure NumPy PTQ • ~4x Memory Reduction</span>
+            </div>
+            <input type="checkbox" id="gen-quantize" onchange="toggleQuant(this.checked)" class="w-4 h-4 accent-teal-500 rounded">
+          </label>
+        </div>
+
         <!-- KV Cache Toggle -->
         <div class="pt-2 border-t border-slate-800/80">
           <label class="flex items-center justify-between cursor-pointer p-2.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-slate-700">
@@ -126,7 +146,7 @@
           </div>
 
           <!-- Model Info Cards -->
-          <div id="model-stats-grid" class="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-800">
+          <div id="model-stats-grid" class="grid grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-800">
             <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80">
               <span class="text-[11px] text-slate-400 block">Active Parameters</span>
               <span id="stat-total-params" class="font-mono text-sm font-semibold text-slate-200">96,288</span>
@@ -136,8 +156,12 @@
               <span id="stat-flops" class="font-mono text-sm font-semibold text-slate-200">178,176</span>
             </div>
             <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80">
+              <span class="text-[11px] text-slate-400 block">Precision</span>
+              <span id="stat-precision" class="font-mono text-sm font-semibold text-teal-400">FP64 Full</span>
+            </div>
+            <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800/80">
               <span class="text-[11px] text-slate-400 block">Architecture</span>
-              <span class="font-mono text-sm font-semibold text-teal-400">2L • 2H • RoPE</span>
+              <span id="stat-arch" class="font-mono text-sm font-semibold text-teal-400">2L • 2H • RoPE</span>
             </div>
           </div>
         </div>
@@ -425,11 +449,67 @@
       if (e.key === 'Enter') runGeneration();
     });
 
-    // Auto-load model stats on start
-    fetch('/api/model_info').then(r => r.json()).then(data => {
+    // Switch Pretrained Dataset
+    async function switchDataset(dataset) {
+      try {
+        const res = await fetch('/api/load_checkpoint', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dataset: dataset })
+        });
+        await res.json();
+        
+        // Update prompt suggestions based on dataset
+        if (dataset === 'shakespeare') {
+          document.getElementById('gen-prompt').value = "First Citizen:\n";
+        } else {
+          document.getElementById('gen-prompt').value = "par";
+        }
+        await updateModelInfo();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Toggle INT8 Quantization
+    async function toggleQuant(enable) {
+      try {
+        const res = await fetch('/api/toggle_quant', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quantize: enable })
+        });
+        const data = await res.json();
+        document.getElementById('stat-precision').innerText = data.is_quantized ? "INT8 Quantized" : "FP64 Full";
+        document.getElementById('stat-precision').className = data.is_quantized ? "font-mono text-sm font-semibold text-amber-400" : "font-mono text-sm font-semibold text-teal-400";
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function updateModelInfo() {
+      const res = await fetch('/api/model_info');
+      const data = await res.json();
       document.getElementById('stat-total-params').innerText = data.params.total.toLocaleString();
       document.getElementById('stat-flops').innerText = data.flops_per_token.toLocaleString();
-    }).catch(console.error);
+      
+      const archParts = [`${data.config.num_layers}L`];
+      if (data.config.num_kv_heads) {
+        archParts.push(`${data.config.num_heads}Q/${data.config.num_kv_heads}KV GQA`);
+      } else {
+        archParts.push(`${data.config.num_heads}H`);
+      }
+      if (data.config.use_swiglu) archParts.push("SwiGLU");
+      archParts.push("RoPE");
+
+      document.getElementById('stat-arch').innerText = archParts.join(" • ");
+      document.getElementById('stat-precision').innerText = data.is_quantized ? "INT8 Quantized" : "FP64 Full";
+      document.getElementById('stat-precision').className = data.is_quantized ? "font-mono text-sm font-semibold text-amber-400" : "font-mono text-sm font-semibold text-teal-400";
+      document.getElementById('gen-quantize').checked = data.is_quantized;
+    }
+
+    // Auto-load model stats on start
+    updateModelInfo().catch(console.error);
   </script>
 </body>
 </html>
