@@ -122,3 +122,50 @@ def test_studio_checkpoint_and_quant_apis(studio_server_url):
     resp3 = json.loads(urllib.request.urlopen(req3).read().decode())
     assert resp3["is_quantized"] is True
     assert "output_text" in resp3
+
+
+def test_studio_rl_apis(studio_server_url):
+    # 1. Test score endpoint
+    score_data = json.dumps({"text": "parallax"}).encode()
+    req = urllib.request.Request(
+        f"{studio_server_url}/api/rl/score",
+        data=score_data,
+        headers={"Content-Type": "application/json"},
+    )
+    resp = json.loads(urllib.request.urlopen(req).read().decode())
+    assert resp["text"] == "parallax"
+    assert isinstance(resp["reward"], float)
+
+    # 2. Test preference training step
+    pref_data = json.dumps({
+        "chosen": "parallax builds clarity and depth",
+        "rejected": "parallax creates confusion and noise",
+        "steps": 2
+    }).encode()
+    req2 = urllib.request.Request(
+        f"{studio_server_url}/api/rl/train_preference",
+        data=pref_data,
+        headers={"Content-Type": "application/json"},
+    )
+    resp2 = json.loads(urllib.request.urlopen(req2).read().decode())
+    assert "losses" in resp2
+    assert "reward_chosen" in resp2
+    assert "reward_rejected" in resp2
+    assert "margin" in resp2
+
+    # 3. Test policy gradient step
+    policy_data = json.dumps({
+        "prompt": "par"
+    }).encode()
+    req3 = urllib.request.Request(
+        f"{studio_server_url}/api/rl/policy_step",
+        data=policy_data,
+        headers={"Content-Type": "application/json"},
+    )
+    resp3 = json.loads(urllib.request.urlopen(req3).read().decode())
+    assert "cand_a" in resp3
+    assert "cand_b" in resp3
+    assert "advantage" in resp3
+    assert "winner" in resp3
+
+

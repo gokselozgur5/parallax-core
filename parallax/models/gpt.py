@@ -213,7 +213,8 @@ class ParallaxLM(Module):
         self,
         idx: np.ndarray,
         kv_caches: Optional[List[Tuple[np.ndarray, np.ndarray]]] = None,
-    ) -> Union[Tensor, Tuple[Tensor, List[Tuple[np.ndarray, np.ndarray]]]]:
+        return_hidden: bool = False,
+    ) -> Union[Tensor, Tuple[Tensor, List[Tuple[np.ndarray, np.ndarray]]], Tuple[Tensor, Tensor]]:
         # idx: [batch_size, seq_len]
         x = self.token_embeddings(idx)
 
@@ -225,9 +226,11 @@ class ParallaxLM(Module):
             else:
                 x = block(x)
 
-        x = self.final_norm(x)
-        logits = self.lm_head(x)  # [B, T, vocab_size]
+        hidden = self.final_norm(x)
+        logits = self.lm_head(hidden)  # [B, T, vocab_size]
 
+        if return_hidden:
+            return logits, hidden
         if kv_caches is not None:
             return logits, new_caches
         return logits
