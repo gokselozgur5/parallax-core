@@ -82,9 +82,16 @@ pytest tests/ -v
 ```
 
 ### Launch Interactive Playground Lab
-Explore gradient descent, causal attention weights, RoPE angles, and micro-LM training in real-time:
+Explore gradient descent, causal attention weights, RoPE angles, and micro-LM training in terminal:
 ```bash
 python demo/playground.py
+```
+
+### Launch Parallax Studio (Web UI)
+Explore text generation, live attention heatmaps, and DAG visualization in your browser:
+```bash
+python demo/studio_server.py
+# Open http://localhost:8080 in your browser
 ```
 
 ---
