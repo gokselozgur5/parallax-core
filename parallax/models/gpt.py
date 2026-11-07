@@ -1,0 +1,141 @@
+"""
+Decoder-only Transformer Block and ParallaxLM architecture.
+
+Implements the standard Pre-LN Transformer architecture with RMSNorm,
+causal multi-head self-attention, and MLP feed-forward blocks.
+"""
+
+from dataclasses import dataclass
+import math
+from typing import List, Optional, Tuple
+import numpy as np
+from parallax.attention import CausalSelfAttention
+from parallax.nn import Linear, Module, Parameter, RMSNorm
+from parallax.tensor import Tensor, unbroadcast_grad
+
+
+def tensor_gelu(x: Tensor) -> Tensor:
+    """Applies elementwise GELU approximation to an N-D Tensor."""
+    x_data = x.data
+    # 0.5 * x * (1 + tanh(sqrt(2/pi) * (x + 0.044715 * x^3)))
+    c = math.sqrt(2.0 / math.pi)
+    inner = c * (x_data + 0.044715 * (x_data**3))
+    tanh_inner = np.tanh(inner)
+    cdf = 0.5 * (1.0 + tanh_inner)
+    out_data = x_data * cdf
+
+    out = Tensor(out_data, (x,), "GELU")
+
+    def _backward() -> None:
+        if x.requires_grad and x.grad is not None:
+            sech2 = 1.0 - tanh_inner**2
+            d_inner = c * (1.0 + 3.0 * 0.044715 * (x_data**2))
+            d_cdf = 0.5 * sech2 * d_inner
+            dx = (cdf + x_data * d_cdf) * out.grad
+            x.grad += unbroadcast_grad(dx, x.shape)
+
+    out._backward = _backward
+    return out
+
+
+class MLP(Module):
+    """Feed-Forward Network with GELU activation."""
+
+    def __init__(self, embed_dim: int, hidden_dim: Optional[int] = None):
+        super().__init__()
+        hidden_dim = hidden_dim or 4 * embed_dim
+        self.fc1 = Linear(embed_dim, hidden_dim)
+        self.fc2 = Linear(hidden_dim, embed_dim)
+
+    def forward(self, x: Tensor) -> Tensor:
+        h = tensor_gelu(self.fc1(x))
+        out = self.fc2(h)
+        return out
+
+
+class TransformerBlock(Module):
+    """Pre-LN Transformer Decoder Block."""
+
+    def __init__(self, embed_dim: int, num_heads: int, use_rope: bool = True):
+        super().__init__()
+        self.attn_norm = RMSNorm(embed_dim)
+        self.attn = CausalSelfAttention(embed_dim, num_heads, use_rope=use_rope)
+        self.mlp_norm = RMSNorm(embed_dim)
+        self.mlp = MLP(embed_dim)
+
+    def forward(self, x: Tensor) -> Tensor:
+        # Pre-LN Residual stream: x + Attn(RMSNorm(x))
+        norm_x = self.attn_norm(x)
+        attn_out = self.attn(norm_x)
+        x = x + attn_out
+
+        # Second Pre-LN Residual stream: x + MLP(RMSNorm(x))
+        norm_mlp_x = self.mlp_norm(x)
+        mlp_out = self.mlp(norm_mlp_x)
+        x = x + mlp_out
+        return x
+
+
+@dataclass
+class ParallaxLMConfig:
+    vocab_size: int = 256
+    embed_dim: int = 64
+    num_heads: int = 4
+    num_layers: int = 3
+    max_seq_len: int = 128
+    use_rope: bool = True
+
+
+class Embedding(Module):
+    """Token Embedding lookup table."""
+
+    def __init__(self, vocab_size: int, embed_dim: int):
+        super().__init__()
+        self.vocab_size = vocab_size
+        self.embed_dim = embed_dim
+        # Gaussian init with std=0.02
+        embed_data = np.random.normal(0.0, 0.02, (vocab_size, embed_dim))
+        self.weight = Parameter(embed_data, label="Embedding.weight")
+
+    def forward(self, idx: np.ndarray) -> Tensor:
+        # idx: [batch_size, seq_len] array of integer token IDs
+        B, T = idx.shape
+        out_data = self.weight.data[idx]  # Shape: [B, T, embed_dim]
+
+        out = Tensor(out_data, (self.weight,), "Embedding")
+
+        def _backward() -> None:
+            if self.weight.requires_grad and self.weight.grad is not None:
+                # Accumulate gradients into indexed rows
+                dout = out.grad
+                np.add.at(self.weight.grad, idx, dout)
+
+        out._backward = _backward
+        return out
+
+
+class ParallaxLM(Module):
+    """Decoder-only autoregressive language model."""
+
+    def __init__(self, config: ParallaxLMConfig):
+        super().__init__()
+        self.config = config
+        self.token_embeddings = Embedding(config.vocab_size, config.embed_dim)
+        self.blocks = [
+            TransformerBlock(config.embed_dim, config.num_heads, use_rope=config.use_rope)
+            for _ in range(config.num_layers)
+        ]
+        self.final_norm = RMSNorm(config.embed_dim)
+        self.lm_head = Linear(config.embed_dim, config.vocab_size, bias=False)
+
+    def forward(self, idx: np.ndarray) -> Tensor:
+        # idx: [batch_size, seq_len]
+        x = self.token_embeddings(idx)
+
+        # Propagate through stacked Transformer blocks
+        for block in self.blocks:
+            x = block(x)
+
+        x = self.final_norm(x)
+        logits = self.lm_head(x)  # [B, T, vocab_size]
+        return logits
