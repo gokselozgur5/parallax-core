@@ -55,9 +55,10 @@ flowchart LR
 | **M3: Tensor Primitives & Broadcasting** | N-dimensional tensor support, broadcasting rules, matrix multiplication (`matmul`) | Matrix calculus verification against explicit Jacobian loops |
 | **M4: Neural Network Modules** | `Module`, `Parameter`, `Linear`, `LayerNorm`, `RMSNorm`, `Dropout` | Overfitting a single batch, parameter update sanity |
 | **M5: Attention & Positional Encoding** | Scaled Dot-Product Attention, Causal Masking, Multi-Head Attention, RoPE | Attention weight distribution & causality leakage check |
-| **M6: Transformer Blocks & Architecture** | Decoder-only Transformer block, Residual stream stability, SwiGLU FFN | Gradient norm tracking across 12-block depth |
+| **M6: Transformer Blocks & Architecture** | Decoder-only Transformer block, Residual stream stability, GELU MLP | Gradient norm tracking and layer verification |
 | **M7: Causal Language Modeling & Tokenizer** | BPE / Character-level Tokenizer, cross-entropy loss, autoregressive text generation | Greedy & top-k/top-p sampling verification |
-| **M8: Execution Tracing & Visualization** | Graphviz/Mermaid computation graph exporter, attention map heatmaps | Renderable SVG/DOT computation graph dumps |
+| **M8: Execution Tracing & Visualization** | Graphviz/Mermaid computation graph exporter, attention map heatmaps | Renderable SVG/DOT dumps & high-contrast heatmaps |
+| **M9: KV Cache & Benchmarking Suite** | $O(1)$-step Key-Value (KV) cache autoregression, parameter counter, FLOPs estimator | Exact greedy logits match & benchmark throughput |
 
 ---
 
