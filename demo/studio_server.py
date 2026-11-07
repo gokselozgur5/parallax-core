@@ -33,6 +33,7 @@ from parallax.loss import compute_perplexity, cross_entropy_loss
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.optim import AdamW
 from parallax.quant import quantize_model
+from parallax.rl import RewardModel, bradley_terry_reward_loss, compute_policy_gradient_step
 from parallax.tensor import Tensor
 from parallax.viz import to_mermaid
 
@@ -54,6 +55,10 @@ DEMO_CONFIG = ParallaxLMConfig(
 )
 DEMO_MODEL = ParallaxLM(DEMO_CONFIG)
 DEMO_OPTIM = AdamW(DEMO_MODEL.parameters(), lr=0.04, weight_decay=0.01)
+
+# In-memory Reward Model initialized on same config
+REWARD_MODEL = RewardModel(DEMO_CONFIG)
+REWARD_OPTIM = AdamW(REWARD_MODEL.parameters(), lr=0.03, weight_decay=0.01)
 
 # Active model pointer and state
 CURRENT_MODEL = DEMO_MODEL
@@ -103,6 +108,12 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_load_checkpoint(req)
         elif parsed.path == "/api/toggle_quant":
             self.handle_toggle_quant(req)
+        elif parsed.path == "/api/rl/score":
+            self.handle_rl_score(req)
+        elif parsed.path == "/api/rl/train_preference":
+            self.handle_rl_train_preference(req)
+        elif parsed.path == "/api/rl/policy_step":
+            self.handle_rl_policy_step(req)
         else:
             self.send_error(404, "Endpoint not found")
 
@@ -187,7 +198,7 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         })
 
     def handle_load_checkpoint(self, req: Dict[str, Any]):
-        global CURRENT_MODEL, CURRENT_CONFIG, CURRENT_TOKENIZER, CURRENT_DATASET, IS_QUANTIZED
+        global CURRENT_MODEL, CURRENT_CONFIG, CURRENT_TOKENIZER, CURRENT_DATASET, IS_QUANTIZED, REWARD_MODEL, REWARD_OPTIM
         dataset = req.get("dataset", "shakespeare")
 
         if dataset == "shakespeare":
@@ -201,6 +212,8 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
                 CURRENT_CONFIG = CURRENT_MODEL.config
                 CURRENT_DATASET = "shakespeare"
                 IS_QUANTIZED = False
+                REWARD_MODEL = RewardModel(CURRENT_CONFIG)
+                REWARD_OPTIM = AdamW(REWARD_MODEL.parameters(), lr=0.03, weight_decay=0.01)
                 self.send_json({"status": "ok", "dataset": "shakespeare", "step": step})
                 return
 
@@ -210,6 +223,8 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         CURRENT_TOKENIZER = TOKENIZER
         CURRENT_DATASET = "parallax"
         IS_QUANTIZED = False
+        REWARD_MODEL = RewardModel(DEMO_CONFIG)
+        REWARD_OPTIM = AdamW(REWARD_MODEL.parameters(), lr=0.03, weight_decay=0.01)
         self.send_json({"status": "ok", "dataset": "parallax", "step": 40})
 
     def handle_toggle_quant(self, req: Dict[str, Any]):
@@ -322,6 +337,91 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
             "last_loss": losses[-1] if losses else 0.0,
             "perplexity": round(ppl, 2),
             "step_count": DEMO_OPTIM.step_count,
+        })
+
+    def handle_rl_score(self, req: Dict[str, Any]):
+        text = req.get("text", "")
+        if not text:
+            self.send_json({"reward": 0.0})
+            return
+
+        ids = CURRENT_TOKENIZER.encode(text)
+        if not ids:
+            ids = [0]
+        idx = np.array([ids], dtype=np.int64)
+
+        reward_tensor = REWARD_MODEL(idx)
+        reward_score = float(reward_tensor.data[0, 0])
+        self.send_json({"text": text, "reward": round(reward_score, 3)})
+
+    def handle_rl_train_preference(self, req: Dict[str, Any]):
+        chosen_text = req.get("chosen", "parallax builds clarity and depth")
+        rejected_text = req.get("rejected", "parallax creates confusion and noise")
+        steps = int(req.get("steps", 5))
+
+        chosen_ids = CURRENT_TOKENIZER.encode(chosen_text) or [0]
+        rejected_ids = CURRENT_TOKENIZER.encode(rejected_text) or [0]
+
+        # Align length with pad
+        max_l = max(len(chosen_ids), len(rejected_ids))
+        chosen_padded = chosen_ids + [0] * (max_l - len(chosen_ids))
+        rejected_padded = rejected_ids + [0] * (max_l - len(rejected_ids))
+
+        idx_c = np.array([chosen_padded], dtype=np.int64)
+        idx_r = np.array([rejected_padded], dtype=np.int64)
+
+        losses = []
+        for _ in range(steps):
+            REWARD_OPTIM.zero_grad()
+            rc = REWARD_MODEL(idx_c)
+            rr = REWARD_MODEL(idx_r)
+            loss = bradley_terry_reward_loss(rc, rr)
+            loss.backward()
+            REWARD_OPTIM.step()
+            losses.append(round(float(loss.data), 4))
+
+        final_rc = float(REWARD_MODEL(idx_c).data[0, 0])
+        final_rr = float(REWARD_MODEL(idx_r).data[0, 0])
+
+        self.send_json({
+            "losses": losses,
+            "reward_chosen": round(final_rc, 3),
+            "reward_rejected": round(final_rr, 3),
+            "margin": round(final_rc - final_rr, 3),
+        })
+
+    def handle_rl_policy_step(self, req: Dict[str, Any]):
+        # Model generates two responses given a prompt, scores them with RewardModel, and performs policy gradient update
+        prompt = req.get("prompt", "par")
+        prompt_ids = CURRENT_TOKENIZER.encode(prompt) or [0]
+
+        # Generate candidate A
+        cand_a_ids = generate(CURRENT_MODEL, prompt_ids, max_new_tokens=10, temperature=0.9, use_cache=True)
+        # Generate candidate B
+        cand_b_ids = generate(CURRENT_MODEL, prompt_ids, max_new_tokens=10, temperature=0.9, use_cache=True)
+
+        text_a = CURRENT_TOKENIZER.decode(cand_a_ids)
+        text_b = CURRENT_TOKENIZER.decode(cand_b_ids)
+
+        # Score with reward model
+        r_a = float(REWARD_MODEL(np.array([cand_a_ids], dtype=np.int64)).data[0, 0])
+        r_b = float(REWARD_MODEL(np.array([cand_b_ids], dtype=np.int64)).data[0, 0])
+
+        # Baseline is average reward
+        baseline = (r_a + r_b) / 2.0
+
+        # Policy update on candidate with higher reward
+        DEMO_OPTIM.zero_grad()
+        best_ids = cand_a_ids if r_a >= r_b else cand_b_ids
+        best_reward = max(r_a, r_b)
+        compute_policy_gradient_step(CURRENT_MODEL, np.array([best_ids], dtype=np.int64), reward=best_reward, baseline=baseline)
+        DEMO_OPTIM.step()
+
+        self.send_json({
+            "cand_a": {"text": text_a, "reward": round(r_a, 3)},
+            "cand_b": {"text": text_b, "reward": round(r_b, 3)},
+            "advantage": round(best_reward - baseline, 3),
+            "winner": "Candidate A" if r_a >= r_b else "Candidate B",
         })
 
 
