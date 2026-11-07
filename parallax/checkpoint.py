@@ -35,12 +35,17 @@ def get_model_state_dict(model: ParallaxLM) -> Dict[str, np.ndarray]:
         state_dict[f"{prefix}.attn.out_proj.weight"] = block.attn.out_proj.weight.data
 
         state_dict[f"{prefix}.mlp_norm.weight"] = block.mlp_norm.weight.data
-        state_dict[f"{prefix}.mlp.fc1.weight"] = block.mlp.fc1.weight.data
-        if block.mlp.fc1.bias is not None:
-            state_dict[f"{prefix}.mlp.fc1.bias"] = block.mlp.fc1.bias.data
-        state_dict[f"{prefix}.mlp.fc2.weight"] = block.mlp.fc2.weight.data
-        if block.mlp.fc2.bias is not None:
-            state_dict[f"{prefix}.mlp.fc2.bias"] = block.mlp.fc2.bias.data
+        if block.use_swiglu:
+            state_dict[f"{prefix}.mlp.w_gate.weight"] = block.mlp.w_gate.weight.data
+            state_dict[f"{prefix}.mlp.w_up.weight"] = block.mlp.w_up.weight.data
+            state_dict[f"{prefix}.mlp.w_down.weight"] = block.mlp.w_down.weight.data
+        else:
+            state_dict[f"{prefix}.mlp.fc1.weight"] = block.mlp.fc1.weight.data
+            if block.mlp.fc1.bias is not None:
+                state_dict[f"{prefix}.mlp.fc1.bias"] = block.mlp.fc1.bias.data
+            state_dict[f"{prefix}.mlp.fc2.weight"] = block.mlp.fc2.weight.data
+            if block.mlp.fc2.bias is not None:
+                state_dict[f"{prefix}.mlp.fc2.bias"] = block.mlp.fc2.bias.data
 
     return state_dict
 
@@ -66,12 +71,17 @@ def load_model_state_dict(model: ParallaxLM, state_dict: Dict[str, np.ndarray]) 
         block.attn.out_proj.weight.data = state_dict[f"{prefix}.attn.out_proj.weight"].copy()
 
         block.mlp_norm.weight.data = state_dict[f"{prefix}.mlp_norm.weight"].copy()
-        block.mlp.fc1.weight.data = state_dict[f"{prefix}.mlp.fc1.weight"].copy()
-        if block.mlp.fc1.bias is not None and f"{prefix}.mlp.fc1.bias" in state_dict:
-            block.mlp.fc1.bias.data = state_dict[f"{prefix}.mlp.fc1.bias"].copy()
-        block.mlp.fc2.weight.data = state_dict[f"{prefix}.mlp.fc2.weight"].copy()
-        if block.mlp.fc2.bias is not None and f"{prefix}.mlp.fc2.bias" in state_dict:
-            block.mlp.fc2.bias.data = state_dict[f"{prefix}.mlp.fc2.bias"].copy()
+        if block.use_swiglu:
+            block.mlp.w_gate.weight.data = state_dict[f"{prefix}.mlp.w_gate.weight"].copy()
+            block.mlp.w_up.weight.data = state_dict[f"{prefix}.mlp.w_up.weight"].copy()
+            block.mlp.w_down.weight.data = state_dict[f"{prefix}.mlp.w_down.weight"].copy()
+        else:
+            block.mlp.fc1.weight.data = state_dict[f"{prefix}.mlp.fc1.weight"].copy()
+            if block.mlp.fc1.bias is not None and f"{prefix}.mlp.fc1.bias" in state_dict:
+                block.mlp.fc1.bias.data = state_dict[f"{prefix}.mlp.fc1.bias"].copy()
+            block.mlp.fc2.weight.data = state_dict[f"{prefix}.mlp.fc2.weight"].copy()
+            if block.mlp.fc2.bias is not None and f"{prefix}.mlp.fc2.bias" in state_dict:
+                block.mlp.fc2.bias.data = state_dict[f"{prefix}.mlp.fc2.bias"].copy()
 
 
 def save_checkpoint(

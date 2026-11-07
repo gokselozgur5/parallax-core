@@ -53,15 +53,71 @@ class MLP(Module):
         return out
 
 
-class TransformerBlock(Module):
-    """Pre-LN Transformer Decoder Block."""
+def tensor_silu(x: Tensor) -> Tensor:
+    """Applies elementwise SiLU (Swish) activation: x * sigmoid(x)."""
+    x_data = x.data
+    sig = 1.0 / (1.0 + np.exp(-np.clip(x_data, -50.0, 50.0)))
+    out_data = x_data * sig
+    out = Tensor(out_data, (x,), "SiLU")
 
-    def __init__(self, embed_dim: int, num_heads: int, use_rope: bool = True):
+    def _backward() -> None:
+        if x.requires_grad and x.grad is not None:
+            # d/dx (x * sig) = sig + x * sig * (1 - sig) = sig * (1 + x * (1 - sig))
+            dsilu = sig * (1.0 + x_data * (1.0 - sig))
+            dx = dsilu * out.grad
+            x.grad += unbroadcast_grad(dx, x.shape)
+
+    out._backward = _backward
+    return out
+
+
+class SwiGLU(Module):
+    """SwiGLU Feed-Forward Network: out = (SiLU(x @ W_gate^T) * (x @ W_up^T)) @ W_down^T."""
+
+    def __init__(self, embed_dim: int, hidden_dim: Optional[int] = None):
+        super().__init__()
+        # Standard LLaMA hidden dimension scaling: ~ 8/3 * embed_dim rounded to multiple of 64
+        if hidden_dim is None:
+            hidden_dim = int(2 * (4 * embed_dim) / 3)
+            hidden_dim = 64 * ((hidden_dim + 64 - 1) // 64)
+
+        self.w_gate = Linear(embed_dim, hidden_dim, bias=False)
+        self.w_up = Linear(embed_dim, hidden_dim, bias=False)
+        self.w_down = Linear(hidden_dim, embed_dim, bias=False)
+
+    def forward(self, x: Tensor) -> Tensor:
+        gate = tensor_silu(self.w_gate(x))
+        up = self.w_up(x)
+        fused = gate * up
+        out = self.w_down(fused)
+        return out
+
+
+class TransformerBlock(Module):
+    """Pre-LN Transformer Decoder Block with selectable GELU/SwiGLU and GQA support."""
+
+    def __init__(
+        self,
+        embed_dim: int,
+        num_heads: int,
+        num_kv_heads: Optional[int] = None,
+        use_rope: bool = True,
+        use_swiglu: bool = False,
+    ):
         super().__init__()
         self.attn_norm = RMSNorm(embed_dim)
-        self.attn = CausalSelfAttention(embed_dim, num_heads, use_rope=use_rope)
+        self.attn = CausalSelfAttention(
+            embed_dim,
+            num_heads,
+            num_kv_heads=num_kv_heads,
+            use_rope=use_rope,
+        )
         self.mlp_norm = RMSNorm(embed_dim)
-        self.mlp = MLP(embed_dim)
+        self.use_swiglu = use_swiglu
+        if use_swiglu:
+            self.mlp = SwiGLU(embed_dim)
+        else:
+            self.mlp = MLP(embed_dim)
 
     def forward(
         self,
@@ -93,9 +149,11 @@ class ParallaxLMConfig:
     vocab_size: int = 256
     embed_dim: int = 64
     num_heads: int = 4
+    num_kv_heads: Optional[int] = None  # None = MHA, < num_heads = GQA
     num_layers: int = 3
     max_seq_len: int = 128
     use_rope: bool = True
+    use_swiglu: bool = False
     tie_weights: bool = False
 
 
@@ -135,7 +193,13 @@ class ParallaxLM(Module):
         self.config = config
         self.token_embeddings = Embedding(config.vocab_size, config.embed_dim)
         self.blocks = [
-            TransformerBlock(config.embed_dim, config.num_heads, use_rope=config.use_rope)
+            TransformerBlock(
+                config.embed_dim,
+                config.num_heads,
+                num_kv_heads=config.num_kv_heads,
+                use_rope=config.use_rope,
+                use_swiglu=config.use_swiglu,
+            )
             for _ in range(config.num_layers)
         ]
         self.final_norm = RMSNorm(config.embed_dim)

@@ -66,22 +66,33 @@ def apply_rope(x: np.ndarray, seq_dim: int = 1, offset: int = 0) -> np.ndarray:
 
 
 class CausalSelfAttention(Module):
-    """Multi-Head Causal Self-Attention with optional RoPE."""
+    """Multi-Head and Grouped-Query Causal Self-Attention (GQA/MHA) with optional RoPE."""
 
-    def __init__(self, embed_dim: int, num_heads: int, use_rope: bool = True):
+    def __init__(
+        self,
+        embed_dim: int,
+        num_heads: int,
+        num_kv_heads: Optional[int] = None,
+        use_rope: bool = True,
+    ):
         super().__init__()
         assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
-
         self.embed_dim = embed_dim
         self.num_heads = num_heads
+        self.num_kv_heads = num_kv_heads if num_kv_heads is not None else num_heads
+        assert num_heads % self.num_kv_heads == 0, "num_heads must be divisible by num_kv_heads for GQA"
+        self.num_queries_per_kv = self.num_heads // self.num_kv_heads
+
         self.head_dim = embed_dim // num_heads
+        self.kv_dim = self.num_kv_heads * self.head_dim
         self.use_rope = use_rope
         self.scale = 1.0 / math.sqrt(self.head_dim)
 
-        # Q, K, V projections in a single fused linear or distinct
+        # Q projection: [embed_dim, embed_dim]
+        # K, V projections: [embed_dim, kv_dim]
         self.q_proj = Linear(embed_dim, embed_dim, bias=False)
-        self.k_proj = Linear(embed_dim, embed_dim, bias=False)
-        self.v_proj = Linear(embed_dim, embed_dim, bias=False)
+        self.k_proj = Linear(embed_dim, self.kv_dim, bias=False)
+        self.v_proj = Linear(embed_dim, self.kv_dim, bias=False)
         self.out_proj = Linear(embed_dim, embed_dim, bias=False)
 
     def forward(
@@ -97,15 +108,17 @@ class CausalSelfAttention(Module):
         k = self.k_proj(x)
         v = self.v_proj(x)
 
-        # 2. Reshape to multi-head: [B, T, num_heads, head_dim] -> transpose to [B, num_heads, T, head_dim]
+        # 2. Reshape to multi-head:
+        # Q: [B, num_heads, T, head_dim]
+        # K, V: [B, num_kv_heads, T, head_dim]
         q_heads = np.transpose(q.data.reshape(B, T, self.num_heads, self.head_dim), (0, 2, 1, 3))
-        k_heads = np.transpose(k.data.reshape(B, T, self.num_heads, self.head_dim), (0, 2, 1, 3))
-        v_heads = np.transpose(v.data.reshape(B, T, self.num_heads, self.head_dim), (0, 2, 1, 3))
+        k_heads = np.transpose(k.data.reshape(B, T, self.num_kv_heads, self.head_dim), (0, 2, 1, 3))
+        v_heads = np.transpose(v.data.reshape(B, T, self.num_kv_heads, self.head_dim), (0, 2, 1, 3))
 
         past_len = 0
         if kv_cache is not None:
             past_k, past_v = kv_cache
-            past_len = past_k.shape[2]  # [B, num_heads, past_len, head_dim]
+            past_len = past_k.shape[2]  # [B, num_kv_heads, past_len, head_dim]
 
         if self.use_rope:
             # Apply RoPE on sequence dimension with past_len offset
@@ -124,8 +137,17 @@ class CausalSelfAttention(Module):
 
         total_kv_len = k_heads.shape[2]
 
+        # For GQA, expand/repeat KV heads to match num_heads
+        if self.num_queries_per_kv > 1:
+            # Repeat along head axis: [B, num_kv_heads, total_kv_len, head_dim] -> [B, num_heads, total_kv_len, head_dim]
+            k_heads_expanded = np.repeat(k_heads, self.num_queries_per_kv, axis=1)
+            v_heads_expanded = np.repeat(v_heads, self.num_queries_per_kv, axis=1)
+        else:
+            k_heads_expanded = k_heads
+            v_heads_expanded = v_heads
+
         # 3. Scaled dot-product: Q @ K^T -> [B, num_heads, T, total_kv_len]
-        scores = (q_heads @ np.swapaxes(k_heads, -1, -2)) * self.scale
+        scores = (q_heads @ np.swapaxes(k_heads_expanded, -1, -2)) * self.scale
 
         # 4. Causal masking
         if T > 1 or past_len > 0:
@@ -140,7 +162,7 @@ class CausalSelfAttention(Module):
         self.last_attn_weights = attn_weights
 
         # 6. Weighted values: Attn @ V -> [B, num_heads, T, head_dim]
-        out_heads = attn_weights @ v_heads
+        out_heads = attn_weights @ v_heads_expanded
 
         # 7. Merge heads: [B, num_heads, T, head_dim] -> [B, T, num_heads, head_dim] -> [B, T, embed_dim]
         merged = np.transpose(out_heads, (0, 2, 1, 3)).reshape(B, T, C)
@@ -160,12 +182,21 @@ class CausalSelfAttention(Module):
             # Reshape dout into heads: [B, num_heads, T, head_dim]
             dout_heads = np.transpose(dout.reshape(B, T, self.num_heads, self.head_dim), (0, 2, 1, 3))
 
-            # dL/dV = Attn^T @ dL/dOut
-            dv_heads = np.swapaxes(attn_weights, -1, -2) @ dout_heads
-            dv = np.transpose(dv_heads, (0, 2, 1, 3)).reshape(B, T, C)
+            # dL/dV_expanded = Attn^T @ dL/dOut
+            dv_expanded = np.swapaxes(attn_weights, -1, -2) @ dout_heads
 
-            # dL/dAttn = dL/dOut @ V^T
-            d_attn = dout_heads @ np.swapaxes(v_heads, -1, -2)
+            # Sum gradients back across repeated KV heads for GQA
+            if self.num_queries_per_kv > 1:
+                # dv_expanded: [B, num_kv_heads * group_size, total_kv_len, head_dim]
+                B_dim, _, T_dim, H_dim = dv_expanded.shape
+                dv_heads = dv_expanded.reshape(B_dim, self.num_kv_heads, self.num_queries_per_kv, T_dim, H_dim).sum(axis=2)
+            else:
+                dv_heads = dv_expanded
+
+            dv = np.transpose(dv_heads, (0, 2, 1, 3)).reshape(B, T, self.kv_dim)
+
+            # dL/dAttn = dL/dOut @ V_expanded^T
+            d_attn = dout_heads @ np.swapaxes(v_heads_expanded, -1, -2)
 
             # Backprop through softmax:
             sum_dattn_attn = np.sum(d_attn * attn_weights, axis=-1, keepdims=True)
@@ -174,13 +205,19 @@ class CausalSelfAttention(Module):
                 d_scores = np.where(causal_mask[None, None, :, :], 0.0, d_scores)
             d_scores = d_scores * self.scale
 
-            # dL/dQ = d_scores @ K
-            dq_heads = d_scores @ k_heads
+            # dL/dQ = d_scores @ K_expanded
+            dq_heads = d_scores @ k_heads_expanded
             dq = np.transpose(dq_heads, (0, 2, 1, 3)).reshape(B, T, C)
 
-            # dL/dK = d_scores^T @ Q
-            dk_heads = np.swapaxes(d_scores, -1, -2) @ q_heads
-            dk = np.transpose(dk_heads, (0, 2, 1, 3)).reshape(B, T, C)
+            # dL/dK_expanded = d_scores^T @ Q
+            dk_expanded = np.swapaxes(d_scores, -1, -2) @ q_heads
+            if self.num_queries_per_kv > 1:
+                B_dim, _, T_dim, H_dim = dk_expanded.shape
+                dk_heads = dk_expanded.reshape(B_dim, self.num_kv_heads, self.num_queries_per_kv, T_dim, H_dim).sum(axis=2)
+            else:
+                dk_heads = dk_expanded
+
+            dk = np.transpose(dk_heads, (0, 2, 1, 3)).reshape(B, T, self.kv_dim)
 
             if q.requires_grad and q.grad is not None:
                 q.grad += unbroadcast_grad(dq, q.shape)
