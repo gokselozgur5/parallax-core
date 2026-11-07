@@ -114,6 +114,7 @@ class CausalSelfAttention(Module):
         # 5. Numerically stable softmax
         exp_scores = np.exp(scores - np.max(scores, axis=-1, keepdims=True))
         attn_weights = exp_scores / np.sum(exp_scores, axis=-1, keepdims=True)
+        self.last_attn_weights = attn_weights
 
         # 6. Weighted values: Attn @ V -> [B, num_heads, T, head_dim]
         out_heads = attn_weights @ v_heads

@@ -22,6 +22,7 @@ from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.loss import cross_entropy_loss
 from parallax.optim import AdamW
 from parallax.generator import CharTokenizer, generate
+from parallax.viz import format_attention_heatmap, to_mermaid
 
 
 def header(title: str) -> None:
@@ -106,6 +107,9 @@ def experiment_2_attention_matrix():
             else:
                 row_str += f" {val:5.2f} "
         print(row_str + "|")
+
+    print("\nVisual Heatmap Representation:")
+    print(format_attention_heatmap(head0, tokens=list(prompt)))
 
     print("\nObservation:")
     print("Notice the lower-triangular pattern: token i can ONLY attend to tokens <= i.")
