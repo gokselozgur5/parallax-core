@@ -5,7 +5,7 @@ Build a zero-dependency, mathematically verified Autograd and Decoder-Only Trans
 
 ---
 
-## 🏗️ Phase 1: Computation Graph & Scalar Autograd Engine (M1)
+## Phase 1: Computation Graph & Scalar Autograd Engine (M1)
 
 ### [Issue #1] Core Scalar `Value` Primitives & Forward Arithmetic
 - **Scope:** Define `Value(data: float, _children=(), _op='')`.
@@ -25,7 +25,7 @@ Build a zero-dependency, mathematically verified Autograd and Decoder-Only Trans
 
 ---
 
-## ⚡ Phase 2: Non-Linearities & Scalar Activation Suite (M2)
+## Phase 2: Non-Linearities & Scalar Activation Suite (M2)
 
 ### [Issue #4] ReLU & GeLU Activations with Backward Closures
 - **Scope:** Piecewise linear ReLU and Gaussian Error Linear Unit (GeLU) approximation.
@@ -37,7 +37,7 @@ Build a zero-dependency, mathematically verified Autograd and Decoder-Only Trans
 
 ---
 
-## 📐 Phase 3: Tensor Engine & Broadcasting (M3)
+## Phase 3: Tensor Engine & Broadcasting (M3)
 
 ### [Issue #6] N-Dimensional `Tensor` Class with Strided Memory & Metadata
 - **Scope:** Multi-dimensional tensor wrapper over raw NumPy arrays maintaining DAG graph connections.
@@ -49,7 +49,7 @@ Build a zero-dependency, mathematically verified Autograd and Decoder-Only Trans
 
 ---
 
-## 🧩 Phase 4: Neural Network Abstractions & Normalization (M4)
+## Phase 4: Neural Network Abstractions & Normalization (M4)
 
 ### [Issue #8] Modular Base: `Module`, `Parameter`, and Linear Projection Layer
 - **Scope:** PyTorch-style base class with `parameters()` generator and zero-grad routines.
@@ -65,7 +65,7 @@ Build a zero-dependency, mathematically verified Autograd and Decoder-Only Trans
 
 ---
 
-## 🧠 Phase 5: Self-Attention & Positional Dynamics (M5)
+## Phase 5: Self-Attention & Positional Dynamics (M5)
 
 ### [Issue #11] Scaled Dot-Product Attention & Causal Lower-Triangular Mask
 - **Scope:** Compute $\text{Softmax}(QK^T / \sqrt{d_k}) V$ with autoregressive masking ($-\infty$ upper triangle).
@@ -81,7 +81,7 @@ Build a zero-dependency, mathematically verified Autograd and Decoder-Only Trans
 
 ---
 
-## 🏛️ Phase 6: Decoder-Only Transformer Architecture (M6)
+## Phase 6: Decoder-Only Transformer Architecture (M6)
 
 ### [Issue #14] Transformer Block Integration (Pre-LN Architecture)
 - **Scope:** Stacking RMSNorm/LayerNorm -> MHA -> Residual -> SwiGLU FFN -> Residual.
@@ -93,7 +93,7 @@ Build a zero-dependency, mathematically verified Autograd and Decoder-Only Trans
 
 ---
 
-## 🎯 Phase 7: Training Loop, Cross-Entropy & Generation (M7)
+## Phase 7: Training Loop, Cross-Entropy & Generation (M7)
 
 ### [Issue #16] Numerically Stable Categorical Cross-Entropy Loss
 - **Scope:** Log-sum-exp trick to prevent underflow/overflow; softmax gradient backpropagation.
@@ -109,7 +109,7 @@ Build a zero-dependency, mathematically verified Autograd and Decoder-Only Trans
 
 ---
 
-## 📊 Phase 8: Execution Tracing, Graphviz DAG & Benchmarking (M8)
+## Phase 8: Execution Tracing, Graphviz DAG & Benchmarking (M8)
 
 ### [Issue #19] Visual DAG Exporter (Graphviz & Mermaid)
 - **Scope:** Export computation graphs as DOT and Mermaid format for visual inspection.

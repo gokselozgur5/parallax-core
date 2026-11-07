@@ -37,7 +37,7 @@ flowchart LR
 
 ---
 
-## 🎯 Architectural Philosophy
+## Architectural Philosophy
 
 1. **Zero External ML Frameworks:** No `torch`, `jax`, or `tensorflow`. Pure mathematical execution, explicit memory flow, and clean NumPy tensor primitives.
 2. **Transparent Computation Graph (DAG):** Explicit tracking of inputs, operations, parent lineages, and backward gradient closures.
@@ -46,7 +46,7 @@ flowchart LR
 
 ---
 
-## 🗺️ Roadmap & Atomic Milestones
+## Roadmap & Atomic Milestones
 
 | Milestone | Scope & Deliverables | Verification Strategy |
 | :--- | :--- | :--- |
@@ -61,7 +61,7 @@ flowchart LR
 
 ---
 
-## 🚀 Quickstart
+## Quickstart
 
 ### Prerequisites
 - Python 3.11+
@@ -82,7 +82,7 @@ pytest tests/ -v
 
 ---
 
-## 🔬 Mathematical Verification: The Parallax Acid Test
+## Mathematical Verification: The Parallax Acid Test
 
 Every gradient calculated analytically is cross-examined using two-sided finite differences:
 
@@ -93,5 +93,5 @@ $$\frac{|g_{\text{analytic}} - g_{\text{numerical}}|}{\max(|g_{\text{analytic}}|
 
 ---
 
-## 📄 License
+## License
 MIT License. Authored and maintained by [Göksel Özgür](https://github.com/gokselozgur5).
