@@ -80,6 +80,12 @@ pip install -r requirements.txt
 pytest tests/ -v
 ```
 
+### Launch Interactive Playground Lab
+Explore gradient descent, causal attention weights, RoPE angles, and micro-LM training in real-time:
+```bash
+python demo/playground.py
+```
+
 ---
 
 ## Mathematical Verification: The Parallax Acid Test
