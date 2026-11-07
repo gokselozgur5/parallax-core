@@ -33,27 +33,50 @@ def sample_next_token(
     logits: np.ndarray,
     temperature: float = 1.0,
     top_k: Optional[int] = None,
+    top_p: Optional[float] = None,
 ) -> int:
-    """Samples next token from logits with temperature and top-k filtering.
+    """Samples next token from logits with temperature, top-k, and top-p (nucleus) filtering.
 
     Args:
         logits: 1D array of shape [vocab_size]
         temperature: Temperature scaling factor (lower = more deterministic)
         top_k: If set, restricts sampling to the top-k highest probability tokens
+        top_p: If set (in (0, 1]), restricts sampling to the smallest set of tokens
+               whose cumulative probability mass meets or exceeds top_p (Nucleus sampling)
     """
     if temperature <= 0.0:
         return int(np.argmax(logits))
 
-    scaled_logits = logits / temperature
+    scaled_logits = logits.copy() / temperature
 
-    if top_k is not None and top_k > 0 and top_k < len(scaled_logits):
-        # Zero out logits below top_k threshold
+    # Top-K filtering
+    if top_k is not None and 0 < top_k < len(scaled_logits):
         indices_to_remove = np.argsort(scaled_logits)[:-top_k]
         scaled_logits[indices_to_remove] = -1e9
 
     # Softmax probabilities
     exp_logits = np.exp(scaled_logits - np.max(scaled_logits))
     probs = exp_logits / np.sum(exp_logits)
+
+    # Top-P (Nucleus) filtering
+    if top_p is not None and 0.0 < top_p < 1.0:
+        # Sort probabilities descending
+        sorted_indices = np.argsort(probs)[::-1]
+        sorted_probs = probs[sorted_indices]
+        cumulative_probs = np.cumsum(sorted_probs)
+
+        # Remove tokens with cumulative probability above top_p (keep at least the first token)
+        sorted_indices_to_remove = cumulative_probs > top_p
+        sorted_indices_to_remove[0] = False  # Keep at least top 1 token
+
+        indices_to_remove = sorted_indices[sorted_indices_to_remove]
+        probs[indices_to_remove] = 0.0
+        # Renormalize
+        sum_p = np.sum(probs)
+        if sum_p > 0:
+            probs = probs / sum_p
+        else:
+            probs[sorted_indices[0]] = 1.0
 
     return int(np.random.choice(len(probs), p=probs))
 
@@ -64,6 +87,7 @@ def generate(
     max_new_tokens: int = 20,
     temperature: float = 0.8,
     top_k: Optional[int] = 10,
+    top_p: Optional[float] = None,
     use_cache: bool = True,
 ) -> List[int]:
     """Autoregressively generates new tokens conditioned on a prompt.
@@ -74,6 +98,7 @@ def generate(
         max_new_tokens: Number of tokens to generate.
         temperature: Sampling temperature.
         top_k: Top-k filtering limit.
+        top_p: Top-p nucleus filtering threshold.
         use_cache: If True, uses incremental O(1) step KV caching instead of full O(N^2) recomputation.
     """
     tokens = list(prompt_tokens)
@@ -85,7 +110,12 @@ def generate(
             idx = np.array([context], dtype=np.int64)
             logits = model(idx)
             next_token_logits = logits.data[0, -1, :]
-            next_token = sample_next_token(next_token_logits, temperature=temperature, top_k=top_k)
+            next_token = sample_next_token(
+                next_token_logits,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+            )
             tokens.append(next_token)
         return tokens
 
@@ -106,7 +136,12 @@ def generate(
 
     logits, kv_caches = model(idx, kv_caches=kv_caches)
     next_token_logits = logits.data[0, -1, :]
-    next_token = sample_next_token(next_token_logits, temperature=temperature, top_k=top_k)
+    next_token = sample_next_token(
+        next_token_logits,
+        temperature=temperature,
+        top_k=top_k,
+        top_p=top_p,
+    )
     tokens.append(next_token)
 
     # 2. Incrementally generate one token at a time using cached history
@@ -118,7 +153,12 @@ def generate(
         idx_next = np.array([[next_token]], dtype=np.int64)
         logits, kv_caches = model(idx_next, kv_caches=kv_caches)
         next_token_logits = logits.data[0, -1, :]
-        next_token = sample_next_token(next_token_logits, temperature=temperature, top_k=top_k)
+        next_token = sample_next_token(
+            next_token_logits,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+        )
         tokens.append(next_token)
 
     return tokens
