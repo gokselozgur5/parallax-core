@@ -42,3 +42,44 @@ def newton_schulz5(G: np.ndarray, steps: int = 5, eps: float = 1e-7) -> np.ndarr
         X = X.T
 
     return X.astype(G.dtype)
+
+
+
+class Muon:
+    """Muon optimizer with Momentum Orthogonalization for 2D weight matrices."""
+
+    def __init__(
+        self,
+        params: List[np.ndarray],
+        lr: float = 0.02,
+        momentum: float = 0.95,
+        nesterov: bool = True,
+        ns_steps: int = 5,
+    ):
+        self.params = params
+        self.lr = lr
+        self.momentum = momentum
+        self.nesterov = nesterov
+        self.ns_steps = ns_steps
+        # Momentum buffers
+        self.m_buffers = [np.zeros_like(p) for p in params]
+
+    def step(self, grads: List[np.ndarray]):
+        """Perform a single optimization step."""
+        for p, g, buf in zip(self.params, grads, self.m_buffers):
+            # Update momentum buffer: buf = momentum * buf + g
+            buf[:] = self.momentum * buf + g
+
+            if self.nesterov:
+                update_matrix = g + self.momentum * buf
+            else:
+                update_matrix = buf
+
+            # Orthogonalize update matrix using Newton-Schulz
+            if update_matrix.ndim == 2:
+                ortho_update = newton_schulz5(update_matrix, steps=self.ns_steps)
+            else:
+                ortho_update = update_matrix / (np.linalg.norm(update_matrix) + 1e-7)
+
+            # Apply parameter update
+            p -= self.lr * ortho_update
