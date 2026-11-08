@@ -454,20 +454,31 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         beta = float(req.get("beta", 0.1))
         steps = int(req.get("steps", 3))
 
-        chosen_ids = CURRENT_TOKENIZER.encode(chosen_text) or [0]
-        rejected_ids = CURRENT_TOKENIZER.encode(rejected_text) or [0]
+        chosen_ids = CURRENT_TOKENIZER.encode(chosen_text) or [0, 0]
+        rejected_ids = CURRENT_TOKENIZER.encode(rejected_text) or [0, 0]
+        if len(chosen_ids) < 2:
+            chosen_ids = chosen_ids + [0]
+        if len(rejected_ids) < 2:
+            rejected_ids = rejected_ids + [0]
 
-        # Align length with pad for batch forward
+        # Align length with pad for batch forward and shift inputs/targets for next-token prediction
         max_l = max(len(chosen_ids), len(rejected_ids))
         c_padded = chosen_ids + [0] * (max_l - len(chosen_ids))
         r_padded = rejected_ids + [0] * (max_l - len(rejected_ids))
 
-        idx_c = np.array([c_padded], dtype=np.int64)
-        idx_r = np.array([r_padded], dtype=np.int64)
+        in_c = np.array([c_padded[:-1]], dtype=np.int64)
+        tgt_c = np.array([c_padded[1:]], dtype=np.int64)
+        in_r = np.array([r_padded[:-1]], dtype=np.int64)
+        tgt_r = np.array([r_padded[1:]], dtype=np.int64)
+
+        mask_c = np.zeros_like(tgt_c, dtype=np.float64)
+        mask_c[0, : len(chosen_ids) - 1] = 1.0
+        mask_r = np.zeros_like(tgt_r, dtype=np.float64)
+        mask_r[0, : len(rejected_ids) - 1] = 1.0
 
         # Reference model frozen outputs (using current model before DPO steps as reference)
-        ref_c_logits = CURRENT_MODEL(idx_c).data.copy()
-        ref_r_logits = CURRENT_MODEL(idx_r).data.copy()
+        ref_c_logits = CURRENT_MODEL(in_c).data.copy()
+        ref_r_logits = CURRENT_MODEL(in_r).data.copy()
 
         losses = []
         implicit_rw = 0.0
@@ -475,17 +486,19 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
 
         for _ in range(steps):
             DEMO_OPTIM.zero_grad()
-            p_c = CURRENT_MODEL(idx_c)
-            p_r = CURRENT_MODEL(idx_r)
+            p_c = CURRENT_MODEL(in_c)
+            p_r = CURRENT_MODEL(in_r)
 
             loss, implicit_rw, implicit_rl = dpo_loss(
                 policy_chosen_logits=p_c,
                 policy_rejected_logits=p_r,
                 ref_chosen_logits=ref_c_logits,
                 ref_rejected_logits=ref_r_logits,
-                chosen_targets=idx_c,
-                rejected_targets=idx_r,
+                chosen_targets=tgt_c,
+                rejected_targets=tgt_r,
                 beta=beta,
+                chosen_mask=mask_c,
+                rejected_mask=mask_r,
             )
             DEMO_OPTIM.step()
             losses.append(round(loss, 4))
