@@ -146,5 +146,60 @@ def flash_backward_block(
     return dQ_block, dK_block, dV_block
 
 
+def flash_attention_backward(
+    do: np.ndarray,
+    o: np.ndarray,
+    q: np.ndarray,
+    k: np.ndarray,
+    v: np.ndarray,
+    lse: np.ndarray,
+    is_causal: bool = True,
+    block_r: int = 16,
+    block_c: int = 16,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Tiled FlashAttention-2 backward pass recomputing attention without materializing full matrix."""
+    B, H, Tq, d = q.shape
+    Tk = k.shape[2]
+    scale = 1.0 / np.sqrt(d)
+
+    D = compute_d_scalar(do, o)
+    dq = np.zeros_like(q)
+    dk = np.zeros_like(k)
+    dv = np.zeros_like(v)
+
+    Tc = (Tk + block_c - 1) // block_c
+    Tr = (Tq + block_r - 1) // block_r
+
+    for j in range(Tc):
+        c_start, c_end = j * block_c, min((j + 1) * block_c, Tk)
+        K_j, V_j = k[:, :, c_start:c_end, :], v[:, :, c_start:c_end, :]
+
+        for i in range(Tr):
+            r_start, r_end = i * block_r, min((i + 1) * block_r, Tq)
+            if is_causal and r_end <= c_start:
+                continue
+
+            dQ_b, dK_b, dV_b = flash_backward_block(
+                do[:, :, r_start:r_end, :],
+                q[:, :, r_start:r_end, :],
+                K_j,
+                V_j,
+                lse[:, :, r_start:r_end],
+                D[:, :, r_start:r_end],
+                scale,
+                is_causal=is_causal,
+                r_start=r_start,
+                r_end=r_end,
+                c_start=c_start,
+                c_end=c_end,
+            )
+            dq[:, :, r_start:r_end, :] += dQ_b
+            dk[:, :, c_start:c_end, :] += dK_b
+            dv[:, :, c_start:c_end, :] += dV_b
+
+    return dq, dk, dv
+
+
+
 
 
