@@ -52,7 +52,7 @@ def sample_next_token(
     # Top-K filtering
     if top_k is not None and 0 < top_k < len(scaled_logits):
         indices_to_remove = np.argsort(scaled_logits)[:-top_k]
-        scaled_logits[indices_to_remove] = -1e9
+        scaled_logits[indices_to_remove] = -np.inf
 
     # Softmax probabilities
     exp_logits = np.exp(scaled_logits - np.max(scaled_logits))
