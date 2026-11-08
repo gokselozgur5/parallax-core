@@ -4,6 +4,7 @@ Unit tests for Selective State Space Model (Mamba/S6) (M28).
 
 import numpy as np
 import pytest
+from parallax.gradcheck import check_tensor_gradient
 from parallax.mamba import (
     MambaBlock,
     causal_conv1d_backward,
@@ -47,6 +48,17 @@ def test_selective_scan_forward_recurrence_and_continuity():
     # Output must strictly increase as state accumulates input over time
     assert y[0, 1, 0] > y[0, 0, 0]
     assert y[0, 2, 0] > y[0, 1, 0]
+
+
+def test_mamba_block_forward_shape_and_linear_runtime():
+    B, T, D = 2, 16, 16
+    block = MambaBlock(d_model=D, d_state=8, d_conv=4, expand=2)
+
+    u = Tensor(np.random.randn(B, T, D))
+    out = block(u)
+
+    assert out.shape == (B, T, D)
+    assert np.all(np.isfinite(out.data))
 
 
 def test_selective_scan_backward_finite_difference():
@@ -188,6 +200,41 @@ def test_causal_conv1d_backward_finite_difference():
         bias[idx] = orig
         num_db[idx] = np.sum(d_out * (pos - neg)) / (2.0 * eps)
     np.testing.assert_allclose(dbias, num_db, atol=1e-5)
+
+
+def test_mamba_block_exact_autograd_gradcheck():
+    np.random.seed(42)
+    B, T, D = 1, 2, 2
+    block = MambaBlock(d_model=D, d_state=2, d_conv=2, expand=1)
+
+    u = Tensor(np.random.randn(B, T, D) * 0.5, requires_grad=True)
+
+    params = [
+        u,
+        block.in_proj.weight,
+        block.conv_weight,
+        block.x_proj.weight,
+        block.dt_proj.weight,
+        block.A_log,
+        block.D,
+        block.out_proj.weight,
+    ]
+
+    def fn(u_in, w_in, w_conv, w_x, w_dt, a_log, d_param, w_out):
+        block.zero_grad()
+        block.in_proj.weight = w_in
+        block.conv_weight = w_conv
+        block.x_proj.weight = w_x
+        block.dt_proj.weight = w_dt
+        block.A_log = a_log
+        block.D = d_param
+        block.out_proj.weight = w_out
+
+        out = block(u_in)
+        return (out * out).sum()
+
+    assert check_tensor_gradient(fn, params, eps=1e-5, tol=1e-3) is True
+
 
 
 
