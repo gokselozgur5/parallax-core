@@ -39,3 +39,44 @@ def find_ngram_candidate(
                 return tokens[cand_start:cand_end]
 
     return None
+
+
+
+def prompt_lookup_step(
+    tokens: List[int],
+    oracle_fn,
+    ngram_size: int = 3,
+    max_candidate_len: int = 4,
+) -> Tuple[List[int], int]:
+    """Perform one step of Prompt Lookup Decoding with greedy prefix verification.
+
+    Args:
+        tokens: Current sequence of tokens.
+        oracle_fn: Callable taking token sequence and returning next token.
+        ngram_size: N-gram matching window size.
+        max_candidate_len: Maximum speculative window size.
+
+    Returns:
+        Tuple of (accepted_tokens, next_token).
+    """
+    candidates = find_ngram_candidate(tokens, ngram_size, max_candidate_len)
+
+    if candidates is None or len(candidates) == 0:
+        # Standard autoregressive fallback
+        next_tok = oracle_fn(tokens)
+        return [], next_tok
+
+    accepted = []
+    current_seq = list(tokens)
+
+    for cand in candidates:
+        expected = oracle_fn(current_seq)
+        if cand == expected:
+            accepted.append(cand)
+            current_seq.append(cand)
+        else:
+            return accepted, expected
+
+    # If all candidates accepted, sample one bonus token from model
+    bonus_token = oracle_fn(current_seq)
+    return accepted, bonus_token
