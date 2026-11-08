@@ -42,3 +42,39 @@ def test_compute_kto_implicit_rewards_zero_at_init():
     np.testing.assert_allclose(r_theta, [0.0], atol=1e-7)
     assert d_pi.shape == (B, T, V)
 
+
+def test_kto_optimization_increases_desirable_implicit_reward():
+    cfg = ParallaxLMConfig(
+        vocab_size=8,
+        embed_dim=16,
+        num_heads=2,
+        num_layers=1,
+        max_seq_len=6,
+    )
+    policy = ParallaxLM(cfg)
+    optimizer = AdamW(policy.parameters(), lr=0.05)
+
+    desirable_seq = np.array([[1, 2, 3, 4]])
+    ref_logits = policy(desirable_seq).data.copy()
+
+    initial_reward = None
+    for step in range(4):
+        optimizer.zero_grad()
+        p_logits = policy(desirable_seq)
+
+        loss, r_val = kto_loss(
+            policy_logits=p_logits,
+            ref_logits=ref_logits,
+            targets=desirable_seq,
+            is_desirable=True,
+            beta=0.2,
+        )
+        optimizer.step()
+
+        if step == 0:
+            initial_reward = r_val
+
+    # Implicit reward for desirable completion must increase
+    assert r_val > initial_reward
+
+
