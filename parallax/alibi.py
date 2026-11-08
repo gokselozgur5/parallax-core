@@ -26,3 +26,20 @@ def build_alibi_bias_matrix(num_heads: int, seq_len: int) -> np.ndarray:
     relative_dist = positions[None, :] - positions[:, None]
     # For causal attention, relative_dist is negative or zero (j - i)
     return slopes * relative_dist[None, :, :]
+
+def alibi_causal_attention(
+    q: np.ndarray,
+    k: np.ndarray,
+    v: np.ndarray,
+) -> np.ndarray:
+    """Multi-head causal attention with ALiBi positional bias added to scores."""
+    num_heads, seq_len, head_dim = q.shape
+    scale = 1.0 / np.sqrt(head_dim)
+    scores = np.matmul(q, k.swapaxes(-1, -2)) * scale
+    bias = build_alibi_bias_matrix(num_heads, seq_len)
+    scores = scores + bias
+    causal_mask = np.tril(np.ones((seq_len, seq_len)))
+    scores = np.where(causal_mask == 1, scores, -1e9)
+    exp_s = np.exp(scores - np.max(scores, axis=-1, keepdims=True))
+    weights = exp_s / np.sum(exp_s, axis=-1, keepdims=True)
+    return np.matmul(weights, v)
