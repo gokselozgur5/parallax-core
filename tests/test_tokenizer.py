@@ -74,3 +74,14 @@ def test_bpe_serialization_save_and_load():
         sample = "the lazy dog jumps"
         assert tok1.encode(sample) == tok2.encode(sample)
         assert tok2.decode(tok2.encode(sample)) == sample
+
+
+def test_bpe_special_tokens_preservation():
+    tokenizer = BPETokenizer(special_tokens={"<bos>": 257, "<eos>": 258, "<pad>": 256})
+    sample = "<bos>hello world<eos>"
+    encoded = tokenizer.encode(sample)
+    assert encoded[0] == 257
+    assert encoded[-1] == 258
+    decoded = tokenizer.decode(encoded)
+    assert decoded == sample
+
