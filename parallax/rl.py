@@ -121,8 +121,11 @@ def compute_policy_gradient_step(
     dlogits[np.arange(L), target_ids] -= 1.0
     dlogits[:L] *= advantage
 
-    if logits.requires_grad and logits.grad is not None:
+    if logits.requires_grad:
+        if logits.grad is None:
+            logits.grad = np.zeros_like(logits.data)
         logits.grad += dlogits[None, :, :]
+        logits.backward()
 
     return policy_loss
 
