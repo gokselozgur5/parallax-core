@@ -45,3 +45,39 @@ class MoDRouter:
 
         selected_weights = scores[sorted_indices, np.newaxis]
         return sorted_indices, selected_weights, scores
+
+
+
+def mod_block_forward(
+    x: np.ndarray,
+    router: MoDRouter,
+    block_fn: Callable[[np.ndarray], np.ndarray],
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Execute Mixture-of-Depths forward pass.
+
+    Args:
+        x: Input activations of shape (seq_len, hidden_dim).
+        router: MoDRouter instance.
+        block_fn: Transformer computation block taking selected tokens (C, d) and returning (C, d).
+
+    Returns:
+        Tuple of:
+            - output: Full sequence activations of shape (seq_len, hidden_dim).
+            - selected_indices: Array of token indices that were routed through block_fn.
+    """
+    selected_indices, router_weights, _ = router.route_tokens(x)
+
+    # Gather selected tokens
+    x_selected = x[selected_indices]
+
+    # Compute heavy transformer block only on selected capacity tokens
+    block_out = block_fn(x_selected)
+
+    # Weight by router score and apply residual connection
+    weighted_block_out = x_selected + router_weights * block_out
+
+    # Scatter back into output sequence (unselected tokens pass through purely via identity)
+    output = np.copy(x)
+    output[selected_indices] = weighted_block_out
+
+    return output, selected_indices
