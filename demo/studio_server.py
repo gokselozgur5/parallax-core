@@ -76,6 +76,7 @@ UNQUANTIZED_MODEL: Optional[ParallaxLM] = None
 
 # Perform quick initial warmup training
 tokens_arr = np.array(TOKENIZER.encode(CORPUS), dtype=np.int64)
+CURRENT_TOKENS: np.ndarray = tokens_arr
 seq_l = 12
 for _ in range(40):
     starts = np.random.randint(0, len(tokens_arr) - seq_l - 1, size=4)
@@ -207,7 +208,7 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         })
 
     def handle_load_checkpoint(self, req: Dict[str, Any]):
-        global CURRENT_MODEL, CURRENT_CONFIG, CURRENT_TOKENIZER, CURRENT_DATASET, IS_QUANTIZED, REWARD_MODEL, REWARD_OPTIM, DEMO_OPTIM, UNQUANTIZED_MODEL
+        global CURRENT_MODEL, CURRENT_CONFIG, CURRENT_TOKENIZER, CURRENT_TOKENS, CURRENT_DATASET, IS_QUANTIZED, REWARD_MODEL, REWARD_OPTIM, DEMO_OPTIM, UNQUANTIZED_MODEL
         dataset = req.get("dataset", "shakespeare")
 
         if dataset == "shakespeare":
@@ -217,6 +218,7 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
                 with open(txt_path, "r", encoding="utf-8") as f:
                     sh_text = f.read()
                 CURRENT_TOKENIZER = CharTokenizer(sh_text)
+                CURRENT_TOKENS = np.array(CURRENT_TOKENIZER.encode(sh_text), dtype=np.int64)
                 CURRENT_MODEL, step = load_checkpoint(ckpt_path)
                 CURRENT_CONFIG = CURRENT_MODEL.config
                 CURRENT_DATASET = "shakespeare"
@@ -232,6 +234,7 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         CURRENT_MODEL = DEMO_MODEL
         CURRENT_CONFIG = DEMO_CONFIG
         CURRENT_TOKENIZER = TOKENIZER
+        CURRENT_TOKENS = tokens_arr
         CURRENT_DATASET = "parallax"
         IS_QUANTIZED = False
         UNQUANTIZED_MODEL = None
@@ -329,17 +332,24 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         })
 
     def handle_train_step(self, req: Dict[str, Any]):
+        global CURRENT_MODEL, DEMO_OPTIM, IS_QUANTIZED, UNQUANTIZED_MODEL
         num_steps = int(req.get("steps", 5))
         lr = float(req.get("lr", 0.04))
+        if IS_QUANTIZED and UNQUANTIZED_MODEL is not None:
+            CURRENT_MODEL = UNQUANTIZED_MODEL
+            UNQUANTIZED_MODEL = None
+            IS_QUANTIZED = False
+            DEMO_OPTIM = AdamW(CURRENT_MODEL.parameters(), lr=lr, weight_decay=0.01)
         DEMO_OPTIM.lr = lr
 
+        active_tokens = CURRENT_TOKENS
         losses = []
         for _ in range(num_steps):
-            starts = np.random.randint(0, len(tokens_arr) - seq_l - 1, size=4)
-            xb = np.stack([tokens_arr[i : i + seq_l] for i in starts])
-            yb = np.stack([tokens_arr[i + 1 : i + seq_l + 1] for i in starts])
+            starts = np.random.randint(0, len(active_tokens) - seq_l - 1, size=4)
+            xb = np.stack([active_tokens[i : i + seq_l] for i in starts])
+            yb = np.stack([active_tokens[i + 1 : i + seq_l + 1] for i in starts])
             DEMO_OPTIM.zero_grad()
-            logits = DEMO_MODEL(xb)
+            logits = CURRENT_MODEL(xb)
             loss = cross_entropy_loss(logits, yb)
             loss.backward()
             DEMO_OPTIM.step()
