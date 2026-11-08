@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 from parallax.gradcheck import check_tensor_gradient
-from parallax.tensor import Tensor
+from parallax.tensor import Tensor, is_grad_enabled, no_grad
 
 
 def test_tensor_addition_with_broadcasting():
@@ -88,3 +88,25 @@ def test_tensor_matmul_1d_gradcheck():
     m2 = Tensor(np.random.randn(4, 3), requires_grad=True)
     v2 = Tensor(np.random.randn(3), requires_grad=True)
     assert check_tensor_gradient(lambda a, b: (a @ b).sum(), [m2, v2], eps=1e-5, tol=1e-4) is True
+
+
+def test_no_grad_disables_graph_and_gradients():
+    assert is_grad_enabled() is True
+    with no_grad():
+        assert is_grad_enabled() is False
+        a = Tensor(np.random.randn(3, 3), requires_grad=True)
+        b = Tensor(np.random.randn(3, 3), requires_grad=True)
+        c = a @ b + a
+        assert c.requires_grad is False
+        assert c.grad is None
+        assert len(c._prev) == 0
+    assert is_grad_enabled() is True
+
+
+def test_requires_grad_false_inputs_yield_no_grad_output():
+    a = Tensor(np.random.randn(2, 2), requires_grad=False)
+    b = Tensor(np.random.randn(2, 2), requires_grad=False)
+    c = a @ b
+    assert c.requires_grad is False
+    assert c.grad is None
+    assert len(c._prev) == 0
