@@ -4,6 +4,8 @@ Selective State Space Model (S6 / Mamba: Gu & Dao, 2023) mathematical primitives
 
 from typing import Optional, Tuple
 import numpy as np
+from parallax.nn import Linear, Module, Parameter
+from parallax.tensor import Tensor
 
 
 def discretize_zoh(
@@ -53,4 +55,41 @@ def selective_scan_forward(
         y += u * D[None, None, :]
 
     return y, h_states
+
+
+class MambaBlock(Module):
+    """Selective State Space Model (Mamba) Decoder Block."""
+
+    def __init__(
+        self,
+        d_model: int,
+        d_state: int = 16,
+        d_conv: int = 4,
+        expand: int = 2,
+    ):
+        super().__init__()
+        self.d_model = d_model
+        self.d_state = d_state
+        self.d_inner = int(expand * d_model)
+        self.dt_rank = max(1, d_model // 16)
+
+        # In-projections for x and gate (x_proj & z_proj)
+        self.in_proj = Linear(d_model, 2 * self.d_inner, bias=False)
+
+        # 1D Depthwise causal convolution weights: [d_inner, d_conv]
+        self.conv_weight = Parameter(np.random.randn(self.d_inner, d_conv) * 0.02)
+        self.conv_bias = Parameter(np.zeros(self.d_inner))
+
+        # Input-dependent projections: x -> (delta, B, C)
+        self.x_proj = Linear(self.d_inner, self.dt_rank + 2 * d_state, bias=False)
+        self.dt_proj = Linear(self.dt_rank, self.d_inner, bias=True)
+
+        # Transition matrix A initialized as HiPPO / log-spaced diagonals (negated)
+        A_init = np.repeat(np.arange(1, d_state + 1, dtype=np.float64)[None, :], self.d_inner, axis=0)
+        self.A_log = Parameter(np.log(A_init))
+        self.D = Parameter(np.ones(self.d_inner))
+
+        # Out projection back to d_model
+        self.out_proj = Linear(self.d_inner, d_model, bias=False)
+
 
