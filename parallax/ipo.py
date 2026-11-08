@@ -1,7 +1,12 @@
 """Identity Preference Optimization (IPO) direct alignment kernel."""
 
-from typing import Tuple
+from typing import Optional, Tuple, Union
 import numpy as np
+
+
+def _softmax(logits: np.ndarray) -> np.ndarray:
+    exp_logits = np.exp(logits - np.max(logits, axis=-1, keepdims=True))
+    return exp_logits / np.sum(exp_logits, axis=-1, keepdims=True)
 
 
 class IPOConfig:
@@ -33,19 +38,24 @@ def ipo_step(
     chosen_labels: np.ndarray,
     rejected_labels: np.ndarray,
     grad_weight: np.ndarray,
-) -> np.ndarray:
+    rejected_logits: Optional[np.ndarray] = None,
+) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
     """Compute gradients of policy logits with respect to IPO objective."""
-    exp_logits = np.exp(policy_logits - np.max(policy_logits, axis=-1, keepdims=True))
-    probs = exp_logits / np.sum(exp_logits, axis=-1, keepdims=True)
-    grad_logits = np.zeros_like(policy_logits)
+    probs_w = _softmax(policy_logits)
+    probs_l = _softmax(rejected_logits) if rejected_logits is not None else probs_w
+    grad_w = np.zeros_like(policy_logits)
+    grad_l = np.zeros_like(rejected_logits if rejected_logits is not None else policy_logits)
     batch_size = len(chosen_labels)
     for b in range(batch_size):
         w = grad_weight[b]
-        # Chosen log-prob gradient: +w * (1_chosen - probs)
-        grad_chosen = -w * probs[b]
+        # Chosen log-prob gradient: +w * (1_chosen - probs_w)
+        grad_chosen = -w * probs_w[b]
         grad_chosen[chosen_labels[b]] += w
-        # Rejected log-prob gradient: -w * (1_rejected - probs)
-        grad_rejected = w * probs[b]
+        # Rejected log-prob gradient: -w * (1_rejected - probs_l)
+        grad_rejected = w * probs_l[b]
         grad_rejected[rejected_labels[b]] -= w
-        grad_logits[b] = grad_chosen + grad_rejected
-    return grad_logits
+        grad_w[b] = grad_chosen
+        grad_l[b] = grad_rejected
+    if rejected_logits is not None:
+        return grad_w, grad_l
+    return grad_w + grad_l
