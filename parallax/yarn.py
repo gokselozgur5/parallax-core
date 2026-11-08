@@ -26,3 +26,11 @@ def yarn_linear_ramp_mask(
         high += 0.001
     linear_func = (np.arange(dim, dtype=np.float64) - low) / (high - low)
     return np.clip(linear_func, 0.0, 1.0)
+
+
+def yarn_get_mscale(scale: float = 1.0, mscale: float = 1.0) -> float:
+    """Computes attention temperature scaling factor sqrt(1 / t) to counter entropy decay."""
+    if scale <= 1.0:
+        return 1.0
+    return 0.1 * np.log(scale) + 1.0
+
