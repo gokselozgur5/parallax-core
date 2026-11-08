@@ -205,7 +205,7 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         })
 
     def handle_load_checkpoint(self, req: Dict[str, Any]):
-        global CURRENT_MODEL, CURRENT_CONFIG, CURRENT_TOKENIZER, CURRENT_DATASET, IS_QUANTIZED, REWARD_MODEL, REWARD_OPTIM
+        global CURRENT_MODEL, CURRENT_CONFIG, CURRENT_TOKENIZER, CURRENT_DATASET, IS_QUANTIZED, REWARD_MODEL, REWARD_OPTIM, DEMO_OPTIM
         dataset = req.get("dataset", "shakespeare")
 
         if dataset == "shakespeare":
@@ -221,6 +221,7 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
                 IS_QUANTIZED = False
                 REWARD_MODEL = RewardModel(CURRENT_CONFIG)
                 REWARD_OPTIM = AdamW(REWARD_MODEL.parameters(), lr=0.03, weight_decay=0.01)
+                DEMO_OPTIM = AdamW(CURRENT_MODEL.parameters(), lr=0.04, weight_decay=0.01)
                 self.send_json({"status": "ok", "dataset": "shakespeare", "step": step})
                 return
 
@@ -232,6 +233,7 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         IS_QUANTIZED = False
         REWARD_MODEL = RewardModel(DEMO_CONFIG)
         REWARD_OPTIM = AdamW(REWARD_MODEL.parameters(), lr=0.03, weight_decay=0.01)
+        DEMO_OPTIM = AdamW(CURRENT_MODEL.parameters(), lr=0.04, weight_decay=0.01)
         self.send_json({"status": "ok", "dataset": "parallax", "step": 40})
 
     def handle_toggle_quant(self, req: Dict[str, Any]):
