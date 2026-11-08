@@ -54,10 +54,12 @@ def test_gradcheck_tensor_linear():
     x = Tensor(np.random.randn(2, 3), requires_grad=True)
     layer = Linear(3, 4, bias=True)
 
-    def fn(inp):
+    def fn(inp, w, b):
+        layer.weight = w
+        layer.bias = b
         return (layer(inp) * layer(inp)).sum()
 
-    assert check_tensor_gradient(fn, [x], eps=1e-5, tol=1e-4) is True
+    assert check_tensor_gradient(fn, [x, layer.weight, layer.bias], eps=1e-5, tol=1e-4) is True
 
 
 def test_gradcheck_tensor_rmsnorm():
@@ -65,11 +67,12 @@ def test_gradcheck_tensor_rmsnorm():
     x = Tensor(np.random.randn(2, 4), requires_grad=True)
     norm = RMSNorm(4)
 
-    def fn(inp):
+    def fn(inp, w):
+        norm.weight = w
         y = norm(inp)
         return (y * y).sum()
 
-    assert check_tensor_gradient(fn, [x], eps=1e-5, tol=2e-4) is True
+    assert check_tensor_gradient(fn, [x, norm.weight], eps=1e-5, tol=2e-4) is True
 
 
 def test_gradcheck_tensor_causal_self_attention():
@@ -89,11 +92,13 @@ def test_gradcheck_tensor_layernorm():
     x = Tensor(np.random.randn(2, 4), requires_grad=True)
     ln = LayerNorm(4)
 
-    def fn(inp):
+    def fn(inp, w, b):
+        ln.weight = w
+        ln.bias = b
         y = ln(inp)
         return (y * y).sum()
 
-    assert check_tensor_gradient(fn, [x], eps=1e-5, tol=5e-4) is True
+    assert check_tensor_gradient(fn, [x, ln.weight, ln.bias], eps=1e-5, tol=5e-4) is True
 
 
 def test_gradcheck_tensor_silu_and_swiglu():
@@ -106,15 +111,3 @@ def test_gradcheck_tensor_silu_and_swiglu():
         return (y * y).sum()
 
     assert check_tensor_gradient(fn, [x], eps=1e-5, tol=2e-4) is True
-
-
-def test_gradcheck_tensor_causal_self_attention():
-    np.random.seed(42)
-    x = Tensor(np.random.randn(1, 4, 8), requires_grad=True)
-    attn = CausalSelfAttention(embed_dim=8, num_heads=2, use_rope=True)
-
-    def fn(inp):
-        y = attn(inp)
-        return (y * y).sum()
-
-    assert check_tensor_gradient(fn, [x], eps=1e-5, tol=1e-3) is True
