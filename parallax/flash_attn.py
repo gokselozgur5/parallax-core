@@ -103,4 +103,48 @@ def compute_d_scalar(do: np.ndarray, o: np.ndarray) -> np.ndarray:
     return np.sum(do * o, axis=-1)  # Shape: [B, H, Tq]
 
 
+def flash_backward_block(
+    dO_i: np.ndarray,
+    Q_i: np.ndarray,
+    K_j: np.ndarray,
+    V_j: np.ndarray,
+    lse_i: np.ndarray,
+    D_i: np.ndarray,
+    scale: float,
+    is_causal: bool = False,
+    r_start: int = 0,
+    r_end: int = 0,
+    c_start: int = 0,
+    c_end: int = 0,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Computes analytical gradients for a single (Q_i, K_j, V_j) block."""
+    # Recompute attention scores S_ij = Q_i @ K_j^T * scale
+    S_ij = np.matmul(Q_i, K_j.swapaxes(-2, -1)) * scale
+
+    if is_causal:
+        mask = np.arange(r_start, r_end)[:, None] < np.arange(c_start, c_end)[None, :]
+        S_ij = np.where(mask[None, None, :, :], -1e9, S_ij)
+
+    # Recompute attention probabilities P_ij = exp(S_ij - lse_i)
+    P_ij = np.exp(S_ij - lse_i[:, :, :, None])
+
+    # dV_j += P_ij^T @ dO_i
+    dV_block = np.matmul(P_ij.swapaxes(-2, -1), dO_i)
+
+    # dP_ij = dO_i @ V_j^T
+    dP_ij = np.matmul(dO_i, V_j.swapaxes(-2, -1))
+
+    # dS_ij = P_ij * (dP_ij - D_i)
+    dS_ij = P_ij * (dP_ij - D_i[:, :, :, None]) * scale
+
+    # dQ_i += dS_ij @ K_j
+    dQ_block = np.matmul(dS_ij, K_j)
+
+    # dK_j += dS_ij^T @ Q_i
+    dK_block = np.matmul(dS_ij.swapaxes(-2, -1), Q_i)
+
+    return dQ_block, dK_block, dV_block
+
+
+
 
