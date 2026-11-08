@@ -110,7 +110,8 @@ def ppo_policy_step(
         # Active gradient only if not clipped
         if (adv >= 0 and r <= 1.0 + clip_eps) or (adv < 0 and r >= 1.0 - clip_eps):
             scale = -r * adv / T
-            grad_logits[t] = probs[t] * scale
-            grad_logits[t, actions[t]] -= scale
+            # For gradient descent: dLoss/dlogits = scale * (1_action - probs)
+            grad_logits[t] = -scale * probs[t]
+            grad_logits[t, actions[t]] += scale
 
     return loss, grad_logits
