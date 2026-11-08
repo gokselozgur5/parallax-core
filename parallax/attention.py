@@ -12,7 +12,12 @@ from parallax.nn import Linear, Module, Parameter
 from parallax.tensor import Tensor, unbroadcast_grad
 
 
-def apply_rope(x: np.ndarray, seq_dim: int = 1, offset: int = 0) -> np.ndarray:
+def apply_rope(
+    x: np.ndarray,
+    seq_dim: int = 1,
+    offset: int = 0,
+    conjugate: bool = False,
+) -> np.ndarray:
     """Applies Rotary Positional Embedding (RoPE) to an ndarray.
 
     Rotates adjacent pairs of features by position-dependent angles:
@@ -23,6 +28,7 @@ def apply_rope(x: np.ndarray, seq_dim: int = 1, offset: int = 0) -> np.ndarray:
            or [batch, seq_len, dim]
         seq_dim: Axis of sequence length.
         offset: Starting position offset (used during KV cache autoregression).
+        conjugate: If True, applies inverse rotation R_{-\\theta} for backprop.
     """
     orig_shape = x.shape
     seq_len = orig_shape[seq_dim]
@@ -38,6 +44,8 @@ def apply_rope(x: np.ndarray, seq_dim: int = 1, offset: int = 0) -> np.ndarray:
     positions = (np.arange(seq_len, dtype=np.float64) + float(offset))[:, None]
     # Angles: [seq_len, half_dim]
     angles = positions * inv_freq[None, :]
+    if conjugate:
+        angles = -angles
 
     sin = np.sin(angles)
     cos = np.cos(angles)
