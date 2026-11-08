@@ -52,3 +52,47 @@ def flash_cross_entropy_forward(
     # Loss = mean(lse - target_logit)
     loss = float(np.mean(lse - target_logits))
     return loss, m_vec, l_vec
+
+
+
+def flash_cross_entropy_backward(
+    logits: np.ndarray,
+    targets: np.ndarray,
+    m_vec: np.ndarray,
+    l_vec: np.ndarray,
+    chunk_size: int = 64,
+) -> np.ndarray:
+    """Compute gradients of cross-entropy loss with respect to logits in tiles.
+
+    Args:
+        logits: Logit matrix of shape (N, V).
+        targets: Target class indices of shape (N,).
+        m_vec: Global max logits from forward pass (N,).
+        l_vec: Global sum-exp accumulators from forward pass (N,).
+        chunk_size: Vocab tile size.
+
+    Returns:
+        Gradient matrix of shape (N, V).
+    """
+    N, V = logits.shape
+    grad_logits = np.zeros_like(logits)
+    num_chunks = int(np.ceil(V / chunk_size))
+
+    for c in range(num_chunks):
+        c_start = c * chunk_size
+        c_end = min(c_start + chunk_size, V)
+        chunk = logits[:, c_start:c_end]
+
+        # P_chunk = exp(chunk - m) / l
+        p_chunk = np.exp(chunk - m_vec[:, np.newaxis]) / (l_vec[:, np.newaxis] + 1e-12)
+        grad_chunk = p_chunk / N
+
+        # Subtract 1/N for target tokens within this chunk
+        for i in range(N):
+            tgt = targets[i]
+            if c_start <= tgt < c_end:
+                grad_chunk[i, tgt - c_start] -= 1.0 / N
+
+        grad_logits[:, c_start:c_end] = grad_chunk
+
+    return grad_logits
