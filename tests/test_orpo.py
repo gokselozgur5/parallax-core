@@ -51,3 +51,40 @@ def test_orpo_step_execution_and_gradient_shapes():
     assert grad_w.shape == logits_w.shape
     assert grad_l.shape == logits_l.shape
     assert not np.isnan(loss)
+
+
+def test_orpo_step_finite_difference_gradcheck() -> None:
+    np.random.seed(42)
+    T_w, T_l, V = 3, 2, 5
+    logits_w = np.random.randn(T_w, V)
+    targets_w = np.array([1, 4, 2])
+    logits_l = np.random.randn(T_l, V)
+    targets_l = np.array([0, 3])
+    lambda_weight = 0.2
+
+    loss, grad_w, grad_l = orpo_step(logits_w, targets_w, logits_l, targets_l, lambda_weight=lambda_weight)
+
+    eps = 1e-6
+    num_grad_w = np.zeros_like(logits_w)
+    for idx in np.ndindex(logits_w.shape):
+        orig = logits_w[idx]
+        logits_w[idx] = orig + eps
+        l_pos, _, _ = orpo_step(logits_w, targets_w, logits_l, targets_l, lambda_weight=lambda_weight)
+        logits_w[idx] = orig - eps
+        l_neg, _, _ = orpo_step(logits_w, targets_w, logits_l, targets_l, lambda_weight=lambda_weight)
+        logits_w[idx] = orig
+        num_grad_w[idx] = (l_pos - l_neg) / (2.0 * eps)
+
+    num_grad_l = np.zeros_like(logits_l)
+    for idx in np.ndindex(logits_l.shape):
+        orig = logits_l[idx]
+        logits_l[idx] = orig + eps
+        l_pos, _, _ = orpo_step(logits_w, targets_w, logits_l, targets_l, lambda_weight=lambda_weight)
+        logits_l[idx] = orig - eps
+        l_neg, _, _ = orpo_step(logits_w, targets_w, logits_l, targets_l, lambda_weight=lambda_weight)
+        logits_l[idx] = orig
+        num_grad_l[idx] = (l_pos - l_neg) / (2.0 * eps)
+
+    assert np.allclose(grad_w, num_grad_w, atol=1e-4)
+    assert np.allclose(grad_l, num_grad_l, atol=1e-4)
+
