@@ -17,18 +17,12 @@ def apply_rope(
     seq_dim: int = 1,
     offset: int = 0,
     conjugate: bool = False,
+    theta: float = 10000.0,
+    interleaved: bool = True,
 ) -> np.ndarray:
     """Applies Rotary Positional Embedding (RoPE) to an ndarray.
 
-    Rotates adjacent pairs of features by position-dependent angles:
-    theta_i = 10000^(-2(i-1)/d).
-
-    Args:
-        x: Array of shape [batch, seq_len, num_heads, head_dim]
-           or [batch, seq_len, dim]
-        seq_dim: Axis of sequence length.
-        offset: Starting position offset (used during KV cache autoregression).
-        conjugate: If True, applies inverse rotation R_{-\\theta} for backprop.
+    Supports both interleaved [0::2, 1::2] and non-interleaved [:half, half:] modes.
     """
     orig_shape = x.shape
     seq_len = orig_shape[seq_dim]
@@ -38,7 +32,7 @@ def apply_rope(
     # Compute inverse frequencies
     half_dim = dim // 2
     freq_seq = np.arange(half_dim, dtype=np.float64)
-    inv_freq = 1.0 / (10000.0 ** (freq_seq / half_dim))
+    inv_freq = 1.0 / (float(theta) ** (freq_seq / half_dim))
 
     # Positions: [seq_len, 1] offset by starting position
     positions = (np.arange(seq_len, dtype=np.float64) + float(offset))[:, None]
@@ -51,7 +45,6 @@ def apply_rope(
     cos = np.cos(angles)
 
     # Reshape sin and cos to match x broadcasting
-    # If x is 4D: [batch, seq_len, num_heads, dim] -> sin is [1, seq_len, 1, half_dim]
     if x.ndim == 4:
         sin = sin[None, :, None, :]
         cos = cos[None, :, None, :]
@@ -59,17 +52,25 @@ def apply_rope(
         sin = sin[None, :, :]
         cos = cos[None, :, :]
 
-    # Split into even and odd parts
-    x1 = x[..., 0::2]
-    x2 = x[..., 1::2]
+    # Split into pairs
+    if interleaved:
+        x1 = x[..., 0::2]
+        x2 = x[..., 1::2]
+    else:
+        x1 = x[..., :half_dim]
+        x2 = x[..., half_dim:]
 
-    # Rotate 2D pairs: [-x2, x1]
+    # Rotate pairs
     rx1 = x1 * cos - x2 * sin
     rx2 = x1 * sin + x2 * cos
 
     out = np.empty_like(x)
-    out[..., 0::2] = rx1
-    out[..., 1::2] = rx2
+    if interleaved:
+        out[..., 0::2] = rx1
+        out[..., 1::2] = rx2
+    else:
+        out[..., :half_dim] = rx1
+        out[..., half_dim:] = rx2
     return out
 
 
