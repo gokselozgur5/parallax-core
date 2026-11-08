@@ -103,6 +103,8 @@ class TransformerBlock(Module):
         num_kv_heads: Optional[int] = None,
         use_rope: bool = True,
         use_swiglu: bool = False,
+        num_experts: Optional[int] = None,
+        top_k: int = 2,
     ):
         super().__init__()
         self.attn_norm = RMSNorm(embed_dim)
@@ -114,7 +116,17 @@ class TransformerBlock(Module):
         )
         self.mlp_norm = RMSNorm(embed_dim)
         self.use_swiglu = use_swiglu
-        if use_swiglu:
+        self.num_experts = num_experts
+
+        if num_experts is not None and num_experts > 1:
+            from parallax.moe import SparseMoE
+            self.mlp = SparseMoE(
+                embed_dim=embed_dim,
+                num_experts=num_experts,
+                top_k=top_k,
+                use_swiglu=use_swiglu,
+            )
+        elif use_swiglu:
             self.mlp = SwiGLU(embed_dim)
         else:
             self.mlp = MLP(embed_dim)
@@ -155,6 +167,8 @@ class ParallaxLMConfig:
     use_rope: bool = True
     use_swiglu: bool = False
     tie_weights: bool = False
+    num_experts: Optional[int] = None
+    top_k_experts: int = 2
 
 
 class Embedding(Module):
@@ -199,6 +213,8 @@ class ParallaxLM(Module):
                 num_kv_heads=config.num_kv_heads,
                 use_rope=config.use_rope,
                 use_swiglu=config.use_swiglu,
+                num_experts=config.num_experts,
+                top_k=config.top_k_experts,
             )
             for _ in range(config.num_layers)
         ]
