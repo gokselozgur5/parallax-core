@@ -36,6 +36,7 @@ class SparseMoE(Module):
         top_k: int = 2,
         use_swiglu: bool = False,
         aux_loss_coef: float = 0.01,
+        hidden_dim: Optional[int] = None,
     ):
         super().__init__()
         self.embed_dim = embed_dim
@@ -49,7 +50,7 @@ class SparseMoE(Module):
         # Expert networks
         self.experts: List[Module] = []
         for i in range(num_experts):
-            expert = SwiGLU(embed_dim) if use_swiglu else MLP(embed_dim)
+            expert = SwiGLU(embed_dim, hidden_dim=hidden_dim) if use_swiglu else MLP(embed_dim, hidden_dim=hidden_dim)
             self.experts.append(expert)
 
         # Buffer for latest auxiliary loss and routing metrics

@@ -133,6 +133,7 @@ class TransformerBlock(Module):
                 num_experts=num_experts,
                 top_k=top_k,
                 use_swiglu=use_swiglu,
+                hidden_dim=intermediate_size,
             )
         elif use_swiglu:
             self.mlp = SwiGLU(embed_dim, hidden_dim=intermediate_size)
