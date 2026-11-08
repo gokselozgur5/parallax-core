@@ -18,3 +18,10 @@ def test_top_a_filter_logits_tail_truncation() -> None:
     assert filtered[0] == 10.0
     assert filtered[1] == -1e9
     assert filtered[2] == -1e9
+
+def test_top_a_sample_peak() -> None:
+    np.random.seed(42)
+    sampler = TopASampler(alpha=0.2)
+    logits = np.array([20.0, 0.0, -10.0])
+    token = sampler.sample(logits)
+    assert token == 0
