@@ -12,7 +12,38 @@ from typing import Any, Dict, Optional
 import numpy as np
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
+from parallax.nn import Linear, Parameter
 from parallax.safetensors import load_safetensors
+
+
+def _assign_param(param: Parameter, hf_tensors: Dict[str, np.ndarray], key: str) -> None:
+    if key not in hf_tensors:
+        return
+    src = hf_tensors[key]
+    if param.data.shape != src.shape:
+        raise ValueError(
+            f"Shape mismatch for '{key}': expected {param.data.shape}, got {src.shape}"
+        )
+    param.data = src.copy()
+    if param.grad is not None and param.grad.shape != param.data.shape:
+        param.grad = np.zeros_like(param.data)
+
+
+def _assign_bias(proj: Linear, hf_tensors: Dict[str, np.ndarray], key: str) -> None:
+    if key not in hf_tensors:
+        return
+    src = hf_tensors[key]
+    expected_shape = (proj.out_features,)
+    if src.shape != expected_shape:
+        raise ValueError(
+            f"Shape mismatch for '{key}': expected {expected_shape}, got {src.shape}"
+        )
+    if proj.bias is None:
+        proj.bias = Parameter(src.copy(), label="Linear.bias")
+    else:
+        proj.bias.data = src.copy()
+        if proj.bias.grad is not None and proj.bias.grad.shape != expected_shape:
+            proj.bias.grad = np.zeros_like(proj.bias.data)
 
 
 def hf_config_to_parallax(hf_config: Dict[str, Any]) -> ParallaxLMConfig:
@@ -70,8 +101,7 @@ def load_hf_weights_into_model(
 ) -> ParallaxLM:
     """Maps HuggingFace tensor state dictionary directly into a ParallaxLM model."""
     # 1. Token Embeddings
-    if "model.embed_tokens.weight" in hf_tensors:
-        model.token_embeddings.weight.data = hf_tensors["model.embed_tokens.weight"].copy()
+    _assign_param(model.token_embeddings.weight, hf_tensors, "model.embed_tokens.weight")
 
     # 2. Transformer Blocks
     for i in range(model.config.num_layers):
@@ -79,48 +109,37 @@ def load_hf_weights_into_model(
         block = model.blocks[i]
 
         # LayerNorms
-        if f"{prefix}.input_layernorm.weight" in hf_tensors:
-            block.attn_norm.weight.data = hf_tensors[f"{prefix}.input_layernorm.weight"].copy()
-        if f"{prefix}.post_attention_layernorm.weight" in hf_tensors:
-            block.mlp_norm.weight.data = hf_tensors[f"{prefix}.post_attention_layernorm.weight"].copy()
+        _assign_param(block.attn_norm.weight, hf_tensors, f"{prefix}.input_layernorm.weight")
+        _assign_param(block.mlp_norm.weight, hf_tensors, f"{prefix}.post_attention_layernorm.weight")
 
         # Attention weights
-        if f"{prefix}.self_attn.q_proj.weight" in hf_tensors:
-            block.attn.q_proj.weight.data = hf_tensors[f"{prefix}.self_attn.q_proj.weight"].copy()
-        if f"{prefix}.self_attn.k_proj.weight" in hf_tensors:
-            block.attn.k_proj.weight.data = hf_tensors[f"{prefix}.self_attn.k_proj.weight"].copy()
-        if f"{prefix}.self_attn.v_proj.weight" in hf_tensors:
-            block.attn.v_proj.weight.data = hf_tensors[f"{prefix}.self_attn.v_proj.weight"].copy()
-        if f"{prefix}.self_attn.o_proj.weight" in hf_tensors:
-            block.attn.out_proj.weight.data = hf_tensors[f"{prefix}.self_attn.o_proj.weight"].copy()
+        _assign_param(block.attn.q_proj.weight, hf_tensors, f"{prefix}.self_attn.q_proj.weight")
+        _assign_param(block.attn.k_proj.weight, hf_tensors, f"{prefix}.self_attn.k_proj.weight")
+        _assign_param(block.attn.v_proj.weight, hf_tensors, f"{prefix}.self_attn.v_proj.weight")
+        _assign_param(block.attn.out_proj.weight, hf_tensors, f"{prefix}.self_attn.o_proj.weight")
 
         # Attention biases (if present, e.g. Qwen2)
-        if block.attn.q_proj.bias is not None and f"{prefix}.self_attn.q_proj.bias" in hf_tensors:
-            block.attn.q_proj.bias.data = hf_tensors[f"{prefix}.self_attn.q_proj.bias"].copy()
-        if block.attn.k_proj.bias is not None and f"{prefix}.self_attn.k_proj.bias" in hf_tensors:
-            block.attn.k_proj.bias.data = hf_tensors[f"{prefix}.self_attn.k_proj.bias"].copy()
-        if block.attn.v_proj.bias is not None and f"{prefix}.self_attn.v_proj.bias" in hf_tensors:
-            block.attn.v_proj.bias.data = hf_tensors[f"{prefix}.self_attn.v_proj.bias"].copy()
-        if block.attn.out_proj.bias is not None and f"{prefix}.self_attn.o_proj.bias" in hf_tensors:
-            block.attn.out_proj.bias.data = hf_tensors[f"{prefix}.self_attn.o_proj.bias"].copy()
+        _assign_bias(block.attn.q_proj, hf_tensors, f"{prefix}.self_attn.q_proj.bias")
+        _assign_bias(block.attn.k_proj, hf_tensors, f"{prefix}.self_attn.k_proj.bias")
+        _assign_bias(block.attn.v_proj, hf_tensors, f"{prefix}.self_attn.v_proj.bias")
+        _assign_bias(block.attn.out_proj, hf_tensors, f"{prefix}.self_attn.o_proj.bias")
 
         # SwiGLU MLP weights
-        if hasattr(block.mlp, "w_gate") and f"{prefix}.mlp.gate_proj.weight" in hf_tensors:
-            block.mlp.w_gate.weight.data = hf_tensors[f"{prefix}.mlp.gate_proj.weight"].copy()
-        if hasattr(block.mlp, "w_up") and f"{prefix}.mlp.up_proj.weight" in hf_tensors:
-            block.mlp.w_up.weight.data = hf_tensors[f"{prefix}.mlp.up_proj.weight"].copy()
-        if hasattr(block.mlp, "w_down") and f"{prefix}.mlp.down_proj.weight" in hf_tensors:
-            block.mlp.w_down.weight.data = hf_tensors[f"{prefix}.mlp.down_proj.weight"].copy()
+        if hasattr(block.mlp, "w_gate"):
+            _assign_param(block.mlp.w_gate.weight, hf_tensors, f"{prefix}.mlp.gate_proj.weight")
+        if hasattr(block.mlp, "w_up"):
+            _assign_param(block.mlp.w_up.weight, hf_tensors, f"{prefix}.mlp.up_proj.weight")
+        if hasattr(block.mlp, "w_down"):
+            _assign_param(block.mlp.w_down.weight, hf_tensors, f"{prefix}.mlp.down_proj.weight")
 
     # 3. Final Norm
-    if "model.norm.weight" in hf_tensors:
-        model.final_norm.weight.data = hf_tensors["model.norm.weight"].copy()
+    _assign_param(model.final_norm.weight, hf_tensors, "model.norm.weight")
 
     # 4. LM Head
     if model.config.tie_weights:
         model.lm_head.weight = model.token_embeddings.weight
-    elif "lm_head.weight" in hf_tensors:
-        model.lm_head.weight.data = hf_tensors["lm_head.weight"].copy()
+    else:
+        _assign_param(model.lm_head.weight, hf_tensors, "lm_head.weight")
 
     return model
 
