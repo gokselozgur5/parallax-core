@@ -19,3 +19,20 @@ def test_build_tree_attention_mask_ancestors() -> None:
     assert np.array_equal(mask[3], [1, 1, 0, 1])
     # Node 2 attends to 2, 0
     assert np.array_equal(mask[2], [1, 0, 1, 0])
+
+from parallax.tree_drafting import verify_tree_candidates
+
+
+def test_verify_tree_candidates_selection() -> None:
+    # Tree: 0 (root, token 10) -> 1 (child, token 20), 2 (child, token 30)
+    # 1 -> 3 (child, token 40)
+    draft_tokens = [10, 20, 30, 40]
+    parent_indices = [-1, 0, 0, 1]
+    # Target logits: node 0 predicts 20 (accepts 1), node 1 predicts 40 (accepts 3)
+    target_logits = np.zeros((4, 100))
+    target_logits[0, 20] = 10.0
+    target_logits[1, 40] = 10.0
+    accepted_path = verify_tree_candidates(
+        draft_tokens, parent_indices, target_logits
+    )
+    assert accepted_path == [10, 20, 40]
