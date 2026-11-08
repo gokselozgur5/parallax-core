@@ -20,3 +20,15 @@ def compute_max_cosine_similarity(
     dots = np.dot(history_matrix, candidate_vec)
     cos_sims = dots / (hist_norms * cand_norm)
     return float(np.max(cos_sims))
+
+
+def score_contrastive_candidate(
+    token_prob: float,
+    candidate_vec: np.ndarray,
+    history_matrix: np.ndarray,
+    alpha: float = 0.6,
+) -> float:
+    """Computes the contrastive search score: (1 - alpha) * prob - alpha * max_sim."""
+    max_sim = compute_max_cosine_similarity(candidate_vec, history_matrix)
+    return float((1.0 - alpha) * token_prob - alpha * max_sim)
+
