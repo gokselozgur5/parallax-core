@@ -17,3 +17,16 @@ def test_build_alibi_bias_matrix_diagonal() -> None:
     # Diagonal should be 0 since relative distance is 0
     for h in range(2):
         assert np.all(np.diag(bias[h]) == 0.0)
+
+from parallax.alibi import alibi_causal_attention
+
+
+def test_alibi_causal_attention_output() -> None:
+    np.random.seed(42)
+    num_heads, seq_len, head_dim = 2, 8, 16
+    q = np.random.randn(num_heads, seq_len, head_dim)
+    k = np.random.randn(num_heads, seq_len, head_dim)
+    v = np.random.randn(num_heads, seq_len, head_dim)
+    out = alibi_causal_attention(q, k, v)
+    assert out.shape == (num_heads, seq_len, head_dim)
+    assert np.all(np.isfinite(out))
