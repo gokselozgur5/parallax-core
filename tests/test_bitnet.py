@@ -53,3 +53,15 @@ def test_bitlinear_forward_and_ste_backward():
     assert x.grad.shape == (B, T, in_f)
 
 
+def test_bitlinear_ste_backward_analytical_gamma_scaling():
+    layer = BitLinear(in_features=4, out_features=2, bias=False)
+    x = Tensor(np.random.randn(1, 3, 4), requires_grad=True)
+    out = layer(x)
+    loss = out.sum()
+    loss.backward()
+
+    w_ternary, gamma = quantize_weights_ternary(layer.weight.data)
+    expected_x_grad = np.matmul(np.ones_like(out.data), w_ternary) * gamma
+    assert np.allclose(x.grad, expected_x_grad, atol=1e-7)
+
+
