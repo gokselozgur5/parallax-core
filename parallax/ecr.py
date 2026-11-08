@@ -10,3 +10,8 @@ class ExpertChoiceRouter:
     def __init__(self, num_experts: int, capacity_factor: float = 1.0) -> None:
         self.num_experts = int(num_experts)
         self.capacity_factor = float(capacity_factor)
+
+    def compute_expert_capacity(self, num_tokens: int) -> int:
+        """Calculate uniform token capacity per expert."""
+        cap = int(np.ceil((num_tokens * self.capacity_factor) / self.num_experts))
+        return max(1, cap)
