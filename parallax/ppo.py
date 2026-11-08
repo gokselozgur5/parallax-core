@@ -67,3 +67,50 @@ def compute_ppo_clip_loss(
     # PPO maximizes min(surr1, surr2), so loss is -min(surr1, surr2)
     loss = -float(np.mean(np.minimum(surr1, surr2)))
     return loss, ratios
+
+
+def ppo_policy_step(
+    logits: np.ndarray,
+    actions: np.ndarray,
+    old_log_probs: np.ndarray,
+    advantages: np.ndarray,
+    clip_eps: float = 0.2,
+) -> Tuple[float, np.ndarray]:
+    """Perform a PPO clipped policy gradient step, computing loss and dL/dlogits.
+
+    Args:
+        logits: Policy logits of shape (T, vocab_size).
+        actions: Taken token action IDs of shape (T,).
+        old_log_probs: Rollout policy token log probs of shape (T,).
+        advantages: Advantage estimates of shape (T,).
+        clip_eps: Clipping margin.
+
+    Returns:
+        Tuple of (loss, grad_logits).
+    """
+    T, vocab_size = logits.shape
+    # Softmax probabilities
+    m = np.max(logits, axis=-1, keepdims=True)
+    exp_l = np.exp(logits - m)
+    probs = exp_l / np.sum(exp_l, axis=-1, keepdims=True)
+
+    log_probs = np.zeros(T, dtype=np.float32)
+    for t in range(T):
+        log_probs[t] = np.log(probs[t, actions[t]] + 1e-12)
+
+    # Normalize advantages
+    adv_norm = (advantages - np.mean(advantages)) / (np.std(advantages) + 1e-8)
+
+    loss, ratios = compute_ppo_clip_loss(log_probs, old_log_probs, adv_norm, clip_eps)
+
+    grad_logits = np.zeros_like(logits)
+    for t in range(T):
+        r = ratios[t]
+        adv = adv_norm[t]
+        # Active gradient only if not clipped
+        if (adv >= 0 and r <= 1.0 + clip_eps) or (adv < 0 and r >= 1.0 - clip_eps):
+            scale = -r * adv / T
+            grad_logits[t] = probs[t] * scale
+            grad_logits[t, actions[t]] -= scale
+
+    return loss, grad_logits
