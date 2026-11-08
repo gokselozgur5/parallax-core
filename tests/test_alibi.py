@@ -7,3 +7,13 @@ def test_get_alibi_slopes_shapes_and_values() -> None:
     assert slopes_4.shape == (4,)
     assert slopes_4[0] > slopes_4[-1]
     assert np.all(slopes_4 > 0.0)
+
+from parallax.alibi import build_alibi_bias_matrix
+
+
+def test_build_alibi_bias_matrix_diagonal() -> None:
+    bias = build_alibi_bias_matrix(num_heads=2, seq_len=4)
+    assert bias.shape == (2, 4, 4)
+    # Diagonal should be 0 since relative distance is 0
+    for h in range(2):
+        assert np.all(np.diag(bias[h]) == 0.0)
