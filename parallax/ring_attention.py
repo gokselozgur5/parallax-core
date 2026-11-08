@@ -59,12 +59,9 @@ def ring_attention_forward(
             block_m = np.max(scores, axis=-1)
             exp_s = np.exp(scores - block_m[:, None])
             block_l = np.sum(exp_s, axis=-1)
-            block_o = np.matmul(exp_s, vj)
-            new_m = np.maximum(acc_m, block_m)
-            alpha = np.where(np.isneginf(acc_m), 0.0, np.exp(acc_m - new_m))
-            beta = np.exp(block_m - new_m)
-            acc_l = acc_l * alpha + block_l * beta
-            acc_o = acc_o * alpha[..., None] + block_o * beta[..., None]
-            acc_m = new_m
-        out[q_start:q_end] = acc_o / acc_l[..., None]
+            block_o = np.matmul(exp_s, vj) / np.maximum(block_l[:, None], 1e-12)
+            acc_o, acc_m, acc_l = ring_flash_update(
+                acc_o, acc_m, acc_l, block_o, block_m, block_l
+            )
+        out[q_start:q_end] = acc_o
     return out
