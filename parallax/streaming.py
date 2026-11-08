@@ -2,6 +2,7 @@
 Sliding Window Attention with Attention Sinks (StreamingLLM: Xiao et al., 2023).
 """
 
+from typing import Tuple
 import numpy as np
 
 
