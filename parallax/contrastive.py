@@ -5,6 +5,8 @@ Contrastive Search decoding (Su et al., 2022) mathematical primitives.
 from typing import List, Optional, Tuple
 import numpy as np
 
+from parallax.tensor import no_grad
+
 
 def compute_max_cosine_similarity(
     candidate_vec: np.ndarray,
@@ -42,7 +44,8 @@ def contrastive_search_step(
 ) -> Tuple[int, np.ndarray]:
     """Selects the next token using Contrastive Search with top-k candidate pruning."""
     idx = np.array([input_ids], dtype=np.int64)
-    logits, hidden = model(idx, return_hidden=True)
+    with no_grad():
+        logits, hidden = model(idx, return_hidden=True)
 
     next_token_logits = logits.data[0, -1, :]
     max_l = np.max(next_token_logits)
@@ -64,7 +67,8 @@ def contrastive_search_step(
 
     for cand in topk_candidates:
         cand_seq = input_ids + [int(cand)]
-        _, cand_hidden = model(np.array([cand_seq], dtype=np.int64), return_hidden=True)
+        with no_grad():
+            _, cand_hidden = model(np.array([cand_seq], dtype=np.int64), return_hidden=True)
         h_cand = cand_hidden.data[0, -1, :]
 
         score = score_contrastive_candidate(
@@ -91,7 +95,8 @@ def generate_contrastive(
     """Autoregressively generates text using Contrastive Search."""
     tokens = list(prompt_tokens)
     idx = np.array([tokens], dtype=np.int64)
-    _, hidden = model(idx, return_hidden=True)
+    with no_grad():
+        _, hidden = model(idx, return_hidden=True)
     history_hidden_states: List[np.ndarray] = [hidden.data[0, i, :] for i in range(len(tokens))]
 
     for _ in range(max_new_tokens):
