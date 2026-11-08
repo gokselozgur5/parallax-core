@@ -6,10 +6,30 @@ automatic differentiation with broadcast-aware gradient reduction,
 matrix multiplication, and common reduction operators.
 """
 
+import contextlib
 from typing import Callable, List, Optional, Sequence, Set, Tuple, Union
 import numpy as np
 
 TensorLike = Union[int, float, list, np.ndarray, "Tensor"]
+
+_GRAD_ENABLED: bool = True
+
+
+def is_grad_enabled() -> bool:
+    """Returns True if autograd computation is globally enabled."""
+    return _GRAD_ENABLED
+
+
+@contextlib.contextmanager
+def no_grad():
+    """Context manager that disables gradient calculation and computation graph building."""
+    global _GRAD_ENABLED
+    prev = _GRAD_ENABLED
+    _GRAD_ENABLED = False
+    try:
+        yield
+    finally:
+        _GRAD_ENABLED = prev
 
 
 def unbroadcast_grad(grad: np.ndarray, target_shape: Tuple[int, ...]) -> np.ndarray:
