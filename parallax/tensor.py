@@ -69,11 +69,15 @@ class Tensor:
         else:
             self.data = np.array(data, dtype=np.float64)
 
-        self.requires_grad: bool = requires_grad
+        if _children:
+            self.requires_grad: bool = _GRAD_ENABLED and any(c.requires_grad for c in _children)
+        else:
+            self.requires_grad: bool = bool(requires_grad) and _GRAD_ENABLED
+
         self.grad: Optional[np.ndarray] = (
-            np.zeros_like(self.data, dtype=np.float64) if requires_grad else None
+            np.zeros_like(self.data, dtype=np.float64) if self.requires_grad else None
         )
-        self._prev: Set["Tensor"] = set(_children)
+        self._prev: Set["Tensor"] = set(_children) if self.requires_grad else set()
         self._op: str = _op
         self.label: str = label
         self._backward: Callable[[], None] = lambda: None
