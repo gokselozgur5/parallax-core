@@ -35,11 +35,17 @@ def ipo_step(
     grad_weight: np.ndarray,
 ) -> np.ndarray:
     """Compute gradients of policy logits with respect to IPO objective."""
-    # Chosen receives negative grad (increase prob), rejected receives positive (decrease prob)
+    exp_logits = np.exp(policy_logits - np.max(policy_logits, axis=-1, keepdims=True))
+    probs = exp_logits / np.sum(exp_logits, axis=-1, keepdims=True)
     grad_logits = np.zeros_like(policy_logits)
     batch_size = len(chosen_labels)
     for b in range(batch_size):
         w = grad_weight[b]
-        grad_logits[b, chosen_labels[b]] -= w
-        grad_logits[b, rejected_labels[b]] += w
+        # Chosen log-prob gradient: +w * (1_chosen - probs)
+        grad_chosen = -w * probs[b]
+        grad_chosen[chosen_labels[b]] += w
+        # Rejected log-prob gradient: -w * (1_rejected - probs)
+        grad_rejected = w * probs[b]
+        grad_rejected[rejected_labels[b]] -= w
+        grad_logits[b] = grad_chosen + grad_rejected
     return grad_logits
