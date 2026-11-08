@@ -31,7 +31,22 @@ def test_yarn_preserves_vector_norm_magnitude():
     x = np.random.randn(1, 16, 2, 8)
     norm_before = np.linalg.norm(x, axis=-1)
     yarn_out = apply_yarn_rope(x, scale_factor=4.0)
-    # Check that norm scaling remains well-behaved and stable
+    # Check that norm scaling matches mscale factor
+    expected_mscale = 0.1 * np.log(4.0) + 1.0
     norm_after = np.linalg.norm(yarn_out, axis=-1)
-    assert np.all(norm_after > 0.0)
-    assert np.all(np.isfinite(norm_after))
+    np.testing.assert_allclose(norm_after / norm_before, expected_mscale, rtol=1e-5)
+
+
+def test_yarn_frequency_interpolation_direction():
+    half_dim = 64
+    base = 10000.0
+    max_pos = 2048
+    s = 4.0
+    low = yarn_find_correction_dim(32.0, half_dim, base, max_pos)
+    high = yarn_find_correction_dim(1.0, half_dim, base, max_pos)
+    ramp = yarn_linear_ramp_mask(low, high, half_dim)
+
+    # High frequencies (d <= low): ramp must be 0 (no interpolation)
+    assert np.all(ramp[:int(low)] == 0.0)
+    # Low frequencies (d >= high): ramp must be 1 (full interpolation)
+    assert np.all(ramp[int(np.ceil(high)):] == 1.0)
