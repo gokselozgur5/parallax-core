@@ -33,3 +33,35 @@ class BlockAllocator:
         if block_id in self.free_blocks:
             raise ValueError(f"Block {block_id} is already free")
         self.free_blocks.append(block_id)
+
+
+
+class SequenceManager:
+    """Tracks logical tokens to physical block mapping for sequences."""
+
+    def __init__(self, allocator: BlockAllocator):
+        self.allocator = allocator
+        # Mapping from seq_id to list of allocated physical block_ids
+        self.block_tables: Dict[int, List[int]] = {}
+        # Mapping from seq_id to current sequence length
+        self.seq_lengths: Dict[int, int] = {}
+
+    def append_token(self, seq_id: int, k_vec: np.ndarray, v_vec: np.ndarray):
+        """Append a new key and value token vector to sequence's paged memory."""
+        if seq_id not in self.block_tables:
+            self.block_tables[seq_id] = []
+            self.seq_lengths[seq_id] = 0
+
+        cur_len = self.seq_lengths[seq_id]
+        block_size = self.allocator.block_size
+        offset = cur_len % block_size
+
+        if offset == 0:
+            # Need a new physical block
+            new_block_id = self.allocator.allocate_block()
+            self.block_tables[seq_id].append(new_block_id)
+
+        target_block_id = self.block_tables[seq_id][-1]
+        self.allocator.k_cache[target_block_id, offset] = k_vec
+        self.allocator.v_cache[target_block_id, offset] = v_vec
+        self.seq_lengths[seq_id] += 1
