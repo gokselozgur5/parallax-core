@@ -5,7 +5,7 @@ Implements symmetric INT8 weight quantization and dequantization,
 quantized Linear projection with integer matmul, and whole-model quantization.
 """
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
@@ -91,25 +91,51 @@ def quantize_model(model: ParallaxLM) -> ParallaxLM:
 
 def calculate_compression_ratio(model: ParallaxLM, quantized_model: ParallaxLM) -> Dict[str, float]:
     """Calculates theoretical memory footprint before and after INT8 quantization."""
-    float_bytes = 0
+    unique_params = {id(p): p for p in model.parameters()}
+    float_bytes = sum(p.data.nbytes for p in unique_params.values())
+
+    def _layer_bytes(layer: Any) -> int:
+        if isinstance(layer, QuantizedLinear):
+            b = layer.w_int8.nbytes
+            if layer.bias_data is not None:
+                b += layer.bias_data.nbytes
+            return b
+        return sum(p.data.nbytes for p in layer.parameters())
+
     quant_bytes = 0
-
-    for p in model.parameters():
-        float_bytes += p.data.nbytes
-
     for block in quantized_model.blocks:
-        # Count quantized weights as 1 byte per element
+        # Attention projections
         for ql in [block.attn.q_proj, block.attn.k_proj, block.attn.v_proj, block.attn.out_proj]:
-            if isinstance(ql, QuantizedLinear):
-                quant_bytes += ql.w_int8.nbytes
-                if ql.bias_data is not None:
-                    quant_bytes += ql.bias_data.nbytes
-            else:
-                quant_bytes += sum(p.data.nbytes for p in ql.parameters())
+            quant_bytes += _layer_bytes(ql)
 
-    # Add embedding and norm
-    quant_bytes += model.token_embeddings.weight.data.nbytes
-    quant_bytes += model.final_norm.weight.data.nbytes
+        # MLP layers (MoE, SwiGLU, or Standard)
+        if hasattr(block.mlp, "experts"):
+            quant_bytes += block.mlp.gate.weight.data.nbytes
+            for exp in block.mlp.experts:
+                if block.use_swiglu:
+                    for l in [exp.w_gate, exp.w_up, exp.w_down]:
+                        quant_bytes += _layer_bytes(l)
+                else:
+                    for l in [exp.fc1, exp.fc2]:
+                        quant_bytes += _layer_bytes(l)
+        elif block.use_swiglu:
+            for l in [block.mlp.w_gate, block.mlp.w_up, block.mlp.w_down]:
+                quant_bytes += _layer_bytes(l)
+        else:
+            for l in [block.mlp.fc1, block.mlp.fc2]:
+                quant_bytes += _layer_bytes(l)
+
+        # Layer norms
+        quant_bytes += block.attn_norm.weight.data.nbytes
+        quant_bytes += block.mlp_norm.weight.data.nbytes
+
+    # Embeddings and final norm
+    quant_bytes += quantized_model.token_embeddings.weight.data.nbytes
+    quant_bytes += quantized_model.final_norm.weight.data.nbytes
+
+    # LM Head (if not tied to token embeddings)
+    if not model.config.tie_weights:
+        quant_bytes += _layer_bytes(quantized_model.lm_head)
 
     return {
         "original_mb": round(float_bytes / (1024 * 1024), 3),

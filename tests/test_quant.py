@@ -74,3 +74,24 @@ def test_quantize_entire_parallax_lm_model():
     # High concordance between predictions
     match_ratio = np.mean(pred_orig == pred_quant)
     assert match_ratio >= 0.75
+
+
+def test_calculate_compression_ratio_includes_mlp_and_head():
+    import copy
+    cfg = ParallaxLMConfig(
+        vocab_size=32,
+        embed_dim=16,
+        num_heads=2,
+        num_layers=2,
+        max_seq_len=16,
+        tie_weights=False,
+    )
+    orig_model = ParallaxLM(cfg)
+    quant_model = quantize_model(copy.deepcopy(orig_model))
+
+    stats = calculate_compression_ratio(orig_model, quant_model)
+    assert stats["original_mb"] > 0
+    assert stats["quantized_mb"] > 0
+    assert stats["quantized_mb"] < stats["original_mb"]
+    assert stats["ratio"] > 1.0
+
