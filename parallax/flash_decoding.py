@@ -35,3 +35,30 @@ def flash_decode_split_kernel(
     l_local = float(np.sum(p))
     local_out = np.dot(p, v_chunk)
     return local_out, m_local, l_local
+
+
+def reduce_split_k_outputs(
+    local_outs: np.ndarray,
+    local_maxes: np.ndarray,
+    local_lsums: np.ndarray,
+) -> np.ndarray:
+    """Reduce partial split outputs across the K dimension into final attention output.
+
+    Args:
+        local_outs: Local partial outputs of shape (num_splits, d).
+        local_maxes: Local max logits of shape (num_splits,).
+        local_lsums: Local sum-exps of shape (num_splits,).
+
+    Returns:
+        Final combined output vector of shape (d,).
+    """
+    m_global = np.max(local_maxes)
+    # Rescale local sums: l_i * exp(m_i - m_global)
+    weights = local_lsums * np.exp(local_maxes - m_global)
+    l_global = np.sum(weights)
+
+    # Rescale local outputs: O_i * exp(m_i - m_global)
+    scales = np.exp(local_maxes - m_global)[:, np.newaxis]
+    rescaled_outs = local_outs * scales
+
+    return np.sum(rescaled_outs, axis=0) / (l_global + 1e-12)
