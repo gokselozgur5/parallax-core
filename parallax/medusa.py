@@ -22,3 +22,24 @@ class MedusaHead:
     def forward(self, hidden_state: np.ndarray) -> np.ndarray:
         """Projects hidden state (d,) or (B, d) to vocabulary logits (vocab_size,)."""
         return np.dot(hidden_state, self.weight) + self.bias
+
+
+
+class MedusaModel:
+    """Wrapper holding multiple Medusa heads for speculative prediction."""
+
+    def __init__(self, hidden_dim: int, vocab_size: int, num_heads: int = 3):
+        self.num_heads = num_heads
+        self.heads = [
+            MedusaHead(hidden_dim, vocab_size, offset=i + 1)
+            for i in range(num_heads)
+        ]
+
+    def predict_candidates(self, hidden_state: np.ndarray) -> List[int]:
+        """Predict top-1 token for each Medusa head offset."""
+        candidates = []
+        for head in self.heads:
+            logits = head.forward(hidden_state)
+            token = int(np.argmax(logits))
+            candidates.append(token)
+        return candidates
