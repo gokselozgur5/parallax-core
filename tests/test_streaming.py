@@ -4,7 +4,11 @@ Unit tests for StreamingLLM attention sink mask generation.
 
 import numpy as np
 import pytest
-from parallax.streaming import generate_sink_window_mask, streaming_attention
+from parallax.streaming import (
+    evict_kv_cache_with_sinks,
+    generate_sink_window_mask,
+    streaming_attention,
+)
 
 
 def test_sink_window_mask_structure():
@@ -29,5 +33,24 @@ def test_streaming_attention_output_shape_and_finite():
     out = streaming_attention(q, k, v, window_size=5, num_sinks=2)
     assert out.shape == (B, H, T, d)
     assert np.all(np.isfinite(out))
+
+
+def test_evict_kv_cache_preserves_sinks_and_window():
+    B, H, T, d = 1, 2, 30, 8
+    num_sinks = 3
+    window_size = 5
+    k = np.arange(T)[None, None, :, None] * np.ones((B, H, T, d))
+    v = k.copy()
+
+    k_evicted, v_evicted = evict_kv_cache_with_sinks(
+        k, v, window_size=window_size, num_sinks=num_sinks
+    )
+    # Target length: num_sinks + window_size = 3 + 5 = 8
+    assert k_evicted.shape[2] == 8
+    # Initial sinks must be exactly 0, 1, 2
+    np.testing.assert_array_equal(k_evicted[0, 0, :3, 0], [0, 1, 2])
+    # Rolling window must be the last 5 tokens (25, 26, 27, 28, 29)
+    np.testing.assert_array_equal(k_evicted[0, 0, 3:, 0], [25, 26, 27, 28, 29])
+
 
 
