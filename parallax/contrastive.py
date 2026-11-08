@@ -81,3 +81,33 @@ def contrastive_search_step(
     return best_token, best_candidate_hidden
 
 
+def generate_contrastive(
+    model,
+    prompt_tokens: List[int],
+    max_new_tokens: int = 15,
+    k: int = 4,
+    alpha: float = 0.6,
+) -> List[int]:
+    """Autoregressively generates text using Contrastive Search."""
+    tokens = list(prompt_tokens)
+    idx = np.array([tokens], dtype=np.int64)
+    _, hidden = model(idx, return_hidden=True)
+    history_hidden_states: List[np.ndarray] = [hidden.data[0, i, :] for i in range(len(tokens))]
+
+    for _ in range(max_new_tokens):
+        if len(tokens) >= model.config.max_seq_len:
+            break
+        next_tok, next_h = contrastive_search_step(
+            model,
+            tokens,
+            history_hidden_states,
+            k=k,
+            alpha=alpha,
+        )
+        tokens.append(next_tok)
+        history_hidden_states.append(next_h)
+
+    return tokens
+
+
+
