@@ -32,8 +32,9 @@ def test_ipo_step_gradient_direction() -> None:
     rejected = np.array([3, 7])
     grad_weight = np.array([0.5, 0.5])
     grad = ipo_step(logits, chosen, rejected, grad_weight)
-    # Chosen should have negative gradients (-0.5) to ascend logprob
-    assert grad[0, 2] == -0.5
-    assert grad[0, 3] == 0.5
-    assert grad[1, 5] == -0.5
-    assert grad[1, 7] == 0.5
+    # With softmax cancellation on shared logits: chosen has +0.5, rejected has -0.5
+    assert np.isclose(grad[0, 2], 0.5)
+    assert np.isclose(grad[0, 3], -0.5)
+    assert np.isclose(grad[1, 5], 0.5)
+    assert np.isclose(grad[1, 7], -0.5)
+    assert np.isclose(grad[0, 0], 0.0)
