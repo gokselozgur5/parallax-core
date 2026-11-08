@@ -14,3 +14,13 @@ def quantize_weights_ternary(weight: np.ndarray) -> Tuple[np.ndarray, float]:
     w_scaled = weight / gamma
     w_ternary = np.clip(np.round(w_scaled), -1.0, 1.0)
     return w_ternary, gamma
+
+
+def quantize_activations_int8(x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """Quantizes activation vectors to 8-bit integers using per-token Absmax scaling."""
+    # scale = 127 / max(|x|) per token along feature axis
+    max_val = np.max(np.abs(x), axis=-1, keepdims=True) + 1e-12
+    scale = 127.0 / max_val
+    x_quant = np.clip(np.round(x * scale), -128.0, 127.0)
+    return x_quant, scale
+
