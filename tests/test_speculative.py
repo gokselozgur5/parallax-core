@@ -115,3 +115,25 @@ def test_speculative_decoding_residual_rejection_sampling() -> None:
     assert len(tokens) == 8
     assert "acceptance_rate" in stats
 
+
+def test_speculative_and_contrastive_run_under_no_grad() -> None:
+    from parallax.contrastive import generate_contrastive
+    from parallax.tensor import is_grad_enabled
+
+    cfg = ParallaxLMConfig(vocab_size=8, embed_dim=8, num_heads=2, num_layers=1, max_seq_len=12)
+    model = ParallaxLM(cfg)
+    observed_grad_states = []
+
+    orig_forward = model.forward
+
+    def spy_forward(*args, **kwargs):
+        observed_grad_states.append(is_grad_enabled())
+        return orig_forward(*args, **kwargs)
+
+    model.forward = spy_forward  # type: ignore[method-assign]
+    speculative_generate(model, model, prompt_tokens=[1, 2], max_new_tokens=3, gamma=2)
+    generate_contrastive(model, prompt_tokens=[1, 2], max_new_tokens=2, k=2)
+
+    assert len(observed_grad_states) > 0
+    assert all(state is False for state in observed_grad_states)
+
