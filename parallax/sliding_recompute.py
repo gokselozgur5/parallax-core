@@ -18,3 +18,20 @@ class SlidingWindowBuffer:
         sinks = np.arange(self.sink_size)
         window = np.arange(total_seq_len - self.window_size, total_seq_len)
         return np.concatenate([sinks, window])
+
+    def recompute_attention(
+        self,
+        q_token: np.ndarray,
+        all_k: np.ndarray,
+        all_v: np.ndarray,
+    ) -> np.ndarray:
+        """Recompute attention of new query against only active sink and window KV pairs."""
+        seq_len, dim = all_k.shape
+        active_idx = self.filter_active_indices(seq_len)
+        active_k = all_k[active_idx]
+        active_v = all_v[active_idx]
+        scale = 1.0 / np.sqrt(dim)
+        scores = np.matmul(q_token, active_k.T) * scale
+        exp_s = np.exp(scores - np.max(scores))
+        weights = exp_s / np.sum(exp_s)
+        return np.matmul(weights, active_v)
