@@ -50,3 +50,16 @@ def test_flash_attention_exact_causal_match():
     np.testing.assert_allclose(flash_out, ref_out, atol=1e-6, rtol=1e-5)
 
 
+def test_flash_attention_asymmetric_tiles_non_causal():
+    np.random.seed(99)
+    B, H, T, d = 1, 2, 25, 8
+    q, k, v = np.random.randn(B, H, T, d), np.random.randn(B, H, T, d), np.random.randn(B, H, T, d)
+
+    ref_out = reference_attention(q, k, v, is_causal=False)
+    # Use block sizes that do not divide 25 evenly (e.g. 7 and 11)
+    flash_out, _ = flash_attention_forward(q, k, v, is_causal=False, block_r=7, block_c=11)
+
+    np.testing.assert_allclose(flash_out, ref_out, atol=1e-6, rtol=1e-5)
+
+
+
