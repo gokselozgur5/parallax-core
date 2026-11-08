@@ -157,8 +157,14 @@ class SparseMoE(Module):
                     dx_flat[token_idx] += tin.grad
 
                 # Routing gradient into gate logits
+                # Routing gradient through softmax weights:
                 d_weight = np.sum(grad_flat[token_idx] * expert_out.data, axis=-1)
                 dlogits_flat[token_idx, e] += d_weight
+
+            # Propagate through Softmax Jacobian: dS_j = S_j * (dL/dS_j - sum_k S_k * dL/dS_k)
+            # gate_probs shape is (N, num_experts)
+            sum_dweight_p = np.sum(dlogits_flat * gate_probs, axis=-1, keepdims=True)
+            dlogits_flat = gate_probs * (dlogits_flat - sum_dweight_p)
 
             # Propagate to x and gate_logits
             if x.requires_grad and x.grad is not None:
