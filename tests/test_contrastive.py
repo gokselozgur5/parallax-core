@@ -6,8 +6,10 @@ import numpy as np
 import pytest
 from parallax.contrastive import (
     compute_max_cosine_similarity,
+    generate_contrastive,
     score_contrastive_candidate,
 )
+from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 
 
 def test_compute_max_cosine_similarity_orthogonal_and_parallel():
@@ -34,4 +36,24 @@ def test_score_contrastive_candidate_penalizes_repetition():
     )
     # The novel token must receive a higher overall score than the repetitive token
     assert score_novel > score_repetitive
+
+
+def test_generate_contrastive_end_to_end():
+    np.random.seed(42)
+    cfg = ParallaxLMConfig(
+        vocab_size=12,
+        embed_dim=16,
+        num_heads=2,
+        num_layers=1,
+        max_seq_len=20,
+    )
+    model = ParallaxLM(cfg)
+
+    prompt = [1, 2, 3]
+    generated = generate_contrastive(model, prompt, max_new_tokens=5, k=3, alpha=0.6)
+
+    assert len(generated) == len(prompt) + 5
+    assert generated[: len(prompt)] == prompt
+    assert all(0 <= t < cfg.vocab_size for t in generated)
+
 
