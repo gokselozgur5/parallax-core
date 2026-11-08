@@ -55,13 +55,18 @@ def speculative_generate(
 
         # 1. Draft step: Propose `spec_budget` tokens autoregressively using the draft model
         draft_tokens: List[int] = []
+        draft_probs: List[float] = []
         curr_draft_seq = list(tokens)
 
         for _ in range(spec_budget):
             idx_d = np.array([curr_draft_seq[-draft_model.config.max_seq_len:]], dtype=np.int64)
             d_logits = draft_model(idx_d).data[0, -1, :]
+            # Compute draft probability distribution for candidate
+            exp_d = np.exp(d_logits - np.max(d_logits))
+            d_p = exp_d / np.sum(exp_d)
             next_t = sample_next_token(d_logits, temperature=temperature)
             draft_tokens.append(next_t)
+            draft_probs.append(float(d_p[next_t]))
             curr_draft_seq.append(next_t)
 
         total_proposed += len(draft_tokens)
