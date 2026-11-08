@@ -25,3 +25,16 @@ class ContrastiveDecoder:
 
         cd_logits = (1.0 + self.alpha) * expert_logits - self.alpha * amateur_logits
         return np.where(plausible_mask, cd_logits, -1e9)
+
+    def sample_next_token(
+        self,
+        expert_logits: np.ndarray,
+        amateur_logits: np.ndarray,
+        temperature: float = 1.0,
+    ) -> int:
+        """Sample next token using contrastive logits distribution."""
+        cd_logits = self.compute_contrastive_logits(expert_logits, amateur_logits)
+        scaled_logits = cd_logits / max(temperature, 1e-5)
+        exp_l = np.exp(scaled_logits - np.max(scaled_logits))
+        probs = exp_l / np.sum(exp_l)
+        return int(np.random.choice(len(probs), p=probs))
