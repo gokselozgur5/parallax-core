@@ -21,3 +21,15 @@ class BlockAllocator:
         # Physical key and value storage: (num_blocks, block_size, head_dim)
         self.k_cache = np.zeros((num_blocks, block_size, head_dim), dtype=np.float32)
         self.v_cache = np.zeros((num_blocks, block_size, head_dim), dtype=np.float32)
+
+    def allocate_block(self) -> int:
+        """Pop an available block ID from the free list."""
+        if not self.free_blocks:
+            raise MemoryError("Out of memory: no free physical blocks available")
+        return self.free_blocks.pop(0)
+
+    def free_block(self, block_id: int):
+        """Return a block ID back to the free list."""
+        if block_id in self.free_blocks:
+            raise ValueError(f"Block {block_id} is already free")
+        self.free_blocks.append(block_id)
