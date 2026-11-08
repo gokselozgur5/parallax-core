@@ -192,7 +192,7 @@ class MambaBlock(Module):
         self.out_proj = Linear(self.d_inner, d_model, bias=False)
 
     def forward(self, u: Tensor) -> Tensor:
-        """Forward pass of MambaBlock with linear selective scan."""
+        """Forward pass of MambaBlock with exact analytical autograd reverse-mode graph."""
         B, T, D = u.shape
 
         # 1. Dual projection into branch x and branch z (gate)
@@ -201,44 +201,93 @@ class MambaBlock(Module):
         z_data = xz.data[:, :, self.d_inner :]
 
         # 2. Causal 1D Convolution along sequence length
-        conv_out = np.zeros_like(x_data)
-        d_conv = self.conv_weight.data.shape[1]
-        for t in range(T):
-            t_start = max(0, t - d_conv + 1)
-            window = x_data[:, t_start : t + 1, :]  # [B, w_len, d_inner]
-            w_slice = self.conv_weight.data[:, -(t - t_start + 1) :]  # [d_inner, w_len]
-            conv_out[:, t, :] = np.sum(window * w_slice.T[None, :, :], axis=1) + self.conv_bias.data
+        conv_out = causal_conv1d_forward(x_data, self.conv_weight.data, self.conv_bias.data)
 
         # SiLU activation: x_conv = conv_out * sigmoid(conv_out)
-        x_conv = conv_out * (1.0 / (1.0 + np.exp(-np.clip(conv_out, -50, 50))))
+        sig_conv = 1.0 / (1.0 + np.exp(-np.clip(conv_out, -50.0, 50.0)))
+        x_conv = conv_out * sig_conv
 
         # 3. Input-dependent parameter discretization (delta, B, C)
-        x_conv_tensor = Tensor(x_conv)
-        x_dbl = self.x_proj(x_conv_tensor).data  # [B, T, dt_rank + 2 * d_state]
-        dt = x_dbl[:, :, : self.dt_rank]
-        B_ssm = x_dbl[:, :, self.dt_rank : self.dt_rank + self.d_state]
-        C_ssm = x_dbl[:, :, self.dt_rank + self.d_state :]
+        x_conv_tensor = Tensor(x_conv, requires_grad=True)
+        x_dbl = self.x_proj(x_conv_tensor)  # [B, T, dt_rank + 2 * d_state]
+        dt_data = x_dbl.data[:, :, : self.dt_rank]
+        B_ssm_data = x_dbl.data[:, :, self.dt_rank : self.dt_rank + self.d_state]
+        C_ssm_data = x_dbl.data[:, :, self.dt_rank + self.d_state :]
 
         # Delta projection with softplus: delta = log(1 + exp(dt_proj(dt)))
-        dt_proj_out = self.dt_proj(Tensor(dt)).data
-        delta = np.log1p(np.exp(np.clip(dt_proj_out, -50, 50)))
+        dt_tensor = Tensor(dt_data, requires_grad=True)
+        dt_proj_out = self.dt_proj(dt_tensor)
+        delta_sig = 1.0 / (1.0 + np.exp(-np.clip(dt_proj_out.data, -50.0, 50.0)))
+        delta = np.log1p(np.exp(np.clip(dt_proj_out.data, -50.0, 50.0)))
 
         # 4. Selective Scan Recurrence
         A = -np.exp(self.A_log.data)
-        y, _ = selective_scan_forward(x_conv, delta, A, B_ssm, C_ssm, D=self.D.data)
+        y, h_states = selective_scan_forward(x_conv, delta, A, B_ssm_data, C_ssm_data, D=self.D.data)
 
-        # 5. SiLU Gate Modulation: y = y * SiLU(z)
-        z_sig = 1.0 / (1.0 + np.exp(-np.clip(z_data, -50, 50)))
-        y_gated = y * (z_data * z_sig)
+        # 5. SiLU Gate Modulation: y_gated = y * SiLU(z)
+        z_sig = 1.0 / (1.0 + np.exp(-np.clip(z_data, -50.0, 50.0)))
+        silu_z = z_data * z_sig
+        y_gated = y * silu_z
 
-        # 6. Out projection back to d_model
-        y_gated_tensor = Tensor(y_gated, (u,), "MambaScan")
+        # 6. Autograd wrapper connecting upstream DAG
+        children = (xz, self.conv_weight, self.conv_bias, self.A_log, self.D)
+        y_gated_tensor = Tensor(y_gated, children, "MambaScan")
 
         def _backward() -> None:
-            if y_gated_tensor.grad is not None and u.requires_grad:
-                # Approximate residual pass-through gradient flow back to input
-                if u.grad is not None:
-                    u.grad += np.broadcast_to(y_gated_tensor.grad[:, :, :D], u.shape)
+            if y_gated_tensor.grad is None:
+                return
+
+            d_y_gated = y_gated_tensor.grad
+
+            # 1. Gate backward
+            d_y = d_y_gated * silu_z
+            d_silu_z = d_y_gated * y
+            d_z = d_silu_z * (z_sig * (1.0 + z_data * (1.0 - z_sig)))
+
+            # 2. Selective scan backward
+            du_ssm, ddelta, dA, dB_ssm, dC_ssm, dD = selective_scan_backward(
+                d_y, x_conv, delta, A, B_ssm_data, C_ssm_data, self.D.data, h_states
+            )
+
+            if self.D.requires_grad and self.D.grad is not None and dD is not None:
+                self.D.grad += dD
+
+            if self.A_log.requires_grad and self.A_log.grad is not None:
+                # A = -exp(A_log) -> dA_log = dA * (-exp(A_log)) = dA * A
+                self.A_log.grad += dA * A
+
+            # 3. Delta softplus & dt_proj backward
+            d_dt_proj_out = ddelta * delta_sig
+            dt_proj_out.backward(d_dt_proj_out)
+
+            # 4. x_dbl backward
+            d_x_dbl = np.zeros_like(x_dbl.data)
+            if dt_tensor.grad is not None:
+                d_x_dbl[:, :, : self.dt_rank] = dt_tensor.grad
+            d_x_dbl[:, :, self.dt_rank : self.dt_rank + self.d_state] = dB_ssm
+            d_x_dbl[:, :, self.dt_rank + self.d_state :] = dC_ssm
+
+            x_dbl.backward(d_x_dbl)
+
+            # 5. SiLU backward
+            d_x_conv = du_ssm + (x_conv_tensor.grad if x_conv_tensor.grad is not None else 0.0)
+            d_conv_out = d_x_conv * (sig_conv * (1.0 + conv_out * (1.0 - sig_conv)))
+
+            # 6. Causal 1D Conv backward
+            dx, d_conv_w, d_conv_b = causal_conv1d_backward(
+                d_conv_out, x_data, self.conv_weight.data, self.conv_bias.data
+            )
+
+            if self.conv_weight.requires_grad and self.conv_weight.grad is not None:
+                self.conv_weight.grad += d_conv_w
+
+            if self.conv_bias.requires_grad and self.conv_bias.grad is not None:
+                self.conv_bias.grad += d_conv_b
+
+            # 7. xz projection split backward
+            d_xz = np.concatenate([dx, d_z], axis=-1)
+            if xz.requires_grad and xz.grad is not None:
+                xz.grad += d_xz
 
         y_gated_tensor._backward = _backward
         return self.out_proj(y_gated_tensor)
