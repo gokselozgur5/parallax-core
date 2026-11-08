@@ -34,3 +34,23 @@ class DoRALinear:
         # Low-rank directional updates: A ~ Gaussian, B = 0
         self.lora_A = np.random.randn(rank, in_features).astype(np.float32) * 0.01
         self.lora_B = np.zeros((out_features, rank), dtype=np.float32)
+
+
+    def forward(self, x: np.ndarray) -> np.ndarray:
+        """Forward pass using decomposed normalized directional matrix scaled by magnitude.
+
+        W' = m * (V + scaling * B @ A) / ||V + scaling * B @ A||
+        Y = X @ W'^T
+        """
+        # Directional matrix: V_total = V + scaling * (B @ A)
+        delta_V = self.scaling * np.dot(self.lora_B, self.lora_A)
+        V_total = self.base_V + delta_V
+
+        # Column/row norms: norm over in_features axis (axis=1)
+        norms = np.linalg.norm(V_total, axis=1, keepdims=True) + 1e-8
+        V_norm = V_total / norms
+
+        # Effective weight: m (out_features, 1) * V_norm
+        W_eff = self.m[:, np.newaxis] * V_norm
+
+        return np.dot(x, W_eff.T)
