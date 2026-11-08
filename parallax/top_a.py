@@ -18,3 +18,11 @@ class TopASampler:
         threshold = self.alpha * (p_max ** 2)
         mask = probs >= threshold
         return np.where(mask, logits, -1e9)
+
+    def sample(self, logits: np.ndarray, temperature: float = 1.0) -> int:
+        """Filter logits with Top-A and sample token from resulting distribution."""
+        filtered_logits = self.filter_logits(logits)
+        scaled_logits = filtered_logits / max(temperature, 1e-5)
+        exp_l = np.exp(scaled_logits - np.max(scaled_logits))
+        probs = exp_l / np.sum(exp_l)
+        return int(np.random.choice(len(probs), p=probs))
