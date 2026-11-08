@@ -30,3 +30,23 @@ def test_compute_ppo_clip_loss_bounds():
     # When ratio > 1.2 and adv > 0, surr2 = 1.2 * 2.0 = 2.4 clips surr1
     # Loss should be -2.4
     assert np.isclose(loss, -2.4)
+
+
+from parallax.ppo import ppo_policy_step
+
+
+def test_ppo_policy_step_shapes_and_finite_gradients():
+    np.random.seed(42)
+    T = 5
+    vocab_size = 20
+    logits = np.random.randn(T, vocab_size).astype(np.float32)
+    actions = np.random.randint(0, vocab_size, size=T)
+    old_lp = np.array([-2.5] * T, dtype=np.float32)
+    advantages = np.random.randn(T).astype(np.float32)
+
+    loss, grad = ppo_policy_step(logits, actions, old_lp, advantages, clip_eps=0.2)
+
+    assert isinstance(loss, float)
+    assert grad.shape == logits.shape
+    assert not np.isnan(loss)
+    assert not np.isnan(grad).any()
