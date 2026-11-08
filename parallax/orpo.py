@@ -77,14 +77,13 @@ def orpo_step(
     Returns:
         Tuple of (loss, grad_logits_w, grad_logits_l).
     """
-    def get_token_log_probs(logits, targets):
+    def get_token_log_probs(logits: np.ndarray, targets: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         m = np.max(logits, axis=-1, keepdims=True)
         exp_logits = np.exp(logits - m)
-        probs = exp_logits / np.sum(exp_logits, axis=-1, keepdims=True)
-        seq_len = len(targets)
-        log_probs = np.zeros(seq_len)
-        for i in range(seq_len):
-            log_probs[i] = np.log(probs[i, targets[i]] + 1e-12)
+        sum_exp = np.sum(exp_logits, axis=-1, keepdims=True)
+        probs = exp_logits / sum_exp
+        log_probs_all = (logits - m) - np.log(sum_exp)
+        log_probs = log_probs_all[np.arange(len(targets)), targets]
         return log_probs, probs
 
     lp_w, probs_w = get_token_log_probs(logits_w, targets_w)
@@ -92,24 +91,32 @@ def orpo_step(
 
     loss, sft_loss, or_loss = compute_odds_ratio_loss(lp_w, lp_l, lambda_weight)
 
-    # Gradient for SFT component on chosen tokens
-    grad_w = np.zeros_like(logits_w)
+    avg_lp_w = np.clip(float(np.mean(lp_w)), -30.0, -1e-6)
+    p_w = np.exp(avg_lp_w)
+    d_log_odds_w = 1.0 / (1.0 - p_w + 1e-12)
+
+    avg_lp_l = np.clip(float(np.mean(lp_l)), -30.0, -1e-6)
+    p_l = np.exp(avg_lp_l)
+    d_log_odds_l = 1.0 / (1.0 - p_l + 1e-12)
+
+    delta = compute_log_odds(lp_w) - compute_log_odds(lp_l)
+    d_or_d_delta = -1.0 / (1.0 + np.exp(np.clip(delta, -30.0, 30.0)))
+
     len_w = len(targets_w)
-    for i in range(len_w):
-        grad_w[i] = probs_w[i] / len_w
-        grad_w[i, targets_w[i]] -= 1.0 / len_w
-
-    # Compute odds ratio gradient multiplier: sigmoid(odds_ratio_diff) - 1
-    odds_w = np.exp(np.mean(lp_w)) / (1.0 - np.exp(np.mean(lp_w)) + 1e-12)
-    odds_l = np.exp(np.mean(lp_l)) / (1.0 - np.exp(np.mean(lp_l)) + 1e-12)
-    log_odds_ratio = np.log(odds_w + 1e-12) - np.log(odds_l + 1e-12)
-    sig_or = 1.0 / (1.0 + np.exp(-log_odds_ratio))
-    or_grad_mult = lambda_weight * (sig_or - 1.0)
-
-    # Gradient for rejected logits pushes down probability of rejected targets
-    grad_l = np.zeros_like(logits_l)
     len_l = len(targets_l)
+    scale_w = (-1.0 + lambda_weight * d_or_d_delta * d_log_odds_w) / len_w
+    scale_l = (-lambda_weight * d_or_d_delta * d_log_odds_l) / len_l
+
+    grad_w = np.zeros_like(logits_w)
+    for i in range(len_w):
+        one_hot = np.zeros(logits_w.shape[-1])
+        one_hot[targets_w[i]] = 1.0
+        grad_w[i] = scale_w * (one_hot - probs_w[i])
+
+    grad_l = np.zeros_like(logits_l)
     for i in range(len_l):
-        grad_l[i] = -or_grad_mult * probs_l[i] / len_l
-        grad_l[i, targets_l[i]] += or_grad_mult / len_l
+        one_hot = np.zeros(logits_l.shape[-1])
+        one_hot[targets_l[i]] = 1.0
+        grad_l[i] = scale_l * (one_hot - probs_l[i])
+
     return loss, grad_w, grad_l
