@@ -75,7 +75,16 @@ def quantize_model(model: ParallaxLM) -> ParallaxLM:
         block.attn.v_proj = QuantizedLinear.from_linear(block.attn.v_proj)
         block.attn.out_proj = QuantizedLinear.from_linear(block.attn.out_proj)
 
-        if block.use_swiglu:
+        if hasattr(block.mlp, "experts"):
+            for exp in block.mlp.experts:
+                if block.use_swiglu:
+                    exp.w_gate = QuantizedLinear.from_linear(exp.w_gate)
+                    exp.w_up = QuantizedLinear.from_linear(exp.w_up)
+                    exp.w_down = QuantizedLinear.from_linear(exp.w_down)
+                else:
+                    exp.fc1 = QuantizedLinear.from_linear(exp.fc1)
+                    exp.fc2 = QuantizedLinear.from_linear(exp.fc2)
+        elif block.use_swiglu:
             block.mlp.w_gate = QuantizedLinear.from_linear(block.mlp.w_gate)
             block.mlp.w_up = QuantizedLinear.from_linear(block.mlp.w_up)
             block.mlp.w_down = QuantizedLinear.from_linear(block.mlp.w_down)
