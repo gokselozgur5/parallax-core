@@ -56,3 +56,49 @@ def compute_odds_ratio_loss(
 
     total_loss = sft_loss + lambda_weight * or_loss
     return total_loss, sft_loss, or_loss
+
+
+def orpo_step(
+    logits_w: np.ndarray,
+    targets_w: np.ndarray,
+    logits_l: np.ndarray,
+    targets_l: np.ndarray,
+    lambda_weight: float = 0.1,
+) -> Tuple[float, np.ndarray, np.ndarray]:
+    """Compute ORPO loss and analytical gradients with respect to logits_w and logits_l.
+
+    Args:
+        logits_w: Chosen sequence logits (seq_len_w, vocab_size).
+        targets_w: Chosen target tokens (seq_len_w,).
+        logits_l: Rejected sequence logits (seq_len_l, vocab_size).
+        targets_l: Rejected target tokens (seq_len_l,).
+        lambda_weight: Penalty scaling.
+
+    Returns:
+        Tuple of (loss, grad_logits_w, grad_logits_l).
+    """
+    def get_token_log_probs(logits, targets):
+        m = np.max(logits, axis=-1, keepdims=True)
+        exp_logits = np.exp(logits - m)
+        probs = exp_logits / np.sum(exp_logits, axis=-1, keepdims=True)
+        seq_len = len(targets)
+        log_probs = np.zeros(seq_len)
+        for i in range(seq_len):
+            log_probs[i] = np.log(probs[i, targets[i]] + 1e-12)
+        return log_probs, probs
+
+    lp_w, probs_w = get_token_log_probs(logits_w, targets_w)
+    lp_l, probs_l = get_token_log_probs(logits_l, targets_l)
+
+    loss, sft_loss, or_loss = compute_odds_ratio_loss(lp_w, lp_l, lambda_weight)
+
+    # Gradient for SFT component on chosen tokens
+    grad_w = np.zeros_like(logits_w)
+    len_w = len(targets_w)
+    for i in range(len_w):
+        grad_w[i] = probs_w[i] / len_w
+        grad_w[i, targets_w[i]] -= 1.0 / len_w
+
+    # Gradient for rejected logits is zero for SFT, pushed down by OR
+    grad_l = np.zeros_like(logits_l)
+    return loss, grad_w, grad_l
