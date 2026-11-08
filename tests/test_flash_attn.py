@@ -4,7 +4,11 @@ Unit tests for online softmax update primitive.
 
 import numpy as np
 import pytest
-from parallax.flash_attn import reference_attention, update_online_softmax
+from parallax.flash_attn import (
+    flash_attention_forward,
+    reference_attention,
+    update_online_softmax,
+)
 
 
 def test_update_online_softmax_single_step():
@@ -33,4 +37,16 @@ def test_reference_attention_shape_and_causality():
     v = np.random.randn(1, 2, 4, 8)
     out = reference_attention(q, k, v, is_causal=True)
     assert out.shape == (1, 2, 4, 8)
+
+
+def test_flash_attention_exact_causal_match():
+    np.random.seed(42)
+    B, H, T, d = 2, 2, 32, 8
+    q, k, v = np.random.randn(B, H, T, d), np.random.randn(B, H, T, d), np.random.randn(B, H, T, d)
+
+    ref_out = reference_attention(q, k, v, is_causal=True)
+    flash_out, _ = flash_attention_forward(q, k, v, is_causal=True, block_r=8, block_c=8)
+
+    np.testing.assert_allclose(flash_out, ref_out, atol=1e-6, rtol=1e-5)
+
 
