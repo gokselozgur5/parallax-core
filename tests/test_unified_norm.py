@@ -21,3 +21,14 @@ def test_unified_norm_fused_residual_rmsnorm() -> None:
     assert np.allclose(fused, [[2.0, 3.0, 4.0, 5.0]])
     assert normed.shape == (1, 4)
     assert np.all(np.isfinite(normed))
+
+def test_unified_norm_backward_finite_and_shapes() -> None:
+    norm = UnifiedNorm(dim=4, norm_type="layernorm")
+    x = np.array([[1.0, 2.0, 3.0, 4.0]])
+    normed, fused = norm.forward(x)
+    grad_out = np.ones_like(normed)
+    grad_x, grad_w, grad_b = norm.backward(grad_out, fused)
+    assert grad_x.shape == x.shape
+    assert grad_w.shape == (4,)
+    assert grad_b is not None and grad_b.shape == (4,)
+    assert np.all(np.isfinite(grad_x))
