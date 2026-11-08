@@ -57,6 +57,62 @@ def selective_scan_forward(
     return y, h_states
 
 
+def selective_scan_backward(
+    d_y: np.ndarray,
+    u: np.ndarray,
+    delta: np.ndarray,
+    A: np.ndarray,
+    B: np.ndarray,
+    C: np.ndarray,
+    D: Optional[np.ndarray],
+    h_states: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray]]:
+    """Analytical reverse-mode gradient of selective scan recurrence."""
+    batch_size, seq_len, d_inner = u.shape
+    d_state = A.shape[1]
+
+    A_bar, B_bar = discretize_zoh(delta, A, B)
+
+    d_u = np.zeros_like(u)
+    d_delta = np.zeros_like(delta)
+    d_A = np.zeros_like(A)
+    d_B = np.zeros_like(B)
+    d_C = np.zeros_like(C)
+    d_D = np.sum(d_y * u, axis=(0, 1)) if D is not None else None
+
+    if D is not None:
+        d_u += d_y * D[None, None, :]
+
+    d_h_future = np.zeros((batch_size, d_inner, d_state), dtype=np.float64)
+
+    for t in reversed(range(seq_len)):
+        d_C[:, t] = np.sum(d_y[:, t, :, None] * h_states[:, t], axis=1)
+
+        d_h_from_y = d_y[:, t, :, None] * C[:, t, None, :]
+        d_h_total = d_h_from_y + d_h_future
+
+        d_u[:, t] += np.sum(d_h_total * B_bar[:, t], axis=-1)
+
+        d_B_bar_t = d_h_total * u[:, t, :, None]
+        d_B[:, t] += np.sum(d_B_bar_t * delta[:, t, :, None], axis=1)
+        d_delta_from_B = np.sum(d_B_bar_t * B[:, t, None, :], axis=-1)
+
+        if t > 0:
+            h_prev = h_states[:, t - 1]
+            d_A_bar_t = d_h_total * h_prev
+            d_h_future = d_h_total * A_bar[:, t]
+        else:
+            d_A_bar_t = np.zeros_like(d_h_total)
+            d_h_future = np.zeros_like(d_h_total)
+
+        d_delta_from_A = np.sum(d_A_bar_t * A_bar[:, t] * A[None, :, :], axis=-1)
+        d_delta[:, t] += d_delta_from_A + d_delta_from_B
+
+        d_A += np.sum(d_A_bar_t * A_bar[:, t] * delta[:, t, :, None], axis=0)
+
+    return d_u, d_delta, d_A, d_B, d_C, d_D
+
+
 class MambaBlock(Module):
     """Selective State Space Model (Mamba) Decoder Block."""
 
