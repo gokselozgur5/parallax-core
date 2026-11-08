@@ -32,3 +32,17 @@ def test_reduce_gqa_kv_gradients_accumulation():
     assert grad_kv.shape == (b, h_kv, s, d)
     # Summing across 3 heads should yield exact value 3.0
     assert np.allclose(grad_kv, 3.0)
+
+
+from parallax.gqa_kernel import gqa_causal_forward
+
+
+def test_gqa_causal_forward_shape_and_finite():
+    b, h_q, h_kv, s, d = 2, 8, 2, 16, 32
+    q = np.random.randn(b, h_q, s, d).astype(np.float32)
+    k = np.random.randn(b, h_kv, s, d).astype(np.float32)
+    v = np.random.randn(b, h_kv, s, d).astype(np.float32)
+
+    out = gqa_causal_forward(q, k, v)
+    assert out.shape == (b, h_q, s, d)
+    assert not np.isnan(out).any()
