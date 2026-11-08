@@ -18,3 +18,11 @@ def test_contrastive_logits_masking() -> None:
     assert cd_logits.shape == (3,)
     # Token 2 should be masked out to -1e9
     assert cd_logits[2] == -1e9
+
+def test_sample_next_token_bounds() -> None:
+    np.random.seed(42)
+    decoder = ContrastiveDecoder()
+    exp_logits = np.array([10.0, 0.0, -10.0])
+    amat_logits = np.array([0.0, 0.0, 0.0])
+    token = decoder.sample_next_token(exp_logits, amat_logits)
+    assert token == 0
