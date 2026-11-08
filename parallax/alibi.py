@@ -1,0 +1,20 @@
+"""ALiBi (Attention with Linear Biases) positional bias kernel."""
+
+from typing import Optional
+import numpy as np
+
+
+def get_alibi_slopes(num_heads: int) -> np.ndarray:
+    """Compute geometric slopes for ALiBi multi-head attention."""
+    def get_slopes_power_of_2(n: int) -> list:
+        start = 2.0 ** (-(2.0 ** -(np.log2(n) - 3)))
+        ratio = start
+        return [start * (ratio ** i) for i in range(n)]
+
+    if (num_heads & (num_heads - 1)) == 0:
+        return np.array(get_slopes_power_of_2(num_heads), dtype=np.float32)
+    # Non-power-of-two fallback
+    closest_power_of_2 = 2 ** int(np.floor(np.log2(num_heads)))
+    slopes = get_slopes_power_of_2(closest_power_of_2)
+    extra_slopes = get_slopes_power_of_2(2 * closest_power_of_2)[0::2][: num_heads - closest_power_of_2]
+    return np.array(slopes + extra_slopes, dtype=np.float32)
