@@ -27,3 +27,19 @@ def compute_ipo_loss(
     # Gradient multiplier dLoss / d(log_ratio_diff)
     grad_weight = 2.0 * diff * tau / len(pi_w_logprob)
     return loss, grad_weight
+
+def ipo_step(
+    policy_logits: np.ndarray,
+    chosen_labels: np.ndarray,
+    rejected_labels: np.ndarray,
+    grad_weight: np.ndarray,
+) -> np.ndarray:
+    """Compute gradients of policy logits with respect to IPO objective."""
+    # Chosen receives negative grad (increase prob), rejected receives positive (decrease prob)
+    grad_logits = np.zeros_like(policy_logits)
+    batch_size = len(chosen_labels)
+    for b in range(batch_size):
+        w = grad_weight[b]
+        grad_logits[b, chosen_labels[b]] -= w
+        grad_logits[b, rejected_labels[b]] += w
+    return grad_logits
