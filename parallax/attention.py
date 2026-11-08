@@ -215,10 +215,16 @@ class CausalSelfAttention(Module):
 
             # dL/dQ = d_scores @ K_expanded
             dq_heads = d_scores @ k_heads_expanded
+            if self.use_rope:
+                dq_rope_in = np.transpose(dq_heads, (0, 2, 1, 3))
+                dq_heads = np.transpose(apply_rope(dq_rope_in, seq_dim=1, offset=past_len, conjugate=True), (0, 2, 1, 3))
             dq = np.transpose(dq_heads, (0, 2, 1, 3)).reshape(B, T, C)
 
             # dL/dK_expanded = d_scores^T @ Q
             dk_expanded = np.swapaxes(d_scores, -1, -2) @ q_heads
+            if self.use_rope:
+                dk_rope_in = np.transpose(dk_expanded, (0, 2, 1, 3))
+                dk_expanded = np.transpose(apply_rope(dk_rope_in, seq_dim=1, offset=past_len, conjugate=True), (0, 2, 1, 3))
             if self.num_queries_per_kv > 1:
                 B_dim, _, T_dim, H_dim = dk_expanded.shape
                 dk_heads = dk_expanded.reshape(B_dim, self.num_kv_heads, self.num_queries_per_kv, T_dim, H_dim).sum(axis=2)
