@@ -10,3 +10,18 @@ class ContrastiveDecoder:
     def __init__(self, alpha: float = 0.5, beta: float = 0.1) -> None:
         self.alpha = float(alpha)
         self.beta = float(beta)
+
+    def compute_contrastive_logits(
+        self,
+        expert_logits: np.ndarray,
+        amateur_logits: np.ndarray,
+    ) -> np.ndarray:
+        """Subtract scaled amateur logits from expert logits with plausibility mask."""
+        # Plausibility threshold: keep tokens with expert prob >= beta * max_expert_prob
+        exp_expert = np.exp(expert_logits - np.max(expert_logits, axis=-1, keepdims=True))
+        expert_probs = exp_expert / np.sum(exp_expert, axis=-1, keepdims=True)
+        max_prob = np.max(expert_probs, axis=-1, keepdims=True)
+        plausible_mask = expert_probs >= (self.beta * max_prob)
+
+        cd_logits = (1.0 + self.alpha) * expert_logits - self.alpha * amateur_logits
+        return np.where(plausible_mask, cd_logits, -1e9)
