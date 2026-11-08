@@ -80,3 +80,15 @@ def test_parallax_lm_with_sparse_moe():
     # Verify that expert parameters were updated
     e0_weight = model.blocks[0].mlp.experts[0].fc1.weight.data
     assert e0_weight is not None
+
+def test_sparse_moe_topk_renormalized_weight_invariance() -> None:
+    # When top_k=1, topk_weights is identically 1.0 (constant w.r.t logits)
+    np.random.seed(42)
+    B, T, D = 1, 2, 4
+    moe = SparseMoE(embed_dim=D, num_experts=2, top_k=1)
+    x = Tensor(np.random.randn(B, T, D))
+    out1 = moe(x)
+    # Modify gate weights slightly without changing argmax routing
+    moe.gate.weight.data += 0.001
+    out2 = moe(x)
+    np.testing.assert_allclose(out1.data, out2.data, rtol=1e-5, atol=1e-5)
