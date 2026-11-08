@@ -113,6 +113,49 @@ def selective_scan_backward(
     return d_u, d_delta, d_A, d_B, d_C, d_D
 
 
+def causal_conv1d_forward(
+    x: np.ndarray, weight: np.ndarray, bias: np.ndarray
+) -> np.ndarray:
+    """Causal depthwise 1D convolution along sequence dimension."""
+    B, T, d_inner = x.shape
+    d_conv = weight.shape[1]
+    conv_out = np.zeros_like(x)
+    for t in range(T):
+        t_start = max(0, t - d_conv + 1)
+        w_len = t - t_start + 1
+        window = x[:, t_start : t + 1, :]
+        w_slice = weight[:, -w_len:]
+        conv_out[:, t, :] = np.sum(window * w_slice.T[None, :, :], axis=1) + bias
+    return conv_out
+
+
+def causal_conv1d_backward(
+    d_out: np.ndarray, x: np.ndarray, weight: np.ndarray, bias: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Analytical reverse-mode gradient of causal depthwise 1D convolution."""
+    B, T, d_inner = x.shape
+    d_conv = weight.shape[1]
+
+    d_x = np.zeros_like(x)
+    d_weight = np.zeros_like(weight)
+    d_bias = np.sum(d_out, axis=(0, 1))
+
+    for t in range(T):
+        t_start = max(0, t - d_conv + 1)
+        w_len = t - t_start + 1
+        window = x[:, t_start : t + 1, :]
+        grad_t = d_out[:, t, :]
+
+        dw_slice = np.sum(window * grad_t[:, None, :], axis=0).T
+        d_weight[:, -w_len:] += dw_slice
+
+        w_slice = weight[:, -w_len:]
+        d_window = grad_t[:, None, :] * w_slice.T[None, :, :]
+        d_x[:, t_start : t + 1, :] += d_window
+
+    return d_x, d_weight, d_bias
+
+
 class MambaBlock(Module):
     """Selective State Space Model (Mamba) Decoder Block."""
 
