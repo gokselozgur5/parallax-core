@@ -28,3 +28,21 @@ class GroupedGEMMDispatcher:
             for b in expert_batches
         ]
         return stacked_batches, expert_orig_indices
+
+    def grouped_gemm_forward(
+        self,
+        tokens: np.ndarray,
+        expert_assignments: List[int],
+        expert_weights: List[np.ndarray],
+    ) -> np.ndarray:
+        """Execute grouped GEMM and restore token outputs to original sequence order."""
+        batches, orig_indices = self.group_tokens(tokens, expert_assignments)
+        out_dim = expert_weights[0].shape[-1]
+        out = np.zeros((len(tokens), out_dim), dtype=float)
+
+        for e in range(self.num_experts):
+            if len(batches[e]) > 0:
+                exp_out = np.matmul(batches[e], expert_weights[e])
+                for token_out, orig_idx in zip(exp_out, orig_indices[e]):
+                    out[orig_idx] = token_out
+        return out
