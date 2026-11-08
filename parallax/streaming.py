@@ -21,3 +21,25 @@ def generate_sink_window_mask(
     # Valid if causal AND (is a sink token OR within sliding window)
     valid = causal_mask & (sink_mask | window_mask)
     return valid
+
+
+def streaming_attention(
+    q: np.ndarray,
+    k: np.ndarray,
+    v: np.ndarray,
+    window_size: int = 16,
+    num_sinks: int = 4,
+) -> np.ndarray:
+    """Computes Multi-Head Attention masked with StreamingLLM sink and window constraints."""
+    B, H, T, d = q.shape
+    scale = 1.0 / np.sqrt(d)
+    scores = np.matmul(q, k.swapaxes(-2, -1)) * scale
+
+    valid_mask = generate_sink_window_mask(T, window_size=window_size, num_sinks=num_sinks)
+    scores = np.where(valid_mask[None, None, :, :], scores, -1e9)
+
+    max_s = np.max(scores, axis=-1, keepdims=True)
+    exp_s = np.exp(scores - max_s)
+    probs = exp_s / np.sum(exp_s, axis=-1, keepdims=True)
+    return np.matmul(probs, v)
+
