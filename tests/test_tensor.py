@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from parallax.gradcheck import check_tensor_gradient
 from parallax.tensor import Tensor
 
 
@@ -57,3 +58,15 @@ def test_tensor_relu_backward():
 
     expected_grad = np.array([[0.0, 1.0], [1.0, 0.0]])
     assert np.allclose(x.grad, expected_grad)
+
+
+def test_tensor_transpose_negative_axes_gradcheck():
+    np.random.seed(42)
+    x = Tensor(np.random.randn(2, 3, 4), requires_grad=True)
+
+    def fn(inp):
+        # Transpose swapping last two dims using negative axes
+        t = inp.transpose(0, -1, -2)
+        return (t * t).sum()
+
+    assert check_tensor_gradient(fn, [x], eps=1e-5, tol=1e-4) is True
