@@ -25,3 +25,13 @@ def quantize_fp8(
     scales = np.maximum(scales, 1e-12)
     quantized_blocks = np.clip(np.round(blocks / scales), -max_val, max_val)
     return quantized_blocks, scales
+
+def dequantize_fp8(
+    quantized_blocks: np.ndarray,
+    scales: np.ndarray,
+    original_shape: Tuple[int, ...],
+) -> np.ndarray:
+    """Dequantize FP8 micro-scaled blocks back to original tensor shape."""
+    reconstructed = (quantized_blocks * scales).flatten()
+    total_elements = int(np.prod(original_shape))
+    return reconstructed[:total_elements].reshape(original_shape)
