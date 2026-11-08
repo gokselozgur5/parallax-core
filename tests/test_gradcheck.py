@@ -1,9 +1,10 @@
 import numpy as np
 import pytest
 from parallax.engine import Value
+from parallax.attention import CausalSelfAttention
 from parallax.gradcheck import check_gradient, check_tensor_gradient, compute_numerical_gradient
-from parallax.models.gpt import SwiGLU
-from parallax.nn import Linear, RMSNorm
+from parallax.models.gpt import SwiGLU, tensor_silu
+from parallax.nn import LayerNorm, Linear, RMSNorm
 from parallax.tensor import Tensor
 
 
@@ -66,6 +67,30 @@ def test_gradcheck_tensor_rmsnorm():
 
     def fn(inp):
         y = norm(inp)
+        return (y * y).sum()
+
+    assert check_tensor_gradient(fn, [x], eps=1e-5, tol=2e-4) is True
+
+
+def test_gradcheck_tensor_layernorm():
+    np.random.seed(42)
+    x = Tensor(np.random.randn(2, 4), requires_grad=True)
+    ln = LayerNorm(4)
+
+    def fn(inp):
+        y = ln(inp)
+        return (y * y).sum()
+
+    assert check_tensor_gradient(fn, [x], eps=1e-5, tol=5e-4) is True
+
+
+def test_gradcheck_tensor_silu_and_swiglu():
+    np.random.seed(42)
+    x = Tensor(np.random.randn(1, 2, 4), requires_grad=True)
+    swiglu = SwiGLU(embed_dim=4, hidden_dim=8)
+
+    def fn(inp):
+        y = swiglu(inp)
         return (y * y).sum()
 
     assert check_tensor_gradient(fn, [x], eps=1e-5, tol=2e-4) is True
