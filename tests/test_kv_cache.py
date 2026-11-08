@@ -64,3 +64,27 @@ def test_kv_cache_step_shape_growth():
     logits2, caches2 = model(idx2, kv_caches=caches1)
     assert logits2.shape == (1, 1, config.vocab_size)
     assert caches2[0][0].shape == (1, 2, 4, head_dim)
+
+
+def test_generate_eos_token_id_stops_early():
+    config = ParallaxLMConfig(
+        vocab_size=10,
+        embed_dim=8,
+        num_heads=2,
+        num_layers=1,
+        max_seq_len=16,
+    )
+    model = ParallaxLM(config)
+    prompt = [1, 2]
+
+    greedy_out = generate(model, prompt, max_new_tokens=4, temperature=0.0, use_cache=True)
+    first_gen = greedy_out[2]
+
+    # Test cached early stopping at first generated token
+    out_cached = generate(model, prompt, max_new_tokens=10, temperature=0.0, use_cache=True, eos_token_id=first_gen)
+    assert out_cached == [1, 2, first_gen]
+
+    # Test uncached early stopping at first generated token
+    out_uncached = generate(model, prompt, max_new_tokens=10, temperature=0.0, use_cache=False, eos_token_id=first_gen)
+    assert out_uncached == [1, 2, first_gen]
+
