@@ -37,7 +37,12 @@ def hf_config_to_parallax(hf_config: Dict[str, Any]) -> ParallaxLMConfig:
     rope_theta = float(hf_config.get("rope_theta", 10000.0))
 
     # Qwen2 and some architectures use attention_bias / qkv_bias
-    qkv_bias = bool(hf_config.get("attention_bias", False) or hf_config.get("qkv_bias", False))
+    model_type = str(hf_config.get("model_type", "")).lower()
+    qkv_bias = bool(
+        hf_config.get("attention_bias", False)
+        or hf_config.get("qkv_bias", False)
+        or model_type.startswith("qwen2")
+    )
 
     tie_weights = bool(hf_config.get("tie_word_embeddings", True))
 
