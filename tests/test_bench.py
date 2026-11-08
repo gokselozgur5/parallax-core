@@ -85,6 +85,27 @@ def test_estimate_flops_gqa_swiglu_moe():
     assert flops > 0
 
 
+def test_estimate_flops_swiglu_default_dimension():
+    d = 64
+    L = 2
+    V = 128
+    cfg = ParallaxLMConfig(
+        vocab_size=V,
+        embed_dim=d,
+        num_heads=4,
+        num_layers=L,
+        use_swiglu=True,
+        intermediate_size=None,
+    )
+    flops = estimate_flops_per_token(cfg)
+    expected_inter = 64 * ((int(2 * (4 * d) / 3) + 63) // 64)
+    expected_attn = 8 * (d**2) * L
+    expected_mlp = 6 * d * expected_inter * L
+    expected_head = 2 * d * V
+    assert flops == expected_attn + expected_mlp + expected_head
+
+
+
 
 def test_benchmark_inference_speedup():
     config = ParallaxLMConfig(
