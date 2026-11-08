@@ -59,3 +59,10 @@ def test_causal_mask_non_leakage():
     assert np.allclose(out1.data[0, 1, :], out2.data[0, 1, :], atol=1e-6)
     # Token 2 can be different
     assert not np.allclose(out1.data[0, 2, :], out2.data[0, 2, :])
+
+def test_apply_rope_conjugate_exact_inverse() -> None:
+    np.random.seed(42)
+    x = np.random.randn(2, 4, 2, 8)
+    rotated = apply_rope(x, seq_dim=1, offset=0, conjugate=False)
+    unrotated = apply_rope(rotated, seq_dim=1, offset=0, conjugate=True)
+    np.testing.assert_allclose(x, unrotated, rtol=1e-5, atol=1e-5)
