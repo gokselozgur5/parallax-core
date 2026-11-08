@@ -14,3 +14,19 @@ def test_compute_gae_single_step_and_td_residual():
     # Expected delta = 1.0 + 0.99 * 0.0 - 0.5 = 0.5
     assert np.isclose(adv[0], 0.5)
     assert np.isclose(ret[0], 1.0)
+
+
+from parallax.ppo import compute_ppo_clip_loss
+
+
+def test_compute_ppo_clip_loss_bounds():
+    # Large ratio exceeding 1 + clip_eps
+    old_lp = np.array([-1.0, -1.0])
+    new_lp = np.array([0.0, 0.0])  # ratio is exp(1.0) ~= 2.718
+    advantages = np.array([2.0, 2.0])
+
+    loss, ratios = compute_ppo_clip_loss(new_lp, old_lp, advantages, clip_eps=0.2)
+
+    # When ratio > 1.2 and adv > 0, surr2 = 1.2 * 2.0 = 2.4 clips surr1
+    # Loss should be -2.4
+    assert np.isclose(loss, -2.4)
