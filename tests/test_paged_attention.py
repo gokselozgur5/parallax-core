@@ -38,3 +38,35 @@ def test_sequence_manager_append_and_block_table_growth():
     assert mgr.seq_lengths[1] == 3
     assert len(mgr.block_tables[1]) == 2
     assert len(alloc.free_blocks) == 2
+
+
+from parallax.paged_attention import paged_attention
+
+
+def test_paged_attention_matches_continuous_attention():
+    np.random.seed(42)
+    seq_len = 10
+    head_dim = 8
+    block_size = 4
+    num_blocks = 5
+
+    alloc = BlockAllocator(num_blocks=num_blocks, block_size=block_size, head_dim=head_dim)
+    mgr = SequenceManager(alloc)
+
+    keys = np.random.randn(seq_len, head_dim).astype(np.float32)
+    values = np.random.randn(seq_len, head_dim).astype(np.float32)
+    q = np.random.randn(head_dim).astype(np.float32)
+
+    for i in range(seq_len):
+        mgr.append_token(seq_id=42, k_vec=keys[i], v_vec=values[i])
+
+    paged_out = paged_attention(q, seq_id=42, seq_manager=mgr)
+
+    # Reference continuous attention
+    scale = 1.0 / np.sqrt(head_dim)
+    logits = np.dot(keys, q) * scale
+    weights = np.exp(logits - np.max(logits))
+    weights /= np.sum(weights)
+    expected_out = np.dot(weights, values)
+
+    assert np.allclose(paged_out, expected_out, atol=1e-5)
