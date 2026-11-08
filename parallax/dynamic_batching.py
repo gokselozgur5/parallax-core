@@ -16,3 +16,20 @@ class SequenceBinner:
             if seq_len <= b:
                 return b
         return self.bucket_boundaries[-1]
+
+    def collate_batch(
+        self,
+        sequences: List[List[int]],
+        pad_token_id: int = 0,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Collate variable length sequences into padded array with attention mask."""
+        max_len = max(len(s) for s in sequences)
+        bucket_len = self.find_bucket(max_len)
+        batch_size = len(sequences)
+        padded = np.full((batch_size, bucket_len), pad_token_id, dtype=int)
+        mask = np.zeros((batch_size, bucket_len), dtype=int)
+        for i, seq in enumerate(sequences):
+            l = min(len(seq), bucket_len)
+            padded[i, :l] = seq[:l]
+            mask[i, :l] = 1
+        return padded, mask
