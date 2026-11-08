@@ -153,19 +153,24 @@ def load_hf_pretrained(model_dir: str) -> ParallaxLM:
     with open(config_file, "r", encoding="utf-8") as f:
         hf_config = json.load(f)
 
-    # Check for single-file safetensors
+    # Check for single-file or sharded safetensors
     weights_file = os.path.join(model_dir, "model.safetensors")
-    if not os.path.exists(weights_file):
-        # Look for any .safetensors file in directory
-        sf_candidates = [f for f in os.listdir(model_dir) if f.endswith(".safetensors")]
+    if os.path.exists(weights_file):
+        weight_files = [weights_file]
+    else:
+        sf_candidates = sorted(
+            f for f in os.listdir(model_dir) if f.endswith(".safetensors")
+        )
         if not sf_candidates:
             raise FileNotFoundError(f"No .safetensors files found in {model_dir}")
-        weights_file = os.path.join(model_dir, sf_candidates[0])
+        weight_files = [os.path.join(model_dir, f) for f in sf_candidates]
 
     p_config = hf_config_to_parallax(hf_config)
     model = ParallaxLM(p_config)
 
-    tensors = load_safetensors(weights_file, cast_float64=True)
+    tensors: Dict[str, np.ndarray] = {}
+    for wf in weight_files:
+        tensors.update(load_safetensors(wf, cast_float64=True))
     load_hf_weights_into_model(model, tensors)
 
     return model
