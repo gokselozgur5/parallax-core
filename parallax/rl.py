@@ -121,6 +121,17 @@ def compute_policy_gradient_step(
     dlogits[np.arange(L), target_ids] -= 1.0
     dlogits[:L] *= advantage
 
+    if kl_coef != 0.0 and ref_logits is not None:
+        ref_arr = ref_logits[0] if ref_logits.ndim == 3 else ref_logits
+        ref_slice = ref_arr[:L]
+        max_r = np.max(ref_slice, axis=-1, keepdims=True)
+        exp_r = np.exp(ref_slice - max_r)
+        ref_log_probs = (ref_slice - max_r) - np.log(np.sum(exp_r, axis=-1, keepdims=True))
+        log_ratio = log_probs - ref_log_probs
+        kl_per_t = np.sum(probs * log_ratio, axis=-1, keepdims=True)
+        policy_loss += float(kl_coef * np.sum(kl_per_t))
+        dlogits[:L] += kl_coef * probs * (log_ratio - kl_per_t)
+
     if logits.requires_grad:
         logits.backward(grad=dlogits[None, :, :])
 
