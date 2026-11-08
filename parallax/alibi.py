@@ -18,3 +18,11 @@ def get_alibi_slopes(num_heads: int) -> np.ndarray:
     slopes = get_slopes_power_of_2(closest_power_of_2)
     extra_slopes = get_slopes_power_of_2(2 * closest_power_of_2)[0::2][: num_heads - closest_power_of_2]
     return np.array(slopes + extra_slopes, dtype=np.float32)
+
+def build_alibi_bias_matrix(num_heads: int, seq_len: int) -> np.ndarray:
+    """Construct (num_heads, seq_len, seq_len) linear distance bias matrix."""
+    slopes = get_alibi_slopes(num_heads)[:, None, None]
+    positions = np.arange(seq_len)
+    relative_dist = positions[None, :] - positions[:, None]
+    # For causal attention, relative_dist is negative or zero (j - i)
+    return slopes * relative_dist[None, :, :]
