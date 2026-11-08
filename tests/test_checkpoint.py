@@ -75,3 +75,30 @@ def test_checkpoint_roundtrip_with_tied_weights_and_optimizer():
         out_orig = model(idx).data
         out_restored = new_model(idx).data
         assert np.allclose(out_orig, out_restored, atol=1e-7)
+
+
+def test_checkpoint_roundtrip_sparse_moe():
+    config = ParallaxLMConfig(
+        vocab_size=32,
+        embed_dim=16,
+        num_heads=2,
+        num_layers=2,
+        max_seq_len=8,
+        use_swiglu=True,
+        num_experts=4,
+        top_k_experts=2,
+    )
+    model = ParallaxLM(config)
+    idx = np.array([[2, 5, 7, 11]])
+    logits_before = model(idx).data
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ckpt_path = os.path.join(tmpdir, "moe_ckpt.npz")
+        save_checkpoint(ckpt_path, model, step=10)
+
+        restored_model, step = load_checkpoint(ckpt_path)
+        assert step == 10
+        assert restored_model.config.num_experts == 4
+        assert restored_model.config.top_k_experts == 2
+        logits_after = restored_model(idx).data
+        assert np.allclose(logits_before, logits_after, atol=1e-7)
