@@ -95,3 +95,39 @@ def test_calculate_compression_ratio_includes_mlp_and_head():
     assert stats["quantized_mb"] < stats["original_mb"]
     assert stats["ratio"] > 1.0
 
+
+@pytest.mark.parametrize("use_swiglu", [False, True])
+def test_quantize_sparse_moe_model(use_swiglu: bool):
+    import copy
+    np.random.seed(11)
+    cfg = ParallaxLMConfig(
+        vocab_size=24,
+        embed_dim=16,
+        num_heads=2,
+        num_layers=1,
+        max_seq_len=8,
+        use_swiglu=use_swiglu,
+        num_experts=4,
+        top_k_experts=2,
+    )
+    orig_model = ParallaxLM(cfg)
+    idx = np.array([[1, 2, 3, 4]])
+    orig_logits = orig_model(idx).data
+
+    quant_model = quantize_model(copy.deepcopy(orig_model))
+    quant_logits = quant_model(idx).data
+
+    assert quant_logits.shape == orig_logits.shape
+    for exp in quant_model.blocks[0].mlp.experts:
+        if use_swiglu:
+            assert isinstance(exp.w_gate, QuantizedLinear)
+            assert isinstance(exp.w_up, QuantizedLinear)
+            assert isinstance(exp.w_down, QuantizedLinear)
+        else:
+            assert isinstance(exp.fc1, QuantizedLinear)
+            assert isinstance(exp.fc2, QuantizedLinear)
+
+    stats = calculate_compression_ratio(orig_model, quant_model)
+    assert stats["quantized_mb"] < stats["original_mb"]
+    assert stats["ratio"] > 1.0
+
