@@ -34,3 +34,28 @@ def test_reduce_split_k_outputs_exact_match():
     out = reduce_split_k_outputs(local_outs, local_maxes, local_lsums)
     assert out.shape == (d,)
     assert not np.isnan(out).any()
+
+
+from parallax.flash_decoding import flash_decode_attention
+
+
+def test_flash_decode_attention_matches_standard_dot_product():
+    np.random.seed(42)
+    seq_len = 256
+    d = 32
+    q = np.random.randn(d)
+    k = np.random.randn(seq_len, d)
+    v = np.random.randn(seq_len, d)
+
+    # Standard attention reference
+    scale = 1.0 / np.sqrt(d)
+    logits = np.dot(k, q) * scale
+    max_logit = np.max(logits)
+    weights = np.exp(logits - max_logit)
+    weights /= np.sum(weights)
+    expected_out = np.dot(weights, v)
+
+    # FlashDecoding output with split_size=64 (4 splits)
+    fd_out = flash_decode_attention(q, k, v, split_size=64)
+
+    assert np.allclose(fd_out, expected_out, atol=1e-6)
