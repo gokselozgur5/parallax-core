@@ -105,16 +105,24 @@ class TransformerBlock(Module):
         use_swiglu: bool = False,
         num_experts: Optional[int] = None,
         top_k: int = 2,
+        intermediate_size: Optional[int] = None,
+        rms_norm_eps: float = 1e-6,
+        qkv_bias: bool = False,
+        rope_theta: float = 10000.0,
+        rope_interleaved: bool = True,
     ):
         super().__init__()
-        self.attn_norm = RMSNorm(embed_dim)
+        self.attn_norm = RMSNorm(embed_dim, eps=rms_norm_eps)
         self.attn = CausalSelfAttention(
             embed_dim,
             num_heads,
             num_kv_heads=num_kv_heads,
             use_rope=use_rope,
+            qkv_bias=qkv_bias,
+            rope_theta=rope_theta,
+            rope_interleaved=rope_interleaved,
         )
-        self.mlp_norm = RMSNorm(embed_dim)
+        self.mlp_norm = RMSNorm(embed_dim, eps=rms_norm_eps)
         self.use_swiglu = use_swiglu
         self.num_experts = num_experts
 
@@ -127,9 +135,9 @@ class TransformerBlock(Module):
                 use_swiglu=use_swiglu,
             )
         elif use_swiglu:
-            self.mlp = SwiGLU(embed_dim)
+            self.mlp = SwiGLU(embed_dim, hidden_dim=intermediate_size)
         else:
-            self.mlp = MLP(embed_dim)
+            self.mlp = MLP(embed_dim, hidden_dim=intermediate_size)
 
     def forward(
         self,
@@ -169,6 +177,11 @@ class ParallaxLMConfig:
     tie_weights: bool = False
     num_experts: Optional[int] = None
     top_k_experts: int = 2
+    intermediate_size: Optional[int] = None
+    rms_norm_eps: float = 1e-6
+    qkv_bias: bool = False
+    rope_theta: float = 10000.0
+    rope_interleaved: bool = True
 
 
 class Embedding(Module):
@@ -215,10 +228,15 @@ class ParallaxLM(Module):
                 use_swiglu=config.use_swiglu,
                 num_experts=config.num_experts,
                 top_k=config.top_k_experts,
+                intermediate_size=config.intermediate_size,
+                rms_norm_eps=config.rms_norm_eps,
+                qkv_bias=config.qkv_bias,
+                rope_theta=config.rope_theta,
+                rope_interleaved=config.rope_interleaved,
             )
             for _ in range(config.num_layers)
         ]
-        self.final_norm = RMSNorm(config.embed_dim)
+        self.final_norm = RMSNorm(config.embed_dim, eps=config.rms_norm_eps)
         self.lm_head = Linear(config.embed_dim, config.vocab_size, bias=False)
 
         # Weight Tying (Press & Wolf, 2016): share embedding and unembedding weights
