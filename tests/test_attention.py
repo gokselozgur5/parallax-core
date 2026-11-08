@@ -66,3 +66,33 @@ def test_apply_rope_conjugate_exact_inverse() -> None:
     rotated = apply_rope(x, seq_dim=1, offset=0, conjugate=False)
     unrotated = apply_rope(rotated, seq_dim=1, offset=0, conjugate=True)
     np.testing.assert_allclose(x, unrotated, rtol=1e-5, atol=1e-5)
+
+def test_causal_self_attention_rope_finite_differences_gradcheck() -> None:
+    np.random.seed(42)
+    B, T, C = 1, 3, 8
+    attn = CausalSelfAttention(embed_dim=C, num_heads=2, use_rope=True)
+    x = Tensor(np.random.randn(B, T, C), requires_grad=True)
+
+    # Analytical gradient
+    out = attn(x)
+    loss = (out * out).sum()
+    loss.backward()
+    analytical_grad = x.grad.copy()
+
+    # Numerical gradient via central finite differences
+    eps = 1e-5
+    numerical_grad = np.zeros_like(x.data)
+    for idx in np.ndindex(x.shape):
+        x_orig = x.data[idx]
+        x.data[idx] = x_orig + eps
+        out_plus = attn(x)
+        loss_plus = float((out_plus * out_plus).sum().data)
+
+        x.data[idx] = x_orig - eps
+        out_minus = attn(x)
+        loss_minus = float((out_minus * out_minus).sum().data)
+
+        x.data[idx] = x_orig
+        numerical_grad[idx] = (loss_plus - loss_minus) / (2.0 * eps)
+
+    np.testing.assert_allclose(analytical_grad, numerical_grad, rtol=1e-3, atol=1e-3)
