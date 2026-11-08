@@ -5,6 +5,7 @@ Unit and gradient verification tests for Mixture-of-Experts (MoE) (M22).
 import numpy as np
 import pytest
 
+from parallax.gradcheck import check_tensor_gradient
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.moe import SparseMoE
 from parallax.optim import AdamW
@@ -92,3 +93,15 @@ def test_sparse_moe_topk_renormalized_weight_invariance() -> None:
     moe.gate.weight.data += 0.001
     out2 = moe(x)
     np.testing.assert_allclose(out1.data, out2.data, rtol=1e-5, atol=1e-5)
+
+
+def test_sparse_moe_router_finite_differences_gradcheck() -> None:
+    np.random.seed(42)
+    B, T, D, E, K = 2, 3, 8, 4, 2
+    moe = SparseMoE(embed_dim=D, num_experts=E, top_k=K, use_swiglu=False)
+    x = Tensor(np.random.randn(B, T, D), requires_grad=True)
+    assert check_tensor_gradient(
+        lambda inp, gw: (moe(inp) * moe(inp)).sum(),
+        [x, moe.gate.weight],
+    ) is True
+
