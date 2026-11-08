@@ -72,6 +72,18 @@ def test_gradcheck_tensor_rmsnorm():
     assert check_tensor_gradient(fn, [x], eps=1e-5, tol=2e-4) is True
 
 
+def test_gradcheck_tensor_causal_self_attention():
+    np.random.seed(42)
+    x = Tensor(np.random.randn(1, 4, 8), requires_grad=True)
+    attn = CausalSelfAttention(embed_dim=8, num_heads=2, use_rope=True)
+
+    def fn(inp):
+        y = attn(inp)
+        return (y * y).sum()
+
+    assert check_tensor_gradient(fn, [x], eps=1e-5, tol=1e-3) is True
+
+
 def test_gradcheck_tensor_layernorm():
     np.random.seed(42)
     x = Tensor(np.random.randn(2, 4), requires_grad=True)
@@ -94,3 +106,15 @@ def test_gradcheck_tensor_silu_and_swiglu():
         return (y * y).sum()
 
     assert check_tensor_gradient(fn, [x], eps=1e-5, tol=2e-4) is True
+
+
+def test_gradcheck_tensor_causal_self_attention():
+    np.random.seed(42)
+    x = Tensor(np.random.randn(1, 4, 8), requires_grad=True)
+    attn = CausalSelfAttention(embed_dim=8, num_heads=2, use_rope=True)
+
+    def fn(inp):
+        y = attn(inp)
+        return (y * y).sum()
+
+    assert check_tensor_gradient(fn, [x], eps=1e-5, tol=1e-3) is True
