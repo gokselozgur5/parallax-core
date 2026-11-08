@@ -26,3 +26,13 @@ class MultiHeadLatentAttention:
         self.w_uv = np.random.randn(self.latent_dim, self.num_heads * self.head_dim) * scale
         self.w_q = np.random.randn(self.embed_dim, self.num_heads * self.head_dim) * scale
         self.w_o = np.random.randn(self.num_heads * self.head_dim, self.embed_dim) * scale
+
+    def compress_kv(self, x: np.ndarray) -> np.ndarray:
+        """Compress input x into latent KV representation c_t^KV."""
+        return np.matmul(x, self.w_dkv)
+
+    def decompress_kv(self, c_kv: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """Project latent vector back to distributed key and value matrices."""
+        k = np.matmul(c_kv, self.w_uk)
+        v = np.matmul(c_kv, self.w_uv)
+        return k, v
