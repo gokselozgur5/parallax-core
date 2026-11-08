@@ -56,6 +56,36 @@ def test_estimate_flops_per_token():
     assert flops == 327680
 
 
+def test_count_parameters_tied_weights():
+    config = ParallaxLMConfig(
+        vocab_size=64,
+        embed_dim=32,
+        num_heads=2,
+        num_layers=1,
+        tie_weights=True,
+    )
+    model = ParallaxLM(config)
+    breakdown = count_parameters(model)
+    assert breakdown["total"] < breakdown["embedding"] + breakdown["attention"] + breakdown["mlp"] + breakdown["norm"] + breakdown["head"]
+
+
+def test_estimate_flops_gqa_swiglu_moe():
+    cfg_gqa = ParallaxLMConfig(
+        vocab_size=256,
+        embed_dim=64,
+        num_heads=4,
+        num_kv_heads=2,
+        num_layers=3,
+        use_swiglu=True,
+        intermediate_size=128,
+        num_experts=4,
+        top_k_experts=2,
+    )
+    flops = estimate_flops_per_token(cfg_gqa)
+    assert flops > 0
+
+
+
 def test_benchmark_inference_speedup():
     config = ParallaxLMConfig(
         vocab_size=32,
