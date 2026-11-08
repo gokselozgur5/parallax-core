@@ -99,6 +99,17 @@ def orpo_step(
         grad_w[i] = probs_w[i] / len_w
         grad_w[i, targets_w[i]] -= 1.0 / len_w
 
-    # Gradient for rejected logits is zero for SFT, pushed down by OR
+    # Compute odds ratio gradient multiplier: sigmoid(odds_ratio_diff) - 1
+    odds_w = np.exp(np.mean(lp_w)) / (1.0 - np.exp(np.mean(lp_w)) + 1e-12)
+    odds_l = np.exp(np.mean(lp_l)) / (1.0 - np.exp(np.mean(lp_l)) + 1e-12)
+    log_odds_ratio = np.log(odds_w + 1e-12) - np.log(odds_l + 1e-12)
+    sig_or = 1.0 / (1.0 + np.exp(-log_odds_ratio))
+    or_grad_mult = lambda_weight * (sig_or - 1.0)
+
+    # Gradient for rejected logits pushes down probability of rejected targets
     grad_l = np.zeros_like(logits_l)
+    len_l = len(targets_l)
+    for i in range(len_l):
+        grad_l[i] = -or_grad_mult * probs_l[i] / len_l
+        grad_l[i, targets_l[i]] += or_grad_mult / len_l
     return loss, grad_w, grad_l
