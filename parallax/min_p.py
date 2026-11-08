@@ -47,3 +47,27 @@ def min_p_filter(
         return filtered_probs
 
     return filtered_probs / total_prob
+
+
+
+def sample_min_p(
+    logits: np.ndarray,
+    min_p: float = 0.05,
+    temperature: float = 1.0,
+    rng: Optional[np.random.RandomState] = None,
+) -> int:
+    """Sample a single token index from logits using Min-P truncation.
+
+    Args:
+        logits: Unnormalized logit array of shape (vocab_size,).
+        min_p: Relative threshold.
+        temperature: Sampling temperature.
+        rng: Optional NumPy random state for reproducibility.
+
+    Returns:
+        Sampled token index integer.
+    """
+    probs = min_p_filter(logits, min_p=min_p, temperature=temperature)
+    if rng is None:
+        return int(np.random.choice(len(probs), p=probs))
+    return int(rng.choice(len(probs), p=probs))
