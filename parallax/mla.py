@@ -19,3 +19,10 @@ class MultiHeadLatentAttention:
         self.latent_dim = int(latent_dim)
         self.rope_dim = int(rope_dim)
         self.head_dim = embed_dim // num_heads
+
+        scale = 1.0 / np.sqrt(self.embed_dim)
+        self.w_dkv = np.random.randn(self.embed_dim, self.latent_dim) * scale
+        self.w_uk = np.random.randn(self.latent_dim, self.num_heads * self.head_dim) * scale
+        self.w_uv = np.random.randn(self.latent_dim, self.num_heads * self.head_dim) * scale
+        self.w_q = np.random.randn(self.embed_dim, self.num_heads * self.head_dim) * scale
+        self.w_o = np.random.randn(self.num_heads * self.head_dim, self.embed_dim) * scale
