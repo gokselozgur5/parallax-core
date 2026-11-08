@@ -259,11 +259,12 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         if not text:
             text = "PARALLAX"
 
-        token_ids = CURRENT_TOKENIZER.encode(text)[:16]
+        tokens = list(text)
+        token_ids = [CURRENT_TOKENIZER.stoi.get(ch, 0) for ch in tokens]
         if not token_ids:
             token_ids = [0]
+            tokens = ["<unk>"]
 
-        tokens = [CURRENT_TOKENIZER.decode([t]) for t in token_ids]
         idx = np.array([token_ids], dtype=np.int64)
         _ = CURRENT_MODEL(idx)
 
