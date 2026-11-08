@@ -140,11 +140,12 @@ class Tensor:
         if not axes:
             # Default swap last two dims
             axes = tuple(range(self.ndim - 2)) + (self.ndim - 1, self.ndim - 2) if self.ndim >= 2 else (0,)
-        out = Tensor(np.transpose(self.data, axes), (self,), "transpose")
+        norm_axes = tuple(ax % self.ndim for ax in axes)
+        out = Tensor(np.transpose(self.data, norm_axes), (self,), "transpose")
 
         def _backward() -> None:
             if self.requires_grad and self.grad is not None:
-                inv_axes = np.argsort(axes)
+                inv_axes = np.argsort(norm_axes)
                 self.grad += np.transpose(out.grad, inv_axes)
 
         out._backward = _backward
