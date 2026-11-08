@@ -43,3 +43,25 @@ def streaming_attention(
     probs = exp_s / np.sum(exp_s, axis=-1, keepdims=True)
     return np.matmul(probs, v)
 
+
+def evict_kv_cache_with_sinks(
+    k_cache: np.ndarray,
+    v_cache: np.ndarray,
+    window_size: int = 16,
+    num_sinks: int = 4,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Evicts intermediate keys and values while preserving attention sinks and recent window."""
+    # Shape: [B, H, T, d]
+    T = k_cache.shape[2]
+    max_allowed = num_sinks + window_size
+    if T <= max_allowed:
+        return k_cache, v_cache
+
+    sink_k, sink_v = k_cache[:, :, :num_sinks, :], v_cache[:, :, :num_sinks, :]
+    recent_k, recent_v = k_cache[:, :, -window_size:, :], v_cache[:, :, -window_size:, :]
+
+    new_k = np.concatenate([sink_k, recent_k], axis=2)
+    new_v = np.concatenate([sink_v, recent_v], axis=2)
+    return new_k, new_v
+
+
