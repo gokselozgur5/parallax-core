@@ -4,7 +4,8 @@ Unit tests for Selective State Space Model (Mamba/S6) (M28).
 
 import numpy as np
 import pytest
-from parallax.mamba import discretize_zoh, selective_scan_forward
+from parallax.mamba import MambaBlock, discretize_zoh, selective_scan_forward
+from parallax.tensor import Tensor
 
 
 def test_discretize_zoh_shapes_and_exponential_decay():
@@ -39,4 +40,16 @@ def test_selective_scan_forward_recurrence_and_continuity():
     # Output must strictly increase as state accumulates input over time
     assert y[0, 1, 0] > y[0, 0, 0]
     assert y[0, 2, 0] > y[0, 1, 0]
+
+
+def test_mamba_block_forward_shape_and_linear_runtime():
+    B, T, D = 2, 16, 16
+    block = MambaBlock(d_model=D, d_state=8, d_conv=4, expand=2)
+
+    u = Tensor(np.random.randn(B, T, D))
+    out = block(u)
+
+    assert out.shape == (B, T, D)
+    assert np.all(np.isfinite(out.data))
+
 
