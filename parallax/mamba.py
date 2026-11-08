@@ -92,4 +92,48 @@ class MambaBlock(Module):
         # Out projection back to d_model
         self.out_proj = Linear(self.d_inner, d_model, bias=False)
 
+    def forward(self, u: Tensor) -> Tensor:
+        """Forward pass of MambaBlock with linear selective scan."""
+        B, T, D = u.shape
+
+        # 1. Dual projection into branch x and branch z (gate)
+        xz = self.in_proj(u)  # [B, T, 2 * d_inner]
+        x_data = xz.data[:, :, : self.d_inner]
+        z_data = xz.data[:, :, self.d_inner :]
+
+        # 2. Causal 1D Convolution along sequence length
+        conv_out = np.zeros_like(x_data)
+        d_conv = self.conv_weight.data.shape[1]
+        for t in range(T):
+            t_start = max(0, t - d_conv + 1)
+            window = x_data[:, t_start : t + 1, :]  # [B, w_len, d_inner]
+            w_slice = self.conv_weight.data[:, -(t - t_start + 1) :]  # [d_inner, w_len]
+            conv_out[:, t, :] = np.sum(window * w_slice.T[None, :, :], axis=1) + self.conv_bias.data
+
+        # SiLU activation: x_conv = conv_out * sigmoid(conv_out)
+        x_conv = conv_out * (1.0 / (1.0 + np.exp(-np.clip(conv_out, -50, 50))))
+
+        # 3. Input-dependent parameter discretization (delta, B, C)
+        x_conv_tensor = Tensor(x_conv)
+        x_dbl = self.x_proj(x_conv_tensor).data  # [B, T, dt_rank + 2 * d_state]
+        dt = x_dbl[:, :, : self.dt_rank]
+        B_ssm = x_dbl[:, :, self.dt_rank : self.dt_rank + self.d_state]
+        C_ssm = x_dbl[:, :, self.dt_rank + self.d_state :]
+
+        # Delta projection with softplus: delta = log(1 + exp(dt_proj(dt)))
+        dt_proj_out = self.dt_proj(Tensor(dt)).data
+        delta = np.log1p(np.exp(np.clip(dt_proj_out, -50, 50)))
+
+        # 4. Selective Scan Recurrence
+        A = -np.exp(self.A_log.data)
+        y, _ = selective_scan_forward(x_conv, delta, A, B_ssm, C_ssm, D=self.D.data)
+
+        # 5. SiLU Gate Modulation: y = y * SiLU(z)
+        z_sig = 1.0 / (1.0 + np.exp(-np.clip(z_data, -50, 50)))
+        y_gated = y * (z_data * z_sig)
+
+        # 6. Out projection back to d_model
+        return self.out_proj(Tensor(y_gated))
+
+
 
