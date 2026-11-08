@@ -20,3 +20,21 @@ def test_block_allocator_allocation_and_free():
     assert len(alloc.free_blocks) == 1
     b2 = alloc.allocate_block()
     assert b2 == 0
+
+
+from parallax.paged_attention import SequenceManager
+
+
+def test_sequence_manager_append_and_block_table_growth():
+    alloc = BlockAllocator(num_blocks=4, block_size=2, head_dim=4)
+    mgr = SequenceManager(alloc)
+
+    # Append 3 tokens: should allocate 2 blocks (block_size=2)
+    for _ in range(3):
+        k = np.ones(4)
+        v = np.ones(4) * 2
+        mgr.append_token(seq_id=1, k_vec=k, v_vec=v)
+
+    assert mgr.seq_lengths[1] == 3
+    assert len(mgr.block_tables[1]) == 2
+    assert len(alloc.free_blocks) == 2
