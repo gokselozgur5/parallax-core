@@ -259,21 +259,17 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         if not text:
             text = "PARALLAX"
 
-        tokens = list(text)
-        seq_len = len(tokens)
-        embed_dim = 16
-        num_heads = 2
-        head_dim = embed_dim // num_heads
+        token_ids = CURRENT_TOKENIZER.encode(text)[:16]
+        if not token_ids:
+            token_ids = [0]
 
-        # Forward pass on standalone attention block to capture matrix
-        mha = CausalSelfAttention(embed_dim=embed_dim, num_heads=num_heads, use_rope=True)
-        # Create deterministic pseudo-embeddings from char ordinals
-        x_data = np.zeros((1, seq_len, embed_dim), dtype=np.float64)
-        for i, ch in enumerate(text):
-            x_data[0, i, :] = np.sin(np.arange(embed_dim) * (ord(ch) + i + 1) * 0.1)
+        tokens = [CURRENT_TOKENIZER.decode([t]) for t in token_ids]
+        idx = np.array([token_ids], dtype=np.int64)
+        _ = CURRENT_MODEL(idx)
 
-        _ = mha(Tensor(x_data))
-        attn_matrix = mha.last_attn_weights[0]  # Shape: [num_heads, seq_len, seq_len]
+        first_attn = CURRENT_MODEL.blocks[0].attn
+        attn_matrix = first_attn.last_attn_weights[0]  # Shape: [num_heads, seq_len, seq_len]
+        num_heads = attn_matrix.shape[0]
 
         heads_data = []
         for h in range(num_heads):
