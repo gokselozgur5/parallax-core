@@ -71,7 +71,13 @@ def estimate_flops_per_token(config: ParallaxLMConfig) -> int:
     out_flops = 2 * d * d
     attn_flops_per_layer = q_flops + k_flops + v_flops + out_flops
 
-    intermediate_size = config.intermediate_size if config.intermediate_size is not None else 4 * d
+    if config.intermediate_size is not None:
+        intermediate_size = config.intermediate_size
+    elif config.use_swiglu:
+        intermediate_size = 64 * ((int(2 * (4 * d) / 3) + 63) // 64)
+    else:
+        intermediate_size = 4 * d
+
     if config.use_swiglu:
         single_mlp_flops = 6 * d * intermediate_size
     else:
