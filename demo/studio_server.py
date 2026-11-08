@@ -245,8 +245,8 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         enable_quant = bool(req.get("quantize", True))
 
         if enable_quant and not IS_QUANTIZED:
-            UNQUANTIZED_MODEL = copy.deepcopy(CURRENT_MODEL)
-            CURRENT_MODEL = quantize_model(CURRENT_MODEL)
+            UNQUANTIZED_MODEL = CURRENT_MODEL
+            CURRENT_MODEL = quantize_model(copy.deepcopy(CURRENT_MODEL))
             IS_QUANTIZED = True
         elif not enable_quant and IS_QUANTIZED:
             if UNQUANTIZED_MODEL is not None:

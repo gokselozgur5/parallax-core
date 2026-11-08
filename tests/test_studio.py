@@ -144,6 +144,22 @@ def test_studio_checkpoint_and_quant_apis(studio_server_url):
     resp5 = json.loads(urllib.request.urlopen(req5).read().decode())
     assert resp5["is_quantized"] is False
 
+    # Test toggling quant and then resetting to parallax dataset
+    _ = urllib.request.urlopen(req2)
+    reset_data = json.dumps({"dataset": "parallax"}).encode()
+    req_reset = urllib.request.Request(
+        f"{studio_server_url}/api/load_checkpoint",
+        data=reset_data,
+        headers={"Content-Type": "application/json"},
+    )
+    resp_reset = json.loads(urllib.request.urlopen(req_reset).read().decode())
+    assert resp_reset["status"] == "ok"
+    assert resp_reset["dataset"] == "parallax"
+
+    resp6 = json.loads(urllib.request.urlopen(req5).read().decode())
+    assert resp6["is_quantized"] is False
+
+
 
 
 def test_studio_rl_apis(studio_server_url):
