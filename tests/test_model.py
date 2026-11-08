@@ -1,5 +1,8 @@
+import os
+import tempfile
 import numpy as np
 import pytest
+from parallax.checkpoint import load_checkpoint, save_checkpoint
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig, TransformerBlock
 from parallax.tensor import Tensor
 
@@ -53,3 +56,34 @@ def test_parallax_lm_end_to_end_forward():
     assert model.token_embeddings.weight.grad is not None
     assert model.lm_head.weight.grad is not None
     assert np.any(model.token_embeddings.weight.grad != 0.0)
+
+
+def test_parallax_lm_huggingface_parity_config_and_checkpoint():
+    config = ParallaxLMConfig(
+        vocab_size=32,
+        embed_dim=16,
+        num_heads=2,
+        num_layers=1,
+        max_seq_len=8,
+        use_swiglu=True,
+        intermediate_size=28,
+        rms_norm_eps=1e-5,
+        qkv_bias=True,
+        rope_theta=100000.0,
+        rope_interleaved=False,
+    )
+    model = ParallaxLM(config)
+    idx = np.array([[1, 3, 5, 7]])
+    out1 = model(idx)
+    loss = out1.sum()
+    loss.backward()
+
+    assert model.blocks[0].attn.q_proj.bias.grad is not None
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ckpt_file = os.path.join(tmpdir, "hf_parity.npz")
+        save_checkpoint(ckpt_file, model, step=5)
+        restored_model, step = load_checkpoint(ckpt_file)
+        assert step == 5
+        out2 = restored_model(idx)
+        assert np.allclose(out1.data, out2.data, atol=1e-7)

@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 from parallax.attention import CausalSelfAttention, apply_rope
+from parallax.gradcheck import check_tensor_gradient
 from parallax.tensor import Tensor
 
 
@@ -96,3 +97,22 @@ def test_causal_self_attention_rope_finite_differences_gradcheck() -> None:
         numerical_grad[idx] = (loss_plus - loss_minus) / (2.0 * eps)
 
     np.testing.assert_allclose(analytical_grad, numerical_grad, rtol=1e-3, atol=1e-3)
+
+
+def test_attention_non_interleaved_rope_gradcheck():
+    np.random.seed(42)
+    x = Tensor(np.random.randn(1, 4, 8), requires_grad=True)
+    attn = CausalSelfAttention(
+        embed_dim=8,
+        num_heads=2,
+        use_rope=True,
+        qkv_bias=True,
+        rope_theta=50000.0,
+        rope_interleaved=False,
+    )
+
+    def fn(inp):
+        y = attn(inp)
+        return (y * y).sum()
+
+    assert check_tensor_gradient(fn, [x], eps=1e-5, tol=1e-3) is True
