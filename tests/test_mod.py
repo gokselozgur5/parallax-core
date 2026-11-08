@@ -20,3 +20,24 @@ def test_route_tokens_capacity_limit():
     assert len(all_scores) == seq_len
     # Verify indices are strictly sorted
     assert np.all(np.diff(indices) > 0)
+
+
+from parallax.mod import mod_block_forward
+
+
+def test_mod_block_forward_identity_bypass_for_unselected():
+    seq_len, hidden_dim = 6, 4
+    x = np.random.randn(seq_len, hidden_dim).astype(np.float32)
+    router = MoDRouter(hidden_dim=hidden_dim, capacity_factor=0.5)
+
+    # Dummy block adding 10.0 to selected tokens
+    def dummy_block(h):
+        return h + 10.0
+
+    output, selected_indices = mod_block_forward(x, router, dummy_block)
+
+    assert output.shape == x.shape
+    # Check that unselected tokens remain strictly unchanged (identity bypass)
+    unselected = [i for i in range(seq_len) if i not in selected_indices]
+    for idx in unselected:
+        assert np.allclose(output[idx], x[idx])
