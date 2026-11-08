@@ -21,6 +21,9 @@ def test_ring_flash_update_rescale() -> None:
     )
     assert merged_o.shape == (2, 4)
     assert np.all(merged_m == 1.0)
+    # Analytical expected output: (1.0 * (1/e) + 2.0 * 1.0) / (1/e + 1.0)
+    expected_val = (1.0 / np.e + 2.0) / (1.0 / np.e + 1.0)
+    np.testing.assert_allclose(merged_o, expected_val, rtol=1e-6, atol=1e-6)
 
 from parallax.ring_attention import ring_attention_forward
 
