@@ -56,17 +56,20 @@ def speculative_generate(
         # 1. Draft step: Propose `spec_budget` tokens autoregressively using the draft model
         draft_tokens: List[int] = []
         draft_probs: List[float] = []
+        draft_prob_dists: List[np.ndarray] = []
         curr_draft_seq = list(tokens)
 
         for _ in range(spec_budget):
             idx_d = np.array([curr_draft_seq[-draft_model.config.max_seq_len:]], dtype=np.int64)
             d_logits = draft_model(idx_d).data[0, -1, :]
             # Compute draft probability distribution for candidate
-            exp_d = np.exp(d_logits - np.max(d_logits))
+            scaled_d = (d_logits / temperature) if temperature > 0.0 else d_logits
+            exp_d = np.exp(scaled_d - np.max(scaled_d))
             d_p = exp_d / np.sum(exp_d)
             next_t = sample_next_token(d_logits, temperature=temperature)
             draft_tokens.append(next_t)
             draft_probs.append(float(d_p[next_t]))
+            draft_prob_dists.append(d_p)
             curr_draft_seq.append(next_t)
 
         total_proposed += len(draft_tokens)
@@ -103,10 +106,12 @@ def speculative_generate(
                     break
             else:
                 # Stochastic acceptance criterion: min(1, p(x) / q(x))
-                cand_target_prob = np.exp(pos_logits[cand] - np.max(pos_logits))
-                cand_target_prob /= np.sum(np.exp(pos_logits - np.max(pos_logits)))
-                q_prob = max(draft_probs[i], 1e-12)
-                ratio = float(cand_target_prob) / q_prob
+                scaled_t = (pos_logits / temperature) if temperature > 0.0 else pos_logits
+                exp_t = np.exp(scaled_t - np.max(scaled_t))
+                t_p = exp_t / np.sum(exp_t)
+                cand_target_prob = float(t_p[cand])
+                q_prob = max(float(draft_prob_dists[i][cand]), 1e-12)
+                ratio = cand_target_prob / q_prob
 
                 # Exact speculative acceptance check: accept with probability min(1, p(x)/q(x))
                 if np.random.rand() < min(1.0, ratio):
@@ -116,8 +121,14 @@ def speculative_generate(
                     if total_generated >= max_new_tokens:
                         break
                 else:
-                    # Sample corrected replacement token from target distribution
-                    corr_token = sample_next_token(pos_logits, temperature=temperature)
+                    # Sample corrected replacement token from normalized residual distribution
+                    residual = np.maximum(0.0, t_p - draft_prob_dists[i])
+                    res_sum = float(np.sum(residual))
+                    if res_sum > 1e-12:
+                        res_dist = residual / res_sum
+                    else:
+                        res_dist = t_p
+                    corr_token = int(np.random.choice(len(res_dist), p=res_dist))
                     tokens.append(corr_token)
                     total_generated += 1
                     break
