@@ -18,3 +18,19 @@ def test_flash_decode_split_kernel_math():
     assert np.isclose(l_val, np.sum(np.exp(logits - m_val)))
     expected_out = np.dot(np.exp(logits - m_val), v_chunk)
     assert np.allclose(out, expected_out)
+
+
+from parallax.flash_decoding import reduce_split_k_outputs
+
+
+def test_reduce_split_k_outputs_exact_match():
+    np.random.seed(42)
+    num_splits = 4
+    d = 16
+    local_outs = np.random.randn(num_splits, d)
+    local_maxes = np.array([2.5, 3.1, 1.8, 3.0])
+    local_lsums = np.array([12.0, 18.5, 9.2, 14.1])
+
+    out = reduce_split_k_outputs(local_outs, local_maxes, local_lsums)
+    assert out.shape == (d,)
+    assert not np.isnan(out).any()
