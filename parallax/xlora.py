@@ -78,3 +78,49 @@ class XLoRALinear:
         if x.ndim == 1:
             return total_out.squeeze(0), gate_weights.squeeze(0)
         return total_out, gate_weights
+
+
+    def backward(
+        self,
+        x: np.ndarray,
+        grad_out: np.ndarray,
+        gate_weights: np.ndarray,
+    ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+        """Compute parameter gradients for active LoRA adapters A_i and B_i.
+
+        Args:
+            x: Input activation of shape (B, in_features).
+            grad_out: Output gradient dL/dY of shape (B, out_features).
+            gate_weights: Softmax router probabilities of shape (B, num_adapters).
+
+        Returns:
+            Tuple of (grads_A, grads_B) lists.
+        """
+        x_in = x if x.ndim == 2 else x[np.newaxis, :]
+        grad_in = grad_out if grad_out.ndim == 2 else grad_out[np.newaxis, :]
+        gates = gate_weights if gate_weights.ndim == 2 else gate_weights[np.newaxis, :]
+
+        grads_A = []
+        grads_B = []
+
+        for i in range(self.num_adapters):
+            g_i = gates[:, i : i + 1]  # (B, 1)
+            # Weighted output gradient: g_i * grad_in * scaling
+            eff_grad = g_i * grad_in * self.scaling
+
+            # a_out = x @ A_i^T: (B, rank)
+            a_out = np.dot(x_in, self.lora_A[i].T)
+
+            # grad_B = eff_grad^T @ a_out: (out_features, rank)
+            grad_B = np.dot(eff_grad.T, a_out)
+
+            # grad_a = eff_grad @ B_i: (B, rank)
+            grad_a = np.dot(eff_grad, self.lora_B[i])
+
+            # grad_A = grad_a^T @ x_in: (rank, in_features)
+            grad_A = np.dot(grad_a.T, x_in)
+
+            grads_A.append(grad_A)
+            grads_B.append(grad_B)
+
+        return grads_A, grads_B
