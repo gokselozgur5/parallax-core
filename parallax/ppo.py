@@ -39,3 +39,31 @@ def compute_gae(
 
     returns = advantages + values[:T]
     return advantages, returns
+
+
+def compute_ppo_clip_loss(
+    log_probs: np.ndarray,
+    old_log_probs: np.ndarray,
+    advantages: np.ndarray,
+    clip_eps: float = 0.2,
+) -> Tuple[float, np.ndarray]:
+    """Compute PPO clipped surrogate policy loss: -min(r * A, clip(r, 1-eps, 1+eps) * A).
+
+    Args:
+        log_probs: New policy token log probabilities (T,).
+        old_log_probs: Old rollout policy token log probabilities (T,).
+        advantages: Normalized advantage estimates (T,).
+        clip_eps: Clipping threshold epsilon (e.g. 0.2).
+
+    Returns:
+        Tuple of (mean_clipped_loss, policy_ratios).
+    """
+    # Ratio r_t(theta) = exp(log pi_new - log pi_old)
+    ratios = np.exp(np.clip(log_probs - old_log_probs, -20.0, 20.0))
+    surr1 = ratios * advantages
+    clipped_ratios = np.clip(ratios, 1.0 - clip_eps, 1.0 + clip_eps)
+    surr2 = clipped_ratios * advantages
+
+    # PPO maximizes min(surr1, surr2), so loss is -min(surr1, surr2)
+    loss = -float(np.mean(np.minimum(surr1, surr2)))
+    return loss, ratios
