@@ -43,3 +43,36 @@ class MedusaModel:
             token = int(np.argmax(logits))
             candidates.append(token)
         return candidates
+
+
+def verify_medusa_candidates(
+    candidates: List[int],
+    ground_truth_fn,
+    prefix_tokens: List[int],
+) -> Tuple[List[int], int]:
+    """Greedy prefix verification of Medusa speculative candidates.
+
+    Args:
+        candidates: List of proposed candidate tokens from Medusa heads.
+        ground_truth_fn: Callable taking list of tokens and returning next true token.
+        prefix_tokens: Current sequence of tokens.
+
+    Returns:
+        Tuple of (accepted_tokens, next_token):
+            - accepted_tokens: List of candidate tokens that matched ground truth.
+            - next_token: First divergence token or subsequent true token.
+    """
+    accepted = []
+    current_seq = list(prefix_tokens)
+
+    for cand in candidates:
+        true_next = ground_truth_fn(current_seq)
+        if cand == true_next:
+            accepted.append(cand)
+            current_seq.append(cand)
+        else:
+            return accepted, true_next
+
+    # If all candidates accepted, sample one more token from base model
+    extra_token = ground_truth_fn(current_seq)
+    return accepted, extra_token
