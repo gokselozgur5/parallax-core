@@ -226,4 +226,53 @@ def test_studio_rl_apis(studio_server_url):
     assert "implicit_margin" in resp4
 
 
+def test_studio_train_step_updates_active_checkpoint_model_and_shifted_dpo(studio_server_url):
+    import numpy as np
+    import demo.studio_server as ss
+
+    # 1. Switch to shakespeare checkpoint and verify train_step updates CURRENT_MODEL
+    load_req = urllib.request.Request(
+        f"{studio_server_url}/api/load_checkpoint",
+        data=json.dumps({"dataset": "shakespeare"}).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    urllib.request.urlopen(load_req).read()
+    assert ss.CURRENT_MODEL is not ss.DEMO_MODEL
+
+    before_ckpt_emb = ss.CURRENT_MODEL.token_embeddings.weight.data.copy()
+    before_demo_emb = ss.DEMO_MODEL.token_embeddings.weight.data.copy()
+
+    train_req = urllib.request.Request(
+        f"{studio_server_url}/api/train_step",
+        data=json.dumps({"steps": 1, "lr": 0.05}).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    urllib.request.urlopen(train_req).read()
+
+    assert not np.allclose(ss.CURRENT_MODEL.token_embeddings.weight.data, before_ckpt_emb)
+    np.testing.assert_array_equal(ss.DEMO_MODEL.token_embeddings.weight.data, before_demo_emb)
+
+    # Reset back to parallax dataset and verify shifted DPO increases margin
+    reset_req = urllib.request.Request(
+        f"{studio_server_url}/api/load_checkpoint",
+        data=json.dumps({"dataset": "parallax"}).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    urllib.request.urlopen(reset_req).read()
+
+    dpo_req = urllib.request.Request(
+        f"{studio_server_url}/api/rl/dpo_step",
+        data=json.dumps({
+            "chosen": "parallax builds clarity",
+            "rejected": "noise",
+            "steps": 4,
+            "beta": 0.2,
+        }).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    dpo_resp = json.loads(urllib.request.urlopen(dpo_req).read().decode())
+    assert dpo_resp["status"] == "ok"
+    assert dpo_resp["implicit_margin"] > 0.0
+
+
 
