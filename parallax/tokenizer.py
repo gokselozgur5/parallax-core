@@ -9,6 +9,7 @@ Implements byte-level BPE tokenization from first principles:
 """
 
 import json
+import re
 from typing import Dict, List, Optional, Tuple
 
 
@@ -90,23 +91,37 @@ class BPETokenizer:
 
             next_id += 1
 
-    def encode(self, text: str) -> List[int]:
-        """Encodes text to a sequence of BPE token IDs."""
-        if not text:
-            return []
-
-        raw_bytes = text.encode("utf-8")
+    def _encode_bytes(self, raw_bytes: bytes) -> List[int]:
         tokens = list(raw_bytes)
-
         while len(tokens) >= 2:
             stats = get_pair_stats(tokens)
-            # Find the pair that occurred in merges with the lowest merge index (first learned)
             pair_candidates = {pair: self.merges[pair] for pair in stats if pair in self.merges}
             if not pair_candidates:
                 break
             best_pair = min(pair_candidates, key=pair_candidates.get)  # type: ignore[arg-type]
             new_id = self.merges[best_pair]
             tokens = merge_tokens(tokens, best_pair, new_id)
+        return tokens
+
+    def encode(self, text: str) -> List[int]:
+        """Encodes text to a sequence of BPE token IDs."""
+        if not text:
+            return []
+
+        if not self.special_tokens:
+            return self._encode_bytes(text.encode("utf-8"))
+
+        escaped = [re.escape(tok) for tok in sorted(self.special_tokens.keys(), key=len, reverse=True)]
+        pattern = f"({'|'.join(escaped)})"
+        parts = re.split(pattern, text)
+        tokens: List[int] = []
+        for part in parts:
+            if not part:
+                continue
+            if part in self.special_tokens:
+                tokens.append(self.special_tokens[part])
+            else:
+                tokens.extend(self._encode_bytes(part.encode("utf-8")))
 
         return tokens
 
