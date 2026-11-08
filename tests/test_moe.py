@@ -105,3 +105,23 @@ def test_sparse_moe_router_finite_differences_gradcheck() -> None:
         [x, moe.gate.weight],
     ) is True
 
+
+def test_sparse_moe_custom_hidden_dim_propagation():
+    D, E, K, H = 16, 2, 1, 32
+    moe_swiglu = SparseMoE(embed_dim=D, num_experts=E, top_k=K, use_swiglu=True, hidden_dim=H)
+    assert moe_swiglu.experts[0].w_gate.weight.shape == (H, D)
+
+    cfg = ParallaxLMConfig(
+        vocab_size=32,
+        embed_dim=16,
+        num_heads=2,
+        num_layers=1,
+        num_experts=2,
+        top_k_experts=1,
+        use_swiglu=True,
+        intermediate_size=48,
+    )
+    model = ParallaxLM(cfg)
+    assert model.blocks[0].mlp.experts[0].w_gate.weight.shape == (48, 16)
+
+
