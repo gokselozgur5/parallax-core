@@ -35,3 +35,16 @@ def dequantize_fp8(
     reconstructed = (quantized_blocks * scales).flatten()
     total_elements = int(np.prod(original_shape))
     return reconstructed[:total_elements].reshape(original_shape)
+
+def fp8_gemm(
+    a: np.ndarray,
+    b: np.ndarray,
+    format_type: str = "e4m3",
+    block_size: int = 16,
+) -> np.ndarray:
+    """Simulate FP8 GEMM with blockwise quantization and FP32 accumulation."""
+    q_a, s_a = quantize_fp8(a, format_type=format_type, block_size=block_size)
+    q_b, s_b = quantize_fp8(b, format_type=format_type, block_size=block_size)
+    deq_a = dequantize_fp8(q_a, s_a, a.shape)
+    deq_b = dequantize_fp8(q_b, s_b, b.shape)
+    return np.matmul(deq_a, deq_b)
