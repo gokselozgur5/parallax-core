@@ -83,6 +83,9 @@ class CausalSelfAttention(Module):
         num_heads: int,
         num_kv_heads: Optional[int] = None,
         use_rope: bool = True,
+        qkv_bias: bool = False,
+        rope_theta: float = 10000.0,
+        rope_interleaved: bool = True,
     ):
         super().__init__()
         assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
@@ -95,13 +98,16 @@ class CausalSelfAttention(Module):
         self.head_dim = embed_dim // num_heads
         self.kv_dim = self.num_kv_heads * self.head_dim
         self.use_rope = use_rope
+        self.qkv_bias = qkv_bias
+        self.rope_theta = float(rope_theta)
+        self.rope_interleaved = rope_interleaved
         self.scale = 1.0 / math.sqrt(self.head_dim)
 
         # Q projection: [embed_dim, embed_dim]
         # K, V projections: [embed_dim, kv_dim]
-        self.q_proj = Linear(embed_dim, embed_dim, bias=False)
-        self.k_proj = Linear(embed_dim, self.kv_dim, bias=False)
-        self.v_proj = Linear(embed_dim, self.kv_dim, bias=False)
+        self.q_proj = Linear(embed_dim, embed_dim, bias=qkv_bias)
+        self.k_proj = Linear(embed_dim, self.kv_dim, bias=qkv_bias)
+        self.v_proj = Linear(embed_dim, self.kv_dim, bias=qkv_bias)
         self.out_proj = Linear(embed_dim, embed_dim, bias=False)
 
     def forward(
@@ -133,8 +139,14 @@ class CausalSelfAttention(Module):
             # Apply RoPE on sequence dimension with past_len offset
             q_rope_in = np.transpose(q_heads, (0, 2, 1, 3))
             k_rope_in = np.transpose(k_heads, (0, 2, 1, 3))
-            q_heads = np.transpose(apply_rope(q_rope_in, seq_dim=1, offset=past_len), (0, 2, 1, 3))
-            k_heads = np.transpose(apply_rope(k_rope_in, seq_dim=1, offset=past_len), (0, 2, 1, 3))
+            q_heads = np.transpose(
+                apply_rope(q_rope_in, seq_dim=1, offset=past_len, theta=self.rope_theta, interleaved=self.rope_interleaved),
+                (0, 2, 1, 3),
+            )
+            k_heads = np.transpose(
+                apply_rope(k_rope_in, seq_dim=1, offset=past_len, theta=self.rope_theta, interleaved=self.rope_interleaved),
+                (0, 2, 1, 3),
+            )
 
         # Update and concatenate KV cache if provided
         updated_kv_cache: Optional[Tuple[np.ndarray, np.ndarray]] = None
@@ -218,14 +230,20 @@ class CausalSelfAttention(Module):
             dq_heads = d_scores @ k_heads_expanded
             if self.use_rope:
                 dq_rope_in = np.transpose(dq_heads, (0, 2, 1, 3))
-                dq_heads = np.transpose(apply_rope(dq_rope_in, seq_dim=1, offset=past_len, conjugate=True), (0, 2, 1, 3))
+                dq_heads = np.transpose(
+                    apply_rope(dq_rope_in, seq_dim=1, offset=past_len, conjugate=True, theta=self.rope_theta, interleaved=self.rope_interleaved),
+                    (0, 2, 1, 3),
+                )
             dq = np.transpose(dq_heads, (0, 2, 1, 3)).reshape(B, T, C)
 
             # dL/dK_expanded = d_scores^T @ Q
             dk_expanded = np.swapaxes(d_scores, -1, -2) @ q_heads
             if self.use_rope:
                 dk_rope_in = np.transpose(dk_expanded, (0, 2, 1, 3))
-                dk_expanded = np.transpose(apply_rope(dk_rope_in, seq_dim=1, offset=past_len, conjugate=True), (0, 2, 1, 3))
+                dk_expanded = np.transpose(
+                    apply_rope(dk_rope_in, seq_dim=1, offset=past_len, conjugate=True, theta=self.rope_theta, interleaved=self.rope_interleaved),
+                    (0, 2, 1, 3),
+                )
             if self.num_queries_per_kv > 1:
                 B_dim, _, T_dim, H_dim = dk_expanded.shape
                 dk_heads = dk_expanded.reshape(B_dim, self.num_kv_heads, self.num_queries_per_kv, T_dim, H_dim).sum(axis=2)
