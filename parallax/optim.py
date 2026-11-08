@@ -25,7 +25,7 @@ def clip_grad_norm_(parameters: List[Parameter], max_norm: float, eps: float = 1
         Total L2 norm of the gradients prior to clipping.
     """
     total_sq_sum = 0.0
-    grads = [p.grad for p in parameters if p.grad is not None]
+    grads = [p.grad for p in parameters if p.requires_grad and p.grad is not None]
 
     if not grads:
         return 0.0
@@ -132,7 +132,7 @@ class AdamW:
         bias_corr2 = 1.0 - (self.beta2**self.step_count)
 
         for i, p in enumerate(self.params):
-            if p.grad is None:
+            if not p.requires_grad or p.grad is None:
                 continue
 
             grad = p.grad
