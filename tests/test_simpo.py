@@ -14,3 +14,22 @@ def test_compute_simpo_reward_length_invariant():
     # Length normalization means both should have identical reward of 2.0 * (-1.0) = -2.0
     assert np.isclose(r_short, r_long)
     assert np.isclose(r_short, -2.0)
+
+
+from parallax.simpo import compute_simpo_loss
+
+
+def test_compute_simpo_loss_margin_satisfaction():
+    lp_w = np.array([-0.1, -0.1])
+    lp_l = np.array([-2.0, -2.0])
+
+    # Reward w: 2.0 * -0.1 = -0.2
+    # Reward l: 2.0 * -2.0 = -4.0
+    # Reward diff: 3.8
+    # If gamma=0.5, margin satisfied (3.8 > 0.5) -> small loss
+    loss_satisfied = compute_simpo_loss(lp_w, lp_l, beta=2.0, gamma_margin=0.5)
+
+    # If gamma=5.0, margin violated (3.8 < 5.0) -> high loss
+    loss_violated = compute_simpo_loss(lp_w, lp_l, beta=2.0, gamma_margin=5.0)
+
+    assert loss_satisfied < loss_violated
