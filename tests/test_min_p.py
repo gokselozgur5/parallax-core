@@ -11,3 +11,18 @@ def test_min_p_filter_relative_threshold():
     assert probs[2] == 0.0
     assert probs[3] == 0.0
     assert np.isclose(np.sum(probs), 1.0)
+
+
+from parallax.min_p import sample_min_p
+
+
+def test_sample_min_p_determinism_with_rng():
+    logits = np.array([2.0, 1.0, 0.5, -1.0])
+    rng1 = np.random.RandomState(42)
+    rng2 = np.random.RandomState(42)
+
+    tok1 = sample_min_p(logits, min_p=0.2, rng=rng1)
+    tok2 = sample_min_p(logits, min_p=0.2, rng=rng2)
+
+    assert tok1 == tok2
+    assert 0 <= tok1 < 4
