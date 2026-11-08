@@ -95,3 +95,23 @@ def test_speculative_decoding_stochastic_ratio_acceptance() -> None:
     assert len(tokens) >= 2
     assert "acceptance_rate" in stats
     assert 0.0 <= stats["acceptance_rate"] <= 1.0
+
+
+def test_speculative_decoding_residual_rejection_sampling() -> None:
+    np.random.seed(42)
+    cfg_target = ParallaxLMConfig(vocab_size=8, embed_dim=16, num_heads=2, num_layers=1, max_seq_len=16)
+    cfg_draft = ParallaxLMConfig(vocab_size=8, embed_dim=8, num_heads=2, num_layers=1, max_seq_len=16)
+    target = ParallaxLM(cfg_target)
+    draft = ParallaxLM(cfg_draft)
+
+    tokens, stats = speculative_generate(
+        target_model=target,
+        draft_model=draft,
+        prompt_tokens=[1, 2],
+        max_new_tokens=6,
+        gamma=3,
+        temperature=1.0,
+    )
+    assert len(tokens) == 8
+    assert "acceptance_rate" in stats
+
