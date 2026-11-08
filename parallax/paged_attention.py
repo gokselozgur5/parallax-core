@@ -65,3 +65,49 @@ class SequenceManager:
         self.allocator.k_cache[target_block_id, offset] = k_vec
         self.allocator.v_cache[target_block_id, offset] = v_vec
         self.seq_lengths[seq_id] += 1
+
+
+def paged_attention(
+    q: np.ndarray,
+    seq_id: int,
+    seq_manager: SequenceManager,
+) -> np.ndarray:
+    """Compute attention output for a query token reading from paged KV cache.
+
+    Args:
+        q: Query token vector of shape (d,).
+        seq_id: Sequence ID being decoded.
+        seq_manager: SequenceManager holding block tables and allocator.
+
+    Returns:
+        Output vector of shape (d,).
+    """
+    total_len = seq_manager.seq_lengths[seq_id]
+    if total_len == 0:
+        raise ValueError("Cannot attend over empty sequence")
+
+    block_size = seq_manager.allocator.block_size
+    head_dim = seq_manager.allocator.head_dim
+    scale = 1.0 / np.sqrt(head_dim)
+    blocks = seq_manager.block_tables[seq_id]
+
+    # Gather continuous K and V views through the virtual page table
+    k_all = np.zeros((total_len, head_dim), dtype=np.float32)
+    v_all = np.zeros((total_len, head_dim), dtype=np.float32)
+
+    filled = 0
+    for block_id in blocks:
+        take = min(block_size, total_len - filled)
+        k_all[filled : filled + take] = seq_manager.allocator.k_cache[block_id, :take]
+        v_all[filled : filled + take] = seq_manager.allocator.v_cache[block_id, :take]
+        filled += take
+        if filled >= total_len:
+            break
+
+    # Standard scaled dot-product across gathered paged tokens
+    logits = np.dot(k_all, q) * scale
+    max_logit = np.max(logits)
+    weights = np.exp(logits - max_logit)
+    weights /= np.sum(weights)
+
+    return np.dot(weights, v_all)
