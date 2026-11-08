@@ -122,15 +122,33 @@ class Tensor:
         out = Tensor(self.data @ other.data, (self, other), "@")
 
         def _backward() -> None:
+            if out.grad is None:
+                return
+            a_is_1d, b_is_1d = (self.ndim == 1), (other.ndim == 1)
+            a_2d = self.data[None, :] if a_is_1d else self.data
+            b_2d = other.data[:, None] if b_is_1d else other.data
+
+            if a_is_1d and b_is_1d:
+                g_2d = np.array([[float(out.grad)]])
+            elif a_is_1d:
+                g_2d = out.grad[None, :]
+            elif b_is_1d:
+                g_2d = out.grad[..., None]
+            else:
+                g_2d = out.grad
+
             if self.requires_grad and self.grad is not None:
-                # dL/dA = (dL/dOut) @ B^T
-                other_t = np.swapaxes(other.data, -1, -2)
-                grad_self = out.grad @ other_t
+                other_t = np.swapaxes(b_2d, -1, -2)
+                grad_self = g_2d @ other_t
+                if a_is_1d:
+                    grad_self = np.squeeze(grad_self, axis=-2)
                 self.grad += unbroadcast_grad(grad_self, self.shape)
+
             if other.requires_grad and other.grad is not None:
-                # dL/dB = A^T @ (dL/dOut)
-                self_t = np.swapaxes(self.data, -1, -2)
-                grad_other = self_t @ out.grad
+                self_t = np.swapaxes(a_2d, -1, -2)
+                grad_other = self_t @ g_2d
+                if b_is_1d:
+                    grad_other = np.squeeze(grad_other, axis=-1)
                 other.grad += unbroadcast_grad(grad_other, other.shape)
 
         out._backward = _backward
