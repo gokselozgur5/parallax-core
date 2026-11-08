@@ -103,12 +103,13 @@ def speculative_generate(
                     break
             else:
                 # Stochastic acceptance criterion: min(1, p(x) / q(x))
-                # For simplicity & exactness in greedy/low temp, verify top prob or accept
                 cand_target_prob = np.exp(pos_logits[cand] - np.max(pos_logits))
                 cand_target_prob /= np.sum(np.exp(pos_logits - np.max(pos_logits)))
+                q_prob = max(draft_probs[i], 1e-12)
+                ratio = float(cand_target_prob) / q_prob
 
-                # Uniform acceptance check against threshold
-                if np.random.rand() < min(1.0, float(cand_target_prob) * 1.5):
+                # Exact speculative acceptance check: accept with probability min(1, p(x)/q(x))
+                if np.random.rand() < min(1.0, ratio):
                     tokens.append(cand)
                     n_accepted += 1
                     total_generated += 1
