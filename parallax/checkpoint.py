@@ -128,6 +128,8 @@ def save_checkpoint(
     save_arrays: Dict[str, Any] = {
         "__config_json__": np.array(config_json),
         "__step__": np.array(step),
+        "__meta_num_experts__": np.array(model.config.num_experts if model.config.num_experts is not None else 0),
+        "__meta_top_k_experts__": np.array(model.config.top_k_experts),
     }
     save_arrays.update(state_dict)
 
