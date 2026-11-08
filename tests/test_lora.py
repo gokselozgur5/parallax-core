@@ -100,3 +100,32 @@ def test_apply_lora_to_parallax_lm():
     # Verify adapter weights updated while base model remained frozen
     for layer in lora_layers:
         assert np.any(layer.lora_B.data != 0.0)
+
+
+def test_adamw_weight_decay_skips_frozen_lora_base_weights():
+    np.random.seed(123)
+    cfg = ParallaxLMConfig(
+        vocab_size=16,
+        embed_dim=8,
+        num_heads=2,
+        num_layers=1,
+        max_seq_len=8,
+    )
+    model = ParallaxLM(cfg)
+    apply_lora_to_model(model, target_modules=("q_proj", "v_proj"), r=2, lora_alpha=4.0)
+
+    frozen_snapshots = [
+        (p, p.data.copy()) for p in model.parameters() if not p.requires_grad
+    ]
+    assert len(frozen_snapshots) > 0
+
+    # Pass all model.parameters() (including frozen ones) with strong weight_decay
+    optimizer = AdamW(model.parameters(), lr=0.05, weight_decay=0.2)
+    x = np.array([[1, 2, 3, 4]])
+    logits = model(x)
+    loss = (logits * logits).sum()
+    loss.backward()
+    optimizer.step()
+
+    for p, snap in frozen_snapshots:
+        np.testing.assert_array_equal(p.data, snap)
