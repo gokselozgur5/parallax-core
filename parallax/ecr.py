@@ -31,3 +31,19 @@ class ExpertChoiceRouter:
             expert_token_indices[e] = topk_idx
             expert_gate_weights[e] = col_scores[topk_idx]
         return expert_token_indices, expert_gate_weights
+
+    def combine_expert_outputs(
+        self,
+        expert_outputs: np.ndarray,
+        expert_token_indices: np.ndarray,
+        expert_gate_weights: np.ndarray,
+        num_tokens: int,
+        dim: int,
+    ) -> np.ndarray:
+        """Combine and accumulate expert outputs back to token representations."""
+        combined = np.zeros((num_tokens, dim), dtype=float)
+        for e in range(self.num_experts):
+            indices = expert_token_indices[e]
+            weights = expert_gate_weights[e][:, None]
+            np.add.at(combined, indices, expert_outputs[e] * weights)
+        return combined
