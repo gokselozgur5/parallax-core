@@ -26,3 +26,23 @@ def update_online_softmax(
     O_new = alpha[:, :, :, None] * O_old + PV
 
     return m_new, l_new, O_new
+
+
+def reference_attention(
+    q: np.ndarray,
+    k: np.ndarray,
+    v: np.ndarray,
+    is_causal: bool = True,
+) -> np.ndarray:
+    """Exact full-matrix attention reference implementation."""
+    B, H, Tq, d = q.shape
+    Tk = k.shape[2]
+    scale = 1.0 / np.sqrt(d)
+    S = np.matmul(q, k.swapaxes(-2, -1)) * scale
+    if is_causal:
+        mask = np.arange(Tq)[:, None] < np.arange(Tk)[None, :]
+        S = np.where(mask[None, None, :, :], -1e9, S)
+    exp_S = np.exp(S - np.max(S, axis=-1, keepdims=True))
+    P = exp_S / np.sum(exp_S, axis=-1, keepdims=True)
+    return np.matmul(P, v)
+
