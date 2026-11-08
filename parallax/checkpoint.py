@@ -35,7 +35,22 @@ def get_model_state_dict(model: ParallaxLM) -> Dict[str, np.ndarray]:
         state_dict[f"{prefix}.attn.out_proj.weight"] = block.attn.out_proj.weight.data
 
         state_dict[f"{prefix}.mlp_norm.weight"] = block.mlp_norm.weight.data
-        if block.use_swiglu:
+        if block.num_experts is not None and block.num_experts > 1:
+            state_dict[f"{prefix}.mlp.gate.weight"] = block.mlp.gate.weight.data
+            for e, expert in enumerate(block.mlp.experts):
+                e_pfx = f"{prefix}.mlp.experts.{e}"
+                if block.use_swiglu:
+                    state_dict[f"{e_pfx}.w_gate.weight"] = expert.w_gate.weight.data
+                    state_dict[f"{e_pfx}.w_up.weight"] = expert.w_up.weight.data
+                    state_dict[f"{e_pfx}.w_down.weight"] = expert.w_down.weight.data
+                else:
+                    state_dict[f"{e_pfx}.fc1.weight"] = expert.fc1.weight.data
+                    if expert.fc1.bias is not None:
+                        state_dict[f"{e_pfx}.fc1.bias"] = expert.fc1.bias.data
+                    state_dict[f"{e_pfx}.fc2.weight"] = expert.fc2.weight.data
+                    if expert.fc2.bias is not None:
+                        state_dict[f"{e_pfx}.fc2.bias"] = expert.fc2.bias.data
+        elif block.use_swiglu:
             state_dict[f"{prefix}.mlp.w_gate.weight"] = block.mlp.w_gate.weight.data
             state_dict[f"{prefix}.mlp.w_up.weight"] = block.mlp.w_up.weight.data
             state_dict[f"{prefix}.mlp.w_down.weight"] = block.mlp.w_down.weight.data
