@@ -4,7 +4,10 @@ Unit tests for Contrastive Search decoding primitives.
 
 import numpy as np
 import pytest
-from parallax.contrastive import compute_max_cosine_similarity
+from parallax.contrastive import (
+    compute_max_cosine_similarity,
+    score_contrastive_candidate,
+)
 
 
 def test_compute_max_cosine_similarity_orthogonal_and_parallel():
@@ -17,3 +20,18 @@ def test_compute_max_cosine_similarity_orthogonal_and_parallel():
     # Empty history returns 0.0
     empty_history = np.empty((0, 2))
     assert compute_max_cosine_similarity(cand_same, empty_history) == 0.0
+
+
+def test_score_contrastive_candidate_penalizes_repetition():
+    history = np.array([[1.0, 0.0], [0.8, 0.2]])
+    # Candidate 1: High probability (0.9), but identical to history
+    score_repetitive = score_contrastive_candidate(
+        token_prob=0.9, candidate_vec=np.array([1.0, 0.0]), history_matrix=history, alpha=0.6
+    )
+    # Candidate 2: Moderate probability (0.6), but orthogonal/novel to history
+    score_novel = score_contrastive_candidate(
+        token_prob=0.6, candidate_vec=np.array([0.0, 1.0]), history_matrix=history, alpha=0.6
+    )
+    # The novel token must receive a higher overall score than the repetitive token
+    assert score_novel > score_repetitive
+
