@@ -38,8 +38,10 @@ class LoRALinear(Module):
 
         # Freeze base parameters
         self.base_layer.weight.requires_grad = False
+        self.base_layer.weight.grad = None
         if self.base_layer.bias is not None:
             self.base_layer.bias.requires_grad = False
+            self.base_layer.bias.grad = None
 
         if r > 0:
             # A initialized with Gaussian N(0, 1/r), B initialized to 0
@@ -103,6 +105,7 @@ def apply_lora_to_model(
     # 1. Freeze all model parameters first
     for p in model.parameters():
         p.requires_grad = False
+        p.grad = None
 
     lora_layers: List[LoRALinear] = []
 
