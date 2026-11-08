@@ -33,3 +33,22 @@ def flash_cross_entropy_forward(
 
     for i in range(N):
         target_logits[i] = logits[i, targets[i]]
+
+    num_chunks = int(np.ceil(V / chunk_size))
+    for c in range(num_chunks):
+        c_start = c * chunk_size
+        c_end = min(c_start + chunk_size, V)
+        chunk = logits[:, c_start:c_end]
+
+        chunk_m = np.max(chunk, axis=1)
+        new_m = np.maximum(m_vec, chunk_m)
+
+        # Rescale old accumulator and add new chunk contribution
+        l_vec = l_vec * np.exp(m_vec - new_m) + np.sum(np.exp(chunk - new_m[:, np.newaxis]), axis=1)
+        m_vec = new_m
+
+    # Log-sum-exp = m + log(l)
+    lse = m_vec + np.log(l_vec + 1e-12)
+    # Loss = mean(lse - target_logit)
+    loss = float(np.mean(lse - target_logits))
+    return loss, m_vec, l_vec
