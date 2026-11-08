@@ -42,29 +42,51 @@ def count_parameters(model: ParallaxLM) -> Dict[str, int]:
         breakdown["norm"] += sum(int(np.prod(p.shape)) for p in block.attn_norm.parameters())
         breakdown["norm"] += sum(int(np.prod(p.shape)) for p in block.mlp_norm.parameters())
 
-    breakdown["total"] = sum(int(np.prod(p.shape)) for p in model.parameters())
+    unique_params = {id(p): p for p in model.parameters()}
+    breakdown["total"] = sum(int(np.prod(p.shape)) for p in unique_params.values())
     return breakdown
 
 
 def estimate_flops_per_token(config: ParallaxLMConfig) -> int:
     """Estimates theoretical FLOPs required per token in forward pass.
 
-    Standard Transformer FLOP approximation:
-    - Token embedding lookup: ~0 (memory bound)
-    - Attention Q, K, V + Output projections: 4 * 2 * d_model^2 * n_layers
-    - MLP layers (fc1 + fc2): 2 * 2 * (4 * d_model) * d_model * n_layers = 16 * d_model^2 * n_layers
-    - LM Head projection: 2 * d_model * vocab_size
-    Total FLOPs/token ~= 24 * n_layers * d_model^2 + 2 * d_model * vocab_size
+    Transformer FLOP accounting:
+    - Attention linear projections: Q (2*d^2), K & V (2 * 2 * d * d_kv), Out (2*d^2)
+    - MLP projections:
+        Dense (SwiGLU: 6*d*intermediate, Standard: 4*d*intermediate)
+        MoE: Gate (2*d*num_experts) + top_k * expert_mlp_flops
+    - LM Head projection: 2 * d * vocab_size
     """
     d = config.embed_dim
     L = config.num_layers
     V = config.vocab_size
 
-    attn_flops = 4 * 2 * (d**2) * L
-    mlp_flops = 16 * (d**2) * L
+    num_heads = config.num_heads
+    num_kv_heads = config.num_kv_heads if config.num_kv_heads is not None else num_heads
+    d_kv = (num_kv_heads * d) // num_heads
+
+    q_flops = 2 * d * d
+    k_flops = 2 * d * d_kv
+    v_flops = 2 * d * d_kv
+    out_flops = 2 * d * d
+    attn_flops_per_layer = q_flops + k_flops + v_flops + out_flops
+
+    intermediate_size = config.intermediate_size if config.intermediate_size is not None else 4 * d
+    if config.use_swiglu:
+        single_mlp_flops = 6 * d * intermediate_size
+    else:
+        single_mlp_flops = 4 * d * intermediate_size
+
+    if config.num_experts is not None and config.num_experts > 1:
+        top_k = config.top_k_experts if config.top_k_experts is not None else 2
+        gate_flops = 2 * d * config.num_experts
+        mlp_flops_per_layer = gate_flops + top_k * single_mlp_flops
+    else:
+        mlp_flops_per_layer = single_mlp_flops
+
     head_flops = 2 * d * V
 
-    return attn_flops + mlp_flops + head_flops
+    return (attn_flops_per_layer + mlp_flops_per_layer) * L + head_flops
 
 
 def benchmark_inference(
