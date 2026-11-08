@@ -6,7 +6,9 @@ gradients computed by the Value autograd engine.
 """
 
 from typing import Callable, Sequence, Union
+import numpy as np
 from parallax.engine import Value
+from parallax.tensor import Tensor
 
 
 def compute_numerical_gradient(
@@ -71,4 +73,43 @@ def check_gradient(
         if rel_err > tol:
             return False
 
+    return True
+
+
+def compute_numerical_tensor_gradient(
+    fn: Callable[..., Tensor], inputs: Sequence[Tensor], eps: float = 1e-5
+) -> list[np.ndarray]:
+    """Computes numerical gradients of a scalar tensor function using central differences."""
+    grads = []
+    for inp in inputs:
+        grad = np.zeros_like(inp.data, dtype=np.float64)
+        it = np.nditer(inp.data, flags=["multi_index"])
+        while not it.finished:
+            idx = it.multi_index
+            orig = inp.data[idx]
+            inp.data[idx] = orig + eps
+            out_pos = float(np.sum(fn(*inputs).data))
+            inp.data[idx] = orig - eps
+            out_neg = float(np.sum(fn(*inputs).data))
+            inp.data[idx] = orig
+            grad[idx] = (out_pos - out_neg) / (2.0 * eps)
+            it.iternext()
+        grads.append(grad)
+    return grads
+
+
+def check_tensor_gradient(
+    fn: Callable[..., Tensor], inputs: Sequence[Tensor], eps: float = 1e-5, tol: float = 1e-4
+) -> bool:
+    """Verifies Tensor analytical gradients against finite differences."""
+    for inp in inputs:
+        inp.grad = None
+    out = fn(*inputs)
+    out.backward()
+    analytic_grads = [inp.grad.copy() if inp.grad is not None else np.zeros_like(inp.data) for inp in inputs]
+    numerical_grads = compute_numerical_tensor_gradient(fn, inputs, eps=eps)
+    for a_grad, n_grad in zip(analytic_grads, numerical_grads):
+        denom = np.maximum(np.maximum(np.abs(a_grad), np.abs(n_grad)), 1e-7)
+        if np.max(np.abs(a_grad - n_grad) / denom) > tol:
+            return False
     return True
