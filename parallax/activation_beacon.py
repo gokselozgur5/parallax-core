@@ -20,3 +20,13 @@ class ActivationBeaconCompressor:
         trimmed = activations[:num_beacons * self.interval]
         windows = trimmed.reshape(num_beacons, self.interval, dim)
         return np.mean(windows, axis=1)
+
+    def compress_kv_cache(
+        self,
+        past_k: np.ndarray,
+        past_v: np.ndarray,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Compress old KV cache into condensed beacon KV representations."""
+        beacon_k = self.condense_activations(past_k)
+        beacon_v = self.condense_activations(past_v)
+        return beacon_k, beacon_v
