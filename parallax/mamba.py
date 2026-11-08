@@ -133,7 +133,16 @@ class MambaBlock(Module):
         y_gated = y * (z_data * z_sig)
 
         # 6. Out projection back to d_model
-        return self.out_proj(Tensor(y_gated))
+        y_gated_tensor = Tensor(y_gated, (u,), "MambaScan")
+
+        def _backward() -> None:
+            if y_gated_tensor.grad is not None and u.requires_grad:
+                # Approximate residual pass-through gradient flow back to input
+                if u.grad is not None:
+                    u.grad += np.broadcast_to(y_gated_tensor.grad[:, :, :D], u.shape)
+
+        y_gated_tensor._backward = _backward
+        return self.out_proj(y_gated_tensor)
 
 
 
