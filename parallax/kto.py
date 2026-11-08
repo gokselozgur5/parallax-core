@@ -4,6 +4,8 @@ Kahneman-Tversky Optimization (KTO: Ethayarajh et al., 2024) from first principl
 
 from typing import Optional, Tuple
 import numpy as np
+from parallax.rl import compute_sequence_log_probs
+from parallax.tensor import Tensor
 
 
 def kto_value_function(
@@ -27,3 +29,21 @@ def kto_value_function(
         dloss_dz = lambda_u * sig * (1.0 - sig)
 
     return loss, dloss_dz
+
+
+def compute_kto_implicit_rewards(
+    policy_logits: Tensor,
+    ref_logits: np.ndarray,
+    targets: np.ndarray,
+    beta: float = 0.1,
+    mask: Optional[np.ndarray] = None,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Computes implicit rewards r_theta(x, y) = beta * (log pi(y|x) - log ref(y|x)) and policy logit grads."""
+    pi_logp, d_pi = compute_sequence_log_probs(policy_logits, targets, mask)
+    ref_tensor = Tensor(ref_logits, requires_grad=False)
+    ref_logp, _ = compute_sequence_log_probs(ref_tensor, targets, mask)
+
+    log_ratio = pi_logp - ref_logp
+    implicit_rewards = beta * log_ratio
+    return implicit_rewards, d_pi
+
