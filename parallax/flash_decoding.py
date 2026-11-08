@@ -62,3 +62,42 @@ def reduce_split_k_outputs(
     rescaled_outs = local_outs * scales
 
     return np.sum(rescaled_outs, axis=0) / (l_global + 1e-12)
+
+
+def flash_decode_attention(
+    q: np.ndarray,
+    k: np.ndarray,
+    v: np.ndarray,
+    split_size: int = 64,
+) -> np.ndarray:
+    """Full FlashDecoding attention forward pass for single query token across long context.
+
+    Args:
+        q: Query token vector of shape (d,) or (1, d).
+        k: Cached keys matrix of shape (seq_len, d).
+        v: Cached values matrix of shape (seq_len, d).
+        split_size: Number of tokens per split chunk.
+
+    Returns:
+        Output vector of shape (d,).
+    """
+    q_vec = q.squeeze()
+    seq_len, d = k.shape
+    scale = 1.0 / np.sqrt(d)
+
+    num_splits = int(np.ceil(seq_len / split_size))
+    local_outs = np.zeros((num_splits, d), dtype=np.float64)
+    local_maxes = np.zeros(num_splits, dtype=np.float64)
+    local_lsums = np.zeros(num_splits, dtype=np.float64)
+
+    for i in range(num_splits):
+        start_idx = i * split_size
+        end_idx = min(start_idx + split_size, seq_len)
+        k_chunk = k[start_idx:end_idx]
+        v_chunk = v[start_idx:end_idx]
+        out_i, m_i, l_i = flash_decode_split_kernel(q_vec, k_chunk, v_chunk, scale)
+        local_outs[i] = out_i
+        local_maxes[i] = m_i
+        local_lsums[i] = l_i
+
+    return reduce_split_k_outputs(local_outs, local_maxes, local_lsums)
