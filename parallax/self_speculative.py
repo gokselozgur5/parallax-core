@@ -25,3 +25,24 @@ class SelfSpeculativeEngine:
             drafts.append(next_tok)
             curr.append(next_tok)
         return drafts
+
+    def verify_tokens(
+        self,
+        prompt_tokens: List[int],
+        drafts: List[int],
+        full_eval_fn: Callable[[List[int]], List[int]],
+    ) -> List[int]:
+        """Verify drafts against full model predictions and return accepted prefix."""
+        candidate_seq = list(prompt_tokens) + drafts
+        full_preds = full_eval_fn(candidate_seq)
+        accepted = []
+        p_len = len(prompt_tokens)
+
+        for i, d in enumerate(drafts):
+            target_pred = full_preds[p_len - 1 + i]
+            if target_pred == d:
+                accepted.append(d)
+            else:
+                accepted.append(target_pred)
+                break
+        return accepted
