@@ -30,8 +30,14 @@ def get_model_state_dict(model: ParallaxLM) -> Dict[str, np.ndarray]:
         prefix = f"blocks.{i}"
         state_dict[f"{prefix}.attn_norm.weight"] = block.attn_norm.weight.data
         state_dict[f"{prefix}.attn.q_proj.weight"] = block.attn.q_proj.weight.data
+        if block.attn.q_proj.bias is not None:
+            state_dict[f"{prefix}.attn.q_proj.bias"] = block.attn.q_proj.bias.data
         state_dict[f"{prefix}.attn.k_proj.weight"] = block.attn.k_proj.weight.data
+        if block.attn.k_proj.bias is not None:
+            state_dict[f"{prefix}.attn.k_proj.bias"] = block.attn.k_proj.bias.data
         state_dict[f"{prefix}.attn.v_proj.weight"] = block.attn.v_proj.weight.data
+        if block.attn.v_proj.bias is not None:
+            state_dict[f"{prefix}.attn.v_proj.bias"] = block.attn.v_proj.bias.data
         state_dict[f"{prefix}.attn.out_proj.weight"] = block.attn.out_proj.weight.data
 
         state_dict[f"{prefix}.mlp_norm.weight"] = block.mlp_norm.weight.data
@@ -81,8 +87,14 @@ def load_model_state_dict(model: ParallaxLM, state_dict: Dict[str, np.ndarray]) 
         prefix = f"blocks.{i}"
         block.attn_norm.weight.data = state_dict[f"{prefix}.attn_norm.weight"].copy()
         block.attn.q_proj.weight.data = state_dict[f"{prefix}.attn.q_proj.weight"].copy()
+        if block.attn.q_proj.bias is not None and f"{prefix}.attn.q_proj.bias" in state_dict:
+            block.attn.q_proj.bias.data = state_dict[f"{prefix}.attn.q_proj.bias"].copy()
         block.attn.k_proj.weight.data = state_dict[f"{prefix}.attn.k_proj.weight"].copy()
+        if block.attn.k_proj.bias is not None and f"{prefix}.attn.k_proj.bias" in state_dict:
+            block.attn.k_proj.bias.data = state_dict[f"{prefix}.attn.k_proj.bias"].copy()
         block.attn.v_proj.weight.data = state_dict[f"{prefix}.attn.v_proj.weight"].copy()
+        if block.attn.v_proj.bias is not None and f"{prefix}.attn.v_proj.bias" in state_dict:
+            block.attn.v_proj.bias.data = state_dict[f"{prefix}.attn.v_proj.bias"].copy()
         block.attn.out_proj.weight.data = state_dict[f"{prefix}.attn.out_proj.weight"].copy()
 
         block.mlp_norm.weight.data = state_dict[f"{prefix}.mlp_norm.weight"].copy()
