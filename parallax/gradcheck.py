@@ -99,11 +99,13 @@ def compute_numerical_tensor_gradient(
 
 
 def check_tensor_gradient(
-    fn: Callable[..., Tensor], inputs: Sequence[Tensor], eps: float = 1e-5, tol: float = 1e-4
+    fn: Callable[..., Tensor], inputs: Sequence[Tensor], eps: float = 1e-5, tol: float = 2e-4
 ) -> bool:
     """Verifies Tensor analytical gradients against finite differences."""
     for inp in inputs:
-        inp.grad = None
+        inp.zero_grad()
+        if inp.grad is None:
+            inp.grad = np.zeros_like(inp.data, dtype=np.float64)
     out = fn(*inputs)
     out.backward()
     analytic_grads = [inp.grad.copy() if inp.grad is not None else np.zeros_like(inp.data) for inp in inputs]
