@@ -4,7 +4,14 @@ Unit tests for Selective State Space Model (Mamba/S6) (M28).
 
 import numpy as np
 import pytest
-from parallax.mamba import MambaBlock, discretize_zoh, selective_scan_backward, selective_scan_forward
+from parallax.mamba import (
+    MambaBlock,
+    causal_conv1d_backward,
+    causal_conv1d_forward,
+    discretize_zoh,
+    selective_scan_backward,
+    selective_scan_forward,
+)
 from parallax.tensor import Tensor
 
 
@@ -131,6 +138,57 @@ def test_selective_scan_backward_finite_difference():
         D_skip[idx] = orig
         num_dD[idx] = np.sum(d_y * (y_pos - y_neg)) / (2.0 * eps)
     np.testing.assert_allclose(dD, num_dD, atol=1e-5)
+
+
+def test_causal_conv1d_backward_finite_difference():
+    np.random.seed(42)
+    B, T, d_inner, d_conv = 2, 4, 3, 3
+    x = np.random.randn(B, T, d_inner)
+    weight = np.random.randn(d_inner, d_conv)
+    bias = np.random.randn(d_inner)
+
+    out = causal_conv1d_forward(x, weight, bias)
+    d_out = np.random.randn(*out.shape)
+
+    dx, dweight, dbias = causal_conv1d_backward(d_out, x, weight, bias)
+
+    eps = 1e-6
+    # Check dx
+    num_dx = np.zeros_like(x)
+    for idx in np.ndindex(x.shape):
+        orig = x[idx]
+        x[idx] = orig + eps
+        pos = causal_conv1d_forward(x, weight, bias)
+        x[idx] = orig - eps
+        neg = causal_conv1d_forward(x, weight, bias)
+        x[idx] = orig
+        num_dx[idx] = np.sum(d_out * (pos - neg)) / (2.0 * eps)
+    np.testing.assert_allclose(dx, num_dx, atol=1e-5)
+
+    # Check dweight
+    num_dw = np.zeros_like(weight)
+    for idx in np.ndindex(weight.shape):
+        orig = weight[idx]
+        weight[idx] = orig + eps
+        pos = causal_conv1d_forward(x, weight, bias)
+        weight[idx] = orig - eps
+        neg = causal_conv1d_forward(x, weight, bias)
+        weight[idx] = orig
+        num_dw[idx] = np.sum(d_out * (pos - neg)) / (2.0 * eps)
+    np.testing.assert_allclose(dweight, num_dw, atol=1e-5)
+
+    # Check dbias
+    num_db = np.zeros_like(bias)
+    for idx in np.ndindex(bias.shape):
+        orig = bias[idx]
+        bias[idx] = orig + eps
+        pos = causal_conv1d_forward(x, weight, bias)
+        bias[idx] = orig - eps
+        neg = causal_conv1d_forward(x, weight, bias)
+        bias[idx] = orig
+        num_db[idx] = np.sum(d_out * (pos - neg)) / (2.0 * eps)
+    np.testing.assert_allclose(dbias, num_db, atol=1e-5)
+
 
 
 
