@@ -47,3 +47,43 @@ def reduce_gqa_kv_gradients(grad_repeated: np.ndarray, num_groups: int) -> np.nd
     # Reshape to (b, num_kv_heads, num_groups, s, d) and sum over group axis
     reshaped = grad_repeated.reshape(b, num_kv_heads, num_groups, s, d)
     return np.sum(reshaped, axis=2)
+
+
+
+def gqa_causal_forward(
+    q: np.ndarray,
+    k: np.ndarray,
+    v: np.ndarray,
+) -> np.ndarray:
+    """Compute Grouped-Query Attention forward pass with causal masking.
+
+    Args:
+        q: Query tensor of shape (batch, num_q_heads, seq_len, head_dim).
+        k: Key tensor of shape (batch, num_kv_heads, seq_len, head_dim).
+        v: Value tensor of shape (batch, num_kv_heads, seq_len, head_dim).
+
+    Returns:
+        Output tensor of shape (batch, num_q_heads, seq_len, head_dim).
+    """
+    b, h_q, s, d = q.shape
+    _, h_kv, _, _ = k.shape
+    num_groups = h_q // h_kv
+
+    # Broadcast KV to match Q heads
+    k_exp = repeat_kv_heads(k, num_groups)
+    v_exp = repeat_kv_heads(v, num_groups)
+
+    scale = 1.0 / np.sqrt(d)
+    # Scaled dot product: (b, h_q, s, s)
+    scores = np.matmul(q, k_exp.transpose(0, 1, 3, 2)) * scale
+
+    # Causal mask: upper triangle set to -1e9
+    mask = np.triu(np.ones((s, s), dtype=bool), k=1)
+    scores[:, :, mask] = -1e9
+
+    # Softmax along key dimension
+    m = np.max(scores, axis=-1, keepdims=True)
+    exp_scores = np.exp(scores - m)
+    weights = exp_scores / np.sum(exp_scores, axis=-1, keepdims=True)
+
+    return np.matmul(weights, v_exp)
