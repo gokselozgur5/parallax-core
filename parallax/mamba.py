@@ -2,7 +2,7 @@
 Selective State Space Model (S6 / Mamba: Gu & Dao, 2023) mathematical primitives.
 """
 
-from typing import Tuple
+from typing import Optional, Tuple
 import numpy as np
 
 
