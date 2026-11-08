@@ -18,3 +18,38 @@ class QGaLoreProjector:
         self.step_count = 0
         self.U: Optional[np.ndarray] = None
         self.V_T: Optional[np.ndarray] = None
+
+
+    def update_basis(self, grad: np.ndarray):
+        """Recompute low-rank SVD projection basis U from gradient."""
+        # Compute truncated SVD of gradient matrix
+        U, _, Vt = np.linalg.svd(grad, full_matrices=False)
+        self.U = U[:, : self.rank].astype(np.float32)
+        self.V_T = Vt[: self.rank, :].astype(np.float32)
+
+    def project_and_quantize(
+        self, grad: np.ndarray
+    ) -> Tuple[np.ndarray, float]:
+        """Project gradient into low-rank subspace and apply INT8 quantization.
+
+        P = U.T @ grad
+        Returns quantized integer array and scaling factor.
+        """
+        if self.U is None or (self.step_count % self.update_interval == 0):
+            self.update_basis(grad)
+        self.step_count += 1
+
+        # Project to low-rank subspace: shape (rank, N)
+        proj = np.dot(self.U.T, grad)
+
+        # Per-tensor symmetric INT8 quantization
+        abs_max = float(np.max(np.abs(proj))) + 1e-8
+        scale = abs_max / 127.0
+        quantized = np.clip(np.round(proj / scale), -128, 127).astype(np.int8)
+
+        return quantized, scale
+
+    def deproject(self, quantized: np.ndarray, scale: float) -> np.ndarray:
+        """Dequantize subspace and reconstruct low-rank gradient approximation."""
+        dequant = quantized.astype(np.float32) * scale
+        return np.dot(self.U, dequant)
