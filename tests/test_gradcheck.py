@@ -1,6 +1,10 @@
+import numpy as np
 import pytest
 from parallax.engine import Value
-from parallax.gradcheck import check_gradient, compute_numerical_gradient
+from parallax.gradcheck import check_gradient, check_tensor_gradient, compute_numerical_gradient
+from parallax.models.gpt import SwiGLU
+from parallax.nn import Linear, RMSNorm
+from parallax.tensor import Tensor
 
 
 def test_gradcheck_simple_polynomial():
@@ -42,3 +46,26 @@ def test_gradcheck_detects_deliberate_error():
     numerical = compute_numerical_gradient(fn, [3.0])[0]
     rel_err = abs(var.grad - numerical) / max(abs(var.grad), abs(numerical))
     assert rel_err > 1e-2
+
+
+def test_gradcheck_tensor_linear():
+    np.random.seed(42)
+    x = Tensor(np.random.randn(2, 3), requires_grad=True)
+    layer = Linear(3, 4, bias=True)
+
+    def fn(inp):
+        return (layer(inp) * layer(inp)).sum()
+
+    assert check_tensor_gradient(fn, [x], eps=1e-5, tol=1e-4) is True
+
+
+def test_gradcheck_tensor_rmsnorm():
+    np.random.seed(42)
+    x = Tensor(np.random.randn(2, 4), requires_grad=True)
+    norm = RMSNorm(4)
+
+    def fn(inp):
+        y = norm(inp)
+        return (y * y).sum()
+
+    assert check_tensor_gradient(fn, [x], eps=1e-5, tol=2e-4) is True
