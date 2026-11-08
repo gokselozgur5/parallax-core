@@ -33,3 +33,23 @@ def test_compute_simpo_loss_margin_satisfaction():
     loss_violated = compute_simpo_loss(lp_w, lp_l, beta=2.0, gamma_margin=5.0)
 
     assert loss_satisfied < loss_violated
+
+
+from parallax.simpo import simpo_step
+
+
+def test_simpo_step_execution_and_finite_gradients():
+    vocab_size = 15
+    logits_w = np.random.randn(4, vocab_size)
+    targets_w = np.random.randint(0, vocab_size, size=4)
+    logits_l = np.random.randn(3, vocab_size)
+    targets_l = np.random.randint(0, vocab_size, size=3)
+
+    loss, grad_w, grad_l = simpo_step(logits_w, targets_w, logits_l, targets_l)
+
+    assert isinstance(loss, float)
+    assert grad_w.shape == logits_w.shape
+    assert grad_l.shape == logits_l.shape
+    assert not np.isnan(loss)
+    assert not np.isnan(grad_w).any()
+    assert not np.isnan(grad_l).any()
