@@ -86,7 +86,22 @@ def load_model_state_dict(model: ParallaxLM, state_dict: Dict[str, np.ndarray]) 
         block.attn.out_proj.weight.data = state_dict[f"{prefix}.attn.out_proj.weight"].copy()
 
         block.mlp_norm.weight.data = state_dict[f"{prefix}.mlp_norm.weight"].copy()
-        if block.use_swiglu:
+        if block.num_experts is not None and block.num_experts > 1:
+            block.mlp.gate.weight.data = state_dict[f"{prefix}.mlp.gate.weight"].copy()
+            for e, expert in enumerate(block.mlp.experts):
+                e_pfx = f"{prefix}.mlp.experts.{e}"
+                if block.use_swiglu:
+                    expert.w_gate.weight.data = state_dict[f"{e_pfx}.w_gate.weight"].copy()
+                    expert.w_up.weight.data = state_dict[f"{e_pfx}.w_up.weight"].copy()
+                    expert.w_down.weight.data = state_dict[f"{e_pfx}.w_down.weight"].copy()
+                else:
+                    expert.fc1.weight.data = state_dict[f"{e_pfx}.fc1.weight"].copy()
+                    if expert.fc1.bias is not None and f"{e_pfx}.fc1.bias" in state_dict:
+                        expert.fc1.bias.data = state_dict[f"{e_pfx}.fc1.bias"].copy()
+                    expert.fc2.weight.data = state_dict[f"{e_pfx}.fc2.weight"].copy()
+                    if expert.fc2.bias is not None and f"{e_pfx}.fc2.bias" in state_dict:
+                        expert.fc2.bias.data = state_dict[f"{e_pfx}.fc2.bias"].copy()
+        elif block.use_swiglu:
             block.mlp.w_gate.weight.data = state_dict[f"{prefix}.mlp.w_gate.weight"].copy()
             block.mlp.w_up.weight.data = state_dict[f"{prefix}.mlp.w_up.weight"].copy()
             block.mlp.w_down.weight.data = state_dict[f"{prefix}.mlp.w_down.weight"].copy()
