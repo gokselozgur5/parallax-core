@@ -98,3 +98,9 @@ def flash_attention_forward(
     return o / safe_l, m + np.log(np.maximum(l, 1e-12))
 
 
+def compute_d_scalar(do: np.ndarray, o: np.ndarray) -> np.ndarray:
+    """Computes row-wise scaling factor D_i = rowsum(dO_i * O_i) for FlashAttention backward."""
+    return np.sum(do * o, axis=-1)  # Shape: [B, H, Tq]
+
+
+
