@@ -15,6 +15,7 @@ import numpy as np
 
 from parallax.generator import sample_next_token
 from parallax.models.gpt import ParallaxLM
+from parallax.tensor import no_grad
 
 
 def speculative_generate(
@@ -61,7 +62,8 @@ def speculative_generate(
 
         for _ in range(spec_budget):
             idx_d = np.array([curr_draft_seq[-draft_model.config.max_seq_len:]], dtype=np.int64)
-            d_logits = draft_model(idx_d).data[0, -1, :]
+            with no_grad():
+                d_logits = draft_model(idx_d).data[0, -1, :]
             # Compute draft probability distribution for candidate
             scaled_d = (d_logits / temperature) if temperature > 0.0 else d_logits
             exp_d = np.exp(scaled_d - np.max(scaled_d))
@@ -77,7 +79,8 @@ def speculative_generate(
         # 2. Parallel Target verification: evaluate prompt + all drafted tokens in ONE forward pass
         eval_seq = tokens + draft_tokens
         idx_target = np.array([eval_seq[-target_model.config.max_seq_len:]], dtype=np.int64)
-        target_logits = target_model(idx_target).data[0]
+        with no_grad():
+            target_logits = target_model(idx_target).data[0]
         target_forward_passes += 1
 
         # 3. Acceptance / Rejection loop
