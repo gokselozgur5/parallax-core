@@ -153,3 +153,39 @@ def test_dpo_loss_optimization_and_implicit_rewards():
     assert margin > initial_margin
     assert r_w > r_l
 
+
+def test_policy_gradient_step_kl_penalty_finite_differences():
+    np.random.seed(99)
+    cfg = ParallaxLMConfig(
+        vocab_size=6,
+        embed_dim=8,
+        num_heads=2,
+        num_layers=1,
+        max_seq_len=6,
+    )
+    policy = ParallaxLM(cfg)
+    tokens = np.array([[1, 2, 3]])
+    ref_logits = np.random.randn(1, 3, 6)
+
+    policy.zero_grad()
+    loss0 = compute_policy_gradient_step(
+        policy, tokens, reward=1.5, baseline=0.5, kl_coef=0.3, ref_logits=ref_logits
+    )
+    analytic_grad = policy.token_embeddings.weight.grad.copy()
+
+    eps = 1e-5
+    for idx_tok in [1, 2]:
+        for d in range(3):
+            orig = policy.token_embeddings.weight.data[idx_tok, d]
+            policy.token_embeddings.weight.data[idx_tok, d] = orig + eps
+            lp = compute_policy_gradient_step(
+                policy, tokens, reward=1.5, baseline=0.5, kl_coef=0.3, ref_logits=ref_logits
+            )
+            policy.token_embeddings.weight.data[idx_tok, d] = orig - eps
+            lm = compute_policy_gradient_step(
+                policy, tokens, reward=1.5, baseline=0.5, kl_coef=0.3, ref_logits=ref_logits
+            )
+            policy.token_embeddings.weight.data[idx_tok, d] = orig
+            num_g = (lp - lm) / (2.0 * eps)
+            np.testing.assert_allclose(analytic_grad[idx_tok, d], num_g, atol=1e-5, rtol=1e-4)
+

@@ -38,3 +38,20 @@ def test_ipo_step_gradient_direction() -> None:
     assert np.isclose(grad[1, 5], 0.5)
     assert np.isclose(grad[1, 7], -0.5)
     assert np.isclose(grad[0, 0], 0.0)
+
+
+def test_ipo_step_separate_chosen_and_rejected_logits() -> None:
+    chosen_logits = np.array([[2.0, 0.0, 0.0]])
+    rejected_logits = np.array([[0.0, 0.0, 2.0]])
+    chosen = np.array([0])
+    rejected = np.array([2])
+    grad_weight = np.array([1.0])
+
+    grad_w, grad_l = ipo_step(
+        chosen_logits, chosen, rejected, grad_weight, rejected_logits=rejected_logits
+    )
+    assert grad_w.shape == (1, 3)
+    assert grad_l.shape == (1, 3)
+    assert grad_w[0, 0] > 0.0
+    assert grad_l[0, 2] < 0.0
+    assert not np.allclose(grad_w + grad_l, ipo_step(chosen_logits, chosen, rejected, grad_weight))
