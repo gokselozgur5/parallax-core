@@ -76,8 +76,8 @@ class BitLinear(Module):
             if self.weight.requires_grad and self.weight.grad is not None:
                 self.weight.grad += grad_w
 
-            # dL/dX = dL/dY @ W_ternary
-            grad_x = np.matmul(out.grad, w_ternary)
+            # dL/dX = dL/dY @ W_eff = dL/dY @ (W_ternary * gamma)
+            grad_x = np.matmul(out.grad, w_ternary) * gamma
             if x.requires_grad and x.grad is not None:
                 x.grad += unbroadcast_grad(grad_x, x.shape)
 
