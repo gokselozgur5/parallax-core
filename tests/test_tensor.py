@@ -70,3 +70,21 @@ def test_tensor_transpose_negative_axes_gradcheck():
         return (t * t).sum()
 
     assert check_tensor_gradient(fn, [x], eps=1e-5, tol=1e-4) is True
+
+
+def test_tensor_matmul_1d_gradcheck():
+    np.random.seed(1337)
+    # 1D @ 1D (dot product)
+    v1 = Tensor(np.random.randn(5), requires_grad=True)
+    v2 = Tensor(np.random.randn(5), requires_grad=True)
+    assert check_tensor_gradient(lambda a, b: a @ b, [v1, v2], eps=1e-5, tol=1e-4) is True
+
+    # 1D @ 2D
+    v = Tensor(np.random.randn(3), requires_grad=True)
+    m = Tensor(np.random.randn(3, 4), requires_grad=True)
+    assert check_tensor_gradient(lambda a, b: (a @ b).sum(), [v, m], eps=1e-5, tol=1e-4) is True
+
+    # 2D @ 1D
+    m2 = Tensor(np.random.randn(4, 3), requires_grad=True)
+    v2 = Tensor(np.random.randn(3), requires_grad=True)
+    assert check_tensor_gradient(lambda a, b: (a @ b).sum(), [m2, v2], eps=1e-5, tol=1e-4) is True
