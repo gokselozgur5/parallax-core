@@ -12,8 +12,9 @@ def test_ntk_inv_freq_alpha_1_matches_standard() -> None:
     rope_scaled = NTKAwareRoPE(dim=16, base=10000.0, alpha=4.0)
     std_freq = rope_standard.compute_scaled_inv_freq()
     scaled_freq = rope_scaled.compute_scaled_inv_freq()
-    # High alpha should lower the frequencies to stretch wavelength
-    assert np.all(scaled_freq < std_freq)
+    # At index 0, base^0 == 1, so freq is 1. For higher indices, scaled_freq < std_freq
+    assert scaled_freq[0] == std_freq[0]
+    assert np.all(scaled_freq[1:] < std_freq[1:])
 
 import numpy as np
 
