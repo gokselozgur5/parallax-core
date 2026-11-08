@@ -8,12 +8,12 @@ import numpy as np
 
 def yarn_find_correction_dim(
     num_rotations: float,
-    dim: int,
+    half_dim: int,
     base: float = 10000.0,
     max_position_embeddings: int = 2048,
 ) -> float:
     """Finds the dimension index corresponding to a specific number of wavelength rotations."""
-    return (dim * np.log(max_position_embeddings / (num_rotations * 2 * np.pi))) / (2 * np.log(base))
+    return (half_dim * np.log(max_position_embeddings / (num_rotations * 2 * np.pi))) / np.log(base)
 
 
 def yarn_linear_ramp_mask(
@@ -59,9 +59,9 @@ def apply_yarn_rope(
         high = yarn_find_correction_dim(beta_slow, half_dim, base, max_position_embeddings)
         ramp = yarn_linear_ramp_mask(low, high, half_dim)
 
-        # Interpolate: (1 - gamma) * (inv_freq / s) + gamma * inv_freq
+        # Interpolate: (1 - gamma) * inv_freq + gamma * (inv_freq / s)
         inv_freq_interpolated = inv_freq / scale_factor
-        inv_freq = (1.0 - ramp) * inv_freq_interpolated + ramp * inv_freq
+        inv_freq = (1.0 - ramp) * inv_freq + ramp * inv_freq_interpolated
 
     seq_len = x.shape[seq_dim]
     positions = (np.arange(seq_len, dtype=np.float64) + float(offset))[:, None]
@@ -84,6 +84,6 @@ def apply_yarn_rope(
     out[..., 1::2] = rx2
 
     mscale = yarn_get_mscale(scale_factor)
-    return out * (1.0 / np.sqrt(mscale))
+    return out * mscale
 
 
