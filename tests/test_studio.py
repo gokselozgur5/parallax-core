@@ -123,6 +123,28 @@ def test_studio_checkpoint_and_quant_apis(studio_server_url):
     assert resp3["is_quantized"] is True
     assert "output_text" in resp3
 
+    # Test disabling INT8 quantization and restoring FP64 model
+    dequant_data = json.dumps({"quantize": False}).encode()
+    req4 = urllib.request.Request(
+        f"{studio_server_url}/api/toggle_quant",
+        data=dequant_data,
+        headers={"Content-Type": "application/json"},
+    )
+    resp4 = json.loads(urllib.request.urlopen(req4).read().decode())
+    assert resp4["status"] == "ok"
+    assert resp4["is_quantized"] is False
+
+    # Generation should now indicate unquantized
+    gen_data_unquant = json.dumps({"prompt": "First", "max_new_tokens": 5, "use_cache": True}).encode()
+    req5 = urllib.request.Request(
+        f"{studio_server_url}/api/generate",
+        data=gen_data_unquant,
+        headers={"Content-Type": "application/json"},
+    )
+    resp5 = json.loads(urllib.request.urlopen(req5).read().decode())
+    assert resp5["is_quantized"] is False
+
+
 
 def test_studio_rl_apis(studio_server_url):
     # 1. Test score endpoint

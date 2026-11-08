@@ -8,6 +8,7 @@ Serves the interactive Parallax Studio UI and exposes first-principles REST APIs
 4. In-memory Micro ParallaxLM training iterations with live loss progression
 """
 
+import copy
 import http.server
 import json
 import os
@@ -71,6 +72,7 @@ CURRENT_CONFIG = DEMO_CONFIG
 CURRENT_TOKENIZER = TOKENIZER
 IS_QUANTIZED = False
 CURRENT_DATASET = "parallax"
+UNQUANTIZED_MODEL: Optional[ParallaxLM] = None
 
 # Perform quick initial warmup training
 tokens_arr = np.array(TOKENIZER.encode(CORPUS), dtype=np.int64)
@@ -205,7 +207,7 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         })
 
     def handle_load_checkpoint(self, req: Dict[str, Any]):
-        global CURRENT_MODEL, CURRENT_CONFIG, CURRENT_TOKENIZER, CURRENT_DATASET, IS_QUANTIZED, REWARD_MODEL, REWARD_OPTIM, DEMO_OPTIM
+        global CURRENT_MODEL, CURRENT_CONFIG, CURRENT_TOKENIZER, CURRENT_DATASET, IS_QUANTIZED, REWARD_MODEL, REWARD_OPTIM, DEMO_OPTIM, UNQUANTIZED_MODEL
         dataset = req.get("dataset", "shakespeare")
 
         if dataset == "shakespeare":
@@ -219,6 +221,7 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
                 CURRENT_CONFIG = CURRENT_MODEL.config
                 CURRENT_DATASET = "shakespeare"
                 IS_QUANTIZED = False
+                UNQUANTIZED_MODEL = None
                 REWARD_MODEL = RewardModel(CURRENT_CONFIG)
                 REWARD_OPTIM = AdamW(REWARD_MODEL.parameters(), lr=0.03, weight_decay=0.01)
                 DEMO_OPTIM = AdamW(CURRENT_MODEL.parameters(), lr=0.04, weight_decay=0.01)
@@ -231,26 +234,31 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         CURRENT_TOKENIZER = TOKENIZER
         CURRENT_DATASET = "parallax"
         IS_QUANTIZED = False
+        UNQUANTIZED_MODEL = None
         REWARD_MODEL = RewardModel(DEMO_CONFIG)
         REWARD_OPTIM = AdamW(REWARD_MODEL.parameters(), lr=0.03, weight_decay=0.01)
         DEMO_OPTIM = AdamW(CURRENT_MODEL.parameters(), lr=0.04, weight_decay=0.01)
         self.send_json({"status": "ok", "dataset": "parallax", "step": 40})
 
     def handle_toggle_quant(self, req: Dict[str, Any]):
-        global CURRENT_MODEL, IS_QUANTIZED
+        global CURRENT_MODEL, IS_QUANTIZED, DEMO_OPTIM, UNQUANTIZED_MODEL
         enable_quant = bool(req.get("quantize", True))
 
         if enable_quant and not IS_QUANTIZED:
+            UNQUANTIZED_MODEL = copy.deepcopy(CURRENT_MODEL)
             CURRENT_MODEL = quantize_model(CURRENT_MODEL)
             IS_QUANTIZED = True
         elif not enable_quant and IS_QUANTIZED:
-            # Reload from checkpoint or base model
-            if CURRENT_DATASET == "shakespeare":
+            if UNQUANTIZED_MODEL is not None:
+                CURRENT_MODEL = UNQUANTIZED_MODEL
+                UNQUANTIZED_MODEL = None
+            elif CURRENT_DATASET == "shakespeare":
                 ckpt_path = os.path.join(REPO_ROOT, "data", "shakespeare_model.npz")
                 CURRENT_MODEL, _ = load_checkpoint(ckpt_path)
             else:
                 CURRENT_MODEL = DEMO_MODEL
             IS_QUANTIZED = False
+            DEMO_OPTIM = AdamW(CURRENT_MODEL.parameters(), lr=0.04, weight_decay=0.01)
 
         self.send_json({"status": "ok", "is_quantized": IS_QUANTIZED})
 
