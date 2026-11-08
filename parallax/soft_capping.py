@@ -14,3 +14,9 @@ class LogitSoftCapper:
         """Apply soft capping: cap * tanh(logits / cap)."""
         scaled = logits / self.soft_cap
         return self.soft_cap * np.tanh(scaled)
+
+    def backward(self, grad_out: np.ndarray, logits: np.ndarray) -> np.ndarray:
+        """Compute backward gradient: grad_out * (1 - tanh^2(logits / cap))."""
+        scaled = logits / self.soft_cap
+        tanh_val = np.tanh(scaled)
+        return grad_out * (1.0 - tanh_val ** 2)
