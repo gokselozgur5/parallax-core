@@ -9,3 +9,8 @@ class LogitSoftCapper:
 
     def __init__(self, soft_cap: float = 30.0) -> None:
         self.soft_cap = float(soft_cap)
+
+    def forward(self, logits: np.ndarray) -> np.ndarray:
+        """Apply soft capping: cap * tanh(logits / cap)."""
+        scaled = logits / self.soft_cap
+        return self.soft_cap * np.tanh(scaled)
