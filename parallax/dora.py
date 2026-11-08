@@ -54,3 +54,44 @@ class DoRALinear:
         W_eff = self.m[:, np.newaxis] * V_norm
 
         return np.dot(x, W_eff.T)
+
+
+    def backward(
+        self,
+        x: np.ndarray,
+        grad_out: np.ndarray,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Compute gradients for magnitude vector m and adapter matrices A and B.
+
+        Args:
+            x: Input activation of shape (B, in_features).
+            grad_out: Output gradient of shape (B, out_features).
+
+        Returns:
+            Tuple of (grad_m, grad_A, grad_B).
+        """
+        x_in = x if x.ndim == 2 else x[np.newaxis, :]
+        grad_y = grad_out if grad_out.ndim == 2 else grad_out[np.newaxis, :]
+
+        # grad_W_eff = grad_y^T @ x_in: shape (out_features, in_features)
+        grad_W_eff = np.dot(grad_y.T, x_in)
+
+        delta_V = self.scaling * np.dot(self.lora_B, self.lora_A)
+        V_total = self.base_V + delta_V
+        norms = np.linalg.norm(V_total, axis=1, keepdims=True) + 1e-8
+        V_norm = V_total / norms
+
+        # grad_m = sum_j (grad_W_eff * V_norm): shape (out_features,)
+        grad_m = np.sum(grad_W_eff * V_norm, axis=1)
+
+        # grad_V_total using quotient rule:
+        # W_eff = m * V / ||V|| -> dW = m/||V|| * (I - V V^T / ||V||^2)
+        m_col = self.m[:, np.newaxis]
+        proj = np.sum(grad_W_eff * V_total, axis=1, keepdims=True) / (norms ** 2)
+        grad_V = (m_col / norms) * (grad_W_eff - proj * V_total)
+
+        # grad_delta_V = grad_V
+        grad_B = self.scaling * np.dot(grad_V, self.lora_A.T)
+        grad_A = self.scaling * np.dot(self.lora_B.T, grad_V)
+
+        return grad_m, grad_A, grad_B
