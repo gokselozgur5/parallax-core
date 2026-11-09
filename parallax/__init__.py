@@ -1,6 +1,7 @@
 """Parallax Deep Learning Framework."""
 
 from parallax.tensor import Tensor, is_grad_enabled, no_grad
+from parallax.eval import compute_cross_entropy_loss, compute_perplexity
 from parallax.generator import generate, generate_stream
 from parallax.safetensors import load_safetensors, save_safetensors
 from parallax.hf_loader import (
@@ -68,4 +69,6 @@ __all__ = [
     "RollingKVCache",
     "LinearAttention",
     "elu_feature_map",
+    "compute_cross_entropy_loss",
+    "compute_perplexity",
 ]
