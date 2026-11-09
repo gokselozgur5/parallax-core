@@ -13,7 +13,7 @@ import numpy as np
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.nn import Linear, Parameter
-from parallax.safetensors import load_safetensors
+from parallax.safetensors import load_safetensors, save_safetensors
 from parallax.hf_tokenizer import HFTokenizer, load_hf_tokenizer
 
 
@@ -183,3 +183,116 @@ def load_hf_pretrained(
         return model, tokenizer
 
     return model
+
+
+def save_hf_pretrained(
+    model: ParallaxLM,
+    output_dir: str,
+    tokenizer: Optional[Any] = None,
+    model_type: str = "llama",
+) -> None:
+    """Exports a ParallaxLM model into standard HuggingFace format (config.json + model.safetensors)."""
+    os.makedirs(output_dir, exist_ok=True)
+    cfg = model.config
+
+    intermediate_size = (
+        cfg.intermediate_size
+        if cfg.intermediate_size is not None
+        else int(cfg.embed_dim * 8 // 3)
+    )
+    num_kv_heads = cfg.num_kv_heads if cfg.num_kv_heads is not None else cfg.num_heads
+
+    # 1. Write config.json
+    hf_config = {
+        "architectures": ["LlamaForCausalLM"] if model_type == "llama" else ["Qwen2ForCausalLM"],
+        "model_type": model_type,
+        "hidden_size": int(cfg.embed_dim),
+        "num_attention_heads": int(cfg.num_heads),
+        "num_key_value_heads": int(num_kv_heads),
+        "num_hidden_layers": int(cfg.num_layers),
+        "vocab_size": int(cfg.vocab_size),
+        "max_position_embeddings": int(cfg.max_seq_len),
+        "intermediate_size": int(intermediate_size),
+        "rms_norm_eps": float(cfg.rms_norm_eps),
+        "rope_theta": float(cfg.rope_theta),
+        "attention_bias": bool(cfg.qkv_bias),
+        "tie_word_embeddings": bool(cfg.tie_weights),
+        "torch_dtype": "float32",
+    }
+    with open(os.path.join(output_dir, "config.json"), "w", encoding="utf-8") as f:
+        json.dump(hf_config, f, indent=2)
+
+    # 2. Collect model.safetensors
+    tensors: Dict[str, np.ndarray] = {
+        "model.embed_tokens.weight": model.token_embeddings.weight.data.astype(np.float32),
+        "model.norm.weight": model.final_norm.weight.data.astype(np.float32),
+    }
+
+    if not cfg.tie_weights:
+        tensors["lm_head.weight"] = model.lm_head.weight.data.astype(np.float32)
+
+    for i in range(cfg.num_layers):
+        prefix = f"model.layers.{i}"
+        block = model.blocks[i]
+
+        tensors[f"{prefix}.input_layernorm.weight"] = block.attn_norm.weight.data.astype(np.float32)
+        tensors[f"{prefix}.post_attention_layernorm.weight"] = block.mlp_norm.weight.data.astype(np.float32)
+
+        tensors[f"{prefix}.self_attn.q_proj.weight"] = block.attn.q_proj.weight.data.astype(np.float32)
+        tensors[f"{prefix}.self_attn.k_proj.weight"] = block.attn.k_proj.weight.data.astype(np.float32)
+        tensors[f"{prefix}.self_attn.v_proj.weight"] = block.attn.v_proj.weight.data.astype(np.float32)
+        tensors[f"{prefix}.self_attn.o_proj.weight"] = block.attn.out_proj.weight.data.astype(np.float32)
+
+        if block.attn.q_proj.bias is not None:
+            tensors[f"{prefix}.self_attn.q_proj.bias"] = block.attn.q_proj.bias.data.astype(np.float32)
+        if block.attn.k_proj.bias is not None:
+            tensors[f"{prefix}.self_attn.k_proj.bias"] = block.attn.k_proj.bias.data.astype(np.float32)
+        if block.attn.v_proj.bias is not None:
+            tensors[f"{prefix}.self_attn.v_proj.bias"] = block.attn.v_proj.bias.data.astype(np.float32)
+        if block.attn.out_proj.bias is not None:
+            tensors[f"{prefix}.self_attn.o_proj.bias"] = block.attn.out_proj.bias.data.astype(np.float32)
+
+        if hasattr(block.mlp, "w_gate"):
+            tensors[f"{prefix}.mlp.gate_proj.weight"] = block.mlp.w_gate.weight.data.astype(np.float32)
+            tensors[f"{prefix}.mlp.up_proj.weight"] = block.mlp.w_up.weight.data.astype(np.float32)
+            tensors[f"{prefix}.mlp.down_proj.weight"] = block.mlp.w_down.weight.data.astype(np.float32)
+        elif hasattr(block.mlp, "fc1"):
+            tensors[f"{prefix}.mlp.gate_proj.weight"] = block.mlp.fc1.weight.data.astype(np.float32)
+            tensors[f"{prefix}.mlp.up_proj.weight"] = block.mlp.fc1.weight.data.astype(np.float32)
+            tensors[f"{prefix}.mlp.down_proj.weight"] = block.mlp.fc2.weight.data.astype(np.float32)
+
+    save_safetensors(os.path.join(output_dir, "model.safetensors"), tensors)
+
+    # 3. Optional tokenizer serialization
+    if tokenizer is not None:
+        if hasattr(tokenizer, "vocab"):
+            added_tokens = []
+            if hasattr(tokenizer, "added_tokens"):
+                for content, tid in tokenizer.added_tokens.items():
+                    added_tokens.append({"id": tid, "content": content, "special": True})
+
+            merges_list = []
+            if hasattr(tokenizer, "merges") and isinstance(tokenizer.merges, dict):
+                # Check whether keys are tuple of str or tuple of int
+                for pair in tokenizer.merges.keys():
+                    if isinstance(pair[0], str):
+                        merges_list.append(f"{pair[0]} {pair[1]}")
+                    elif hasattr(tokenizer, "vocab") and isinstance(tokenizer.vocab, dict):
+                        # Convert integer tuple to tokens
+                        inv_vocab = {v: k for k, v in tokenizer.vocab.items()}
+                        t0 = inv_vocab.get(pair[0], "")
+                        t1 = inv_vocab.get(pair[1], "")
+                        if t0 and t1:
+                            merges_list.append(f"{t0} {t1}")
+
+            tok_data = {
+                "version": "1.0",
+                "added_tokens": added_tokens,
+                "model": {
+                    "type": "BPE",
+                    "vocab": tokenizer.vocab,
+                    "merges": merges_list,
+                },
+            }
+            with open(os.path.join(output_dir, "tokenizer.json"), "w", encoding="utf-8") as f:
+                json.dump(tok_data, f, indent=2)
