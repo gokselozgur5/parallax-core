@@ -6,7 +6,7 @@ attention sink tokens and evicting older middle tokens while preserving
 the rolling recent local window.
 """
 
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 import numpy as np
 
 
@@ -50,3 +50,10 @@ class RollingKVCache:
             v_out = v_cache[:, :, -self.window_size:, :]
 
         return k_out, v_out
+
+    def evict_layers(
+        self, kv_caches: List[Tuple[np.ndarray, np.ndarray]]
+    ) -> List[Tuple[np.ndarray, np.ndarray]]:
+        """Apply rolling eviction across all transformer layer KV caches."""
+        return [self.evict(k, v) for k, v in kv_caches]
+
