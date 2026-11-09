@@ -51,6 +51,11 @@ def create_handler(state: OpenAIServerState):
             else:
                 self._send_json(404, {"error": {"message": "Not Found", "type": "invalid_request_error"}})
 
+        def _send_sse_chunk(self, data: Dict[str, Any]) -> None:
+            chunk = f"data: {json.dumps(data)}\n\n".encode("utf-8")
+            self.wfile.write(chunk)
+            self.wfile.flush()
+
         def do_POST(self) -> None:
             if self.path == "/v1/chat/completions":
                 try:
@@ -61,6 +66,7 @@ def create_handler(state: OpenAIServerState):
                     messages = data.get("messages", [])
                     max_tokens = int(data.get("max_tokens", 32))
                     temperature = float(data.get("temperature", 0.0))
+                    stream = bool(data.get("stream", False))
 
                     # Simple tokenization: ASCII char codes
                     prompt_text = "\n".join(f"{m.get('role', 'user')}: {m.get('content', '')}" for m in messages)
@@ -77,7 +83,53 @@ def create_handler(state: OpenAIServerState):
                     )
                     state.engine.add_request(req)
 
-                    # Step engine until this request finishes
+                    if stream:
+                        self.send_response(200)
+                        self.send_header("Content-Type", "text/event-stream")
+                        self.send_header("Cache-Control", "no-cache")
+                        self.send_header("Connection", "keep-alive")
+                        self.end_headers()
+
+                        while req.status != RequestStatus.FINISHED:
+                            step_outputs = state.engine.step()
+                            for r_id, tok in step_outputs:
+                                if r_id == req_id:
+                                    char_piece = chr(tok if 32 <= tok <= 126 else 32)
+                                    chunk_payload = {
+                                        "id": req_id,
+                                        "object": "chat.completion.chunk",
+                                        "created": int(time.time()),
+                                        "model": state.model_name,
+                                        "choices": [
+                                            {
+                                                "index": 0,
+                                                "delta": {"content": char_piece},
+                                                "finish_reason": None,
+                                            }
+                                        ],
+                                    }
+                                    self._send_sse_chunk(chunk_payload)
+
+                        # Send final chunk with finish_reason: stop
+                        stop_payload = {
+                            "id": req_id,
+                            "object": "chat.completion.chunk",
+                            "created": int(time.time()),
+                            "model": state.model_name,
+                            "choices": [
+                                {
+                                    "index": 0,
+                                    "delta": {},
+                                    "finish_reason": "stop",
+                                }
+                            ],
+                        }
+                        self._send_sse_chunk(stop_payload)
+                        self.wfile.write(b"data: [DONE]\n\n")
+                        self.wfile.flush()
+                        return
+
+                    # Non-streaming execution
                     while req.status != RequestStatus.FINISHED:
                         state.engine.step()
 
@@ -111,6 +163,7 @@ def create_handler(state: OpenAIServerState):
                     self._send_json(500, {"error": {"message": str(e), "type": "server_error"}})
             else:
                 self._send_json(404, {"error": {"message": "Not Found", "type": "invalid_request_error"}})
+
 
         def log_message(self, format: str, *args: Any) -> None:
             # Suppress default noisy access logging during tests
