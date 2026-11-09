@@ -201,12 +201,16 @@ def save_parallax_to_gguf(
     arch = architecture.lower()
 
     # Construct GGUF metadata
-    intermediate_size = (
-        cfg.intermediate_size
-        if cfg.intermediate_size is not None
-        else int(cfg.embed_dim * 8 // 3)
-    )
+    if cfg.intermediate_size is not None:
+        intermediate_size = cfg.intermediate_size
+    elif cfg.use_swiglu:
+        intermediate_size = int(2 * (4 * cfg.embed_dim) / 3)
+        intermediate_size = 64 * ((intermediate_size + 64 - 1) // 64)
+    else:
+        intermediate_size = 4 * cfg.embed_dim
+
     num_kv_heads = cfg.num_kv_heads if cfg.num_kv_heads is not None else cfg.num_heads
+
 
     metadata: Dict[str, Any] = {
         "general.architecture": arch,
@@ -236,7 +240,15 @@ def save_parallax_to_gguf(
         if getattr(tokenizer, "eos_token_id", None) is not None:
             metadata["tokenizer.ggml.eos_token_id"] = int(tokenizer.eos_token_id)
     else:
-        metadata["tokenizer.ggml.tokens"] = [f"<tok_{i}>" for i in range(cfg.vocab_size)]
+        # Default ASCII printable chars + hex byte fallbacks for full coverage
+        default_tokens = []
+        for i in range(cfg.vocab_size):
+            if i < 256:
+                default_tokens.append(f"<0x{i:02X}>")
+            else:
+                default_tokens.append(f"<tok_{i}>")
+        metadata["tokenizer.ggml.tokens"] = default_tokens
+
 
     # Collect tensor state dictionary
     tensors: Dict[str, np.ndarray] = {
