@@ -10,7 +10,7 @@ import numpy as np
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.nn import Linear, Parameter
-from parallax.gguf import GGUFFile, load_gguf
+from parallax.gguf import GGUFFile, load_gguf, save_gguf
 from parallax.gguf_tokenizer import GGUFTokenizer, load_gguf_tokenizer
 
 
@@ -95,6 +95,17 @@ def gguf_metadata_to_parallax(
     elif arch.startswith("qwen2"):
         qkv_bias = True
 
+    # Detect SwiGLU vs standard MLP
+    if f"{arch}.use_swiglu" in metadata:
+        use_swiglu = bool(metadata[f"{arch}.use_swiglu"])
+    elif tensors is not None:
+        use_swiglu = "blk.0.ffn_gate.weight" in tensors
+    else:
+        use_swiglu = True
+
+    # RoPE layout convention
+    rope_interleaved = bool(metadata.get(f"{arch}.rope.interleaved", False))
+
     return ParallaxLMConfig(
         vocab_size=vocab_size,
         embed_dim=embed_dim,
@@ -104,8 +115,8 @@ def gguf_metadata_to_parallax(
         max_seq_len=max_seq_len,
         use_rope=True,
         rope_theta=rope_theta,
-        rope_interleaved=False,
-        use_swiglu=True,
+        rope_interleaved=rope_interleaved,
+        use_swiglu=use_swiglu,
         intermediate_size=intermediate_size,
         rms_norm_eps=rms_norm_eps,
         tie_weights=tie_weights,
@@ -141,13 +152,14 @@ def load_gguf_weights_into_model(
         _assign_bias(block.attn.v_proj, gguf_tensors, f"blk.{i}.attn_v.bias")
         _assign_bias(block.attn.out_proj, gguf_tensors, f"blk.{i}.attn_output.bias")
 
-        # SwiGLU MLP weights
-        if hasattr(block.mlp, "w_gate"):
+        # SwiGLU or standard MLP weights
+        if hasattr(block.mlp, "w_gate") and f"blk.{i}.ffn_gate.weight" in gguf_tensors:
             _assign_param(block.mlp.w_gate.weight, gguf_tensors, f"blk.{i}.ffn_gate.weight")
-        if hasattr(block.mlp, "w_up"):
             _assign_param(block.mlp.w_up.weight, gguf_tensors, f"blk.{i}.ffn_up.weight")
-        if hasattr(block.mlp, "w_down"):
             _assign_param(block.mlp.w_down.weight, gguf_tensors, f"blk.{i}.ffn_down.weight")
+        elif hasattr(block.mlp, "fc1"):
+            _assign_param(block.mlp.fc1.weight, gguf_tensors, f"blk.{i}.ffn_up.weight")
+            _assign_param(block.mlp.fc2.weight, gguf_tensors, f"blk.{i}.ffn_down.weight")
 
     # 3. Final Norm
     _assign_param(model.final_norm.weight, gguf_tensors, "output_norm.weight")
@@ -176,3 +188,90 @@ def load_gguf_pretrained(
         return model, tokenizer
 
     return model
+
+
+def save_parallax_to_gguf(
+    model: ParallaxLM,
+    file_path: str,
+    tokenizer: Optional[Any] = None,
+    architecture: str = "llama",
+) -> None:
+    """Serializes a ParallaxLM model and optional tokenizer into a standard GGUF v3 file."""
+    cfg = model.config
+    arch = architecture.lower()
+
+    # Construct GGUF metadata
+    intermediate_size = (
+        cfg.intermediate_size
+        if cfg.intermediate_size is not None
+        else int(cfg.embed_dim * 8 // 3)
+    )
+    num_kv_heads = cfg.num_kv_heads if cfg.num_kv_heads is not None else cfg.num_heads
+
+    metadata: Dict[str, Any] = {
+        "general.architecture": arch,
+        "general.name": "ParallaxLM",
+        f"{arch}.embedding_length": int(cfg.embed_dim),
+        f"{arch}.block_count": int(cfg.num_layers),
+        f"{arch}.feed_forward_length": int(intermediate_size),
+        f"{arch}.attention.head_count": int(cfg.num_heads),
+        f"{arch}.attention.head_count_kv": int(num_kv_heads),
+        f"{arch}.context_length": int(cfg.max_seq_len),
+        f"{arch}.attention.layer_norm_rms_epsilon": float(cfg.rms_norm_eps),
+        f"{arch}.rope.freq_base": float(cfg.rope_theta),
+        f"{arch}.rope.interleaved": bool(cfg.rope_interleaved),
+        f"{arch}.use_swiglu": bool(cfg.use_swiglu),
+    }
+
+    # Populate tokenizer metadata if provided
+    if tokenizer is not None:
+        if hasattr(tokenizer, "raw_tokens"):
+            metadata["tokenizer.ggml.tokens"] = list(tokenizer.raw_tokens)
+        elif hasattr(tokenizer, "vocab") and isinstance(tokenizer.vocab, dict):
+            # Sort tokens by ID
+            sorted_tokens = [tok for tok, _ in sorted(tokenizer.vocab.items(), key=lambda x: x[1])]
+            metadata["tokenizer.ggml.tokens"] = sorted_tokens
+        if getattr(tokenizer, "bos_token_id", None) is not None:
+            metadata["tokenizer.ggml.bos_token_id"] = int(tokenizer.bos_token_id)
+        if getattr(tokenizer, "eos_token_id", None) is not None:
+            metadata["tokenizer.ggml.eos_token_id"] = int(tokenizer.eos_token_id)
+    else:
+        metadata["tokenizer.ggml.tokens"] = [f"<tok_{i}>" for i in range(cfg.vocab_size)]
+
+    # Collect tensor state dictionary
+    tensors: Dict[str, np.ndarray] = {
+        "token_embd.weight": model.token_embeddings.weight.data.astype(np.float32),
+        "output_norm.weight": model.final_norm.weight.data.astype(np.float32),
+    }
+
+    if not cfg.tie_weights:
+        tensors["output.weight"] = model.lm_head.weight.data.astype(np.float32)
+
+    for i in range(cfg.num_layers):
+        block = model.blocks[i]
+        tensors[f"blk.{i}.attn_norm.weight"] = block.attn_norm.weight.data.astype(np.float32)
+        tensors[f"blk.{i}.ffn_norm.weight"] = block.mlp_norm.weight.data.astype(np.float32)
+
+        tensors[f"blk.{i}.attn_q.weight"] = block.attn.q_proj.weight.data.astype(np.float32)
+        tensors[f"blk.{i}.attn_k.weight"] = block.attn.k_proj.weight.data.astype(np.float32)
+        tensors[f"blk.{i}.attn_v.weight"] = block.attn.v_proj.weight.data.astype(np.float32)
+        tensors[f"blk.{i}.attn_output.weight"] = block.attn.out_proj.weight.data.astype(np.float32)
+
+        if block.attn.q_proj.bias is not None:
+            tensors[f"blk.{i}.attn_q.bias"] = block.attn.q_proj.bias.data.astype(np.float32)
+        if block.attn.k_proj.bias is not None:
+            tensors[f"blk.{i}.attn_k.bias"] = block.attn.k_proj.bias.data.astype(np.float32)
+        if block.attn.v_proj.bias is not None:
+            tensors[f"blk.{i}.attn_v.bias"] = block.attn.v_proj.bias.data.astype(np.float32)
+        if block.attn.out_proj.bias is not None:
+            tensors[f"blk.{i}.attn_output.bias"] = block.attn.out_proj.bias.data.astype(np.float32)
+
+        if hasattr(block.mlp, "w_gate"):
+            tensors[f"blk.{i}.ffn_gate.weight"] = block.mlp.w_gate.weight.data.astype(np.float32)
+            tensors[f"blk.{i}.ffn_up.weight"] = block.mlp.w_up.weight.data.astype(np.float32)
+            tensors[f"blk.{i}.ffn_down.weight"] = block.mlp.w_down.weight.data.astype(np.float32)
+        elif hasattr(block.mlp, "fc1"):
+            tensors[f"blk.{i}.ffn_up.weight"] = block.mlp.fc1.weight.data.astype(np.float32)
+            tensors[f"blk.{i}.ffn_down.weight"] = block.mlp.fc2.weight.data.astype(np.float32)
+
+    save_gguf(file_path, metadata=metadata, tensors=tensors, version=3)
