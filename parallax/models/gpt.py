@@ -110,6 +110,7 @@ class TransformerBlock(Module):
         qkv_bias: bool = False,
         rope_theta: float = 10000.0,
         rope_interleaved: bool = True,
+        use_flash_attn: bool = False,
     ):
         super().__init__()
         self.attn_norm = RMSNorm(embed_dim, eps=rms_norm_eps)
@@ -121,6 +122,7 @@ class TransformerBlock(Module):
             qkv_bias=qkv_bias,
             rope_theta=rope_theta,
             rope_interleaved=rope_interleaved,
+            use_flash_attn=use_flash_attn,
         )
         self.mlp_norm = RMSNorm(embed_dim, eps=rms_norm_eps)
         self.use_swiglu = use_swiglu
@@ -183,6 +185,7 @@ class ParallaxLMConfig:
     qkv_bias: bool = False
     rope_theta: float = 10000.0
     rope_interleaved: bool = True
+    use_flash_attn: bool = False
 
 
 class Embedding(Module):
@@ -235,6 +238,7 @@ class ParallaxLM(Module):
                 qkv_bias=config.qkv_bias,
                 rope_theta=config.rope_theta,
                 rope_interleaved=config.rope_interleaved,
+                use_flash_attn=config.use_flash_attn,
             )
             for _ in range(config.num_layers)
         ]
