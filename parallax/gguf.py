@@ -15,6 +15,15 @@ import struct
 from typing import Any, BinaryIO, Dict, List, Optional, Tuple, Union
 import numpy as np
 
+from parallax.gguf_quant import (
+    BLOCK_BYTES_Q4_0,
+    BLOCK_BYTES_Q8_0,
+    QK4_0,
+    QK8_0,
+    dequantize_q4_0,
+    dequantize_q8_0,
+)
+
 
 GGUF_MAGIC = b"GGUF"
 GGUF_DEFAULT_ALIGNMENT = 32
@@ -203,6 +212,14 @@ def load_gguf(file_path: str, cast_float64: bool = True) -> GGUFFile:
                 u16 = np.frombuffer(raw_bytes, dtype="<u2")
                 u32 = u16.astype(np.uint32) << 16
                 arr = u32.view(np.float32).reshape(info.shape).copy()
+            elif info.ggml_type == GGML_TYPE_Q8_0:
+                n_blocks = (num_elements + QK8_0 - 1) // QK8_0
+                raw_bytes = f.read(n_blocks * BLOCK_BYTES_Q8_0)
+                arr = dequantize_q8_0(raw_bytes, info.shape)
+            elif info.ggml_type == GGML_TYPE_Q4_0:
+                n_blocks = (num_elements + QK4_0 - 1) // QK4_0
+                raw_bytes = f.read(n_blocks * BLOCK_BYTES_Q4_0)
+                arr = dequantize_q4_0(raw_bytes, info.shape)
             else:
                 # Unsupported quantized or custom type, store raw bytes as uint8 array
                 # (Can be passed to specialized quantizer/dequantizer)
