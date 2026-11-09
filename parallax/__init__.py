@@ -31,6 +31,7 @@ from parallax.prune import (
     prune_unstructured_magnitude,
 )
 from parallax.attention_sink import RollingKVCache
+from parallax.linear_attention import LinearAttention, elu_feature_map
 
 __all__ = [
     "Tensor",
@@ -65,4 +66,6 @@ __all__ = [
     "calculate_model_sparsity",
     "prune_model",
     "RollingKVCache",
+    "LinearAttention",
+    "elu_feature_map",
 ]
