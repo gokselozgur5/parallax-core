@@ -10,6 +10,12 @@ from parallax.gguf_loader import (
     load_gguf_weights_into_model,
 )
 from parallax.gguf_tokenizer import GGUFTokenizer, load_gguf_tokenizer
+from parallax.gguf_quant import (
+    dequantize_q4_0,
+    dequantize_q8_0,
+    quantize_q4_0,
+    quantize_q8_0,
+)
 
 __all__ = [
     "Tensor",
@@ -29,4 +35,8 @@ __all__ = [
     "load_gguf_weights_into_model",
     "GGUFTokenizer",
     "load_gguf_tokenizer",
+    "dequantize_q4_0",
+    "dequantize_q8_0",
+    "quantize_q4_0",
+    "quantize_q8_0",
 ]
