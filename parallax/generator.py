@@ -4,6 +4,7 @@ Character-level tokenizer and autoregressive text generation utilities.
 
 from typing import Dict, Iterator, List, Optional, Tuple
 import numpy as np
+from parallax.attention_sink import RollingKVCache
 from parallax.models.gpt import ParallaxLM
 from parallax.tensor import no_grad
 
@@ -91,6 +92,7 @@ def generate_stream(
     top_p: Optional[float] = None,
     use_cache: bool = True,
     eos_token_id: Optional[int] = None,
+    rolling_cache: Optional[RollingKVCache] = None,
 ) -> Iterator[int]:
     """Yields newly generated token IDs one by one."""
     tokens = list(prompt_tokens)
@@ -130,6 +132,8 @@ def generate_stream(
         ]
 
         logits, kv_caches = model(idx, kv_caches=kv_caches)
+        if rolling_cache is not None:
+            kv_caches = rolling_cache.evict_layers(kv_caches)
         next_token_logits = logits.data[0, -1, :]
         next_token = sample_next_token(
             next_token_logits,
@@ -143,11 +147,13 @@ def generate_stream(
             return
 
         for _ in range(max_new_tokens - 1):
-            if len(tokens) >= max_seq_len:
+            if rolling_cache is None and len(tokens) >= max_seq_len:
                 break
 
             idx_next = np.array([[next_token]], dtype=np.int64)
             logits, kv_caches = model(idx_next, kv_caches=kv_caches)
+            if rolling_cache is not None:
+                kv_caches = rolling_cache.evict_layers(kv_caches)
             next_token_logits = logits.data[0, -1, :]
             next_token = sample_next_token(
                 next_token_logits,
