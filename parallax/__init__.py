@@ -24,6 +24,12 @@ from parallax.gguf_quant import (
     quantize_q4_0,
     quantize_q8_0,
 )
+from parallax.prune import (
+    calculate_model_sparsity,
+    prune_2_to_4_structured,
+    prune_model,
+    prune_unstructured_magnitude,
+)
 
 __all__ = [
     "Tensor",
@@ -53,4 +59,8 @@ __all__ = [
     "dequantize_q8_0",
     "quantize_q4_0",
     "quantize_q8_0",
+    "prune_unstructured_magnitude",
+    "prune_2_to_4_structured",
+    "calculate_model_sparsity",
+    "prune_model",
 ]
