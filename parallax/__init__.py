@@ -1,5 +1,6 @@
 """Parallax Deep Learning Framework."""
 
+from parallax.batching import ContinuousBatchEngine, RequestStatus, SequenceRequest
 from parallax.tensor import Tensor, is_grad_enabled, no_grad
 from parallax.eval import compute_cross_entropy_loss, compute_perplexity
 from parallax.generator import generate, generate_stream
@@ -71,4 +72,7 @@ __all__ = [
     "elu_feature_map",
     "compute_cross_entropy_loss",
     "compute_perplexity",
+    "ContinuousBatchEngine",
+    "RequestStatus",
+    "SequenceRequest",
 ]
