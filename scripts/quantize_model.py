@@ -37,41 +37,37 @@ def quantize_model(input_path: str, output_path: str, quant_type: str) -> None:
     else:
         raise ValueError(f"Unsupported quantization type: {quant_type}")
 
-    quantized_tensors: Dict[str, np.ndarray] = {}
-    new_tensor_infos = []
+    quantized_tensors: Dict[str, Union[np.ndarray, bytes]] = {}
+    tensor_types = {}
+    tensor_shapes = {}
 
-    for info in gguf_in.tensor_infos:
-        arr = gguf_in.tensors[info.name]
+    for name, info in gguf_in.tensor_infos.items():
+        arr = gguf_in.tensors[name]
         # Only quantize 2D weight matrices whose trailing dimension is divisible by block size 32
-        if arr.ndim >= 2 and arr.shape[-1] % 32 == 0 and "norm" not in info.name:
+        if arr.ndim >= 2 and arr.shape[-1] % 32 == 0 and "norm" not in name:
             q_arr = quant_fn(arr)
-            quantized_tensors[info.name] = q_arr
-            new_tensor_infos.append(
-                GGUFTensorInfo(
-                    name=info.name,
-                    shape=info.shape,
-                    dtype=target_type,
-                    offset=0,
-                )
-            )
+            quantized_tensors[name] = q_arr
+            tensor_types[name] = target_type
+            tensor_shapes[name] = info.shape
         else:
-            quantized_tensors[info.name] = arr
-            new_tensor_infos.append(
-                GGUFTensorInfo(
-                    name=info.name,
-                    shape=info.shape,
-                    dtype=info.dtype,
-                    offset=0,
-                )
-            )
+            quantized_tensors[name] = arr
+            tensor_types[name] = info.ggml_type
+            tensor_shapes[name] = info.shape
 
     metadata = dict(gguf_in.metadata)
     metadata["general.quantization_version"] = 2
     metadata["general.file_type"] = target_type
 
     print(f"Writing quantized model to {output_path} ({quant_type_upper})...")
-    save_gguf(output_path, metadata, quantized_tensors, new_tensor_infos)
+    save_gguf(
+        output_path,
+        metadata,
+        quantized_tensors,
+        tensor_types=tensor_types,
+        tensor_shapes=tensor_shapes,
+    )
     print("Done!")
+
 
 
 def main() -> None:
