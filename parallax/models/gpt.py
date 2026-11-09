@@ -196,10 +196,11 @@ class Embedding(Module):
         embed_data = np.random.normal(0.0, 0.02, (vocab_size, embed_dim))
         self.weight = Parameter(embed_data, label="Embedding.weight")
 
-    def forward(self, idx: np.ndarray) -> Tensor:
+    def forward(self, idx: Union[np.ndarray, Tensor]) -> Tensor:
         # idx: [batch_size, seq_len] array of integer token IDs
-        B, T = idx.shape
-        out_data = self.weight.data[idx]  # Shape: [B, T, embed_dim]
+        idx_arr = np.asarray(idx.data if isinstance(idx, Tensor) else idx, dtype=np.int64)
+        B, T = idx_arr.shape
+        out_data = self.weight.data[idx_arr]  # Shape: [B, T, embed_dim]
 
         out = Tensor(out_data, (self.weight,), "Embedding")
 
@@ -207,7 +208,7 @@ class Embedding(Module):
             if self.weight.requires_grad and self.weight.grad is not None:
                 # Accumulate gradients into indexed rows
                 dout = out.grad
-                np.add.at(self.weight.grad, idx, dout)
+                np.add.at(self.weight.grad, idx_arr, dout)
 
         out._backward = _backward
         return out
