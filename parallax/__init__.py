@@ -9,6 +9,7 @@ from parallax.gguf_loader import (
     load_gguf_pretrained,
     load_gguf_weights_into_model,
 )
+from parallax.gguf_tokenizer import GGUFTokenizer, load_gguf_tokenizer
 
 __all__ = [
     "Tensor",
@@ -26,4 +27,6 @@ __all__ = [
     "gguf_metadata_to_parallax",
     "load_gguf_pretrained",
     "load_gguf_weights_into_model",
+    "GGUFTokenizer",
+    "load_gguf_tokenizer",
 ]
