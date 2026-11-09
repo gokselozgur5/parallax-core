@@ -30,6 +30,7 @@ from parallax.prune import (
     prune_model,
     prune_unstructured_magnitude,
 )
+from parallax.attention_sink import RollingKVCache
 
 __all__ = [
     "Tensor",
@@ -63,4 +64,5 @@ __all__ = [
     "prune_2_to_4_structured",
     "calculate_model_sparsity",
     "prune_model",
+    "RollingKVCache",
 ]
