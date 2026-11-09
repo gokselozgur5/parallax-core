@@ -10,6 +10,7 @@ from parallax.gguf_loader import (
     gguf_metadata_to_parallax,
     load_gguf_pretrained,
     load_gguf_weights_into_model,
+    save_parallax_to_gguf,
 )
 from parallax.gguf_tokenizer import GGUFTokenizer, load_gguf_tokenizer
 from parallax.gguf_quant import (
@@ -39,6 +40,7 @@ __all__ = [
     "gguf_metadata_to_parallax",
     "load_gguf_pretrained",
     "load_gguf_weights_into_model",
+    "save_parallax_to_gguf",
     "GGUFTokenizer",
     "load_gguf_tokenizer",
     "dequantize_q4_0",
