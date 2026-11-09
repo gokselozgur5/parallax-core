@@ -5,12 +5,13 @@ Extracts architecture hyper-parameters and maps standard GGML/GGUF tensors
 directly into a runnable ParallaxLM model without requiring `llama.cpp` or PyTorch.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple, Union
 import numpy as np
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.nn import Linear, Parameter
 from parallax.gguf import GGUFFile, load_gguf
+from parallax.gguf_tokenizer import GGUFTokenizer, load_gguf_tokenizer
 
 
 def _assign_param(param: Parameter, tensors: Dict[str, np.ndarray], key: str) -> None:
@@ -160,10 +161,18 @@ def load_gguf_weights_into_model(
     return model
 
 
-def load_gguf_pretrained(file_path: str) -> ParallaxLM:
-    """Parses a GGUF file and instantiates a ready-to-run ParallaxLM model."""
+def load_gguf_pretrained(
+    file_path: str,
+    return_tokenizer: bool = False,
+) -> Union[ParallaxLM, Tuple[ParallaxLM, GGUFTokenizer]]:
+    """Parses a GGUF file and instantiates a ready-to-run ParallaxLM model, optionally returning its tokenizer."""
     gguf_file = load_gguf(file_path, cast_float64=True)
     p_config = gguf_metadata_to_parallax(gguf_file.metadata, gguf_file.tensors)
     model = ParallaxLM(p_config)
     load_gguf_weights_into_model(model, gguf_file.tensors)
+
+    if return_tokenizer:
+        tokenizer = load_gguf_tokenizer(gguf_file)
+        return model, tokenizer
+
     return model
