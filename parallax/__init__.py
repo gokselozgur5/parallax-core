@@ -3,6 +3,7 @@
 from parallax.tensor import Tensor, is_grad_enabled, no_grad
 from parallax.safetensors import load_safetensors, save_safetensors
 from parallax.hf_loader import hf_config_to_parallax, load_hf_pretrained, load_hf_weights_into_model
+from parallax.gguf import GGUFFile, GGUFTensorInfo, load_gguf, save_gguf
 
 __all__ = [
     "Tensor",
@@ -13,4 +14,8 @@ __all__ = [
     "hf_config_to_parallax",
     "load_hf_pretrained",
     "load_hf_weights_into_model",
+    "GGUFFile",
+    "GGUFTensorInfo",
+    "load_gguf",
+    "save_gguf",
 ]
