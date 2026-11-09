@@ -44,6 +44,7 @@ class LinearAttention(Module):
         self,
         x: Union[Tensor, np.ndarray],
         state: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+        return_state: bool = False,
     ) -> Union[Tensor, Tuple[Tensor, Tuple[np.ndarray, np.ndarray]]]:
         """Forward pass supporting parallel prefix sum or recurrent single-step.
 
@@ -64,7 +65,7 @@ class LinearAttention(Module):
         phi_q = elu_feature_map(q)
         phi_k = elu_feature_map(k)
 
-        if state is not None or T == 1:
+        if state is not None or return_state:
             # Recurrent O(1) step update per token
             if state is None:
                 prev_S = np.zeros((B, self.num_heads, self.head_dim, self.head_dim), dtype=q.dtype)
@@ -91,26 +92,27 @@ class LinearAttention(Module):
 
             merged = out_heads.swapaxes(1, 2).reshape(B, 1, C)
             out = self.out_proj(Tensor(merged, (x_tensor,), "LinearAttention"))
-            if state is not None:
-                return out, (new_S, new_Z)
-            return out
+            return out, (new_S, new_Z)
+
 
         # Parallel prefix-sum training forward for T > 1
-        # KV prefix product: K_t^T @ V_t for each t
+        # KV prefix outer product: K_t^T @ V_t for each t
         # Shape phi_k: [B, H, T, D], v: [B, H, T, D]
-        kv = np.matmul(np.swapaxes(phi_k, -1, -2)[..., :, :, None], v[..., :, None, :])
-        # kv shape: [B, H, T, D, D]
-        S_cum = np.cumsum(kv, axis=2)  # [B, H, T, D, D]
-        Z_cum = np.cumsum(np.swapaxes(phi_k, -1, -2)[..., :, :, None], axis=2)  # [B, H, T, D, 1]
+        k_col = phi_k[..., :, :, None]  # [B, H, T, D, 1]
+        v_row = v[..., :, None, :]      # [B, H, T, 1, D]
+        kv = k_col @ v_row              # [B, H, T, D, D]
+        S_cum = np.cumsum(kv, axis=2)   # [B, H, T, D, D]
+        Z_cum = np.cumsum(k_col, axis=2)  # [B, H, T, D, 1]
 
         # Q_t @ S_cum_t -> [B, H, T, 1, D] -> [B, H, T, D]
-        q_expanded = phi_q[..., :, None, :]  # [B, H, T, 1, D]
-        num = np.matmul(q_expanded, S_cum).squeeze(-2)  # [B, H, T, D]
-        den = np.matmul(q_expanded, Z_cum).squeeze(-2) + self.eps  # [B, H, T, 1]
+        q_row = phi_q[..., :, None, :]  # [B, H, T, 1, D]
+        num = (q_row @ S_cum).squeeze(-2)  # [B, H, T, D]
+        den = (q_row @ Z_cum).squeeze(-2) + self.eps  # [B, H, T, 1]
 
         out_heads = num / den  # [B, H, T, D]
         merged = out_heads.swapaxes(1, 2).reshape(B, T, C)
         out = self.out_proj(Tensor(merged, (x_tensor,), "LinearAttention"))
         return out
+
 
 
