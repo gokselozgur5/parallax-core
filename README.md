@@ -1,7 +1,7 @@
 # Parallax Core: First-Principles Autograd & Decoder-Only Transformer Engine
 
 [![CI](https://github.com/gokselozgur5/parallax-core/actions/workflows/ci.yml/badge.svg)](https://github.com/gokselozgur5/parallax-core/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 [![Python: 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Zero External ML Dependencies](https://img.shields.io/badge/dependencies-pure%20math%20%2B%20numpy-success.svg)](#architecture)
 
@@ -108,4 +108,7 @@ $$\frac{|g_{\text{analytic}} - g_{\text{numerical}}|}{\max(|g_{\text{analytic}}|
 ---
 
 ## License
-MIT License. Authored and maintained by [Göksel Özgür](https://github.com/gokselozgur5).
+
+Copyright (c) 2026 [Göksel Özgür](https://github.com/gokselozgur5). All rights reserved.
+
+Proprietary / Source-Available. Commercial use, modification, and redistribution are strictly prohibited without prior express written permission.
