@@ -242,9 +242,11 @@ def load_gguf(file_path: str, cast_float64: bool = True) -> GGUFFile:
 def save_gguf(
     file_path: str,
     metadata: Dict[str, Any],
-    tensors: Dict[str, np.ndarray],
+    tensors: Dict[str, Union[np.ndarray, bytes]],
     version: int = 3,
     alignment: int = GGUF_DEFAULT_ALIGNMENT,
+    tensor_types: Optional[Dict[str, int]] = None,
+    tensor_shapes: Optional[Dict[str, Tuple[int, ...]]] = None,
 ) -> None:
     """Serializes metadata and tensors into an official GGUF v3 binary file."""
     with open(file_path, "wb") as f:
@@ -263,21 +265,31 @@ def save_gguf(
         current_offset = 0
 
         for name, arr in tensors.items():
-            arr_contig = np.ascontiguousarray(arr)
-            dtype_name = arr_contig.dtype.name
-
-            if dtype_name == "float32":
-                ggml_type = GGML_TYPE_F32
-                raw_bytes = arr_contig.astype("<f4").tobytes()
-            elif dtype_name == "float16":
-                ggml_type = GGML_TYPE_F16
-                raw_bytes = arr_contig.astype("<f2").tobytes()
-            elif dtype_name in ("float64",):
-                # Standardize float64 to float32 for GGUF serialization
-                ggml_type = GGML_TYPE_F32
-                raw_bytes = arr_contig.astype("<f4").tobytes()
+            if isinstance(arr, (bytes, bytearray)):
+                raw_bytes = bytes(arr)
+                ggml_type = tensor_types.get(name, GGML_TYPE_Q8_0) if tensor_types else GGML_TYPE_Q8_0
+                shape = tensor_shapes.get(name, (len(raw_bytes),)) if tensor_shapes else (len(raw_bytes),)
             else:
-                raise TypeError(f"Unsupported dtype for GGUF serialization: {dtype_name} on tensor '{name}'")
+                arr_contig = np.ascontiguousarray(arr)
+                dtype_name = arr_contig.dtype.name
+
+                if dtype_name == "float32":
+                    ggml_type = GGML_TYPE_F32
+                    raw_bytes = arr_contig.astype("<f4").tobytes()
+                    shape = arr_contig.shape
+                elif dtype_name == "float16":
+                    ggml_type = GGML_TYPE_F16
+                    raw_bytes = arr_contig.astype("<f2").tobytes()
+                    shape = arr_contig.shape
+                elif dtype_name in ("float64",):
+                    # Standardize float64 to float32 for GGUF serialization
+                    ggml_type = GGML_TYPE_F32
+                    raw_bytes = arr_contig.astype("<f4").tobytes()
+                    shape = arr_contig.shape
+                else:
+                    raise TypeError(f"Unsupported dtype for GGUF serialization: {dtype_name} on tensor '{name}'")
+
+
 
             # Offset must be aligned to alignment boundary
             pad = (alignment - (current_offset % alignment)) % alignment
@@ -285,9 +297,10 @@ def save_gguf(
             if pad > 0:
                 tensor_chunks.append(b"\x00" * pad)
 
-            tensor_descriptors.append((name, arr_contig.shape, ggml_type, current_offset))
+            tensor_descriptors.append((name, shape, ggml_type, current_offset))
             tensor_chunks.append(raw_bytes)
             current_offset += len(raw_bytes)
+
 
         # Write tensor descriptors
         for name, shape, ggml_type, offset in tensor_descriptors:
