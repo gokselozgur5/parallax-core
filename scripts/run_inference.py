@@ -69,13 +69,7 @@ def main() -> None:
     if os.path.isfile(model_path) and model_path.endswith(".gguf"):
         model, tokenizer = load_gguf_pretrained(model_path, return_tokenizer=True)
     elif os.path.isdir(model_path):
-        model = load_hf_pretrained(model_path)
-        # Attempt to load tokenizer if present
-        tok_file = os.path.join(model_path, "tokenizer.json")
-        if os.path.exists(tok_file):
-            tokenizer = BPETokenizer()
-        else:
-            tokenizer = None
+        model, tokenizer = load_hf_pretrained(model_path, return_tokenizer=True)
     else:
         raise ValueError(f"Unsupported model format for: {model_path}")
 
