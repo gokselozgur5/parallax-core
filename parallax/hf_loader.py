@@ -8,12 +8,13 @@ or `transformers`.
 
 import json
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple, Union
 import numpy as np
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.nn import Linear, Parameter
 from parallax.safetensors import load_safetensors
+from parallax.hf_tokenizer import HFTokenizer, load_hf_tokenizer
 
 
 def _assign_param(param: Parameter, hf_tensors: Dict[str, np.ndarray], key: str) -> None:
@@ -144,8 +145,11 @@ def load_hf_weights_into_model(
     return model
 
 
-def load_hf_pretrained(model_dir: str) -> ParallaxLM:
-    """Loads a pretrained HuggingFace model directory into a ready ParallaxLM instance."""
+def load_hf_pretrained(
+    model_dir: str,
+    return_tokenizer: bool = False,
+) -> Union[ParallaxLM, Tuple[ParallaxLM, Optional[HFTokenizer]]]:
+    """Loads a pretrained HuggingFace model directory into a ready ParallaxLM instance, optionally returning its tokenizer."""
     config_file = os.path.join(model_dir, "config.json")
     if not os.path.exists(config_file):
         raise FileNotFoundError(f"Missing config.json in {model_dir}")
@@ -172,5 +176,10 @@ def load_hf_pretrained(model_dir: str) -> ParallaxLM:
     for wf in weight_files:
         tensors.update(load_safetensors(wf, cast_float64=True))
     load_hf_weights_into_model(model, tensors)
+
+    if return_tokenizer:
+        tok_file = os.path.join(model_dir, "tokenizer.json")
+        tokenizer = load_hf_tokenizer(tok_file) if os.path.exists(tok_file) else None
+        return model, tokenizer
 
     return model
