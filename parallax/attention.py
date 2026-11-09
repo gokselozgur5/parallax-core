@@ -8,6 +8,7 @@ causal upper-triangular masking, multi-head projection, and RoPE dynamics.
 import math
 from typing import Optional, Tuple, Union
 import numpy as np
+from parallax.flash_attn import flash_attention_forward
 from parallax.nn import Linear, Module, Parameter
 from parallax.tensor import Tensor, unbroadcast_grad
 
@@ -86,6 +87,7 @@ class CausalSelfAttention(Module):
         qkv_bias: bool = False,
         rope_theta: float = 10000.0,
         rope_interleaved: bool = True,
+        use_flash_attn: bool = False,
     ):
         super().__init__()
         assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
@@ -101,6 +103,7 @@ class CausalSelfAttention(Module):
         self.qkv_bias = qkv_bias
         self.rope_theta = float(rope_theta)
         self.rope_interleaved = rope_interleaved
+        self.use_flash_attn = use_flash_attn
         self.scale = 1.0 / math.sqrt(self.head_dim)
 
         # Q projection: [embed_dim, embed_dim]
@@ -167,23 +170,31 @@ class CausalSelfAttention(Module):
             k_heads_expanded = k_heads
             v_heads_expanded = v_heads
 
-        # 3. Scaled dot-product: Q @ K^T -> [B, num_heads, T, total_kv_len]
-        scores = (q_heads @ np.swapaxes(k_heads_expanded, -1, -2)) * self.scale
+        if self.use_flash_attn and past_len == 0:
+            out_heads, _ = flash_attention_forward(
+                q_heads,
+                k_heads_expanded,
+                v_heads_expanded,
+                is_causal=True,
+            )
+        else:
+            # 3. Scaled dot-product: Q @ K^T -> [B, num_heads, T, total_kv_len]
+            scores = (q_heads @ np.swapaxes(k_heads_expanded, -1, -2)) * self.scale
 
-        # 4. Causal masking
-        if T > 1 or past_len > 0:
-            q_indices = np.arange(past_len, past_len + T)[:, None]
-            k_indices = np.arange(total_kv_len)[None, :]
-            causal_mask = k_indices > q_indices  # [T, total_kv_len]
-            scores = np.where(causal_mask[None, None, :, :], -1e9, scores)
+            # 4. Causal masking
+            if T > 1 or past_len > 0:
+                q_indices = np.arange(past_len, past_len + T)[:, None]
+                k_indices = np.arange(total_kv_len)[None, :]
+                causal_mask = k_indices > q_indices  # [T, total_kv_len]
+                scores = np.where(causal_mask[None, None, :, :], -1e9, scores)
 
-        # 5. Numerically stable softmax
-        exp_scores = np.exp(scores - np.max(scores, axis=-1, keepdims=True))
-        attn_weights = exp_scores / np.sum(exp_scores, axis=-1, keepdims=True)
-        self.last_attn_weights = attn_weights
+            # 5. Numerically stable softmax
+            exp_scores = np.exp(scores - np.max(scores, axis=-1, keepdims=True))
+            attn_weights = exp_scores / np.sum(exp_scores, axis=-1, keepdims=True)
+            self.last_attn_weights = attn_weights
 
-        # 6. Weighted values: Attn @ V -> [B, num_heads, T, head_dim]
-        out_heads = attn_weights @ v_heads_expanded
+            # 6. Weighted values: Attn @ V -> [B, num_heads, T, head_dim]
+            out_heads = attn_weights @ v_heads_expanded
 
         # 7. Merge heads: [B, num_heads, T, head_dim] -> [B, T, num_heads, head_dim] -> [B, T, embed_dim]
         merged = np.transpose(out_heads, (0, 2, 1, 3)).reshape(B, T, C)
