@@ -7,13 +7,12 @@ Implements:
 3. REINFORCE / Policy Gradient Alignment Loop: Policy updates with reward feedback and KL regularization against reference model
 """
 
-import math
-from typing import Dict, List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union
 import numpy as np
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
-from parallax.nn import Linear, Module, Parameter
-from parallax.tensor import Tensor, _accumulate_grad, unbroadcast_grad
+from parallax.nn import Linear, Module
+from parallax.tensor import Tensor, _accumulate_grad
 
 
 class RewardModel(Module):

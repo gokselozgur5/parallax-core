@@ -5,7 +5,7 @@ BitNet b1.58 (1.58-bit LLMs: Ma et al., 2024) mathematical primitives.
 from typing import Tuple
 import numpy as np
 from parallax.nn import Module, Parameter
-from parallax.tensor import Tensor, _accumulate_grad, unbroadcast_grad
+from parallax.tensor import Tensor, _accumulate_grad
 
 
 def quantize_weights_ternary(weight: np.ndarray) -> Tuple[np.ndarray, float]:

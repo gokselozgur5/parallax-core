@@ -7,7 +7,7 @@ weights W_0 and injects trainable rank decomposition matrices:
 where A ~ N(0, sigma^2) and B = 0, so initially delta_W = 0.
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import List, Tuple
 import numpy as np
 
 from parallax.nn import Linear, Module, Parameter
