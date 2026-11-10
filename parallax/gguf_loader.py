@@ -12,36 +12,7 @@ from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.nn import Linear, Parameter
 from parallax.gguf import GGUFFile, load_gguf, save_gguf
 from parallax.gguf_tokenizer import GGUFTokenizer, load_gguf_tokenizer
-
-
-def _assign_param(param: Parameter, tensors: Dict[str, np.ndarray], key: str) -> None:
-    if key not in tensors:
-        return
-    src = tensors[key]
-    if param.data.shape != src.shape:
-        raise ValueError(
-            f"Shape mismatch for '{key}': expected {param.data.shape}, got {src.shape}"
-        )
-    param.data = src.copy()
-    if param.grad is not None and param.grad.shape != param.data.shape:
-        param.grad = np.zeros_like(param.data)
-
-
-def _assign_bias(proj: Linear, tensors: Dict[str, np.ndarray], key: str) -> None:
-    if key not in tensors:
-        return
-    src = tensors[key]
-    expected_shape = (proj.out_features,)
-    if src.shape != expected_shape:
-        raise ValueError(
-            f"Shape mismatch for '{key}': expected {expected_shape}, got {src.shape}"
-        )
-    if proj.bias is None:
-        proj.bias = Parameter(src.copy(), label="Linear.bias")
-    else:
-        proj.bias.data = src.copy()
-        if proj.bias.grad is not None and proj.bias.grad.shape != expected_shape:
-            proj.bias.grad = np.zeros_like(proj.bias.data)
+from parallax.loader_utils import _assign_bias, _assign_param
 
 
 def gguf_metadata_to_parallax(
