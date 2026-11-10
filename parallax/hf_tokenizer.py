@@ -70,10 +70,14 @@ class HFTokenizer:
         # Parse BPE merges
         self.merges: Dict[Tuple[str, str], int] = {}
         if merges:
-            for rank, line in enumerate(merges):
-                parts = line.strip().split(" ")
-                if len(parts) == 2:
-                    self.merges[(parts[0], parts[1])] = rank
+            for rank, item in enumerate(merges):
+                if isinstance(item, (list, tuple)):
+                    if len(item) == 2:
+                        self.merges[(str(item[0]), str(item[1]))] = rank
+                elif isinstance(item, str):
+                    parts = item.strip().split(" ")
+                    if len(parts) == 2:
+                        self.merges[(parts[0], parts[1])] = rank
 
         self.bos_token = bos_token
         self.eos_token = eos_token
