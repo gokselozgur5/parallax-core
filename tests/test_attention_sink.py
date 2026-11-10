@@ -114,3 +114,41 @@ def test_retained_window_distinct_and_increasing_rope_positions():
         angles = np.arctan2(k_window[:, 1], k_window[:, 0])
         diffs = np.diff(np.unwrap(angles))
         assert np.allclose(diffs, 1.0)
+
+
+def test_generate_stream_rope_offsets_do_not_collapse(monkeypatch):
+    import parallax.attention as attn_module
+
+    recorded_offsets = []
+    orig_apply_rope = attn_module.apply_rope
+
+    def record_rope(x, seq_dim=1, offset=0, **kwargs):
+        recorded_offsets.append(offset)
+        return orig_apply_rope(x, seq_dim=seq_dim, offset=offset, **kwargs)
+
+    monkeypatch.setattr(attn_module, "apply_rope", record_rope)
+
+    config = ParallaxLMConfig(
+        vocab_size=32,
+        embed_dim=16,
+        num_layers=1,
+        num_heads=2,
+        max_seq_len=64,
+        use_swiglu=False,
+    )
+    model = ParallaxLM(config)
+    sink = RollingKVCache(sink_tokens=2, window_size=6)
+
+    prompt = [1, 2, 3, 4, 5, 6, 7, 8]
+    _ = list(generate_stream(
+        model,
+        prompt,
+        max_new_tokens=10,
+        temperature=0.0,
+        rolling_cache=sink,
+    ))
+
+    # Every step invokes apply_rope for Q and K once per layer
+    step_offsets = recorded_offsets[::2]
+    expected_offsets = [0, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+    assert step_offsets == expected_offsets
