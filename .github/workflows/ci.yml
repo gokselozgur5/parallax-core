@@ -28,11 +28,15 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install -e .
-        pip install ruff
+        pip install ruff mypy
 
     - name: Run Ruff Lint Checks
       run: |
-        ruff check --select F821,E9 parallax scripts
+        ruff check parallax scripts
+
+    - name: Run Mypy Type Checks
+      run: |
+        mypy parallax
 
     - name: Run Test Suite with Pytest
       run: |
