@@ -69,3 +69,39 @@ def test_openai_server_chat_completions_sse_streaming(running_stream_server):
         for chunk in chunks:
             assert chunk["object"] == "chat.completion.chunk"
             assert "choices" in chunk
+
+        # Initial chunk should have role: assistant
+        assert chunks[0]["choices"][0]["delta"] == {"role": "assistant"}
+        # Last chunk before [DONE] should have finish_reason length or stop
+        assert chunks[-1]["choices"][0]["finish_reason"] in ("length", "stop")
+
+
+def test_openai_server_streaming_max_tokens_zero(running_stream_server):
+    url = f"{running_stream_server}/v1/chat/completions"
+    payload = json.dumps({
+        "model": "stream-model",
+        "messages": [{"role": "user", "content": "Ping"}],
+        "max_tokens": 0,
+        "stream": True,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req) as resp:
+        assert resp.status == 200
+        raw_lines = resp.read().decode("utf-8").strip().split("\n\n")
+        chunks = []
+        for block in raw_lines:
+            if block.startswith("data: "):
+                data_str = block[6:]
+                if data_str == "[DONE]":
+                    break
+                chunks.append(json.loads(data_str))
+
+        assert len(chunks) == 2
+        assert chunks[0]["choices"][0]["delta"] == {"role": "assistant"}
+        assert chunks[1]["choices"][0]["finish_reason"] == "length"
