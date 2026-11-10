@@ -95,6 +95,7 @@ def test_compression_ratio():
     # Raw weight compression: 4 bytes (float32) vs 0.5 bytes (4-bit) = 8.0x
     # Against uint8 weight: 1 byte vs 0.5 bytes = 2.0x
     assert stats["weight_compression_ratio"] == 8.0
+    assert stats["packed_ratio"] == 8.0
 
     # Total compression including scales and zeros:
     # 32 elements in float32 = 128 bytes
@@ -102,6 +103,11 @@ def test_compression_ratio():
     # Ratio = 128 / 24 = 5.33x
     assert stats["total_compression_ratio"] > 5.0
     assert stats["packed_bytes"] == (out_features * in_features) // 2
+
+    # Baseline float64
+    stats_f64 = l4.memory_footprint(baseline_dtype=np.float64)
+    assert stats_f64["packed_ratio"] == 16.0
+    assert stats_f64["total_compression_ratio"] > 10.0
 
 
 def test_linear4bit_forward():
