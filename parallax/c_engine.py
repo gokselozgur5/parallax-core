@@ -8,12 +8,17 @@ import ctypes
 import os
 import sys
 import subprocess
+import threading
+import logging
 from pathlib import Path
 from typing import Optional
 import numpy as np
 
 _C_LIB: Optional[ctypes.CDLL] = None
 _LIB_LOAD_ATTEMPTED: bool = False
+_INIT_LOCK = threading.Lock()
+_LOAD_ERROR_REASON: Optional[str] = None
+_LOGGER = logging.getLogger("parallax.c_engine")
 
 def _find_or_build_library() -> Optional[ctypes.CDLL]:
     global _C_LIB, _LIB_LOAD_ATTEMPTED
