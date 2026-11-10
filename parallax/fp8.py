@@ -16,7 +16,15 @@ def quantize_fp8(
     block_size: int = 16,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Quantize tensor to simulated FP8 representation with per-block scaling."""
-    max_val = FP8Format.E4M3_MAX if format_type == "e4m3" else FP8Format.E5M2_MAX
+    fmt = format_type.lower()
+    if fmt in ("e4m3", "e4m3fn"):
+        max_val = FP8Format.E4M3_MAX
+    elif fmt == "e5m2":
+        max_val = FP8Format.E5M2_MAX
+    else:
+        raise ValueError(
+            f"Unsupported FP8 format_type: '{format_type}'. Supported: 'e4m3', 'e5m2'."
+        )
     flat = tensor.flatten()
     pad_len = (block_size - (flat.size % block_size)) % block_size
     padded = np.pad(flat, (0, pad_len), mode="constant")
