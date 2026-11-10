@@ -7,29 +7,30 @@ matrix multiplication, and common reduction operators.
 """
 
 import contextlib
+import contextvars
 from typing import Callable, List, Optional, Sequence, Set, Tuple, Union
 import numpy as np
 
 TensorLike = Union[int, float, list, np.ndarray, "Tensor"]
 
-_GRAD_ENABLED: bool = True
+_grad_enabled_var: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "grad_enabled", default=True
+)
 
 
 def is_grad_enabled() -> bool:
-    """Returns True if autograd computation is globally enabled."""
-    return _GRAD_ENABLED
+    """Returns True if autograd computation is enabled in the current context."""
+    return _grad_enabled_var.get()
 
 
 @contextlib.contextmanager
 def no_grad():
-    """Context manager that disables gradient calculation and computation graph building."""
-    global _GRAD_ENABLED
-    prev = _GRAD_ENABLED
-    _GRAD_ENABLED = False
+    """Context manager that disables gradient calculation in current context."""
+    token = _grad_enabled_var.set(False)
     try:
         yield
     finally:
-        _GRAD_ENABLED = prev
+        _grad_enabled_var.reset(token)
 
 
 def unbroadcast_grad(grad: np.ndarray, target_shape: Tuple[int, ...]) -> np.ndarray:
@@ -71,10 +72,11 @@ class Tensor:
         else:
             self.data = np.array(data, dtype=np.float64)
 
+        grad_enabled = _grad_enabled_var.get()
         if _children:
-            self.requires_grad: bool = _GRAD_ENABLED and any(c.requires_grad for c in _children)
+            self.requires_grad: bool = grad_enabled and any(c.requires_grad for c in _children)
         else:
-            self.requires_grad: bool = bool(requires_grad) and _GRAD_ENABLED
+            self.requires_grad: bool = bool(requires_grad) and grad_enabled
 
         self.grad: Optional[np.ndarray] = (
             np.zeros_like(self.data, dtype=np.float64) if self.requires_grad else None
