@@ -56,6 +56,8 @@ def unbroadcast_grad(grad: np.ndarray, target_shape: Tuple[int, ...]) -> np.ndar
 class Tensor:
     """N-dimensional tensor supporting reverse-mode automatic differentiation."""
 
+    __array_ufunc__ = None
+
     def __init__(
         self,
         data: TensorLike,

@@ -120,3 +120,23 @@ def test_backward_deep_graph_iterative_topo():
     curr.backward()
     assert x.grad is not None
     assert np.allclose(x.grad, [1.0])
+
+
+def test_numpy_array_reflected_ops_issue_290():
+    arr = np.array([1.0, 2.0, 3.0])
+    t = Tensor([10.0, 20.0, 30.0], requires_grad=True)
+
+    add_res = arr + t
+    assert isinstance(add_res, Tensor)
+    assert np.allclose(add_res.data, np.array([11.0, 22.0, 33.0]))
+
+    mul_res = arr * t
+    assert isinstance(mul_res, Tensor)
+    assert np.allclose(mul_res.data, np.array([10.0, 40.0, 90.0]))
+
+    sub_res = arr - t
+    assert isinstance(sub_res, Tensor)
+    assert np.allclose(sub_res.data, np.array([-9.0, -18.0, -27.0]))
+
+    add_res.sum().backward()
+    assert np.allclose(t.grad, np.ones(3))
