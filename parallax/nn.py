@@ -5,9 +5,9 @@ Provides the Module abstraction, Parameter wrappers, and core layers
 including Linear projections, LayerNorm, and RMSNorm.
 """
 
-from typing import Iterator, List, Optional
+from typing import List, Optional
 import numpy as np
-from parallax.tensor import Tensor, _accumulate_grad, unbroadcast_grad
+from parallax.tensor import Tensor, _accumulate_grad
 
 
 class Parameter(Tensor):

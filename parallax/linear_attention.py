@@ -9,7 +9,7 @@ step forward for constant O(1) memory autoregressive decoding.
 
 from typing import Optional, Tuple, Union
 import numpy as np
-from parallax.nn import Linear, Module, Parameter
+from parallax.nn import Linear, Module
 from parallax.tensor import Tensor, _accumulate_grad
 
 
