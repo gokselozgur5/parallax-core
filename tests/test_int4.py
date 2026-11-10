@@ -173,3 +173,24 @@ def test_linear4bit_gradient_propagation():
     assert h.grad is not None
     assert pre.weight.grad is not None
     assert x.grad is not None
+
+    # Check analytical gradient against finite difference for pre.weight
+    eps = 1e-6
+    w_dequant = q.dequantize()
+    w_arr = pre.weight.data.copy()
+    num_grad_w = np.zeros_like(w_arr)
+    for idx in np.ndindex(w_arr.shape):
+        w_p = w_arr.copy()
+        w_p[idx] += eps
+        h_p = x.data @ w_p.T + pre.bias.data
+        y_p = h_p @ w_dequant.T + q.bias_data
+        loss_p = y_p.sum()
+
+        w_m = w_arr.copy()
+        w_m[idx] -= eps
+        h_m = x.data @ w_m.T + pre.bias.data
+        y_m = h_m @ w_dequant.T + q.bias_data
+        loss_m = y_m.sum()
+        num_grad_w[idx] = (loss_p - loss_m) / (2 * eps)
+
+    np.testing.assert_allclose(pre.weight.grad, num_grad_w, rtol=1e-5, atol=1e-5)
