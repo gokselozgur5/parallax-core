@@ -106,37 +106,41 @@ def benchmark_inference(
 
     # 1. Benchmark uncached inference
     latencies_uncached: List[float] = []
+    actual_uncached_tokens = 0
     for _ in range(num_runs):
         t0 = time.perf_counter()
-        _ = generate(model, prompt, max_new_tokens=gen_len, temperature=0.0, use_cache=False)
+        out = generate(model, prompt, max_new_tokens=gen_len, temperature=0.0, use_cache=False)
         latencies_uncached.append(time.perf_counter() - t0)
+        actual_uncached_tokens = len(out) - len(prompt)
 
     mean_uncached_s = float(np.mean(latencies_uncached))
-    tok_sec_uncached = gen_len / mean_uncached_s if mean_uncached_s > 0 else 0.0
+    tok_sec_uncached = actual_uncached_tokens / mean_uncached_s if mean_uncached_s > 0 else 0.0
 
     uncached_result = BenchmarkResult(
         workload="Autoregressive Inference (No Cache - O(N^2))",
         tokens_per_second=tok_sec_uncached,
         latency_ms=mean_uncached_s * 1000.0,
-        total_tokens=gen_len,
+        total_tokens=actual_uncached_tokens,
         memory_mb_approx=0.0,
     )
 
     # 2. Benchmark cached inference
     latencies_cached: List[float] = []
+    actual_cached_tokens = 0
     for _ in range(num_runs):
         t0 = time.perf_counter()
-        _ = generate(model, prompt, max_new_tokens=gen_len, temperature=0.0, use_cache=True)
+        out = generate(model, prompt, max_new_tokens=gen_len, temperature=0.0, use_cache=True)
         latencies_cached.append(time.perf_counter() - t0)
+        actual_cached_tokens = len(out) - len(prompt)
 
     mean_cached_s = float(np.mean(latencies_cached))
-    tok_sec_cached = gen_len / mean_cached_s if mean_cached_s > 0 else 0.0
+    tok_sec_cached = actual_cached_tokens / mean_cached_s if mean_cached_s > 0 else 0.0
 
     cached_result = BenchmarkResult(
         workload="Autoregressive Inference (KV Cache - O(1) step)",
         tokens_per_second=tok_sec_cached,
         latency_ms=mean_cached_s * 1000.0,
-        total_tokens=gen_len,
+        total_tokens=actual_cached_tokens,
         memory_mb_approx=0.0,
     )
 
