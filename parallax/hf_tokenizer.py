@@ -74,6 +74,42 @@ def _build_class_pattern(cat_prefix: str) -> str:
             parts.append(_esc(s) + "-" + _esc(e))
     return "".join(parts)
 
+
+_L_CLASS_PAT = _build_class_pattern("L")
+_N_CLASS_PAT = _build_class_pattern("N")
+
+
+def _translate_hf_regex(pattern: str) -> str:
+    """Translates HuggingFace Rust regex pattern (with \p{L}/\p{N}) to Python re."""
+    out = []
+    in_bracket = False
+    i = 0
+    while i < len(pattern):
+        if pattern[i] == "\\" and i + 1 < len(pattern):
+            if pattern[i : i + 5] == r"\p{L}":
+                out.append(_L_CLASS_PAT if in_bracket else f"[{_L_CLASS_PAT}]")
+                i += 5
+                continue
+            if pattern[i : i + 5] == r"\p{N}":
+                out.append(_N_CLASS_PAT if in_bracket else f"[{_N_CLASS_PAT}]")
+                i += 5
+                continue
+            out.append(pattern[i : i + 2])
+            i += 2
+            continue
+        if pattern[i] == "[":
+            in_bracket = True
+            out.append("[")
+            i += 1
+        elif pattern[i] == "]":
+            in_bracket = False
+            out.append("]")
+            i += 1
+        else:
+            out.append(pattern[i])
+            i += 1
+    return "".join(out)
+
 _PRETOKENIZER_REGEX = re.compile(
     r"""'s|'t|'re|'ve|'m|'ll|'d| ?[a-zA-Z]+| ?\d+| ?[^\s\w]+|\s+(?!\S)|\s+"""
 )
