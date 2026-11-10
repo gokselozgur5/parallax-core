@@ -25,27 +25,24 @@ pub const STATUS_INVALID_DIMENSION: i32 = -2;
 /// 0 on success, negative status code on error.
 #[no_mangle]
 pub unsafe extern "C" fn parallax_gemm_f32(
-    m: usize,
-    n: usize,
-    k: usize,
-    alpha: f32,
-    a_ptr: *const f32,
-    b_ptr: *const f32,
-    beta: f32,
-    c_ptr: *mut f32,
+    m: usize, n: usize, k: usize, alpha: f32,
+    a_ptr: *const f32, a_len: usize, b_ptr: *const f32, b_len: usize,
+    beta: f32, c_ptr: *mut f32, c_len: usize,
 ) -> i32 {
-    if a_ptr.is_null() || b_ptr.is_null() || c_ptr.is_null() {
-        return STATUS_NULL_POINTER;
-    }
-
-    let a = slice::from_raw_parts(a_ptr, m * k);
-    let b = slice::from_raw_parts(b_ptr, k * n);
-    let c = slice::from_raw_parts_mut(c_ptr, m * n);
-
-    match tensor::gemm_f32(m, n, k, alpha, a, b, beta, c) {
-        Ok(()) => STATUS_OK,
-        Err(_) => STATUS_INVALID_DIMENSION,
-    }
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        if a_ptr.is_null() || b_ptr.is_null() || c_ptr.is_null() {
+            return STATUS_NULL_POINTER;
+        }
+        let (ra, rb, rc) = (m.checked_mul(k), k.checked_mul(n), m.checked_mul(n));
+        let (Some(ra), Some(rb), Some(rc)) = (ra, rb, rc) else { return STATUS_INVALID_DIMENSION };
+        if a_len != ra || b_len != rb || c_len != rc { return STATUS_INVALID_DIMENSION; }
+        let (a, b) = (slice::from_raw_parts(a_ptr, a_len), slice::from_raw_parts(b_ptr, b_len));
+        let c = slice::from_raw_parts_mut(c_ptr, c_len);
+        match tensor::gemm_f32(m, n, k, alpha, a, b, beta, c) {
+            Ok(()) => STATUS_OK,
+            Err(_) => STATUS_INVALID_DIMENSION,
+        }
+    })).unwrap_or(STATUS_INVALID_DIMENSION)
 }
 
 /// C-ABI export for in-place Softmax along last dimension.
@@ -98,12 +95,9 @@ mod tests {
 
         unsafe {
             let res = parallax_gemm_f32(
-                2, 2, 2,
-                1.0,
-                a.as_ptr(),
-                b.as_ptr(),
-                0.0,
-                c.as_mut_ptr(),
+                2, 2, 2, 1.0,
+                a.as_ptr(), a.len(), b.as_ptr(), b.len(),
+                0.0, c.as_mut_ptr(), c.len(),
             );
             assert_eq!(res, STATUS_OK);
         }
