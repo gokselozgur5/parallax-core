@@ -202,3 +202,27 @@ def test_bitmamba_training_loss_reduction():
         optimizer.step()
 
     assert losses[-1] < losses[0]
+
+
+def test_bitmamba_block_strong_ssm_regime_kill_readout_drop():
+    """Verify strong SSM regime with D=0; kills SSM readout deleted fault."""
+    np.random.seed(42)
+    B, T, D = 1, 4, 8
+    block = BitMambaBlock(d_model=D, d_state=4, d_conv=3, expand=2)
+    block.D.data.fill(0.0)  # Pure SSM readout, no direct feedthrough
+    block.conv_weight.data = np.ones_like(block.conv_weight.data)
+    block.A_log.data.fill(-1.0)
+
+    u_seq = np.random.randn(B, T, D) * 2.0
+    out_seq = block(Tensor(u_seq)).data
+    assert np.linalg.norm(out_seq) > 0.1, "Output near zero: SSM readout C.h was dropped"
+
+    ssm_s = np.zeros((B, block.d_inner, block.d_state))
+    conv_s = np.zeros((B, block.d_inner, block.conv_weight.shape[1]))
+    steps = []
+    with no_grad():
+        for t in range(T):
+            st, ssm_s, conv_s = block(Tensor(u_seq[:, t : t + 1]), ssm_state=ssm_s, conv_state=conv_s)
+            steps.append(st.data)
+    np.testing.assert_allclose(out_seq, np.concatenate(steps, axis=1), atol=1e-5)
+
