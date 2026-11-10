@@ -278,3 +278,20 @@ def test_bit_transformer_generate_max_new_tokens_edge_cases():
         u = model.generate(prompt, max_new_tokens=n, use_cache=False)
         assert len(c) == len(prompt) + n
         assert len(u) == len(prompt) + n
+
+
+def test_bit_transformer_block_mlp_residual_presence():
+    """Verify MLP residual connection is present; kills residual-removed fault."""
+    np.random.seed(42)
+    B, T, C = 2, 4, 16
+    block = BitTransformerBlock(embed_dim=C, num_heads=2, intermediate_size=32)
+    x = Tensor(np.random.randn(B, T, C))
+
+    x1 = x + block.attn(block.attn_norm(x))
+    expected_with_residual = (x1 + block.mlp(block.mlp_norm(x1))).data
+    expected_without_residual = block.mlp(block.mlp_norm(x1)).data
+
+    actual = block(x).data
+    np.testing.assert_allclose(actual, expected_with_residual, atol=1e-5)
+    assert np.linalg.norm(actual - expected_without_residual) > 1.0
+
