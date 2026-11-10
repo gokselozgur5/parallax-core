@@ -59,6 +59,14 @@ class LoRALinear(Module):
         self.merged = False
         self.training = True
 
+    @property
+    def weight(self):
+        return self.base_layer.weight
+
+    @property
+    def bias(self):
+        return self.base_layer.bias
+
     def forward(self, x: Tensor) -> Tensor:
         # Base forward pass
         base_out = self.base_layer(x)
@@ -95,6 +103,23 @@ class LoRALinear(Module):
             delta_w = self.scaling * (self.lora_B.data @ self.lora_A.data)
             self.base_layer.weight.data -= delta_w
             self.merged = False
+
+    def unwrap(self) -> Linear:
+        """Returns the underlying base linear layer."""
+        return self.base_layer
+
+    def merge_and_unload(self) -> Linear:
+        """Merges LoRA weights into base layer and returns the base layer."""
+        if self.r > 0 and not self.merged:
+            # Add (lora_B.weight @ lora_A.weight) * scaling into base_layer.weight.data
+            b_w = self.lora_B.weight if hasattr(self.lora_B, "weight") else self.lora_B
+            a_w = self.lora_A.weight if hasattr(self.lora_A, "weight") else self.lora_A
+            b_data = getattr(b_w, "data", b_w)
+            a_data = getattr(a_w, "data", a_w)
+            delta_w = (b_data @ a_data) * self.scaling
+            self.base_layer.weight.data += delta_w
+            self.merged = True
+        return self.base_layer
 
 
 def apply_lora_to_model(
