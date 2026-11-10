@@ -150,13 +150,14 @@ class TransformerBlock(Module):
         self,
         x: Tensor,
         kv_cache: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+        rope_offset: Optional[int] = None,
     ) -> Union[Tensor, Tuple[Tensor, Tuple[np.ndarray, np.ndarray]]]:
         # Pre-LN Residual stream: x + Attn(RMSNorm(x))
         norm_x = self.attn_norm(x)
         if kv_cache is not None:
-            attn_out, new_cache = self.attn(norm_x, kv_cache=kv_cache)
+            attn_out, new_cache = self.attn(norm_x, kv_cache=kv_cache, rope_offset=rope_offset)
         else:
-            attn_out = self.attn(norm_x)
+            attn_out = self.attn(norm_x, rope_offset=rope_offset)
             new_cache = None
 
         x = x + attn_out
@@ -262,6 +263,7 @@ class ParallaxLM(Module):
         idx: np.ndarray,
         kv_caches: Optional[List[Tuple[np.ndarray, np.ndarray]]] = None,
         return_hidden: bool = False,
+        rope_offset: Optional[int] = None,
     ) -> Union[Tensor, Tuple[Tensor, List[Tuple[np.ndarray, np.ndarray]]], Tuple[Tensor, Tensor]]:
         # idx: [batch_size, seq_len]
         x = self.token_embeddings(idx)
@@ -269,10 +271,10 @@ class ParallaxLM(Module):
         new_caches: List[Tuple[np.ndarray, np.ndarray]] = []
         for i, block in enumerate(self.blocks):
             if kv_caches is not None:
-                x, updated_cache = block(x, kv_cache=kv_caches[i])
+                x, updated_cache = block(x, kv_cache=kv_caches[i], rope_offset=rope_offset)
                 new_caches.append(updated_cache)
             else:
-                x = block(x)
+                x = block(x, rope_offset=rope_offset)
 
         hidden = self.final_norm(x)
         logits = self.lm_head(hidden)  # [B, T, vocab_size]
