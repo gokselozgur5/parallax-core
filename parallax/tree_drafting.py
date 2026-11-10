@@ -1,6 +1,6 @@
 """Speculative Tree-Drafting (Eagle style) candidate verification kernel."""
 
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 import numpy as np
 
 
@@ -26,18 +26,42 @@ def verify_tree_candidates(
     draft_tokens: List[int],
     parent_indices: List[int],
     target_logits: np.ndarray,
+    context_logits: Optional[np.ndarray] = None,
 ) -> List[int]:
-    """Verify tree candidates greedily against target model predictions and find longest valid path."""
+    """Verify tree candidates greedily against target model predictions and find longest valid path.
+
+    Args:
+        draft_tokens: List of proposed draft token IDs corresponding to tree nodes.
+        parent_indices: Parent node index for each node, with -1 denoting root nodes.
+        target_logits: Logits from target model for each tree candidate node (shape: [n, vocab_size]).
+        context_logits: Optional target model logits at the prompt/context boundary prior
+            to tree candidates. If provided, roots must match argmax(context_logits) to be accepted.
+            If a root is rejected, the target's correction token (argmax) is returned.
+
+    Returns:
+        The longest verified token sequence (or [correction_token] if root is rejected).
+    """
     n = len(draft_tokens)
+    if n == 0:
+        return []
+
     target_preds = np.argmax(target_logits, axis=-1)
     valid_nodes = set()
+
+    context_choice = int(np.argmax(context_logits)) if context_logits is not None else None
 
     for i in range(n):
         parent = parent_indices[i]
         if parent == -1:
-            valid_nodes.add(i)
+            if context_choice is None or draft_tokens[i] == context_choice:
+                valid_nodes.add(i)
         elif parent in valid_nodes and target_preds[parent] == draft_tokens[i]:
             valid_nodes.add(i)
+
+    if not valid_nodes:
+        if context_choice is not None:
+            return [context_choice]
+        return []
 
     # Find deepest valid branch
     best_path: List[int] = []
