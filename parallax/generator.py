@@ -224,83 +224,16 @@ def generate(
         eos_token_id: Optional end-of-sequence token ID to terminate generation early.
     """
     tokens = list(prompt_tokens)
-    max_seq_len = model.config.max_seq_len
-
-    with no_grad():
-        if not use_cache:
-            for _ in range(max_new_tokens):
-                context = tokens[-max_seq_len:]
-                idx = np.array([context], dtype=np.int64)
-                logits = model(idx)
-                next_token_logits = logits.data[0, -1, :]
-                next_token = sample_next_token(
-                    next_token_logits,
-                    temperature=temperature,
-                    top_k=top_k,
-                    top_p=top_p,
-                )
-                tokens.append(next_token)
-                if eos_token_id is not None and next_token == eos_token_id:
-                    break
-            return tokens
-
-        # Fast KV cached generation
-        # 1. Warm up prompt context into KV caches
-        context = tokens[-max_seq_len:]
-        idx = np.array([context], dtype=np.int64)
-
-        # Initialize empty caches per layer (respecting GQA num_kv_heads if configured)
-        B = 1
-        num_heads = model.config.num_heads
-        num_kv_heads = model.config.num_kv_heads if model.config.num_kv_heads is not None else num_heads
-        head_dim = model.config.embed_dim // num_heads
-        kv_caches: List[Tuple[np.ndarray, np.ndarray]] = [
-            (np.empty((B, num_kv_heads, 0, head_dim), dtype=np.float64),
-             np.empty((B, num_kv_heads, 0, head_dim), dtype=np.float64))
-            for _ in range(model.config.num_layers)
-        ]
-
-        logits, kv_caches = model(idx, kv_caches=kv_caches)
-        if rolling_cache is not None:
-            kv_caches = rolling_cache.evict_layers(kv_caches)
-        next_token_logits = logits.data[0, -1, :]
-        next_token = sample_next_token(
-            next_token_logits,
-            temperature=temperature,
-            top_k=top_k,
-            top_p=top_p,
-        )
-        tokens.append(next_token)
-        if eos_token_id is not None and next_token == eos_token_id:
-            return tokens
-
-        # 2. Incrementally generate one token at a time using cached history
-        for _ in range(max_new_tokens - 1):
-            if rolling_cache is None and len(context) >= max_seq_len:
-                context = tokens[-max_seq_len:]
-                idx = np.array([context], dtype=np.int64)
-                kv_caches = [
-                    (np.empty((B, num_kv_heads, 0, head_dim), dtype=np.float64),
-                     np.empty((B, num_kv_heads, 0, head_dim), dtype=np.float64))
-                    for _ in range(model.config.num_layers)
-                ]
-                logits, kv_caches = model(idx, kv_caches=kv_caches)
-            else:
-                context.append(next_token)
-                idx_next = np.array([[next_token]], dtype=np.int64)
-                rope_offset = rolling_cache.total_seen if rolling_cache is not None else None
-                logits, kv_caches = model(idx_next, kv_caches=kv_caches, rope_offset=rope_offset)
-                if rolling_cache is not None:
-                    kv_caches = rolling_cache.evict_layers(kv_caches)
-            next_token_logits = logits.data[0, -1, :]
-            next_token = sample_next_token(
-                next_token_logits,
-                temperature=temperature,
-                top_k=top_k,
-                top_p=top_p,
-            )
-            tokens.append(next_token)
-            if eos_token_id is not None and next_token == eos_token_id:
-                break
-
+    for token in generate_stream(
+        model=model,
+        prompt_tokens=prompt_tokens,
+        max_new_tokens=max_new_tokens,
+        temperature=temperature,
+        top_k=top_k,
+        top_p=top_p,
+        use_cache=use_cache,
+        eos_token_id=eos_token_id,
+        rolling_cache=rolling_cache,
+    ):
+        tokens.append(token)
     return tokens
