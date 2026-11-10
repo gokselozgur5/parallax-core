@@ -212,7 +212,28 @@ def speculative_generate(
 
         total_proposed += len(draft_tokens)
 
-        # 2. Parallel Target verification: evaluate prompt + all drafted tokens in ONE forward pass
+        # 2. Target verification:
+        if len(tokens) + len(draft_tokens) > target_model.config.max_seq_len:
+            n_acc, fwd, total_generated, stopped_early = _verify_loop(
+                target_model,
+                tokens,
+                draft_tokens,
+                draft_prob_dists,
+                hit_eos_in_draft,
+                max_new_tokens,
+                total_generated,
+                temperature,
+                top_k,
+                top_p,
+                eos_token_id,
+            )
+            total_accepted += n_acc
+            target_forward_passes += fwd
+            if stopped_early:
+                break
+            continue
+
+        # Parallel Target verification: evaluate prompt + all drafted tokens in ONE forward pass
         eval_seq = tokens + draft_tokens
         idx_target = np.array([eval_seq[-target_model.config.max_seq_len:]], dtype=np.int64)
         with no_grad():
