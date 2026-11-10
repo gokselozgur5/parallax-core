@@ -152,8 +152,9 @@ def generate_stream(
             break
 
         idx_next = np.array([[next_token]], dtype=np.int64)
+        rope_offset = rolling_cache.total_seen if rolling_cache is not None else None
         with no_grad():
-            logits, kv_caches = model(idx_next, kv_caches=kv_caches)
+            logits, kv_caches = model(idx_next, kv_caches=kv_caches, rope_offset=rope_offset)
         if rolling_cache is not None:
             kv_caches = rolling_cache.evict_layers(kv_caches)
         next_token_logits = logits.data[0, -1, :]
@@ -178,6 +179,7 @@ def generate(
     top_p: Optional[float] = None,
     use_cache: bool = True,
     eos_token_id: Optional[int] = None,
+    rolling_cache: Optional[RollingKVCache] = None,
 ) -> List[int]:
     """Autoregressively generates new tokens conditioned on a prompt.
 
@@ -229,6 +231,8 @@ def generate(
         ]
 
         logits, kv_caches = model(idx, kv_caches=kv_caches)
+        if rolling_cache is not None:
+            kv_caches = rolling_cache.evict_layers(kv_caches)
         next_token_logits = logits.data[0, -1, :]
         next_token = sample_next_token(
             next_token_logits,
@@ -242,12 +246,15 @@ def generate(
 
         # 2. Incrementally generate one token at a time using cached history
         for _ in range(max_new_tokens - 1):
-            if len(tokens) >= max_seq_len:
+            if rolling_cache is None and len(tokens) >= max_seq_len:
                 # Context exceeded max length for pure increment
                 break
 
             idx_next = np.array([[next_token]], dtype=np.int64)
-            logits, kv_caches = model(idx_next, kv_caches=kv_caches)
+            rope_offset = rolling_cache.total_seen if rolling_cache is not None else None
+            logits, kv_caches = model(idx_next, kv_caches=kv_caches, rope_offset=rope_offset)
+            if rolling_cache is not None:
+                kv_caches = rolling_cache.evict_layers(kv_caches)
             next_token_logits = logits.data[0, -1, :]
             next_token = sample_next_token(
                 next_token_logits,
