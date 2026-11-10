@@ -341,19 +341,43 @@ def save_hf_pretrained(
         tensors[f"{prefix}.input_layernorm.weight"] = block.attn_norm.weight.data.astype(np.float32)
         tensors[f"{prefix}.post_attention_layernorm.weight"] = block.mlp_norm.weight.data.astype(np.float32)
 
-        tensors[f"{prefix}.self_attn.q_proj.weight"] = block.attn.q_proj.weight.data.astype(np.float32)
-        tensors[f"{prefix}.self_attn.k_proj.weight"] = block.attn.k_proj.weight.data.astype(np.float32)
+        q_w = block.attn.q_proj.weight.data.astype(np.float32)
+        k_w = block.attn.k_proj.weight.data.astype(np.float32)
+        head_dim = cfg.embed_dim // cfg.num_heads
+        if cfg.rope_interleaved:
+            q_w = _permute_interleaved_to_hf_weight(q_w, cfg.num_heads, head_dim)
+            k_w = _permute_interleaved_to_hf_weight(k_w, num_kv_heads, head_dim)
+
+        tensors[f"{prefix}.self_attn.q_proj.weight"] = q_w
+        tensors[f"{prefix}.self_attn.k_proj.weight"] = k_w
         tensors[f"{prefix}.self_attn.v_proj.weight"] = block.attn.v_proj.weight.data.astype(np.float32)
         tensors[f"{prefix}.self_attn.o_proj.weight"] = block.attn.out_proj.weight.data.astype(np.float32)
 
         if block.attn.q_proj.bias is not None:
-            tensors[f"{prefix}.self_attn.q_proj.bias"] = block.attn.q_proj.bias.data.astype(np.float32)
+            q_b = block.attn.q_proj.bias.data.astype(np.float32)
+            if cfg.rope_interleaved:
+                q_b = _permute_interleaved_to_hf_bias(q_b, cfg.num_heads, head_dim)
+            tensors[f"{prefix}.self_attn.q_proj.bias"] = q_b
+        elif cfg.qkv_bias:
+            tensors[f"{prefix}.self_attn.q_proj.bias"] = np.zeros(block.attn.q_proj.out_features, dtype=np.float32)
+
         if block.attn.k_proj.bias is not None:
-            tensors[f"{prefix}.self_attn.k_proj.bias"] = block.attn.k_proj.bias.data.astype(np.float32)
+            k_b = block.attn.k_proj.bias.data.astype(np.float32)
+            if cfg.rope_interleaved:
+                k_b = _permute_interleaved_to_hf_bias(k_b, num_kv_heads, head_dim)
+            tensors[f"{prefix}.self_attn.k_proj.bias"] = k_b
+        elif cfg.qkv_bias:
+            tensors[f"{prefix}.self_attn.k_proj.bias"] = np.zeros(block.attn.k_proj.out_features, dtype=np.float32)
+
         if block.attn.v_proj.bias is not None:
             tensors[f"{prefix}.self_attn.v_proj.bias"] = block.attn.v_proj.bias.data.astype(np.float32)
+        elif cfg.qkv_bias:
+            tensors[f"{prefix}.self_attn.v_proj.bias"] = np.zeros(block.attn.v_proj.out_features, dtype=np.float32)
+
         if block.attn.out_proj.bias is not None:
             tensors[f"{prefix}.self_attn.o_proj.bias"] = block.attn.out_proj.bias.data.astype(np.float32)
+        elif cfg.qkv_bias:
+            tensors[f"{prefix}.self_attn.o_proj.bias"] = np.zeros(block.attn.out_proj.out_features, dtype=np.float32)
 
         if hasattr(block.mlp, "w_gate"):
             tensors[f"{prefix}.mlp.gate_proj.weight"] = block.mlp.w_gate.weight.data.astype(np.float32)
