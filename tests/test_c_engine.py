@@ -190,3 +190,12 @@ def test_c_engine_unsupported_dtypes():
     assert res[0, 0] == 16777217
     res_f64 = c_softmax(np.array([[1e40, 0.0, 1.0]], dtype=np.float64))
     np.testing.assert_allclose(res_f64, [[1.0, 0.0, 0.0]], atol=1e-6)
+
+
+def test_c_engine_empty_shapes():
+    assert c_gemm(np.zeros((0, 4), dtype=np.float32), np.zeros((4, 3), dtype=np.float32)).shape == (0, 3)
+    assert c_gemm(np.zeros((2, 4), dtype=np.float32), np.zeros((4, 0), dtype=np.float32)).shape == (2, 0)
+    assert c_gemm(np.zeros((2, 0), dtype=np.float32), np.zeros((0, 3), dtype=np.float32)).shape == (2, 3)
+    assert c_softmax(np.zeros((0, 4), dtype=np.float32)).shape == (0, 4)
+    with pytest.raises(ValueError):
+        c_softmax(np.zeros((3, 0), dtype=np.float32))
