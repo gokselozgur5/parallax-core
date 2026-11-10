@@ -3,9 +3,8 @@ BitTransformer: Pure 1.58-bit Ternary Transformer Language Model Architecture.
 
 Fuses BitNet b1.58 ternary linear projections {-1, 0, +1} (Ma et al., 2024)
 across all attention projections (BitAttention), feed-forward SwiGLU MLP layers (BitSwiGLU),
-and language model prediction heads (BitLinear LM Head). Replaces ~95%+ of floating-point
-matrix multiplications with integer addition-dominated matrix products while supporting
-exact straight-through estimator (STE) gradient propagation and KV-cache decoding.
+and language model prediction heads (BitLinear LM Head). Simulates low-bit quantization
+in float64 while supporting straight-through estimator (STE) gradient propagation and KV-cache decoding.
 """
 
 from dataclasses import dataclass
