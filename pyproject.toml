@@ -37,3 +37,12 @@ parallax = ["csrc/Makefile", "csrc/*.c", "csrc/*.h"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+[tool.ruff.lint]
+select = ["F", "E9", "B"]
+ignore = ["B007", "B023", "B905", "F541", "F841"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+
