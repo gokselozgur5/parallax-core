@@ -60,6 +60,10 @@ flowchart LR
 | **M8: Execution Tracing & Visualization** | Graphviz/Mermaid computation graph exporter, attention map heatmaps | Renderable SVG/DOT dumps & high-contrast heatmaps |
 | **M9: KV Cache & Benchmarking Suite** | $O(1)$-step Key-Value (KV) cache autoregression, parameter counter, FLOPs estimator | Exact greedy logits match & benchmark throughput |
 
+> [!NOTE]
+> The modules `parallax/self_speculative.py`, `parallax/medusa.py`, and `parallax/early_exit.py` serve as architectural verification-loop sketches / prototypes illustrating candidate verification loops without learned drafting models.
+
+
 ---
 
 ## Quickstart

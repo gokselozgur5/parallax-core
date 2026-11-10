@@ -2,6 +2,12 @@
 
 Computes predictive confidence (entropy or top-1/top-2 margin) from intermediate
 hidden layers and exits early when certainty exceeds a threshold.
+
+Note:
+    Architectural Verification-Loop Sketch / Prototype.
+    This module provides an architectural verification-loop sketch for
+    early-exit speculation. The classifier head uses uncalibrated projection
+    weights designed for testing routing and confidence exit dynamics.
 """
 
 from typing import Tuple, List, Optional

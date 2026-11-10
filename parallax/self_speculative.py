@@ -1,4 +1,12 @@
-"""Self-Speculative Decoding via layer-skipping and full verification."""
+"""Self-Speculative Decoding via layer-skipping and full verification.
+
+Note:
+    Architectural Verification-Loop Sketch / Prototype.
+    This module provides an architectural verification-loop sketch for
+    self-speculative decoding without learned draft components. In full
+    production implementations, internal layer-skipping or exit heads require
+    dedicated training/routing.
+"""
 
 from typing import Callable, List, Tuple
 import numpy as np
