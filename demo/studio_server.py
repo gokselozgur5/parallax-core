@@ -138,12 +138,33 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         else:
             super().do_GET()
 
+    def _get_allowed_origin(self) -> Optional[str]:
+        origin = self.headers.get("Origin")
+        if not origin:
+            return None
+        try:
+            parsed = urllib.parse.urlsplit(origin)
+            h = (parsed.hostname or "").lower()
+            if h in ("localhost", "127.0.0.1", "::1"):
+                return origin
+            host_header = self.headers.get("Host", "")
+            if host_header:
+                server_host = host_header.split(":")[0].lower()
+                if h == server_host:
+                    return origin
+        except Exception:
+            return None
+        return None
+
     def send_json(self, data: Dict[str, Any], status: int = 200):
         body = json.dumps(data).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
+        allowed_origin = self._get_allowed_origin()
+        if allowed_origin:
+            self.send_header("Access-Control-Allow-Origin", allowed_origin)
+            self.send_header("Vary", "Origin")
         self.end_headers()
         self.wfile.write(body)
 
