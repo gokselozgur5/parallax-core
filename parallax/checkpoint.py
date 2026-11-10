@@ -7,6 +7,7 @@ for saving and resuming ParallaxLM model weights and optimizer moments.
 
 from dataclasses import asdict
 import json
+import os
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
@@ -131,8 +132,11 @@ def save_checkpoint(
     model: ParallaxLM,
     optimizer: Optional[AdamW] = None,
     step: int = 0,
-) -> None:
-    """Saves model weights, configuration, and optimizer state to an NPZ archive."""
+) -> str:
+    """Saves model weights, configuration, and optimizer state to an NPZ archive.
+
+    Returns the exact normalized file path of the saved checkpoint.
+    """
     state_dict = get_model_state_dict(model)
     config_dict = asdict(model.config)
     config_json = json.dumps(config_dict)
@@ -153,7 +157,9 @@ def save_checkpoint(
         for i, v in enumerate(optimizer.v):
             save_arrays[f"__opt_v_{i}__"] = v
 
-    np.savez(file_path, **save_arrays)
+    normalized_path = file_path if file_path.endswith(".npz") else f"{file_path}.npz"
+    np.savez(normalized_path, **save_arrays)
+    return normalized_path
 
 
 def load_checkpoint(
@@ -161,7 +167,11 @@ def load_checkpoint(
     optimizer: Optional[AdamW] = None,
 ) -> Tuple[ParallaxLM, int]:
     """Loads a checkpoint archive, instantiating the model with stored config."""
-    archive = np.load(file_path, allow_pickle=False)
+    target_path = file_path
+    if not os.path.exists(target_path) and os.path.exists(f"{target_path}.npz"):
+        target_path = f"{target_path}.npz"
+
+    archive = np.load(target_path, allow_pickle=False)
 
     config_json = str(archive["__config_json__"])
     step = int(archive["__step__"])
