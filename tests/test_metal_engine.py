@@ -89,3 +89,37 @@ def test_metal_rmsnorm_invalid_weight():
     bad_weight = np.ones((8,), dtype=np.float32)
     with pytest.raises(ValueError):
         metal_rmsnorm(x, bad_weight)
+
+
+def test_metal_buffers_released_no_memory_leak():
+    if not is_metal_available() or sys.platform != "darwin":
+        pytest.skip("Metal not available on this platform")
+
+    import ctypes
+    from parallax.metal_engine import _OBJC, _DEVICE
+
+    objc_msgSend = ctypes.cast(_OBJC.objc_msgSend, ctypes.c_void_p).value
+    sel = _OBJC.sel_registerName(b"currentAllocatedSize")
+    query_alloc = ctypes.CFUNCTYPE(ctypes.c_size_t, ctypes.c_void_p, ctypes.c_void_p)(objc_msgSend)
+
+    # Warmup
+    A = np.random.randn(128, 128).astype(np.float32)
+    B = np.random.randn(128, 128).astype(np.float32)
+    metal_gemm(A, B)
+
+    alloc_before = query_alloc(_DEVICE, sel)
+    for _ in range(50):
+        metal_gemm(A, B)
+    alloc_after = query_alloc(_DEVICE, sel)
+    assert alloc_after == alloc_before, f"GEMM leaked memory: {alloc_after - alloc_before} bytes"
+
+    # Test RMSNorm
+    x = np.random.randn(64, 128).astype(np.float32)
+    w = np.random.randn(128).astype(np.float32)
+    metal_rmsnorm(x, w)
+
+    alloc_before_rms = query_alloc(_DEVICE, sel)
+    for _ in range(50):
+        metal_rmsnorm(x, w)
+    alloc_after_rms = query_alloc(_DEVICE, sel)
+    assert alloc_after_rms == alloc_before_rms, f"RMSNorm leaked memory: {alloc_after_rms - alloc_before_rms} bytes"
