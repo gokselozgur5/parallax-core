@@ -57,6 +57,11 @@ class RewardModel(Module):
 
 def bradley_terry_reward_loss(r_chosen: Tensor, r_rejected: Tensor, margin: float = 0.0) -> Tensor:
     """Computes pairwise Bradley-Terry preference loss: L = -log(sigmoid(r_chosen - r_rejected - margin))."""
+    if r_chosen.shape != r_rejected.shape:
+        raise ValueError(
+            f"Shape mismatch in bradley_terry_reward_loss: r_chosen shape {r_chosen.shape} "
+            f"!= r_rejected shape {r_rejected.shape}"
+        )
     diff_data = (r_chosen.data - r_rejected.data) - margin
     # Numerically stable log-sigmoid: -log(1 / (1 + exp(-x))) = log(1 + exp(-x))
     # Or for x >= 0: -log(1 / (1 + exp(-x))) = log(1 + exp(-x))
