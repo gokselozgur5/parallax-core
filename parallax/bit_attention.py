@@ -3,7 +3,7 @@ BitAttention: 1.58-bit Ternary Multi-Head Attention Fusion.
 
 Fuses BitNet b1.58 ternary linear projections {-1, 0, +1} (Ma et al., 2024)
 with Causal Multi-Head / Grouped-Query Attention (MHA/GQA), FlashAttention-2 online
-softmax acceleration, RoPE rotary position embeddings, and KV-cache autoregressive decoding.
+softmax statistics and tiling, RoPE rotary position embeddings, and KV-cache decoding.
 """
 
 import math
@@ -20,10 +20,9 @@ from parallax.tensor import Tensor, _accumulate_grad, is_grad_enabled
 class BitAttention(Module):
     """Multi-Head / Grouped-Query Causal Attention with 1.58-bit ternary projections.
 
-    All Q, K, V and Out projections are replaced by BitLinear layers, computing
-    integer addition-dominated matrix products during forward passes while supporting
-    exact straight-through estimator (STE) gradient flow during backpropagation.
-    FlashAttention online softmax statistics and KV caching are natively supported.
+    All Q, K, V and Out projections use BitLinear layers (simulated ternary quantization
+    in float64) while supporting straight-through estimator (STE) gradient flow during backpropagation.
+    FlashAttention online softmax statistics and KV caching are supported.
     """
 
     def __init__(
