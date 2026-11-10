@@ -10,6 +10,7 @@ Lightweight FFI bridge for compiling and running GPU kernels at runtime:
 from __future__ import annotations
 
 import sys
+import threading
 import ctypes
 from ctypes import util
 from typing import Optional, Tuple
@@ -27,6 +28,7 @@ _COMMAND_QUEUE: Optional[ctypes.c_void_p] = None
 
 _PSO_RMSNORM: Optional[ctypes.c_void_p] = None
 _PSO_GEMM: Optional[ctypes.c_void_p] = None
+_INIT_LOCK = threading.Lock()
 
 
 class MTLSize(ctypes.Structure):
