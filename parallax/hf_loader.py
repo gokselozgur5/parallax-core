@@ -15,19 +15,7 @@ from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.nn import Linear, Parameter
 from parallax.safetensors import load_safetensors, save_safetensors
 from parallax.hf_tokenizer import HFTokenizer, load_hf_tokenizer
-
-
-def _assign_param(param: Parameter, hf_tensors: Dict[str, np.ndarray], key: str) -> None:
-    if key not in hf_tensors:
-        return
-    src = hf_tensors[key]
-    if param.data.shape != src.shape:
-        raise ValueError(
-            f"Shape mismatch for '{key}': expected {param.data.shape}, got {src.shape}"
-        )
-    param.data = src.copy()
-    if param.grad is not None and param.grad.shape != param.data.shape:
-        param.grad = np.zeros_like(param.data)
+from parallax.loader_utils import _assign_bias, _assign_param
 
 
 def _permute_interleaved_to_hf_weight(
@@ -72,23 +60,6 @@ def _unpermute_hf_to_interleaved_bias(
     b_unperm[:, 0::2] = b_reshaped[:, :half]
     b_unperm[:, 1::2] = b_reshaped[:, half:]
     return b_unperm.reshape(-1)
-
-
-def _assign_bias(proj: Linear, hf_tensors: Dict[str, np.ndarray], key: str) -> None:
-    if key not in hf_tensors:
-        return
-    src = hf_tensors[key]
-    expected_shape = (proj.out_features,)
-    if src.shape != expected_shape:
-        raise ValueError(
-            f"Shape mismatch for '{key}': expected {expected_shape}, got {src.shape}"
-        )
-    if proj.bias is None:
-        proj.bias = Parameter(src.copy(), label="Linear.bias")
-    else:
-        proj.bias.data = src.copy()
-        if proj.bias.grad is not None and proj.bias.grad.shape != expected_shape:
-            proj.bias.grad = np.zeros_like(proj.bias.data)
 
 
 def hf_config_to_parallax(
