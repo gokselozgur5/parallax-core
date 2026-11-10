@@ -16,6 +16,8 @@ from parallax.gguf import (
     GGML_TYPE_Q8_0,
     GGUFFile,
     GGUFTensorInfo,
+    LLAMA_FTYPE_MOSTLY_Q4_0,
+    LLAMA_FTYPE_MOSTLY_Q8_0,
     load_gguf,
     save_gguf,
 )
@@ -30,9 +32,11 @@ def quantize_model(input_path: str, output_path: str, quant_type: str) -> None:
     quant_type_upper = quant_type.upper()
     if quant_type_upper == "Q8_0":
         target_type = GGML_TYPE_Q8_0
+        file_type = LLAMA_FTYPE_MOSTLY_Q8_0
         quant_fn = quantize_q8_0
     elif quant_type_upper == "Q4_0":
         target_type = GGML_TYPE_Q4_0
+        file_type = LLAMA_FTYPE_MOSTLY_Q4_0
         quant_fn = quantize_q4_0
     else:
         raise ValueError(f"Unsupported quantization type: {quant_type}")
@@ -56,7 +60,7 @@ def quantize_model(input_path: str, output_path: str, quant_type: str) -> None:
 
     metadata = dict(gguf_in.metadata)
     metadata["general.quantization_version"] = 2
-    metadata["general.file_type"] = target_type
+    metadata["general.file_type"] = file_type
 
     print(f"Writing quantized model to {output_path} ({quant_type_upper})...")
     save_gguf(
