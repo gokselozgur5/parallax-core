@@ -28,3 +28,28 @@ def test_compress_kv_cache_shapes() -> None:
     # 24 tokens / 8 interval = 3 beacon tokens
     assert beacon_k.shape == (3, 16)
     assert beacon_v.shape == (3, 16)
+
+
+def test_condense_preserves_remainder_tokens() -> None:
+    comp = ActivationBeaconCompressor(interval=16, beacon_tokens=1)
+    # 20 tokens: 1 interval + 4 remainder
+    acts20 = np.random.randn(20, 8)
+    condensed20 = comp.condense_activations(acts20)
+    assert condensed20.shape == (5, 8)
+    np.testing.assert_array_equal(condensed20[1:], acts20[16:])
+
+    # 10 tokens (< interval): all 10 kept
+    acts10 = np.random.randn(10, 8)
+    condensed10 = comp.condense_activations(acts10)
+    assert condensed10.shape == (10, 8)
+    np.testing.assert_array_equal(condensed10, acts10)
+
+
+def test_condense_multiple_beacon_tokens_and_batch_dims() -> None:
+    comp = ActivationBeaconCompressor(interval=16, beacon_tokens=2)
+    # Shape [2, 3, 35, 8]: 2 full intervals (2*2 = 4 beacons) + 3 remainder tokens -> 7 tokens
+    acts = np.random.randn(2, 3, 35, 8)
+    condensed = comp.condense_activations(acts)
+    assert condensed.shape == (2, 3, 7, 8)
+    np.testing.assert_array_equal(condensed[:, :, 4:, :], acts[:, :, 32:, :])
+
