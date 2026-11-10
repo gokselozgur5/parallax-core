@@ -148,9 +148,12 @@ def get_rust_lib() -> Optional[ctypes.CDLL]:
             ctypes.c_size_t,
             ctypes.c_float,
             ctypes.POINTER(ctypes.c_float),
+            ctypes.c_size_t,
             ctypes.POINTER(ctypes.c_float),
+            ctypes.c_size_t,
             ctypes.c_float,
             ctypes.POINTER(ctypes.c_float),
+            ctypes.c_size_t,
         ]
         lib.parallax_gemm_f32.restype = ctypes.c_int32
         _RUST_CDLL = lib
@@ -178,7 +181,9 @@ def rust_gemm(A: np.ndarray, B: np.ndarray) -> np.ndarray:
     b_ptr = B_c.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
     c_ptr = C.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
 
-    status = lib.parallax_gemm_f32(m, n, k, 1.0, a_ptr, b_ptr, 0.0, c_ptr)
+    status = lib.parallax_gemm_f32(
+        m, n, k, 1.0, a_ptr, A_c.size, b_ptr, B_c.size, 0.0, c_ptr, C.size
+    )
     if status != 0:
         raise RuntimeError(f"Rust GEMM returned non-zero status: {status}")
     return C
