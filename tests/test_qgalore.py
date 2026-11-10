@@ -31,3 +31,10 @@ def test_qgalore_quantization_and_reconstruction():
     # Low rank input should be accurately reconstructed by rank SVD
     rel_error = np.linalg.norm(recon - grad) / np.linalg.norm(grad)
     assert rel_error < 0.1
+
+
+def test_qgalore_rank_exceeds_dimension():
+    import pytest
+    proj = QGaLoreProjector(rank=16)
+    with pytest.raises(ValueError, match="cannot exceed min"):
+        proj.update_basis(np.random.randn(8, 12))
