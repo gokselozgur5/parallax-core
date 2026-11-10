@@ -97,5 +97,27 @@ def test_bitlinear_forward_gamma_scaling_sensitivity():
     assert not np.allclose(out2, out1, atol=1e-3)
 
 
+def test_bitlinear_nonzero_bias_forward_and_backward():
+    """Verify non-zero bias affects forward output and receives backward gradients."""
+    layer = BitLinear(in_features=4, out_features=3, bias=True)
+    bias_vec = np.array([1.5, -2.5, 4.0])
+    layer.bias.data = bias_vec.copy()
+    x = Tensor(np.random.randn(2, 5, 4), requires_grad=True)
+    out = layer(x)
+
+    # Shift test against zero-bias layer
+    layer_nobias = BitLinear(in_features=4, out_features=3, bias=False)
+    layer_nobias.weight.data = layer.weight.data.copy()
+    out_nobias = layer_nobias(x)
+    expected_shift = np.broadcast_to(bias_vec, out.shape)
+    np.testing.assert_allclose(out.data - out_nobias.data, expected_shift, atol=1e-6)
+
+    loss = (out * 2.0).sum()
+    loss.backward()
+    expected_bias_grad = np.sum(2.0 * np.ones_like(out.data).reshape(-1, 3), axis=0)
+    np.testing.assert_allclose(layer.bias.grad, expected_bias_grad, atol=1e-7)
+
+
+
 
 
