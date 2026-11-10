@@ -12,7 +12,7 @@ from typing import Dict, Optional, Tuple, Union
 import numpy as np
 
 from parallax.nn import Linear, Module
-from parallax.tensor import Tensor
+from parallax.tensor import Tensor, _accumulate_grad
 
 
 def pack_int4(arr: np.ndarray) -> np.ndarray:
@@ -252,7 +252,17 @@ class Linear4Bit(Module):
         if self.bias_data is not None:
             out_data = out_data + self.bias_data
 
-        return Tensor(out_data, (x,), "Linear4Bit")
+        out = Tensor(out_data, (x,), "Linear4Bit")
+
+        def _backward() -> None:
+            if out.grad is None:
+                return
+            if x.requires_grad:
+                dx = out.grad @ w_float
+                _accumulate_grad(x, dx)
+
+        out._backward = _backward
+        return out
 
     def memory_footprint(self, baseline_dtype: np.dtype = np.float32) -> Dict[str, Union[int, float, str]]:
         """Returns memory breakdown in bytes and compression stats against a stated baseline dtype."""
