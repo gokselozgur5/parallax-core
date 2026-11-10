@@ -397,15 +397,15 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         losses = []
         for _ in range(steps):
             REWARD_OPTIM.zero_grad()
-            rc = REWARD_MODEL(idx_c)
-            rr = REWARD_MODEL(idx_r)
+            rc = REWARD_MODEL(idx_c, lengths=[len(chosen_ids)])
+            rr = REWARD_MODEL(idx_r, lengths=[len(rejected_ids)])
             loss = bradley_terry_reward_loss(rc, rr)
             loss.backward()
             REWARD_OPTIM.step()
             losses.append(round(float(loss.data), 4))
 
-        final_rc = float(REWARD_MODEL(idx_c).data[0, 0])
-        final_rr = float(REWARD_MODEL(idx_r).data[0, 0])
+        final_rc = float(REWARD_MODEL(idx_c, lengths=[len(chosen_ids)]).data[0, 0])
+        final_rr = float(REWARD_MODEL(idx_r, lengths=[len(rejected_ids)]).data[0, 0])
 
         self.send_json({
             "losses": losses,

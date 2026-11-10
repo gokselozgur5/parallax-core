@@ -26,19 +26,36 @@ class RewardModel(Module):
         # Linear projection from hidden dimension to single scalar reward
         self.reward_head = Linear(config.embed_dim, 1, bias=False)
 
-    def forward(self, idx: np.ndarray) -> Tensor:
+    def forward(
+        self,
+        idx: np.ndarray,
+        lengths: Optional[Union[np.ndarray, List[int]]] = None,
+        attention_mask: Optional[np.ndarray] = None,
+    ) -> Tensor:
         # idx: [batch_size, seq_len]
         logits, hidden = self.backbone(idx, return_hidden=True)
         # Shape: [batch_size, seq_len, embed_dim]
-        # Pool/select the last token representation h_T
-        last_hidden_data = hidden.data[:, -1:, :]  # [B, 1, embed_dim]
+        B, S, D = hidden.shape
+        if lengths is not None:
+            lengths_arr = np.asarray(lengths, dtype=np.int64)
+            gather_indices = np.clip(lengths_arr - 1, 0, S - 1)
+        elif attention_mask is not None:
+            # attention_mask: [batch_size, seq_len]
+            lengths_arr = np.asarray(np.sum(attention_mask, axis=-1), dtype=np.int64)
+            gather_indices = np.clip(lengths_arr - 1, 0, S - 1)
+        else:
+            gather_indices = np.full(B, S - 1, dtype=np.int64)
+
+        # Pool/select the last real token representation h_{lengths[b] - 1}
+        batch_idx = np.arange(B)
+        last_hidden_data = hidden.data[batch_idx, gather_indices, :][:, None, :]  # [B, 1, embed_dim]
         last_hidden = Tensor(last_hidden_data, (hidden,), "LastTokenPool")
 
         def _pool_backward():
             if hidden.requires_grad and last_hidden.grad is not None:
                 if hidden.grad is None:
                     hidden.grad = np.zeros_like(hidden.data, dtype=np.float64)
-                hidden.grad[:, -1:, :] += last_hidden.grad
+                hidden.grad[batch_idx, gather_indices, :] += last_hidden.grad[:, 0, :]
 
         last_hidden._backward = _pool_backward
 
