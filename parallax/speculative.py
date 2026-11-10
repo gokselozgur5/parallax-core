@@ -283,12 +283,14 @@ def speculative_generate(
     elapsed_time = time.perf_counter() - start_time
     acceptance_rate = (total_accepted / total_proposed) if total_proposed > 0 else 0.0
     accepted_per_step = round(total_accepted / max(1, target_forward_passes), 2)
+    target_pass_ratio = round(total_generated / max(1, target_forward_passes), 2)
     stats = {
         "acceptance_rate": round(acceptance_rate, 3),
         "total_accepted": total_accepted,
         "total_proposed": total_proposed,
         "target_forward_passes": target_forward_passes,
-        "speedup_factor": round(total_generated / max(1, target_forward_passes), 2),
+        "target_pass_ratio": target_pass_ratio,
+        "speedup_factor": target_pass_ratio,
         "accepted_tokens_per_step": accepted_per_step,
         "elapsed_time_sec": round(elapsed_time, 5),
     }
