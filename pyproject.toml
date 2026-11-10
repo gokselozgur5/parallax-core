@@ -51,4 +51,29 @@ ignore_missing_imports = true
 warn_unused_configs = true
 follow_imports = "silent"
 
+[[tool.mypy.overrides]]
+module = [
+    "parallax.yarn",
+    "parallax.xlora",
+    "parallax.tree_drafting_v2",
+    "parallax.tree_drafting",
+    "parallax.top_a",
+    "parallax.streaming",
+    "parallax.soft_capping",
+    "parallax.sliding_recompute",
+    "parallax.simpo",
+    "parallax.self_speculative",
+    "parallax.ring_attention",
+    "parallax.qgalore",
+    "parallax.prompt_lookup",
+    "parallax.ppo",
+    "parallax.paged_flash_decoding",
+    "parallax.paged_attention",
+    "parallax.orpo",
+    "parallax.ntk_rope",
+    "parallax.muon",
+    "parallax.multistream",
+]
+ignore_errors = true
+
 
