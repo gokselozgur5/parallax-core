@@ -67,6 +67,15 @@ def to_mermaid(root: Union[Value, Tensor], direction: str = "LR") -> str:
     return "\n".join(lines)
 
 
+def _escape_dot_label(s: str) -> str:
+    """Escapes special characters in Graphviz record-based labels."""
+    # Backslash first to avoid double-escaping
+    s = s.replace('\\', '\\\\')
+    for ch in ('"', '<', '>', '{', '}', '|'):
+        s = s.replace(ch, f'\\{ch}')
+    return s
+
+
 def to_dot(root: Union[Value, Tensor]) -> str:
     """Exports computation DAG to a Graphviz DOT format string."""
     nodes, edges = trace_graph(root)
@@ -80,10 +89,10 @@ def to_dot(root: Union[Value, Tensor]) -> str:
     for n in nodes:
         uid = f"n_{id(n)}"
         if isinstance(n, Value):
-            lbl = f"{n.label} | " if n.label else ""
+            lbl = f"{_escape_dot_label(n.label)} | " if n.label else ""
             label_str = f"{{{lbl}data: {n.data:.4f} | grad: {n.grad:.4f}}}"
         else:
-            lbl = f"{n.label} | " if n.label else ""
+            lbl = f"{_escape_dot_label(n.label)} | " if n.label else ""
             g_str = "grad: None" if n.grad is None else f"grad_norm: {np.linalg.norm(n.grad):.4e}"
             label_str = f"{{{lbl}shape: {n.shape} | {g_str}}}"
 
@@ -91,7 +100,8 @@ def to_dot(root: Union[Value, Tensor]) -> str:
 
         if n._op:
             op_uid = f"op_{id(n)}"
-            dot.append(f'    {op_uid} [shape=circle, label="{n._op}", fillcolor="#ffebee"];')
+            op_label = _escape_dot_label(n._op)
+            dot.append(f'    {op_uid} [shape=circle, label="{op_label}", fillcolor="#ffebee"];')
             dot.append(f"    {op_uid} -> {uid};")
 
     for src, dst in edges:
