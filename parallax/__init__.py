@@ -27,7 +27,9 @@ from parallax.gguf_quant import (
     quantize_q8_0,
 )
 from parallax.prune import (
+    apply_pruning_masks,
     calculate_model_sparsity,
+    create_pruning_step_hook,
     prune_2_to_4_structured,
     prune_model,
     prune_unstructured_magnitude,
@@ -67,6 +69,8 @@ __all__ = [
     "prune_2_to_4_structured",
     "calculate_model_sparsity",
     "prune_model",
+    "apply_pruning_masks",
+    "create_pruning_step_hook",
     "RollingKVCache",
     "LinearAttention",
     "elu_feature_map",
