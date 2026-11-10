@@ -17,7 +17,6 @@
 void c_rmsnorm_f32(const float *x, const float *weight, float *output, int rows, int cols, float eps) {
     if (!x || !weight || !output || rows <= 0 || cols <= 0) return;
 
-    const float inv_cols = 1.0f / (float)cols;
     const size_t cols_s = (size_t)cols;
 
     for (int r = 0; r < rows; ++r) {
