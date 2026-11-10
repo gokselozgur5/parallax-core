@@ -42,7 +42,7 @@ def benchmark_transformer(
     num_layers = config.num_layers
     num_kv_heads = config.num_kv_heads if config.num_kv_heads is not None else config.num_heads
     head_dim = config.embed_dim // config.num_heads
-    dtype_bytes = 8  # float64
+    dtype_bytes = 4  # FP32 matching hardware benchmark matrix
 
     # 1. Theoretical KV Cache size in bytes:
     # 2 (K and V) * num_layers * batch_size * num_kv_heads * seq_len * head_dim * bytes_per_elem
@@ -57,7 +57,7 @@ def benchmark_transformer(
     ]
 
     _, full_caches = model(idx, kv_caches=initial_caches)
-    measured_kv_bytes = sum(k.nbytes + v.nbytes for k, v in full_caches)
+    measured_kv_bytes = sum(k.size + v.size for k, v in full_caches) * dtype_bytes
 
     # 3. Benchmark Next-Token Step Latency (Inference decoding at step T)
     next_token = np.random.randint(0, config.vocab_size, size=(batch_size, 1))
