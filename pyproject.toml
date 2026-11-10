@@ -31,6 +31,9 @@ parallax-serve = "scripts.serve_openai:main"
 where = ["."]
 include = ["parallax*", "scripts*"]
 
+[tool.setuptools.package-data]
+parallax = ["csrc/Makefile", "csrc/*.c", "csrc/*.h"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"
