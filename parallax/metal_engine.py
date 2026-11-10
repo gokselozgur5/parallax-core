@@ -429,4 +429,5 @@ def metal_rmsnorm(
         ctypes.cast(contents_ptr, ctypes.POINTER(ctypes.c_float)),
         shape=(rows, cols),
     ).copy()
+    _release_buffers(buf_x, buf_w, buf_out)
     return res.reshape(orig_shape)
