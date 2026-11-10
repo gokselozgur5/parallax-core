@@ -25,15 +25,28 @@ class RollingKVCache:
         self.window_size = window_size
         self.max_capacity = sink_tokens + window_size
         self.total_seen = 0
+        self._prev_len = 0
+
+    def _update_seen(self, seq_len: int) -> None:
+        """Update total seen token count based on incoming sequence length."""
+        if self.total_seen == 0:
+            delta = seq_len
+        else:
+            delta = max(0, seq_len - self._prev_len)
+        self.total_seen += delta
+        self._prev_len = min(seq_len, self.max_capacity)
 
     def evict(
-        self, k_cache: np.ndarray, v_cache: np.ndarray
+        self, k_cache: np.ndarray, v_cache: np.ndarray, update_seen: bool = True
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Evict middle tokens if length along seq axis exceeds max_capacity.
 
         Expected shape: [batch, heads, seq_len, head_dim] (axis=2 is seq_len).
         """
         seq_len = k_cache.shape[2]
+        if update_seen:
+            self._update_seen(seq_len)
+
         if seq_len <= self.max_capacity:
             return k_cache, v_cache
 
@@ -55,5 +68,14 @@ class RollingKVCache:
         self, kv_caches: List[Tuple[np.ndarray, np.ndarray]]
     ) -> List[Tuple[np.ndarray, np.ndarray]]:
         """Apply rolling eviction across all transformer layer KV caches."""
-        return [self.evict(k, v) for k, v in kv_caches]
+        if not kv_caches:
+            return kv_caches
+        seq_len = kv_caches[0][0].shape[2]
+        self._update_seen(seq_len)
+        return [self.evict(k, v, update_seen=False) for k, v in kv_caches]
+
+    def reset(self) -> None:
+        """Reset total seen count and internal tracking."""
+        self.total_seen = 0
+        self._prev_len = 0
 
