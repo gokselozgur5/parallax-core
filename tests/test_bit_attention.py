@@ -198,3 +198,22 @@ def test_bit_attention_gqa_mode():
     assert x.grad.shape == (B, T, C)
     assert attn.k_proj.weight.shape == (num_kv_heads * (C // num_heads), C)
     assert attn.v_proj.weight.shape == (num_kv_heads * (C // num_heads), C)
+
+
+def test_bit_attention_sliding_window_validation_and_causality():
+    """Verify non-positive sliding_window raises ValueError and valid windows preserve causality."""
+    with pytest.raises(ValueError):
+        BitAttention(embed_dim=16, num_heads=2, sliding_window=0)
+    with pytest.raises(ValueError):
+        BitAttention(embed_dim=16, num_heads=2, sliding_window=-3)
+
+    np.random.seed(42)
+    B, T, C = 1, 6, 16
+    for window in [1, 3, T]:
+        attn = BitAttention(embed_dim=C, num_heads=2, sliding_window=window, use_rope=False)
+        x = np.random.randn(B, T, C)
+        x_mod = x.copy()
+        x_mod[0, 3:, :] += 10.0
+        out = attn(Tensor(x)).data
+        out_mod = attn(Tensor(x_mod)).data
+        np.testing.assert_allclose(out[0, 0, :], out_mod[0, 0, :], atol=1e-6)
