@@ -31,6 +31,19 @@ class CharTokenizer:
         return "".join([self.itos.get(i, "?") for i in indices])
 
 
+def sample_multinomial(
+    logits: np.ndarray,
+    temperature: float = 1.0,
+    top_k: Optional[int] = None,
+    top_p: Optional[float] = None,
+) -> int:
+    """Samples next token from logits with temperature, top-k, and top-p filtering.
+
+    Alias of sample_next_token for multinomial sampling interfaces.
+    """
+    return sample_next_token(logits, temperature=temperature, top_k=top_k, top_p=top_p)
+
+
 def sample_next_token(
     logits: np.ndarray,
     temperature: float = 1.0,
