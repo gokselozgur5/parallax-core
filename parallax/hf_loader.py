@@ -235,8 +235,10 @@ def load_hf_weights_into_model(
                 f"{prefix}.self_attn.q_proj.bias",
                 f"{prefix}.self_attn.k_proj.bias",
                 f"{prefix}.self_attn.v_proj.bias",
-                f"{prefix}.self_attn.o_proj.bias",
             ])
+            # Only expect o_proj.bias if it actually exists in tensors
+            if f"{prefix}.self_attn.o_proj.bias" in hf_tensors:
+                expected_keys.append(f"{prefix}.self_attn.o_proj.bias")
         if model.config.use_swiglu:
             expected_keys.extend([
                 f"{prefix}.mlp.gate_proj.weight",
