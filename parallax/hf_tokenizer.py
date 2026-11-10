@@ -317,6 +317,7 @@ def load_hf_tokenizer(tokenizer_file_or_dir: str) -> HFTokenizer:
     model_data = data.get("model", {})
     vocab = model_data.get("vocab", {})
     merges = model_data.get("merges", [])
+    split_pattern = _extract_split_pattern(data)
 
     added_tokens_dict: Dict[str, int] = {}
     for item in data.get("added_tokens", []):
@@ -357,4 +358,5 @@ def load_hf_tokenizer(tokenizer_file_or_dir: str) -> HFTokenizer:
         eos_token=eos_token,
         pad_token=pad_token,
         unk_token=unk_token,
+        split_pattern=split_pattern,
     )
