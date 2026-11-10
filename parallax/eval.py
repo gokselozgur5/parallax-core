@@ -85,7 +85,7 @@ def compute_perplexity(
             target_mask_start = 0
         else:
             # Skip targets already scored in previous stride window
-            target_mask_start = window_size - window_stride
+            target_mask_start = window_size - 1 - window_stride
             target_mask_start = max(0, min(target_mask_start, len(targets)))
 
         eval_targets = targets[target_mask_start:]
