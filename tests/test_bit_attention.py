@@ -290,3 +290,29 @@ def test_bit_attention_gqa_repeat_vs_tile_numerical():
     np.testing.assert_allclose(out, ref_out, rtol=1e-5, atol=1e-5)
     assert np.max(np.abs(out - tile_out)) > 1.0
 
+
+def test_bit_attention_dq_inverse_rope_effect(monkeypatch):
+    """Verify dQ inverse RoPE rotation; kills dQ without inverse RoPE mutation."""
+    np.random.seed(42)
+    B, T, C, num_heads = 2, 4, 16, 2
+    attn = BitAttention(embed_dim=C, num_heads=num_heads, use_rope=True, rope_theta=100.0)
+    x = Tensor(np.random.randn(B, T, C), requires_grad=True)
+    o = attn(x); (o * o).sum().backward()
+    true_q_grad = attn.q_proj.weight.grad.copy()
+
+    import parallax.bit_attention as ba
+    orig_rope, calls = ba.apply_rope, [0]
+    def faulty_rope(x, seq_dim=1, offset=0, conjugate=False, theta=10000.0, interleaved=True):
+        if conjugate and calls[0] == 0:
+            calls[0] += 1
+            return x  # fault: dQ without inverse RoPE
+        return orig_rope(x, seq_dim=seq_dim, offset=offset, conjugate=conjugate, theta=theta, interleaved=interleaved)
+    monkeypatch.setattr(ba, "apply_rope", faulty_rope)
+
+    attn_f = BitAttention(embed_dim=C, num_heads=num_heads, use_rope=True, rope_theta=100.0)
+    for p in ["q_proj", "k_proj", "v_proj", "out_proj"]:
+        getattr(attn_f, p).weight.data = getattr(attn, p).weight.data.copy()
+    o_f = attn_f(Tensor(x.data.copy(), requires_grad=True)); (o_f * o_f).sum().backward()
+    assert np.max(np.abs(true_q_grad - attn_f.q_proj.weight.grad)) > 0.5
+
+
