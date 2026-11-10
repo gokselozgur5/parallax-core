@@ -173,60 +173,23 @@ def speculative_generate(
 
         for i, cand in enumerate(draft_tokens):
             pos_logits = target_logits[offset + i]
-
-            if temperature <= 0.0:
-                # Greedy equivalence: accept if target's top prediction matches draft candidate
-                target_choice = int(np.argmax(pos_logits))
-                if cand == target_choice:
-                    tokens.append(cand)
-                    n_accepted += 1
-                    total_generated += 1
-                    if (eos_token_id is not None and cand == eos_token_id) or total_generated >= max_new_tokens:
-                        stopped_early = True
-                        all_accepted = False
-                        break
-                else:
-                    # Reject: emit target model's true choice and truncate cycle
-                    tokens.append(target_choice)
-                    total_generated += 1
-                    if eos_token_id is not None and target_choice == eos_token_id:
-                        stopped_early = True
-                    all_accepted = False
-                    break
+            is_acc, chosen = _verify_candidate(
+                pos_logits, cand, draft_prob_dists[i], temperature, top_k, top_p
+            )
+            tokens.append(chosen)
+            total_generated += 1
+            if is_acc:
+                n_accepted += 1
             else:
-                # Stochastic acceptance criterion: min(1, p(x) / q(x))
-                t_p = _compute_token_probs(pos_logits, temperature=temperature, top_k=top_k, top_p=top_p)
-                cand_target_prob = float(t_p[cand])
-                q_prob = max(float(draft_prob_dists[i][cand]), 1e-12)
-                ratio = cand_target_prob / q_prob
-
-                # Exact speculative acceptance check: accept with probability min(1, p(x)/q(x))
-                if np.random.rand() < min(1.0, ratio):
-                    tokens.append(cand)
-                    n_accepted += 1
-                    total_generated += 1
-                    if (eos_token_id is not None and cand == eos_token_id) or total_generated >= max_new_tokens:
-                        stopped_early = True
-                        all_accepted = False
-                        break
-                else:
-                    # Sample corrected replacement token from normalized residual distribution
-                    residual = np.maximum(0.0, t_p - draft_prob_dists[i])
-                    res_sum = float(np.sum(residual))
-                    if res_sum > 1e-12:
-                        res_dist = residual / res_sum
-                    else:
-                        res_dist = t_p
-                    corr_token = int(np.random.choice(len(res_dist), p=res_dist))
-                    tokens.append(corr_token)
-                    total_generated += 1
-                    if eos_token_id is not None and corr_token == eos_token_id:
-                        stopped_early = True
-                    all_accepted = False
-                    break
+                all_accepted = False
+            if (eos_token_id is not None and chosen == eos_token_id) or total_generated >= max_new_tokens:
+                stopped_early = True
+                break
+            if not is_acc:
+                break
         else:
             # All gamma tokens were accepted! Sample one bonus token from target's final distribution
-            if not hit_eos_in_draft and not stopped_early:
+            if not hit_eos_in_draft and all_accepted and not stopped_early:
                 if total_generated < max_new_tokens and len(tokens) < max_seq_len:
                     bonus_logits = target_logits[-1]
                     bonus_token = sample_next_token(bonus_logits, temperature=temperature, top_k=top_k, top_p=top_p)
