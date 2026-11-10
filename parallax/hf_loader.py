@@ -183,12 +183,59 @@ def hf_config_to_parallax(
 def load_hf_weights_into_model(
     model: ParallaxLM,
     hf_tensors: Dict[str, np.ndarray],
+    strict: bool = True,
 ) -> ParallaxLM:
     """Maps HuggingFace tensor state dictionary directly into a ParallaxLM model."""
+    expected_keys = [
+        "model.embed_tokens.weight",
+        "model.norm.weight",
+    ]
+    if not model.config.tie_weights:
+        expected_keys.append("lm_head.weight")
+
+    for i in range(model.config.num_layers):
+        prefix = f"model.layers.{i}"
+        expected_keys.extend([
+            f"{prefix}.input_layernorm.weight",
+            f"{prefix}.post_attention_layernorm.weight",
+            f"{prefix}.self_attn.q_proj.weight",
+            f"{prefix}.self_attn.k_proj.weight",
+            f"{prefix}.self_attn.v_proj.weight",
+            f"{prefix}.self_attn.o_proj.weight",
+        ])
+        if model.config.qkv_bias:
+            expected_keys.extend([
+                f"{prefix}.self_attn.q_proj.bias",
+                f"{prefix}.self_attn.k_proj.bias",
+                f"{prefix}.self_attn.v_proj.bias",
+                f"{prefix}.self_attn.o_proj.bias",
+            ])
+        if model.config.use_swiglu:
+            expected_keys.extend([
+                f"{prefix}.mlp.gate_proj.weight",
+                f"{prefix}.mlp.up_proj.weight",
+                f"{prefix}.mlp.down_proj.weight",
+            ])
+
+    missing_keys = [k for k in expected_keys if k not in hf_tensors]
+    unexpected_keys = [k for k in hf_tensors if k not in expected_keys]
+
+    model._missing_keys = missing_keys
+    model._unexpected_keys = unexpected_keys
+
+    if strict and (missing_keys or unexpected_keys):
+        raise RuntimeError(
+            f"Strict weight loading failed. Missing keys: {missing_keys}, Unexpected keys: {unexpected_keys}"
+        )
+
     # 1. Token Embeddings
     _assign_param(model.token_embeddings.weight, hf_tensors, "model.embed_tokens.weight")
 
     # 2. Transformer Blocks
+    num_heads = model.config.num_heads
+    num_kv_heads = model.config.num_kv_heads if model.config.num_kv_heads is not None else num_heads
+    head_dim = model.config.embed_dim // num_heads
+
     for i in range(model.config.num_layers):
         prefix = f"model.layers.{i}"
         block = model.blocks[i]
@@ -198,14 +245,38 @@ def load_hf_weights_into_model(
         _assign_param(block.mlp_norm.weight, hf_tensors, f"{prefix}.post_attention_layernorm.weight")
 
         # Attention weights
-        _assign_param(block.attn.q_proj.weight, hf_tensors, f"{prefix}.self_attn.q_proj.weight")
-        _assign_param(block.attn.k_proj.weight, hf_tensors, f"{prefix}.self_attn.k_proj.weight")
+        q_key = f"{prefix}.self_attn.q_proj.weight"
+        k_key = f"{prefix}.self_attn.k_proj.weight"
+        if model.config.rope_interleaved and q_key in hf_tensors:
+            unperm_q = _unpermute_hf_to_interleaved_weight(hf_tensors[q_key], num_heads, head_dim)
+            _assign_param(block.attn.q_proj.weight, {q_key: unperm_q}, q_key)
+        else:
+            _assign_param(block.attn.q_proj.weight, hf_tensors, q_key)
+
+        if model.config.rope_interleaved and k_key in hf_tensors:
+            unperm_k = _unpermute_hf_to_interleaved_weight(hf_tensors[k_key], num_kv_heads, head_dim)
+            _assign_param(block.attn.k_proj.weight, {k_key: unperm_k}, k_key)
+        else:
+            _assign_param(block.attn.k_proj.weight, hf_tensors, k_key)
+
         _assign_param(block.attn.v_proj.weight, hf_tensors, f"{prefix}.self_attn.v_proj.weight")
         _assign_param(block.attn.out_proj.weight, hf_tensors, f"{prefix}.self_attn.o_proj.weight")
 
         # Attention biases (if present, e.g. Qwen2)
-        _assign_bias(block.attn.q_proj, hf_tensors, f"{prefix}.self_attn.q_proj.bias")
-        _assign_bias(block.attn.k_proj, hf_tensors, f"{prefix}.self_attn.k_proj.bias")
+        q_bias_key = f"{prefix}.self_attn.q_proj.bias"
+        k_bias_key = f"{prefix}.self_attn.k_proj.bias"
+        if model.config.rope_interleaved and q_bias_key in hf_tensors:
+            unperm_qb = _unpermute_hf_to_interleaved_bias(hf_tensors[q_bias_key], num_heads, head_dim)
+            _assign_bias(block.attn.q_proj, {q_bias_key: unperm_qb}, q_bias_key)
+        else:
+            _assign_bias(block.attn.q_proj, hf_tensors, q_bias_key)
+
+        if model.config.rope_interleaved and k_bias_key in hf_tensors:
+            unperm_kb = _unpermute_hf_to_interleaved_bias(hf_tensors[k_bias_key], num_kv_heads, head_dim)
+            _assign_bias(block.attn.k_proj, {k_bias_key: unperm_kb}, k_bias_key)
+        else:
+            _assign_bias(block.attn.k_proj, hf_tensors, k_bias_key)
+
         _assign_bias(block.attn.v_proj, hf_tensors, f"{prefix}.self_attn.v_proj.bias")
         _assign_bias(block.attn.out_proj, hf_tensors, f"{prefix}.self_attn.o_proj.bias")
 
@@ -232,6 +303,7 @@ def load_hf_weights_into_model(
 def load_hf_pretrained(
     model_dir: str,
     return_tokenizer: bool = False,
+    strict: bool = True,
 ) -> Union[ParallaxLM, Tuple[ParallaxLM, Optional[HFTokenizer]]]:
     """Loads a pretrained HuggingFace model directory into a ready ParallaxLM instance, optionally returning its tokenizer."""
     config_file = os.path.join(model_dir, "config.json")
@@ -256,10 +328,9 @@ def load_hf_pretrained(
     tensors: Dict[str, np.ndarray] = {}
     for wf in weight_files:
         tensors.update(load_safetensors(wf, cast_float64=True))
-
     p_config = hf_config_to_parallax(hf_config, hf_tensors=tensors)
     model = ParallaxLM(p_config)
-    load_hf_weights_into_model(model, tensors)
+    load_hf_weights_into_model(model, tensors, strict=strict)
 
     if return_tokenizer:
         tok_file = os.path.join(model_dir, "tokenizer.json")
