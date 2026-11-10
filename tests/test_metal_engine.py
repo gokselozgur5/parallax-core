@@ -48,7 +48,7 @@ def test_metal_gemm_correctness():
     B = np.random.randn(K, N).astype(np.float32)
 
     C_metal = metal_gemm(A, B)
-    C_expected = A @ B
+    C_expected = (A.astype(np.float64) @ B.astype(np.float64)).astype(np.float32)
 
     assert C_metal.shape == (M, N)
     assert np.allclose(C_metal, C_expected, atol=1e-4)
@@ -73,8 +73,10 @@ def test_metal_rmsnorm_correctness():
 
     out_metal = metal_rmsnorm(x, weight, eps=eps)
 
-    variance = np.mean(x**2, axis=-1, keepdims=True)
-    expected = (x / np.sqrt(variance + eps)) * weight
+    x64 = x.astype(np.float64)
+    w64 = weight.astype(np.float64)
+    var64 = np.mean(x64**2, axis=-1, keepdims=True)
+    expected = ((x64 / np.sqrt(var64 + float(eps))) * w64).astype(np.float32)
 
     assert out_metal.shape == x.shape
     assert np.allclose(out_metal, expected, atol=1e-5)
