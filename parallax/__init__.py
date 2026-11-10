@@ -11,6 +11,12 @@ from parallax.hf_loader import (
     load_hf_weights_into_model,
     save_hf_pretrained,
 )
+from parallax.models.llama import LlamaConfig, LlamaForCausalLM
+from parallax.models.qwen2 import (
+    Qwen2Config,
+    Qwen2ForCausalLM,
+    calculate_qwen2_intermediate_size,
+)
 from parallax.hf_tokenizer import HFTokenizer, load_hf_tokenizer
 from parallax.gguf import GGUFFile, GGUFTensorInfo, load_gguf, save_gguf
 from parallax.gguf_loader import (
@@ -35,7 +41,10 @@ from parallax.prune import (
     prune_unstructured_magnitude,
 )
 from parallax.attention_sink import RollingKVCache
+from parallax.kv_cache_pruner import KVCachePruner, PruningMetrics
 from parallax.linear_attention import LinearAttention, elu_feature_map
+from parallax.bitmamba import BitMambaBlock, BitMambaConfig, BitMambaLM
+from parallax.bit_attention import BitAttention
 
 __all__ = [
     "Tensor",
@@ -49,6 +58,11 @@ __all__ = [
     "load_hf_pretrained",
     "load_hf_weights_into_model",
     "save_hf_pretrained",
+    "LlamaConfig",
+    "LlamaForCausalLM",
+    "Qwen2Config",
+    "Qwen2ForCausalLM",
+    "calculate_qwen2_intermediate_size",
     "HFTokenizer",
     "load_hf_tokenizer",
     "GGUFFile",
@@ -74,6 +88,10 @@ __all__ = [
     "RollingKVCache",
     "LinearAttention",
     "elu_feature_map",
+    "BitMambaBlock",
+    "BitMambaConfig",
+    "BitMambaLM",
+    "BitAttention",
     "compute_cross_entropy_loss",
     "compute_perplexity",
     "ContinuousBatchEngine",

@@ -89,6 +89,7 @@ class CausalSelfAttention(Module):
         rope_theta: float = 10000.0,
         rope_interleaved: bool = True,
         use_flash_attn: bool = False,
+        sliding_window: Optional[int] = None,
     ):
         super().__init__()
         if embed_dim % num_heads != 0:
@@ -107,6 +108,7 @@ class CausalSelfAttention(Module):
         self.rope_theta = float(rope_theta)
         self.rope_interleaved = rope_interleaved
         self.use_flash_attn = use_flash_attn
+        self.sliding_window = sliding_window
         self.scale = 1.0 / math.sqrt(self.head_dim)
 
         # Q projection: [embed_dim, embed_dim]
@@ -187,11 +189,14 @@ class CausalSelfAttention(Module):
             # 3. Scaled dot-product: Q @ K^T -> [B, num_heads, T, total_kv_len]
             scores = (q_heads @ np.swapaxes(k_heads_expanded, -1, -2)) * self.scale
 
-            # 4. Causal masking
+            # 4. Causal masking (with optional sliding window)
             if T > 1 or past_len > 0:
                 q_indices = np.arange(past_len, past_len + T)[:, None]
                 k_indices = np.arange(total_kv_len)[None, :]
                 causal_mask = k_indices > q_indices  # [T, total_kv_len]
+                if self.sliding_window is not None:
+                    window_mask = (q_indices - k_indices) >= self.sliding_window
+                    causal_mask = causal_mask | window_mask
                 scores = np.where(causal_mask[None, None, :, :], -1e9, scores)
 
             # 5. Numerically stable softmax

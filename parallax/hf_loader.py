@@ -12,6 +12,12 @@ from typing import Any, Dict, Optional, Tuple, Union
 import numpy as np
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
+from parallax.models.llama import LlamaConfig, LlamaForCausalLM
+from parallax.models.qwen2 import (
+    Qwen2Config,
+    Qwen2ForCausalLM,
+    calculate_qwen2_intermediate_size,
+)
 from parallax.nn import Linear, Parameter
 from parallax.safetensors import load_safetensors, save_safetensors
 from parallax.hf_tokenizer import HFTokenizer, load_hf_tokenizer
@@ -112,9 +118,20 @@ def hf_config_to_parallax(
     intermediate_size = hf_config.get("intermediate_size")
     if intermediate_size is not None:
         intermediate_size = int(intermediate_size)
+    elif model_type.startswith("qwen2"):
+        intermediate_size = calculate_qwen2_intermediate_size(embed_dim)
 
-    rms_norm_eps = float(hf_config.get("rms_norm_eps", 1e-5))
-    rope_theta = float(hf_config.get("rope_theta", 10000.0))
+    # Qwen2/2.5 defaults to 1e-6, others usually 1e-5
+    default_eps = 1e-6 if model_type.startswith("qwen2") else 1e-5
+    rms_norm_eps = float(hf_config.get("rms_norm_eps", default_eps))
+
+    # Qwen2/2.5 defaults to 1,000,000.0, others usually 10,000.0
+    default_theta = 1000000.0 if model_type.startswith("qwen2") else 10000.0
+    rope_theta = float(hf_config.get("rope_theta", default_theta))
+
+    sliding_window = hf_config.get("sliding_window")
+    if sliding_window is not None:
+        sliding_window = int(sliding_window)
 
     # Qwen2 and some architectures use attention_bias / qkv_bias
     qkv_bias = bool(
@@ -133,6 +150,44 @@ def hf_config_to_parallax(
         else:
             tie_weights = False
 
+    if model_type.startswith("qwen2"):
+        return Qwen2Config(
+            vocab_size=vocab_size,
+            embed_dim=embed_dim,
+            num_heads=num_heads,
+            num_kv_heads=num_kv_heads,
+            num_layers=num_layers,
+            max_seq_len=max_seq_len,
+            use_rope=True,
+            rope_theta=rope_theta,
+            rope_interleaved=False,  # HF standard: [:d/2], [d/2:] split
+            use_swiglu=True,
+            intermediate_size=intermediate_size,
+            rms_norm_eps=rms_norm_eps,
+            tie_weights=tie_weights,
+            qkv_bias=qkv_bias,
+            sliding_window=sliding_window,
+        )
+
+    if model_type == "llama":
+        return LlamaConfig(
+            vocab_size=vocab_size,
+            embed_dim=embed_dim,
+            num_heads=num_heads,
+            num_kv_heads=num_kv_heads,
+            num_layers=num_layers,
+            max_seq_len=max_seq_len,
+            use_rope=True,
+            rope_theta=rope_theta,
+            rope_interleaved=False,  # HF standard: [:d/2], [d/2:] split
+            use_swiglu=True,
+            intermediate_size=intermediate_size,
+            rms_norm_eps=rms_norm_eps,
+            tie_weights=tie_weights,
+            qkv_bias=qkv_bias,
+            sliding_window=sliding_window,
+        )
+
     return ParallaxLMConfig(
         vocab_size=vocab_size,
         embed_dim=embed_dim,
@@ -148,6 +203,7 @@ def hf_config_to_parallax(
         rms_norm_eps=rms_norm_eps,
         tie_weights=tie_weights,
         qkv_bias=qkv_bias,
+        sliding_window=sliding_window,
     )
 
 
@@ -300,7 +356,12 @@ def load_hf_pretrained(
     for wf in weight_files:
         tensors.update(load_safetensors(wf, cast_float64=True))
     p_config = hf_config_to_parallax(hf_config, hf_tensors=tensors)
-    model = ParallaxLM(p_config)
+    if isinstance(p_config, Qwen2Config) or (isinstance(hf_config.get("model_type"), str) and hf_config.get("model_type", "").startswith("qwen2")):
+        model = Qwen2ForCausalLM(p_config)
+    elif isinstance(p_config, LlamaConfig) or hf_config.get("model_type") == "llama":
+        model = LlamaForCausalLM(p_config)
+    else:
+        model = ParallaxLM(p_config)
     load_hf_weights_into_model(model, tensors, strict=strict)
 
     if return_tokenizer:
