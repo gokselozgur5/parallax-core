@@ -55,6 +55,8 @@ class BitAttention(Module):
         self.rope_theta = float(rope_theta)
         self.rope_interleaved = rope_interleaved
         self.use_flash_attn = use_flash_attn
+        if sliding_window is not None and (isinstance(sliding_window, bool) or sliding_window < 1):
+            raise ValueError(f"sliding_window must be >= 1 or None, got {sliding_window}")
         self.sliding_window = sliding_window
         self.scale = 1.0 / math.sqrt(self.head_dim)
 
