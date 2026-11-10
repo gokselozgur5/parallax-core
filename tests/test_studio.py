@@ -3,21 +3,28 @@ Integration tests for Parallax Studio Web Server and APIs.
 """
 
 import json
+import socketserver
 import threading
 import time
 import urllib.request
 import pytest
 
-from demo.studio_server import run_server
+from demo.studio_server import StudioHandler
 
 
 @pytest.fixture(scope="module")
 def studio_server_url():
-    test_port = 8299
-    t = threading.Thread(target=run_server, args=(test_port,), daemon=True)
+    class EphemeralTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+        allow_reuse_address = True
+
+    httpd = EphemeralTCPServer(("127.0.0.1", 0), StudioHandler)
+    port = httpd.server_address[1]
+    t = threading.Thread(target=httpd.serve_forever, daemon=True)
     t.start()
-    time.sleep(0.5)
-    return f"http://localhost:{test_port}"
+    time.sleep(0.1)
+    yield f"http://127.0.0.1:{port}"
+    httpd.shutdown()
+    httpd.server_close()
 
 
 def test_studio_model_info_api(studio_server_url):
