@@ -19,6 +19,7 @@ import numpy as np
 # Global cached Metal state
 _METAL_INITIALIZED: bool = False
 _IS_METAL_AVAILABLE: bool = False
+_INT32_MAX: int = 2147483647
 
 _OBJC: Optional[ctypes.CDLL] = None
 _METAL: Optional[ctypes.CDLL] = None
