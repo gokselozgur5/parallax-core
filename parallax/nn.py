@@ -15,6 +15,7 @@ class Parameter(Tensor):
 
     def __init__(self, data: np.ndarray, label: str = ""):
         super().__init__(data, requires_grad=True, label=label)
+        self.requires_grad = True
 
 
 class Module:
