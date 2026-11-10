@@ -87,6 +87,22 @@ def benchmark_transformer(
     return step_latency_ms, prefill_latency_ms, theoretical_kv_bytes, measured_kv_bytes
 
 
+def _measure_mamba_model_state(model: BitMambaLM, batch_size: int, dtype_bytes: int = 4) -> Tuple[int, int]:
+    """Computes theoretical and measured state bytes across all layers of model."""
+    total_elements = sum(
+        b.d_inner * (b.d_state + (b.conv_weight.data.shape[1] - 1))
+        for b in model.blocks
+    )
+    theo_bytes = batch_size * total_elements * dtype_bytes
+    states = [
+        (np.zeros((batch_size, b.d_inner, b.d_state), dtype=np.float32),
+         np.zeros((batch_size, b.d_inner, b.conv_weight.data.shape[1] - 1), dtype=np.float32))
+        for b in model.blocks
+    ]
+    meas_bytes = sum(s[0].nbytes + s[1].nbytes for s in states)
+    return theo_bytes, meas_bytes
+
+
 def benchmark_mamba(
     block: MambaBlock,
     batch_size: int,
