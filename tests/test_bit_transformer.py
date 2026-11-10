@@ -309,3 +309,27 @@ def test_bit_transformer_block_mlp_residual_zero_weights():
     assert np.linalg.norm(actual) > 0.5  # would be 0 if residual was dropped
 
 
+def test_bit_transformer_eos_stopping_cached_and_uncached(monkeypatch):
+    """Verify generate and generate_stream halt immediately on eos; kills eos-ignored fault."""
+    config = BitTransformerConfig(vocab_size=32, embed_dim=16, num_heads=2, num_layers=1, max_seq_len=16, intermediate_size=32)
+    model = BitTransformerLM(config)
+    eos_token = 7
+    seq = [3, 5, eos_token, 9, 10]
+    call_idx = [0]
+
+    import parallax.generator as gen
+    def mock_sample(logits, **kwargs):
+        val = seq[min(call_idx[0], len(seq) - 1)]
+        call_idx[0] += 1
+        return val
+    monkeypatch.setattr(gen, "sample_next_token", mock_sample)
+
+    call_idx[0] = 0
+    assert list(model.generate_stream([1, 2], max_new_tokens=10, eos_token_id=eos_token, use_cache=True)) == [3, 5, eos_token]
+    call_idx[0] = 0
+    assert list(model.generate_stream([1, 2], max_new_tokens=10, eos_token_id=eos_token, use_cache=False)) == [3, 5, eos_token]
+    call_idx[0] = 0
+    assert model.generate([1, 2], max_new_tokens=10, eos_token_id=eos_token, use_cache=True) == [1, 2, 3, 5, eos_token]
+
+
+
