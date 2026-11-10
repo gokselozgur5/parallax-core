@@ -46,7 +46,12 @@ def sample_next_token(
         top_p: If set (in (0, 1]), restricts sampling to the smallest set of tokens
                whose cumulative probability mass meets or exceeds top_p (Nucleus sampling)
     """
-    if temperature <= 0.0:
+    if temperature is not None:
+        if np.isnan(temperature) or np.isinf(temperature) or temperature < 0:
+            raise ValueError(f"Invalid temperature: {temperature}. Must be finite and non-negative.")
+        if temperature < 1e-7 or temperature == 0:
+            return int(np.argmax(logits))
+    else:
         return int(np.argmax(logits))
 
     scaled_logits = logits.copy() / temperature

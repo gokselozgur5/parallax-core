@@ -7,6 +7,7 @@ supporting /v1/models and /v1/chat/completions with ContinuousBatchEngine.
 """
 
 import json
+import math
 import time
 import uuid
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -97,7 +98,16 @@ def create_handler(state: OpenAIServerState):
                     max_tokens = int(data.get("max_tokens", 32))
                     if state.max_tokens_limit is not None:
                         max_tokens = min(max_tokens, state.max_tokens_limit)
-                    temperature = float(data.get("temperature", 0.0))
+                    raw_temp = data.get("temperature", 0.0)
+                    try:
+                        temperature = float(raw_temp)
+                    except (ValueError, TypeError):
+                        self._send_json(400, {"error": {"message": f"Invalid temperature: {raw_temp}. Must be a valid float.", "type": "invalid_request_error"}})
+                        return
+
+                    if math.isnan(temperature) or math.isinf(temperature) or temperature < 0:
+                        self._send_json(400, {"error": {"message": f"Invalid temperature: {temperature}. Must be finite and non-negative.", "type": "invalid_request_error"}})
+                        return
                     stream = bool(data.get("stream", False))
 
                     prompt_text = "\n".join(f"{m.get('role', 'user')}: {m.get('content', '')}" for m in messages)
