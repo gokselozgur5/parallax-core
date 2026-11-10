@@ -68,11 +68,13 @@ class GGUFTokenizer:
 
         # Parse BPE merges if present
         self.merges: Dict[Tuple[int, int], int] = {}
+        self.merge_ranks: Dict[Tuple[str, str], int] = {}
         if merges:
             for rank, merge_str in enumerate(merges):
                 parts = merge_str.split(" ")
                 if len(parts) == 2:
                     p0, p1 = parts[0], parts[1]
+                    self.merge_ranks[(p0, p1)] = rank
                     id0 = self.token_to_id.get(p0)
                     id1 = self.token_to_id.get(p1)
                     # The merged token
@@ -96,6 +98,58 @@ class GGUFTokenizer:
         """Encodes text to token IDs using byte-fallback and vocabulary matching."""
         if not text:
             return []
+
+        if self.model_type == "llama":
+            if not text.startswith(" ") and not text.startswith("\u2581"):
+                text = " " + text
+
+        # If merge table exists, perform rank-ordered BPE over initial symbols
+        if self.merge_ranks:
+            symbols: List[str] = []
+            i = 0
+            n = len(text)
+            while i < n:
+                ch = text[i]
+                if ch in self.token_to_id:
+                    symbols.append(ch)
+                    i += 1
+                else:
+                    raw = ch.encode("utf-8")
+                    for b in raw:
+                        hex_tok = f"<0x{b:02X}>"
+                        if hex_tok in self.token_to_id:
+                            symbols.append(hex_tok)
+                        elif self.unk_token_id is not None:
+                            symbols.append(self.raw_tokens[self.unk_token_id])
+                    i += 1
+
+            while len(symbols) >= 2:
+                best_pair = None
+                best_rank = float("inf")
+                for idx in range(len(symbols) - 1):
+                    pair = (symbols[idx], symbols[idx + 1])
+                    if pair in self.merge_ranks:
+                        rank = self.merge_ranks[pair]
+                        if rank < best_rank:
+                            best_rank = rank
+                            best_pair = pair
+
+                if best_pair is None:
+                    break
+
+                merged = best_pair[0] + best_pair[1]
+                new_syms: List[str] = []
+                idx = 0
+                while idx < len(symbols):
+                    if idx < len(symbols) - 1 and (symbols[idx], symbols[idx + 1]) == best_pair:
+                        new_syms.append(merged)
+                        idx += 2
+                    else:
+                        new_syms.append(symbols[idx])
+                        idx += 1
+                symbols = new_syms
+
+            return [self.token_to_id[s] for s in symbols if s in self.token_to_id]
 
         # If full text exists directly in vocabulary, return it
         if text in self.token_to_id:
@@ -128,23 +182,43 @@ class GGUFTokenizer:
                     token_ids.append(self.unk_token_id)
                 i += 1
 
-        # Apply BPE merges iteratively if merge table exists
-        if self.merges and len(token_ids) >= 2:
-            changed = True
-            while changed and len(token_ids) >= 2:
-                changed = False
+        # Apply rank-ordered BPE merges iteratively if merge table exists
+        if self.merge_ranks and len(token_ids) >= 2:
+            while len(token_ids) >= 2:
+                best_pair = None
+                best_rank = float("inf")
+                best_str_pair = None
+                for idx in range(len(token_ids) - 1):
+                    t0 = self.raw_tokens[token_ids[idx]]
+                    t1 = self.raw_tokens[token_ids[idx + 1]]
+                    if (t0, t1) in self.merge_ranks:
+                        rank = self.merge_ranks[(t0, t1)]
+                        if rank < best_rank:
+                            best_rank = rank
+                            best_pair = (token_ids[idx], token_ids[idx + 1])
+                            best_str_pair = (t0, t1)
+
+                if best_pair is None or best_str_pair is None:
+                    break
+
+                merged_str = best_str_pair[0] + best_str_pair[1]
+                merged_id = self.token_to_id.get(merged_str)
+                if merged_id is None:
+                    break
+
                 new_ids: List[int] = []
                 idx = 0
                 while idx < len(token_ids):
-                    if idx < len(token_ids) - 1:
-                        pair = (token_ids[idx], token_ids[idx + 1])
-                        if pair in self.merges:
-                            new_ids.append(self.merges[pair])
-                            idx += 2
-                            changed = True
-                            continue
-                    new_ids.append(token_ids[idx])
-                    idx += 1
+                    if (
+                        idx < len(token_ids) - 1
+                        and token_ids[idx] == best_pair[0]
+                        and token_ids[idx + 1] == best_pair[1]
+                    ):
+                        new_ids.append(merged_id)
+                        idx += 2
+                    else:
+                        new_ids.append(token_ids[idx])
+                        idx += 1
                 token_ids = new_ids
 
         return token_ids
