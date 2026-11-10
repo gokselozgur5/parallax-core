@@ -28,7 +28,7 @@ def test_xlora_linear_backward_gradient_shapes():
     grad_out = np.random.randn(4, 12).astype(np.float32)
 
     out, gates = layer.forward(x)
-    grads_A, grads_B = layer.backward(x, grad_out, gates)
+    grads_A, grads_B, d_gate, dx = layer.backward(x, grad_out, gates)
 
     assert len(grads_A) == 3
     assert len(grads_B) == 3
@@ -37,3 +37,7 @@ def test_xlora_linear_backward_gradient_shapes():
         assert grads_B[i].shape == layer.lora_B[i].shape
         assert not np.isnan(grads_A[i]).any()
         assert not np.isnan(grads_B[i]).any()
+    assert d_gate.shape == layer.gate_weight.shape
+    assert dx.shape == x.shape
+    assert not np.isnan(d_gate).any()
+    assert not np.isnan(dx).any()
