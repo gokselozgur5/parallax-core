@@ -45,4 +45,10 @@ ignore = ["B007", "B023", "B905", "F541", "F841"]
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_configs = true
+follow_imports = "silent"
+
 
