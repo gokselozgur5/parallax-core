@@ -194,3 +194,15 @@ def test_linear4bit_gradient_propagation():
         num_grad_w[idx] = (loss_p - loss_m) / (2 * eps)
 
     np.testing.assert_allclose(pre.weight.grad, num_grad_w, rtol=1e-5, atol=1e-5)
+
+
+def test_quantize_int4_exact_levels_kill_3bit():
+    """Verify all 16 levels [0..15] are utilized; kills 3-bit mutation."""
+    grid = np.tile(np.arange(16, dtype=np.float64), 2).reshape(1, 32)
+    packed, scales, zeros = quantize_int4_groupwise(grid, group_size=32)
+    unpacked = unpack_int4(packed)
+    np.testing.assert_array_equal(unpacked, grid.astype(np.uint8))
+    unique_levels = np.unique(unpacked)
+    assert len(unique_levels) == 16
+    assert unique_levels.max() == 15
+
