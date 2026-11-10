@@ -110,6 +110,32 @@ def _translate_hf_regex(pattern: str) -> str:
             i += 1
     return "".join(out)
 
+
+def _extract_split_pattern(data: Dict[str, Any]) -> Optional[str]:
+    """Extracts regex split pattern from tokenizer.json pre_tokenizer configuration."""
+    pre_tok = data.get("pre_tokenizer")
+    if not pre_tok:
+        return None
+
+    def _find_in_obj(obj: Any) -> Optional[str]:
+        if isinstance(obj, dict):
+            if obj.get("type") == "Split":
+                pattern = obj.get("pattern", {})
+                if isinstance(pattern, dict) and "Regex" in pattern:
+                    return pattern["Regex"]
+            for v in obj.values():
+                res = _find_in_obj(v)
+                if res is not None:
+                    return res
+        elif isinstance(obj, list):
+            for item in obj:
+                res = _find_in_obj(item)
+                if res is not None:
+                    return res
+        return None
+
+    return _find_in_obj(pre_tok)
+
 _PRETOKENIZER_REGEX = re.compile(
     r"""'s|'t|'re|'ve|'m|'ll|'d| ?[a-zA-Z]+| ?\d+| ?[^\s\w]+|\s+(?!\S)|\s+"""
 )
