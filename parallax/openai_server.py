@@ -25,6 +25,7 @@ class OpenAIServerState:
         model_name: str = "parallax-lm",
         max_request_bytes: int = DEFAULT_MAX_REQUEST_BYTES,
         max_tokens_limit: Optional[int] = None,
+        tokenizer: Optional[Any] = None,
     ):
         self.model = model
         self.model_name = model_name
@@ -32,6 +33,7 @@ class OpenAIServerState:
         # Context limit fallback from model config or custom limit
         model_ctx = getattr(model.config, "max_seq_len", None)
         self.max_tokens_limit = max_tokens_limit if max_tokens_limit is not None else model_ctx
+        self.tokenizer = tokenizer
         self.engine = ContinuousBatchEngine(model=model, max_batch_size=8)
 
 
@@ -97,11 +99,17 @@ def create_handler(state: OpenAIServerState):
                     temperature = float(data.get("temperature", 0.0))
                     stream = bool(data.get("stream", False))
 
-                    # Simple tokenization: ASCII char codes
                     prompt_text = "\n".join(f"{m.get('role', 'user')}: {m.get('content', '')}" for m in messages)
-                    prompt_tokens = [ord(c) % state.model.config.vocab_size for c in prompt_text]
+                    if state.tokenizer is not None:
+                        prompt_tokens = state.tokenizer.encode(prompt_text)
+                    else:
+                        prompt_tokens = [ord(c) % state.model.config.vocab_size for c in prompt_text]
                     if not prompt_tokens:
                         prompt_tokens = [0]
+
+                    eos_token_id = None
+                    if state.tokenizer is not None and getattr(state.tokenizer, "eos_token_id", None) is not None:
+                        eos_token_id = state.tokenizer.eos_token_id
 
                     req_id = f"chatcmpl-{uuid.uuid4().hex[:12]}"
                     req = SequenceRequest(
@@ -109,8 +117,14 @@ def create_handler(state: OpenAIServerState):
                         prompt_tokens=prompt_tokens,
                         max_new_tokens=max_tokens,
                         temperature=temperature,
+                        eos_token_id=eos_token_id,
                     )
                     state.engine.add_request(req)
+
+                    def decode_tokens(tokens: List[int]) -> str:
+                        if state.tokenizer is not None:
+                            return state.tokenizer.decode(tokens)
+                        return "".join(chr(t if 32 <= t <= 126 else 32) for t in tokens)
 
                     if stream:
                         self.send_response(200)
@@ -143,7 +157,7 @@ def create_handler(state: OpenAIServerState):
                                 for r_id, tok in step_outputs:
                                     if r_id == req_id:
                                         last_tok = tok
-                                        char_piece = chr(tok if 32 <= tok <= 126 else 32)
+                                        piece = decode_tokens([tok])
                                         chunk_payload = {
                                             "id": req_id,
                                             "object": "chat.completion.chunk",
@@ -152,7 +166,7 @@ def create_handler(state: OpenAIServerState):
                                             "choices": [
                                                 {
                                                     "index": 0,
-                                                    "delta": {"content": char_piece},
+                                                    "delta": {"content": piece},
                                                     "finish_reason": None,
                                                 }
                                             ],
@@ -189,8 +203,8 @@ def create_handler(state: OpenAIServerState):
                         while req.status != RequestStatus.FINISHED:
                             state.engine.step()
 
-                    # Convert generated tokens back to characters
-                    gen_text = "".join(chr(t if 32 <= t <= 126 else 32) for t in req.generated_tokens) if req.generated_tokens else ""
+                    # Convert generated tokens back to text
+                    gen_text = decode_tokens(req.generated_tokens) if req.generated_tokens else ""
 
                     eos_id = getattr(req, "eos_token_id", None)
                     if max_tokens == 0:
