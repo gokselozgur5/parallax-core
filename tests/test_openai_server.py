@@ -5,6 +5,7 @@ import pytest
 from http.server import HTTPServer
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.openai_server import OpenAIServerState, create_handler
+from parallax.generator import CharTokenizer
 
 
 @pytest.fixture
@@ -116,3 +117,45 @@ def test_openai_server_max_tokens_zero_and_finish_reason(running_server):
         assert data["choices"][0]["finish_reason"] == "length"
         assert data["choices"][0]["message"]["content"] == ""
         assert data["usage"]["completion_tokens"] == 0
+
+
+def test_openai_server_custom_tokenizer():
+    config = ParallaxLMConfig(
+        vocab_size=128,
+        embed_dim=16,
+        num_layers=1,
+        num_heads=2,
+        max_seq_len=64,
+        use_swiglu=False,
+    )
+    model = ParallaxLM(config)
+    tokenizer = CharTokenizer()
+    state = OpenAIServerState(model=model, model_name="tok-model", tokenizer=tokenizer)
+    handler = create_handler(state)
+
+    server = HTTPServer(("127.0.0.1", 0), handler)
+    port = server.server_port
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    try:
+        url = f"http://127.0.0.1:{port}/v1/chat/completions"
+        payload = json.dumps({
+            "model": "tok-model",
+            "messages": [{"role": "user", "content": "Hello 世界"}],
+            "max_tokens": 3,
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req) as resp:
+            assert resp.status == 200
+            data = json.loads(resp.read().decode("utf-8"))
+            assert data["usage"]["completion_tokens"] == 3
+            assert isinstance(data["choices"][0]["message"]["content"], str)
+    finally:
+        server.shutdown()
+        server.server_close()
