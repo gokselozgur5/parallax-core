@@ -18,10 +18,11 @@ void c_rmsnorm_f32(const float *x, const float *weight, float *output, int rows,
     if (!x || !weight || !output || rows <= 0 || cols <= 0) return;
 
     const float inv_cols = 1.0f / (float)cols;
+    const size_t cols_s = (size_t)cols;
 
     for (int r = 0; r < rows; ++r) {
-        const float *x_row = x + r * cols;
-        float *out_row = output + r * cols;
+        const float *x_row = x + (size_t)r * cols_s;
+        float *out_row = output + (size_t)r * cols_s;
 
         // Step 1: Calculate sum of squares
         float sum_sq = 0.0f;
@@ -94,10 +95,11 @@ void c_rmsnorm_f64(const double *x, const double *weight, double *output, int ro
     if (!x || !weight || !output || rows <= 0 || cols <= 0) return;
 
     const double inv_cols = 1.0 / (double)cols;
+    const size_t cols_s = (size_t)cols;
 
     for (int r = 0; r < rows; ++r) {
-        const double *x_row = x + r * cols;
-        double *out_row = output + r * cols;
+        const double *x_row = x + (size_t)r * cols_s;
+        double *out_row = output + (size_t)r * cols_s;
 
         double sum_sq = 0.0;
         int c = 0;
