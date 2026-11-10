@@ -4,7 +4,7 @@ INT4 (4-bit) Weight Quantization Primitives and Layers in Pure NumPy.
 Implements:
 - 4-bit nibble packing and unpacking (`pack_int4`, `unpack_int4`).
 - Group-wise affine (scale and zero-point) quantization (`quantize_int4_groupwise`, `dequantize_int4_groupwise`).
-- `Linear4Bit` inference module: stores weights packed into uint8 (2x compression over uint8, 4x over float16, 8x over float32 / 16x over float64),
+- `Linear4Bit` inference module: stores weights packed into uint8 (raw packed weight ratio: 8x over float32; total layer compression includes per-group scales and zero points),
   with on-the-fly or cached dequantization in the forward pass.
 """
 
@@ -248,30 +248,33 @@ class Linear4Bit(Module):
 
         return Tensor(out_data, (x,), "Linear4Bit")
 
-    def memory_footprint(self) -> Dict[str, Union[int, float]]:
-        """Returns memory breakdown in bytes and compression stats against float32 baseline."""
+    def memory_footprint(self, baseline_dtype: np.dtype = np.float32) -> Dict[str, Union[int, float, str]]:
+        """Returns memory breakdown in bytes and compression stats against a stated baseline dtype."""
         packed_bytes = self.packed_weight.nbytes
         scale_bytes = self.scales.nbytes
         zero_bytes = self.zeros.nbytes
         bias_bytes = self.bias_data.nbytes if self.bias_data is not None else 0
         total_quant_bytes = packed_bytes + scale_bytes + zero_bytes + bias_bytes
 
-        # Baseline: float32 weight + bias
+        itemsize = np.dtype(baseline_dtype).itemsize
         weight_elements = self.out_features * self.in_features
         bias_elements = self.out_features if self.bias_data is not None else 0
-        baseline_bytes = (weight_elements + bias_elements) * 4
+        baseline_bytes = (weight_elements + bias_elements) * itemsize
+        baseline_weight_bytes = weight_elements * itemsize
 
-        # Weight-only compression (raw packing ratio)
-        weight_compression = (weight_elements * 4) / packed_bytes
+        packed_ratio = baseline_weight_bytes / packed_bytes
         total_compression = baseline_bytes / total_quant_bytes
 
         return {
+            "baseline_dtype": str(np.dtype(baseline_dtype)),
             "packed_bytes": packed_bytes,
             "scale_bytes": scale_bytes,
             "zero_bytes": zero_bytes,
             "bias_bytes": bias_bytes,
             "total_quant_bytes": total_quant_bytes,
+            "baseline_bytes": baseline_bytes,
             "baseline_float32_bytes": baseline_bytes,
-            "weight_compression_ratio": weight_compression,
+            "packed_ratio": packed_ratio,
+            "weight_compression_ratio": packed_ratio,
             "total_compression_ratio": total_compression,
         }
