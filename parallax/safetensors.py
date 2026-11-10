@@ -11,6 +11,7 @@ using only the Python standard library (`struct`, `json`) and NumPy:
 """
 
 import json
+import os
 import struct
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
@@ -113,6 +114,13 @@ def load_safetensors(
             raise ValueError(f"Invalid safetensors file: {file_path} is smaller than 8 bytes")
 
         header_len = struct.unpack("<Q", header_len_bytes)[0]
+        f.seek(0, os.SEEK_END)
+        total_file_size = f.tell()
+        f.seek(8)
+
+        if header_len > total_file_size - 8:
+            raise ValueError(f"Truncated header in safetensors file: {file_path}")
+
         header_json_bytes = f.read(header_len)
         if len(header_json_bytes) < header_len:
             raise ValueError(f"Truncated header in safetensors file: {file_path}")
@@ -131,7 +139,11 @@ def load_safetensors(
             start_off, end_off = info["data_offsets"]
             byte_len = end_off - start_off
 
-            f.seek(data_base_offset + start_off)
+            tensor_start_offset = data_base_offset + start_off
+            if start_off < 0 or byte_len < 0 or tensor_start_offset + byte_len > total_file_size:
+                raise ValueError("Invalid tensor offset/length: exceeds file bounds")
+
+            f.seek(tensor_start_offset)
             raw_data = f.read(byte_len)
             if len(raw_data) < byte_len:
                 raise ValueError(f"Truncated tensor payload for '{key}' in {file_path}")

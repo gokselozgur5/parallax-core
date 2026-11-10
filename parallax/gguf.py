@@ -11,6 +11,8 @@ using only the Python standard library (`struct`) and NumPy:
 
 from dataclasses import dataclass, field
 import io
+import math
+import os
 import struct
 from typing import Any, BinaryIO, Dict, List, Optional, Tuple, Union
 import numpy as np
@@ -194,37 +196,48 @@ def load_gguf(file_path: str, cast_float64: bool = True) -> GGUFFile:
         padding = (alignment - (header_end % alignment)) % alignment
         data_base_offset = header_end + padding
 
+        f.seek(0, os.SEEK_END)
+        total_file_size = f.tell()
+
         # Extract tensors
         tensors: Dict[str, np.ndarray] = {}
         for name, info in tensor_infos.items():
-            f.seek(data_base_offset + info.offset)
-
-            num_elements = int(np.prod(info.shape)) if info.shape else 1
+            num_elements = math.prod(info.shape) if info.shape else 1
 
             if info.ggml_type == GGML_TYPE_F32:
-                raw_bytes = f.read(num_elements * 4)
+                byte_size = num_elements * 4
+            elif info.ggml_type == GGML_TYPE_F16 or info.ggml_type == GGML_TYPE_BF16:
+                byte_size = num_elements * 2
+            elif info.ggml_type == GGML_TYPE_Q8_0:
+                n_blocks = (num_elements + QK8_0 - 1) // QK8_0
+                byte_size = n_blocks * BLOCK_BYTES_Q8_0
+            elif info.ggml_type == GGML_TYPE_Q4_0:
+                n_blocks = (num_elements + QK4_0 - 1) // QK4_0
+                byte_size = n_blocks * BLOCK_BYTES_Q4_0
+            else:
+                raise NotImplementedError(f"Unsupported GGML tensor type: {info.ggml_type}")
+
+            tensor_start_offset = data_base_offset + info.offset
+            if tensor_start_offset < 0 or byte_size < 0 or tensor_start_offset + byte_size > total_file_size:
+                raise ValueError("Invalid tensor offset/length: exceeds file bounds")
+
+            f.seek(tensor_start_offset)
+            raw_bytes = f.read(byte_size)
+            if len(raw_bytes) < byte_size:
+                raise ValueError("Invalid tensor offset/length: exceeds file bounds")
+
+            if info.ggml_type == GGML_TYPE_F32:
                 arr = np.frombuffer(raw_bytes, dtype="<f4").reshape(info.shape).copy()
             elif info.ggml_type == GGML_TYPE_F16:
-                raw_bytes = f.read(num_elements * 2)
                 arr = np.frombuffer(raw_bytes, dtype="<f2").reshape(info.shape).copy()
             elif info.ggml_type == GGML_TYPE_BF16:
-                raw_bytes = f.read(num_elements * 2)
                 u16 = np.frombuffer(raw_bytes, dtype="<u2")
                 u32 = u16.astype(np.uint32) << 16
                 arr = u32.view(np.float32).reshape(info.shape).copy()
             elif info.ggml_type == GGML_TYPE_Q8_0:
-                n_blocks = (num_elements + QK8_0 - 1) // QK8_0
-                raw_bytes = f.read(n_blocks * BLOCK_BYTES_Q8_0)
                 arr = dequantize_q8_0(raw_bytes, info.shape)
             elif info.ggml_type == GGML_TYPE_Q4_0:
-                n_blocks = (num_elements + QK4_0 - 1) // QK4_0
-                raw_bytes = f.read(n_blocks * BLOCK_BYTES_Q4_0)
                 arr = dequantize_q4_0(raw_bytes, info.shape)
-            else:
-                # Unsupported quantized or custom type, store raw bytes as uint8 array
-                # (Can be passed to specialized quantizer/dequantizer)
-                raw_bytes = f.read(num_elements)
-                arr = np.frombuffer(raw_bytes, dtype=np.uint8).copy()
 
             if cast_float64 and np.issubdtype(arr.dtype, np.floating):
                 arr = arr.astype(np.float64)
