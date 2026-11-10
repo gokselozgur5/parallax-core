@@ -10,6 +10,7 @@ from parallax.bitmamba import (
     BitMambaLM,
 )
 from parallax.bitnet import quantize_weights_ternary
+from parallax.optim import AdamW
 from parallax.tensor import Tensor, no_grad
 
 
@@ -173,3 +174,31 @@ def test_bitmamba_default_config_logits_nonzero():
     for p in model.parameters():
         assert p.grad is not None
         assert np.any(p.grad != 0.0)
+
+
+def test_bitmamba_training_loss_reduction():
+    """Verify small optimization steps strictly reduce cross-entropy loss."""
+    np.random.seed(42)
+    config = BitMambaConfig(vocab_size=32, d_model=16, num_layers=2, d_state=4, d_conv=3, expand=2)
+    model = BitMambaLM(config)
+    optimizer = AdamW(model.parameters(), lr=1e-3)
+    tokens = np.array([[1, 2, 3, 4, 5]])
+    targets = np.array([[2, 3, 4, 5, 0]])
+
+    losses = []
+    for _ in range(5):
+        optimizer.zero_grad()
+        logits = model(tokens)
+        max_l = np.max(logits.data, axis=-1, keepdims=True)
+        exp_l = np.exp(logits.data - max_l)
+        probs = exp_l / np.sum(exp_l, axis=-1, keepdims=True)
+        loss_val = -np.mean(np.log(probs[0, np.arange(5), targets[0]] + 1e-12))
+        losses.append(loss_val)
+
+        grad = probs.copy()
+        grad[0, np.arange(5), targets[0]] -= 1.0
+        grad /= 5.0
+        logits.backward(grad)
+        optimizer.step()
+
+    assert losses[-1] < losses[0]
