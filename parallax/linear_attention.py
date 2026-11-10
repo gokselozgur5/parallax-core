@@ -66,33 +66,35 @@ class LinearAttention(Module):
         phi_k = elu_feature_map(k)
 
         if state is not None or return_state:
-            # Recurrent O(1) step update per token
+            # Recurrent O(1) step update per token for all T tokens
             if state is None:
-                prev_S = np.zeros((B, self.num_heads, self.head_dim, self.head_dim), dtype=q.dtype)
-                prev_Z = np.zeros((B, self.num_heads, self.head_dim, 1), dtype=q.dtype)
+                curr_S = np.zeros((B, self.num_heads, self.head_dim, self.head_dim), dtype=q.dtype)
+                curr_Z = np.zeros((B, self.num_heads, self.head_dim, 1), dtype=q.dtype)
             else:
-                prev_S, prev_Z = state
+                curr_S, curr_Z = state
 
-            # Single token step T=1
-            q_t = phi_q[:, :, 0:1, :]  # [B, H, 1, D]
-            k_t = phi_k[:, :, 0:1, :]  # [B, H, 1, D]
-            v_t = v[:, :, 0:1, :]      # [B, H, 1, D]
+            out_tokens = []
+            for t in range(T):
+                q_t = phi_q[:, :, t : t + 1, :]  # [B, H, 1, D]
+                k_t = phi_k[:, :, t : t + 1, :]  # [B, H, 1, D]
+                v_t = v[:, :, t : t + 1, :]      # [B, H, 1, D]
 
-            # S_new = S_prev + K_t^T @ V_t -> [B, H, D, D]
-            # Z_new = Z_prev + K_t^T       -> [B, H, D, 1]
-            k_t_col = np.swapaxes(k_t, -1, -2)  # [B, H, D, 1]
-            new_S = prev_S + (k_t_col @ v_t)
-            new_Z = prev_Z + k_t_col
+                # S_new = S_prev + K_t^T @ V_t -> [B, H, D, D]
+                # Z_new = Z_prev + K_t^T       -> [B, H, D, 1]
+                k_t_col = np.swapaxes(k_t, -1, -2)  # [B, H, D, 1]
+                curr_S = curr_S + (k_t_col @ v_t)
+                curr_Z = curr_Z + k_t_col
 
-            # num = Q_t @ S_new -> [B, H, 1, D]
-            # den = Q_t @ Z_new -> [B, H, 1, 1]
-            num = q_t @ new_S
-            den = (q_t @ new_Z) + self.eps
-            out_heads = num / den
+                # num = Q_t @ S_new -> [B, H, 1, D]
+                # den = Q_t @ Z_new -> [B, H, 1, 1]
+                num = q_t @ curr_S
+                den = (q_t @ curr_Z) + self.eps
+                out_tokens.append(num / den)
 
-            merged = out_heads.swapaxes(1, 2).reshape(B, 1, C)
+            out_heads = np.concatenate(out_tokens, axis=2) if T > 1 else out_tokens[0]
+            merged = out_heads.swapaxes(1, 2).reshape(B, T, C)
             out = self.out_proj(Tensor(merged, (x_tensor,), "LinearAttention"))
-            return out, (new_S, new_Z)
+            return out, (curr_S, curr_Z)
 
 
         # Parallel prefix-sum training forward for T > 1
