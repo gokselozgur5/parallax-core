@@ -53,3 +53,12 @@ def test_backward_subtraction_and_negation():
     assert f.data == -4.0
     assert x.grad == pytest.approx(-1.0)
     assert y.grad == pytest.approx(1.0)
+
+
+def test_backward_deep_graph_iterative_topo():
+    x = Value(1.0)
+    curr = x
+    for _ in range(5000):
+        curr = curr + 1.0
+    curr.backward()
+    assert x.grad == pytest.approx(1.0)
