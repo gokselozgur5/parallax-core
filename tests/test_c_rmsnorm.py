@@ -148,3 +148,15 @@ def test_c_rmsnorm_types_and_empty_shapes():
         for bad_shape in [(1,), (4, 1), (4, 8)]:
             with pytest.raises(ValueError):
                 c_rmsnorm(np.ones((4, 8), dtype=np.float32), np.ones(bad_shape, dtype=np.float32))
+
+
+def test_c_rmsnorm_int32_bounds():
+    class MockRMSNormArray:
+        ndim = 2
+        dtype = np.float32
+        shape = (2147483648, 4)
+        size = 2147483648 * 4
+
+    weight = np.ones(4, dtype=np.float32)
+    with pytest.raises(ValueError, match="INT32_MAX"):
+        c_rmsnorm(MockRMSNormArray(), weight)
