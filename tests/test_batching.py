@@ -44,3 +44,55 @@ def test_continuous_batch_engine_multi_request():
     assert len(req2.generated_tokens) == 2
     assert len(req3.generated_tokens) == 3
     assert len(engine.completed_requests) == 3
+
+
+def test_continuous_batch_engine_ejects_failed_request():
+    config = ParallaxLMConfig(
+        vocab_size=32,
+        embed_dim=16,
+        num_layers=1,
+        num_heads=2,
+        max_seq_len=64,
+        use_swiglu=False,
+    )
+    model = ParallaxLM(config)
+    engine = ContinuousBatchEngine(model=model, max_batch_size=2)
+
+    # Bad request with NaN temperature will trigger ValueError during sampling
+    bad_req = SequenceRequest(
+        request_id="bad-req",
+        prompt_tokens=[1, 2],
+        max_new_tokens=4,
+        temperature=float("nan"),
+    )
+    good_req = SequenceRequest(
+        request_id="good-req",
+        prompt_tokens=[3, 4],
+        max_new_tokens=2,
+        temperature=0.0,
+    )
+
+    engine.add_request(bad_req)
+    engine.add_request(good_req)
+
+    # First step: prefill for both. bad_req will fail on sampling and be ejected.
+    step_outputs = engine.step()
+
+    assert bad_req.status == RequestStatus.FAILED
+    assert bad_req.error is not None
+    assert bad_req.request_id in engine.completed_requests
+    assert bad_req not in engine.running_requests
+
+    # good_req must have produced output and still be healthy
+    assert any(r_id == "good-req" for r_id, _ in step_outputs)
+
+    # Engine must continue running remaining steps without poisoning
+    step_count = 0
+    while engine.has_unfinished_requests():
+        engine.step()
+        step_count += 1
+        assert step_count < 10
+
+    assert good_req.status == RequestStatus.FINISHED
+    assert len(good_req.generated_tokens) == 2
+
