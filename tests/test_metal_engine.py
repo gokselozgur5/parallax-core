@@ -18,14 +18,22 @@ def test_metal_availability_check():
     avail = is_metal_available()
     assert isinstance(avail, bool)
     if sys.platform == "darwin":
-        # On macOS, Metal should be available and device name queryable
+        assert avail is True, "Metal must be available and initialized on macOS / Darwin"
         name = get_metal_device_name()
-        if avail:
-            assert name is not None
-            assert len(name) > 0
+        assert name is not None
+        assert len(name) > 0
     else:
         assert not avail
         assert get_metal_device_name() is None
+
+
+def test_metal_gpu_path_active_and_no_silent_fallback():
+    if sys.platform != "darwin":
+        pytest.skip("Metal only available on Darwin")
+    assert is_metal_available() is True, "Metal GPU engine failed to initialize"
+    import parallax.metal_engine as me
+    assert me._PSO_GEMM is not None, "Metal GEMM pipeline state object must be initialized"
+    assert me._PSO_RMSNORM is not None, "Metal RMSNorm pipeline state object must be initialized"
 
 
 def test_cuda_availability_check():
