@@ -74,3 +74,23 @@ def test_unused_parameter_grad_is_none_after_backward():
     assert layer.weight.grad is not None
     assert layer.bias.grad is None
 
+
+def test_module_train_eval_mode():
+    from parallax.lora import LoRALinear
+    base = Linear(8, 4)
+    lora = LoRALinear(base, r=2, lora_alpha=4.0, lora_dropout=0.5)
+    lora.lora_B.data.fill(1.0)
+
+    lora.eval()
+    assert lora.training is False
+    x = Tensor(np.ones((2, 8)))
+    out1 = lora(x).data
+    out2 = lora(x).data
+    assert np.allclose(out1, out2)
+
+    lora.train()
+    assert lora.training is True
+    out3 = lora(x).data
+    out4 = lora(x).data
+    assert not np.allclose(out3, out4)
+
