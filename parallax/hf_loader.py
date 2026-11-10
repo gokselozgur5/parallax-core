@@ -30,6 +30,50 @@ def _assign_param(param: Parameter, hf_tensors: Dict[str, np.ndarray], key: str)
         param.grad = np.zeros_like(param.data)
 
 
+def _permute_interleaved_to_hf_weight(
+    w: np.ndarray, num_heads: int, head_dim: int
+) -> np.ndarray:
+    """Permutes weight matrix from Parallax interleaved RoPE to HF rotate-half layout."""
+    out_dim, in_dim = w.shape
+    w_reshaped = w.reshape(num_heads, head_dim, in_dim)
+    w_perm = np.concatenate([w_reshaped[:, 0::2, :], w_reshaped[:, 1::2, :]], axis=1)
+    return w_perm.reshape(out_dim, in_dim)
+
+
+def _permute_interleaved_to_hf_bias(
+    b: np.ndarray, num_heads: int, head_dim: int
+) -> np.ndarray:
+    """Permutes bias vector from Parallax interleaved RoPE to HF rotate-half layout."""
+    b_reshaped = b.reshape(num_heads, head_dim)
+    b_perm = np.concatenate([b_reshaped[:, 0::2], b_reshaped[:, 1::2]], axis=1)
+    return b_perm.reshape(-1)
+
+
+def _unpermute_hf_to_interleaved_weight(
+    w: np.ndarray, num_heads: int, head_dim: int
+) -> np.ndarray:
+    """Unpermutes weight matrix from HF rotate-half layout to Parallax interleaved RoPE."""
+    out_dim, in_dim = w.shape
+    w_reshaped = w.reshape(num_heads, head_dim, in_dim)
+    half = head_dim // 2
+    w_unperm = np.empty_like(w_reshaped)
+    w_unperm[:, 0::2, :] = w_reshaped[:, :half, :]
+    w_unperm[:, 1::2, :] = w_reshaped[:, half:, :]
+    return w_unperm.reshape(out_dim, in_dim)
+
+
+def _unpermute_hf_to_interleaved_bias(
+    b: np.ndarray, num_heads: int, head_dim: int
+) -> np.ndarray:
+    """Unpermutes bias vector from HF rotate-half layout to Parallax interleaved RoPE."""
+    b_reshaped = b.reshape(num_heads, head_dim)
+    half = head_dim // 2
+    b_unperm = np.empty_like(b_reshaped)
+    b_unperm[:, 0::2] = b_reshaped[:, :half]
+    b_unperm[:, 1::2] = b_reshaped[:, half:]
+    return b_unperm.reshape(-1)
+
+
 def _assign_bias(proj: Linear, hf_tensors: Dict[str, np.ndarray], key: str) -> None:
     if key not in hf_tensors:
         return
