@@ -670,6 +670,28 @@ def print_terminal_report(
     print(f"\n{c.BOLD}{c.CYAN}{'='*80}{c.RESET}\n")
 
 
+def _extract_report_metrics(
+    gemm_results: List[Dict[str, Any]],
+    rmsnorm_results: List[Dict[str, Any]],
+    weights_summary: Dict[str, Dict[str, Any]],
+    flash_results: List[Dict[str, Any]],
+) -> Dict[str, float]:
+    gemm_diffs = [r[b]["diff"] for r in gemm_results for b in ["c_engine", "rust", "metal"] if b in r and "diff" in r[b]]
+    rms_diffs = [r[b]["diff"] for r in rmsnorm_results for b in ["c_engine", "metal"] if b in r and "diff" in r[b]]
+    max_err = max(gemm_diffs + rms_diffs) if (gemm_diffs + rms_diffs) else 0.0
+    c_rms = [r["c_engine"]["speedup"] for r in rmsnorm_results if "c_engine" in r and "speedup" in r["c_engine"]]
+    metal_gemm = [r["metal"]["speedup"] for r in gemm_results if "metal" in r and "speedup" in r["metal"]]
+    bm_comp = weights_summary["mamba_fp32"]["bytes"] / weights_summary["bitmamba"]["bytes"]
+    max_fd_spd = max(r["speedup"] for r in flash_results) if flash_results else 1.0
+    return {
+        "max_err": max_err,
+        "peak_c_rms": max(c_rms) if c_rms else 1.0,
+        "peak_metal_gemm": max(metal_gemm) if metal_gemm else 1.0,
+        "bitmamba_weight_comp": bm_comp,
+        "max_fd_speedup": max_fd_spd,
+    }
+
+
 def generate_markdown_report(
     hw_info: Dict[str, str],
     gemm_results: List[Dict[str, Any]],
