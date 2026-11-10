@@ -148,3 +148,13 @@ def test_bitmamba_step_mode_t_greater_than_one_raises():
     with no_grad():
         with pytest.raises(ValueError, match="BitMambaBlock step mode expects T=1"):
             block(u, ssm_state=ssm, conv_state=conv)
+
+
+def test_bitmamba_step_mode_grad_enabled_raises():
+    """Verify RuntimeError is raised when states are passed with grad enabled."""
+    block = BitMambaBlock(d_model=8, d_state=4, d_conv=3, expand=2)
+    ssm = np.zeros((1, block.d_inner, 4))
+    conv = np.zeros((1, block.d_inner, 3))
+    u = Tensor(np.random.randn(1, 1, 8))
+    with pytest.raises(RuntimeError, match="BitMambaBlock step mode with state cache is inference-only"):
+        block(u, ssm_state=ssm, conv_state=conv)
