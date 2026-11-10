@@ -1,6 +1,5 @@
 """Sliding Window Recomputation attention kernel."""
 
-from typing import Tuple
 import numpy as np
 
 

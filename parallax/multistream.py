@@ -5,7 +5,6 @@ longest accepted branch against the target model distribution.
 """
 
 from typing import List, Tuple, Callable
-import numpy as np
 
 
 class SpeculativeStreamBranch:

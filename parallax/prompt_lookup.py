@@ -6,7 +6,6 @@ within the input prompt and previously generated text.
 """
 
 from typing import List, Optional, Tuple
-import numpy as np
 
 
 def find_ngram_candidate(

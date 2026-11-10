@@ -6,7 +6,6 @@ Interpolates between Multi-Head Attention (MHA) and Multi-Query Attention (MQA)
 by grouping query heads to share a smaller number of key/value heads.
 """
 
-from typing import Tuple
 import numpy as np
 
 

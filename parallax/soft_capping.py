@@ -1,6 +1,5 @@
 """Logit soft-capping kernel (Gemma-2 style cap * tanh(x / cap))."""
 
-from typing import Tuple
 import numpy as np
 
 

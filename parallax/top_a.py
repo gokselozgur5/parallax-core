@@ -1,6 +1,5 @@
 """Top-A (threshold = alpha * p_max^2) dynamic truncation sampler."""
 
-from typing import Tuple
 import numpy as np
 
 
