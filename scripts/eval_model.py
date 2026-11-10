@@ -7,7 +7,6 @@ Supports evaluating GGUF (.gguf) or HuggingFace SafeTensors directories against 
 
 import argparse
 import os
-import sys
 from parallax.eval import compute_perplexity
 from parallax.gguf_loader import load_gguf_pretrained
 from parallax.hf_loader import load_hf_pretrained

@@ -14,7 +14,7 @@ import time
 from parallax.generator import generate_stream
 from parallax.gguf_loader import load_gguf_pretrained
 from parallax.hf_loader import load_hf_pretrained
-from parallax.tokenizer import BPETokenizer, IncrementalTokenDecoder
+from parallax.tokenizer import IncrementalTokenDecoder
 
 
 def main() -> None:
