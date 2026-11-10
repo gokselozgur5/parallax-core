@@ -29,7 +29,8 @@ def cross_entropy_loss(
     Returns:
         Scalar Tensor representing the mean cross-entropy loss.
     """
-    assert 0.0 <= label_smoothing < 1.0, "label_smoothing must be in [0.0, 1.0)"
+    if not (0.0 <= label_smoothing < 1.0):
+        raise ValueError("label_smoothing must be in [0.0, 1.0)")
     logits_data = logits.data
     orig_shape = logits_data.shape
     V = orig_shape[-1]

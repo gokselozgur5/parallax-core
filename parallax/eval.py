@@ -21,9 +21,12 @@ def compute_cross_entropy_loss(logits: np.ndarray, targets: np.ndarray) -> float
     Returns:
         Mean negative log-likelihood across tokens.
     """
-    assert logits.ndim == 2, "logits must be 2D [N, vocab_size]"
-    assert targets.ndim == 1, "targets must be 1D [N]"
-    assert len(logits) == len(targets), "logits and targets length mismatch"
+    if logits.ndim != 2:
+        raise ValueError("logits must be 2D [N, vocab_size]")
+    if targets.ndim != 1:
+        raise ValueError("targets must be 1D [N]")
+    if len(logits) != len(targets):
+        raise ValueError("logits and targets length mismatch")
 
     # Numerically stable log-softmax
     max_logits = np.max(logits, axis=-1, keepdims=True)
