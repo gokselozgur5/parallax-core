@@ -10,6 +10,17 @@ class RingAttentionContext:
     def __init__(self, block_size: int = 16) -> None:
         self.block_size = int(block_size)
 
+    def forward(
+        self,
+        q: np.ndarray,
+        k: np.ndarray,
+        v: np.ndarray,
+        causal: bool = True,
+    ) -> np.ndarray:
+        """Run ring attention using this context's block_size."""
+        return ring_attention_forward(q, k, v, block_size=self.block_size, causal=causal)
+
+
 def ring_flash_update(
     acc_o: np.ndarray,
     acc_m: np.ndarray,
@@ -26,6 +37,7 @@ def ring_flash_update(
     new_o = (acc_o * (acc_l * alpha)[..., None] + block_o * (block_l * beta)[..., None]) / np.maximum(new_l[..., None], 1e-12)
     return new_o, new_m, new_l
 
+
 def ring_attention_forward(
     q: np.ndarray,
     k: np.ndarray,
@@ -34,22 +46,40 @@ def ring_attention_forward(
     causal: bool = True,
 ) -> np.ndarray:
     """Compute blockwise ring attention over sequence length in chunks."""
-    seq_len, dim = q.shape
-    scale = 1.0 / np.sqrt(dim)
-    out = np.zeros_like(q)
-    num_blocks = (seq_len + block_size - 1) // block_size
+    if q.ndim != 2 or k.ndim != 2 or v.ndim != 2:
+        raise ValueError(
+            f"q, k, v must be 2D arrays, got shapes {q.shape}, {k.shape}, {v.shape}"
+        )
+    Tq, dim_q = q.shape
+    Tk, dim_k = k.shape
+    Tv, dim_v = v.shape
+    if dim_q != dim_k or Tk != Tv or dim_k != dim_v:
+        raise ValueError(
+            f"Dimension mismatch: q {q.shape}, k {k.shape}, v {v.shape}"
+        )
+    if block_size <= 0:
+        raise ValueError(f"block_size must be positive, got {block_size}")
+    if Tq == 0:
+        return np.zeros((0, dim_q), dtype=q.dtype)
+    if Tk == 0:
+        raise ValueError("k and v sequence length Tk must be at least 1")
 
-    for i in range(num_blocks):
-        q_start, q_end = i * block_size, min((i + 1) * block_size, seq_len)
+    scale = 1.0 / np.sqrt(dim_q)
+    out = np.zeros((Tq, dim_q), dtype=q.dtype)
+    num_q_blocks = (Tq + block_size - 1) // block_size
+    num_k_blocks = (Tk + block_size - 1) // block_size
+
+    for i in range(num_q_blocks):
+        q_start, q_end = i * block_size, min((i + 1) * block_size, Tq)
         qi = q[q_start:q_end]
-        acc_o = np.zeros((q_end - q_start, dim))
+        acc_o = np.zeros((q_end - q_start, dim_q))
         acc_m = np.full(q_end - q_start, -np.inf)
         acc_l = np.zeros(q_end - q_start)
 
-        for j in range(num_blocks):
+        for j in range(num_k_blocks):
             if causal and j > i:
                 continue
-            k_start, k_end = j * block_size, min((j + 1) * block_size, seq_len)
+            k_start, k_end = j * block_size, min((j + 1) * block_size, Tk)
             kj, vj = k[k_start:k_end], v[k_start:k_end]
             scores = np.matmul(qi, kj.T) * scale
             if causal and i == j:
