@@ -72,13 +72,25 @@ pub fn gemm_f32(
     beta: f32,
     c: &mut [f32],
 ) -> Result<(), &'static str> {
-    if a.len() != m * k {
+    let req_a = match m.checked_mul(k) {
+        Some(v) => v,
+        None => return Err("matrix A dimension overflow"),
+    };
+    let req_b = match k.checked_mul(n) {
+        Some(v) => v,
+        None => return Err("matrix B dimension overflow"),
+    };
+    let req_c = match m.checked_mul(n) {
+        Some(v) => v,
+        None => return Err("matrix C dimension overflow"),
+    };
+    if a.len() != req_a {
         return Err("matrix A dimension mismatch");
     }
-    if b.len() != k * n {
+    if b.len() != req_b {
         return Err("matrix B dimension mismatch");
     }
-    if c.len() != m * n {
+    if c.len() != req_c {
         return Err("matrix C dimension mismatch");
     }
 
