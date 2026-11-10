@@ -89,17 +89,21 @@ def ppo_policy_step(
         Tuple of (loss, grad_logits).
     """
     T, vocab_size = logits.shape
-    # Softmax probabilities
+    # Log-softmax and probabilities
     m = np.max(logits, axis=-1, keepdims=True)
-    exp_l = np.exp(logits - m)
-    probs = exp_l / np.sum(exp_l, axis=-1, keepdims=True)
+    logsumexp = m + np.log(np.sum(np.exp(logits - m), axis=-1, keepdims=True))
+    log_probs_all = logits - logsumexp
+    probs = np.exp(log_probs_all)
 
-    log_probs = np.zeros(T, dtype=np.float32)
+    log_probs = np.zeros(T, dtype=np.float64)
     for t in range(T):
-        log_probs[t] = np.log(probs[t, actions[t]] + 1e-12)
+        log_probs[t] = log_probs_all[t, actions[t]]
 
     # Normalize advantages
-    adv_norm = (advantages - np.mean(advantages)) / (np.std(advantages) + 1e-8)
+    if len(advantages) > 1 and np.std(advantages) > 1e-8:
+        adv_norm = (advantages - np.mean(advantages)) / (np.std(advantages) + 1e-8)
+    else:
+        adv_norm = np.array(advantages, dtype=np.float64)
 
     loss, ratios = compute_ppo_clip_loss(log_probs, old_log_probs, adv_norm, clip_eps)
 
