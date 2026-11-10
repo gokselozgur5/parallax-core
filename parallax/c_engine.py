@@ -105,6 +105,11 @@ def is_c_engine_available() -> bool:
     """Return True if the native C-engine library is compiled and loaded."""
     return _find_or_build_library() is not None
 
+def get_c_engine_load_error() -> Optional[str]:
+    """Return the error message explaining why C-engine failed to load, or None if loaded."""
+    _find_or_build_library()
+    return _LOAD_ERROR_REASON
+
 def c_gemm(A: np.ndarray, B: np.ndarray) -> np.ndarray:
     """
     Compute matrix multiplication C = A @ B using C-engine if available,
