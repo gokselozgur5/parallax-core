@@ -73,3 +73,23 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: "3.11"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -e .
+
+    - name: Run Cargo Tests
+      run: |
+        cd crates/parallax-rs
+        cargo test
+
+    - name: Build Rust Engine Release
+      run: |
+        cd crates/parallax-rs
+        cargo build --release
+
+    - name: Run Rust Bridge Tests
+      run: |
+        pytest tests/test_rust_bridge.py -v
