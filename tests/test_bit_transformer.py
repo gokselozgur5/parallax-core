@@ -295,3 +295,17 @@ def test_bit_transformer_block_mlp_residual_presence():
     np.testing.assert_allclose(actual, expected_with_residual, atol=1e-5)
     assert np.linalg.norm(actual - expected_without_residual) > 1.0
 
+
+def test_bit_transformer_block_mlp_residual_zero_weights():
+    """Verify residual passes input when MLP projections are zeroed."""
+    np.random.seed(42)
+    B, T, C = 1, 3, 16
+    block = BitTransformerBlock(embed_dim=C, num_heads=2, intermediate_size=32)
+    block.mlp.w_down.weight.data.fill(0.0)
+    x = Tensor(np.random.randn(B, T, C))
+    actual = block(x).data
+    expected = (x + block.attn(block.attn_norm(x))).data
+    np.testing.assert_allclose(actual, expected, atol=1e-5)
+    assert np.linalg.norm(actual) > 0.5  # would be 0 if residual was dropped
+
+
