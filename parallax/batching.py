@@ -17,6 +17,7 @@ class RequestStatus(Enum):
     WAITING = "WAITING"
     RUNNING = "RUNNING"
     FINISHED = "FINISHED"
+    FAILED = "FAILED"
 
 
 @dataclass
@@ -34,6 +35,7 @@ class SequenceRequest:
     # KV cache per layer: List of (K, V) ndarrays of shape [1, num_kv_heads, past_len, head_dim]
     kv_cache: Optional[List[Tuple[np.ndarray, np.ndarray]]] = None
     total_tokens_seen: int = 0
+    error: Optional[str] = None
 
 
 class ContinuousBatchEngine:
