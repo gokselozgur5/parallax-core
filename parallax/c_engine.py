@@ -59,24 +59,35 @@ def _find_or_build_library_unlocked() -> Optional[ctypes.CDLL]:
     exts = [".dylib", ".so", ".dll"]
     candidate_names = [f"libparallax_c{ext}" for ext in exts]
     
-    lib_path = None
-    for name in candidate_names:
-        candidate = csrc_dir / name
-        if candidate.is_file():
-            lib_path = candidate
-            break
-
-    # If not found, attempt compilation if Makefile and compiler exist
-    if lib_path is None and (csrc_dir / "Makefile").is_file():
+    lib_path = _find_candidate_in_dir(csrc_dir, candidate_names)
+    cache_dir = None
+    if lib_path is None:
         try:
-            subprocess.run(["make", "-C", str(csrc_dir)], check=True, capture_output=True)
-            for name in candidate_names:
-                candidate = csrc_dir / name
-                if candidate.is_file():
-                    lib_path = candidate
-                    break
+            cache_dir = _get_build_cache_dir()
+            lib_path = _find_candidate_in_dir(cache_dir, candidate_names)
         except Exception:
             pass
+
+    # If not found, attempt compilation
+    if lib_path is None and (csrc_dir / "Makefile").is_file():
+        try:
+            if cache_dir is None:
+                cache_dir = _get_build_cache_dir()
+            for src_file in csrc_dir.glob("*"):
+                if src_file.is_file():
+                    shutil.copy2(src_file, cache_dir / src_file.name)
+            subprocess.run(["make", "-C", str(cache_dir)], check=True, capture_output=True, timeout=15)
+            lib_path = _find_candidate_in_dir(cache_dir, candidate_names)
+        except subprocess.TimeoutExpired as e:
+            _LOAD_ERROR_REASON = f"Build timed out after 15 seconds: {e}"
+        except subprocess.CalledProcessError as e:
+            err_msg = e.stderr.decode("utf-8", errors="replace").strip() if e.stderr else str(e)
+            _LOAD_ERROR_REASON = f"Compilation failed: {err_msg}"
+        except Exception as e:
+            _LOAD_ERROR_REASON = f"Build error: {e}"
+
+    if lib_path is None and _LOAD_ERROR_REASON is None:
+        _LOAD_ERROR_REASON = "Shared library not found and no compilation candidate succeeded"
 
     if lib_path is not None and lib_path.is_file():
         try:
