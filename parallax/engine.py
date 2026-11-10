@@ -157,15 +157,20 @@ class Value:
         """Executes backpropagation using reverse topological sort."""
         topo: List["Value"] = []
         visited: Set["Value"] = set()
+        stack: List[Tuple["Value", bool]] = [(self, False)]
 
-        def build_topo(v: "Value") -> None:
-            if v not in visited:
-                visited.add(v)
-                for child in v._prev:
-                    build_topo(child)
-                topo.append(v)
-
-        build_topo(self)
+        while stack:
+            node, processed = stack.pop()
+            if processed:
+                topo.append(node)
+                continue
+            if node in visited:
+                continue
+            visited.add(node)
+            stack.append((node, True))
+            for child in node._prev:
+                if child not in visited:
+                    stack.append((child, False))
 
         self.grad = 1.0
         for node in reversed(topo):
