@@ -3,6 +3,10 @@
 Reference: Liu et al., 2024 - DoRA: Weight-Decomposed Low-Rank Adaptation.
 Decomposes pretrained weights into magnitude and directional components, updating
 the directional component via LoRA while training magnitude separately.
+
+Integration contract:
+    Standalone mathematical kernel. Operates on pure NumPy arrays and does not
+    subclass parallax.nn.Module or register Parameters in the autograd DAG.
 """
 
 from typing import Tuple

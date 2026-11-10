@@ -1,4 +1,10 @@
-"""FP8 (E4M3 and E5M2) quantization and micro-scaling emulation."""
+"""FP8 (E4M3 and E5M2) quantization and micro-scaling emulation.
+
+Integration contract:
+    Standalone mathematical simulation kernel for FP8 formats and micro-scaling blocks.
+    Operates on pure NumPy arrays and does not interface directly with parallax.nn.Module
+    or the autograd graph.
+"""
 
 from typing import Tuple
 import numpy as np

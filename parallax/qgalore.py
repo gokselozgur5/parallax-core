@@ -3,6 +3,11 @@
 Reference: Zhang et al., 2024 - Q-GaLore: Quantized GaLore with Low-Rank Projection.
 Projects full-rank weight gradients into low-rank SVD subspaces and quantizes
 the projected states to 8-bit integers to drastically reduce optimizer memory.
+
+Integration contract:
+    Standalone mathematical gradient projector and quantizer. Operates on raw
+    NumPy gradient arrays. Not integrated into parallax.optim.AdamW or the
+    computational autograd graph.
 """
 
 from typing import Tuple, Optional

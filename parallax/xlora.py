@@ -3,6 +3,11 @@
 Reference: Buehler et al., 2024 - X-LoRA: Mixture of Low-Rank Adapter Experts,
 A Dense Gating Approach for Fine-Tuned LLMs.
 Blends multiple specialized LoRA adapters via an input-dependent gating network.
+
+Integration contract:
+    Standalone mathematical kernel. Operates on pure NumPy arrays and maintains
+    explicit manual gradients via backward(). Not a subclass of parallax.nn.Module
+    or integrated into the computational autograd graph.
 """
 
 from typing import List, Tuple
