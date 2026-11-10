@@ -258,3 +258,21 @@ def test_bit_transformer_autoregressive_generation():
         )
     )
     assert len(tokens_stream) <= 10
+
+
+def test_bit_transformer_generate_max_new_tokens_edge_cases():
+    """Verify max_new_tokens=0,1,5 cached/uncached match length and negative raises ValueError."""
+    config = BitTransformerConfig(vocab_size=32, max_seq_len=16, embed_dim=16, num_heads=2, num_layers=1, intermediate_size=32)
+    model = BitTransformerLM(config)
+    prompt = [1, 2, 3]
+
+    with pytest.raises(ValueError):
+        model.generate(prompt, max_new_tokens=-1, use_cache=True)
+    with pytest.raises(ValueError):
+        model.generate(prompt, max_new_tokens=-1, use_cache=False)
+
+    for n in [0, 1, 5]:
+        c = model.generate(prompt, max_new_tokens=n, use_cache=True)
+        u = model.generate(prompt, max_new_tokens=n, use_cache=False)
+        assert len(c) == len(prompt) + n
+        assert len(u) == len(prompt) + n
