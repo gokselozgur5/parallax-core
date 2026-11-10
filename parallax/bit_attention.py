@@ -14,7 +14,7 @@ from parallax.attention import apply_rope
 from parallax.bitnet import BitLinear
 from parallax.flash_attn import flash_attention_backward, flash_attention_forward
 from parallax.nn import Module
-from parallax.tensor import Tensor, _accumulate_grad
+from parallax.tensor import Tensor, _accumulate_grad, is_grad_enabled
 
 
 class BitAttention(Module):
@@ -84,6 +84,12 @@ class BitAttention(Module):
         -------
         Tensor or tuple of (Tensor, updated_kv_cache)
         """
+        if kv_cache is not None and is_grad_enabled():
+            raise RuntimeError(
+                "BitAttention with kv_cache is inference-only; "
+                "wrap the call in parallax.no_grad() or pass kv_cache=None."
+            )
+
         B, T, C = x.shape
 
         # 1. Project inputs to Q, K, V using BitLinear ternary projections
