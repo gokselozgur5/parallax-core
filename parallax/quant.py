@@ -2,7 +2,7 @@
 Post-Training Quantization (PTQ) Primitives in Pure NumPy.
 
 Implements symmetric INT8 weight quantization and dequantization,
-quantized Linear projection with integer matmul, and whole-model quantization.
+quantized Linear projection with cached dequantized weights, and whole-model quantization.
 """
 
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -47,6 +47,11 @@ class QuantizedLinear(Module):
         self.w_int8: np.ndarray = np.zeros((out_features, in_features), dtype=np.int8)
         self.scale: float = 1.0
         self.bias_data: Optional[np.ndarray] = np.zeros(out_features, dtype=np.float64) if bias else None
+        self._cached_weight: Optional[np.ndarray] = None
+
+    def invalidate_cache(self) -> None:
+        """Invalidates cached dequantized weights."""
+        self._cached_weight = None
 
     @classmethod
     def from_linear(cls, linear: Linear) -> "QuantizedLinear":
@@ -58,10 +63,11 @@ class QuantizedLinear(Module):
         return ql
 
     def forward(self, x: Tensor) -> Tensor:
-        # Dequantize weights dynamically or perform mixed-precision projection
-        w_float = dequantize_int8(self.w_int8, self.scale)
+        # Cache dequantized weights during inference to avoid redundant dequantization
+        if self._cached_weight is None:
+            self._cached_weight = dequantize_int8(self.w_int8, self.scale)
         # x: [..., in_features], w_float: [out_features, in_features]
-        out_data = x.data @ w_float.T
+        out_data = x.data @ self._cached_weight.T
         if self.bias_data is not None:
             out_data = out_data + self.bias_data
         return Tensor(out_data, (x,), "QuantizedLinear")
