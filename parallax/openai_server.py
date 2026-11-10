@@ -119,28 +119,53 @@ def create_handler(state: OpenAIServerState):
                         self.send_header("Connection", "close")
                         self.end_headers()
 
+                        # Emit initial chunk with role: assistant
+                        initial_payload = {
+                            "id": req_id,
+                            "object": "chat.completion.chunk",
+                            "created": int(time.time()),
+                            "model": state.model_name,
+                            "choices": [
+                                {
+                                    "index": 0,
+                                    "delta": {"role": "assistant"},
+                                    "finish_reason": None,
+                                }
+                            ],
+                        }
+                        self._send_sse_chunk(initial_payload)
 
-                        while req.status != RequestStatus.FINISHED:
-                            step_outputs = state.engine.step()
-                            for r_id, tok in step_outputs:
-                                if r_id == req_id:
-                                    char_piece = chr(tok if 32 <= tok <= 126 else 32)
-                                    chunk_payload = {
-                                        "id": req_id,
-                                        "object": "chat.completion.chunk",
-                                        "created": int(time.time()),
-                                        "model": state.model_name,
-                                        "choices": [
-                                            {
-                                                "index": 0,
-                                                "delta": {"content": char_piece},
-                                                "finish_reason": None,
-                                            }
-                                        ],
-                                    }
-                                    self._send_sse_chunk(chunk_payload)
+                        finish_reason = "length" if max_tokens == 0 else "stop"
+                        last_tok = None
+                        if max_tokens > 0:
+                            while req.status != RequestStatus.FINISHED:
+                                step_outputs = state.engine.step()
+                                for r_id, tok in step_outputs:
+                                    if r_id == req_id:
+                                        last_tok = tok
+                                        char_piece = chr(tok if 32 <= tok <= 126 else 32)
+                                        chunk_payload = {
+                                            "id": req_id,
+                                            "object": "chat.completion.chunk",
+                                            "created": int(time.time()),
+                                            "model": state.model_name,
+                                            "choices": [
+                                                {
+                                                    "index": 0,
+                                                    "delta": {"content": char_piece},
+                                                    "finish_reason": None,
+                                                }
+                                            ],
+                                        }
+                                        self._send_sse_chunk(chunk_payload)
 
-                        # Send final chunk with finish_reason: stop
+                            eos_id = getattr(req, "eos_token_id", None)
+                            if eos_id is not None and last_tok == eos_id:
+                                finish_reason = "stop"
+                            else:
+                                finish_reason = "length"
+
+                        # Send final chunk with finish_reason
                         stop_payload = {
                             "id": req_id,
                             "object": "chat.completion.chunk",
@@ -150,7 +175,7 @@ def create_handler(state: OpenAIServerState):
                                 {
                                     "index": 0,
                                     "delta": {},
-                                    "finish_reason": "stop",
+                                    "finish_reason": finish_reason,
                                 }
                             ],
                         }
@@ -160,11 +185,20 @@ def create_handler(state: OpenAIServerState):
                         return
 
                     # Non-streaming execution
-                    while req.status != RequestStatus.FINISHED:
-                        state.engine.step()
+                    if max_tokens > 0:
+                        while req.status != RequestStatus.FINISHED:
+                            state.engine.step()
 
                     # Convert generated tokens back to characters
-                    gen_text = "".join(chr(t if 32 <= t <= 126 else 32) for t in req.generated_tokens)
+                    gen_text = "".join(chr(t if 32 <= t <= 126 else 32) for t in req.generated_tokens) if req.generated_tokens else ""
+
+                    eos_id = getattr(req, "eos_token_id", None)
+                    if max_tokens == 0:
+                        finish_reason = "length"
+                    elif eos_id is not None and req.generated_tokens and req.generated_tokens[-1] == eos_id:
+                        finish_reason = "stop"
+                    else:
+                        finish_reason = "length"
 
                     response_payload = {
                         "id": req_id,
@@ -178,7 +212,7 @@ def create_handler(state: OpenAIServerState):
                                     "role": "assistant",
                                     "content": gen_text,
                                 },
-                                "finish_reason": "stop",
+                                "finish_reason": finish_reason,
                             }
                         ],
                         "usage": {
