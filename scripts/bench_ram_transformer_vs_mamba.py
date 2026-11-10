@@ -123,62 +123,27 @@ def _benchmark_mamba_step(model: BitMambaLM, batch_size: int, repeats: int, warm
 
 
 def benchmark_mamba(
-    block: MambaBlock,
+    model: BitMambaLM,
     batch_size: int,
     seq_len: int,
     warmup: int = 2,
     repeats: int = 5,
 ) -> Tuple[float, float, int, int]:
-    """
-    Measures Mamba SSM:
-    - Sequence scan latency (ms)
-    - Single-step recurrence latency (ms)
-    - Theoretical recurrent state footprint (bytes)
-    - Measured state footprint (bytes)
-    """
-    d_inner = block.d_inner
-    d_state = block.d_state
-    d_conv = block.conv_weight.data.shape[1]
-    dtype_bytes = 8  # float64
+    """Measures Mamba SSM sequence scan and cached step latency and state bytes."""
+    theo_bytes, meas_bytes = _measure_mamba_model_state(model, batch_size, dtype_bytes=4)
+    idx = np.random.randint(0, model.config.vocab_size, size=(batch_size, seq_len))
+    with no_grad():
+        for _ in range(warmup):
+            _ = model(idx)
+        scan_latencies = []
+        for _ in range(repeats):
+            t0 = time.perf_counter()
+            _ = model(idx)
+            scan_latencies.append((time.perf_counter() - t0) * 1000.0)
+        scan_ms = float(np.median(scan_latencies))
 
-    # Mamba recurrent inference state:
-    # 1. SSM hidden state h: [batch_size, d_inner, d_state]
-    # 2. Conv1D circular buffer state: [batch_size, d_inner, d_conv - 1]
-    theoretical_state_bytes = batch_size * d_inner * (d_state + (d_conv - 1)) * dtype_bytes
-
-    # Measured state footprint:
-    h_state = np.zeros((batch_size, d_inner, d_state), dtype=np.float64)
-    conv_state = np.zeros((batch_size, d_inner, d_conv - 1), dtype=np.float64)
-    measured_state_bytes = h_state.nbytes + conv_state.nbytes
-
-    # Sequence scan timing
-    u = Tensor(np.random.randn(batch_size, seq_len, block.d_model))
-
-    for _ in range(warmup):
-        _ = block(u)
-
-    scan_latencies = []
-    for _ in range(repeats):
-        t0 = time.perf_counter()
-        _ = block(u)
-        t1 = time.perf_counter()
-        scan_latencies.append((t1 - t0) * 1000.0)
-    scan_latency_ms = float(np.median(scan_latencies))
-
-    # Single-step recurrence (T=1 token inference)
-    u_step = Tensor(np.random.randn(batch_size, 1, block.d_model))
-    for _ in range(warmup):
-        _ = block(u_step)
-
-    step_latencies = []
-    for _ in range(repeats):
-        t0 = time.perf_counter()
-        _ = block(u_step)
-        t1 = time.perf_counter()
-        step_latencies.append((t1 - t0) * 1000.0)
-    step_latency_ms = float(np.median(step_latencies))
-
-    return step_latency_ms, scan_latency_ms, theoretical_state_bytes, measured_state_bytes
+    step_ms = _benchmark_mamba_step(model, batch_size, repeats, warmup)
+    return step_ms, scan_ms, theo_bytes, meas_bytes
 
 
 def format_bytes(n: float) -> str:
