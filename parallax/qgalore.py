@@ -23,9 +23,11 @@ class QGaLoreProjector:
     def update_basis(self, grad: np.ndarray):
         """Recompute low-rank SVD projection basis U from gradient."""
         # Compute truncated SVD of gradient matrix
+        max_rank = min(grad.shape[0], grad.shape[1])
+        effective_rank = min(self.rank, max_rank)
         U, _, Vt = np.linalg.svd(grad, full_matrices=False)
-        self.U = U[:, : self.rank].astype(np.float32)
-        self.V_T = Vt[: self.rank, :].astype(np.float32)
+        self.U = U[:, :effective_rank].astype(np.float32)
+        self.V_T = Vt[:effective_rank, :].astype(np.float32)
 
     def project_and_quantize(
         self, grad: np.ndarray
