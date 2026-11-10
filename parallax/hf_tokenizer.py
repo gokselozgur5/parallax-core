@@ -127,10 +127,16 @@ class HFTokenizer:
         eos_token: Optional[str] = None,
         pad_token: Optional[str] = None,
         unk_token: Optional[str] = None,
+        split_pattern: Optional[str] = None,
     ):
         self.vocab = dict(vocab)
         self.id_to_token: Dict[int, str] = {v: k for k, v in self.vocab.items()}
         self.vocab_size = len(self.vocab)
+        self.pretokenizer_regex = (
+            re.compile(_translate_hf_regex(split_pattern))
+            if split_pattern
+            else _PRETOKENIZER_REGEX
+        )
 
         self.added_tokens = added_tokens or {}
         for tok, tok_id in self.added_tokens.items():
