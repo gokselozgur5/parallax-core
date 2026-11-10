@@ -10,7 +10,7 @@ from parallax.bitmamba import (
     BitMambaLM,
 )
 from parallax.bitnet import quantize_weights_ternary
-from parallax.tensor import Tensor
+from parallax.tensor import Tensor, no_grad
 
 
 def test_bitmamba_block_forward_shapes():
@@ -127,10 +127,11 @@ def test_bitmamba_step_autoregressive_state_consistency():
     conv_state = np.zeros((B, d_inner, block.conv_weight.shape[1]))
 
     out_steps = []
-    for t in range(T):
-        u_t = Tensor(u_seq[:, t : t + 1, :])
-        step_out, ssm_state, conv_state = block(u_t, ssm_state=ssm_state, conv_state=conv_state)
-        out_steps.append(step_out.data)
+    with no_grad():
+        for t in range(T):
+            u_t = Tensor(u_seq[:, t : t + 1, :])
+            step_out, ssm_state, conv_state = block(u_t, ssm_state=ssm_state, conv_state=conv_state)
+            out_steps.append(step_out.data)
 
     out_stepped = np.concatenate(out_steps, axis=1)
 
