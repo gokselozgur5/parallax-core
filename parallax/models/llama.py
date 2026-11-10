@@ -6,11 +6,9 @@ Zero-dependency implementation using NumPy and Parallax primitives.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple, Union
-import numpy as np
+from typing import Optional
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
-from parallax.tensor import Tensor
 
 
 @dataclass

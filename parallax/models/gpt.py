@@ -11,7 +11,7 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 from parallax.attention import CausalSelfAttention
 from parallax.nn import Linear, Module, Parameter, RMSNorm
-from parallax.tensor import Tensor, _accumulate_grad, unbroadcast_grad
+from parallax.tensor import Tensor, _accumulate_grad
 
 
 def tensor_gelu(x: Tensor) -> Tensor:

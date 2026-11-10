@@ -14,7 +14,6 @@ import numpy as np
 
 from parallax.bit_attention import BitAttention
 from parallax.bitnet import BitLinear
-from parallax.generator import sample_next_token
 from parallax.models.gpt import Embedding, tensor_silu
 from parallax.nn import Module, RMSNorm
 from parallax.tensor import Tensor, no_grad
