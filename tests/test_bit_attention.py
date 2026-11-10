@@ -232,3 +232,20 @@ def test_bit_attention_flash_standard_sliding_window_prefill():
         out_std = std(Tensor(x.copy())).data
         out_fl = fl(Tensor(x.copy())).data
         np.testing.assert_allclose(out_fl, out_std, atol=1e-9)
+
+
+def test_bit_attention_flash_standard_sliding_window_cached_decode():
+    """Verify flash and standard cached decode match within 1e-9 with sliding windows."""
+    np.random.seed(42)
+    B, T, C = 1, 4, 16
+    for window in [1, 3, T]:
+        std = BitAttention(C, 2, num_kv_heads=2, sliding_window=window, use_flash_attn=False, use_rope=False)
+        fl = BitAttention(C, 2, num_kv_heads=2, sliding_window=window, use_flash_attn=True, use_rope=False)
+        for p_std, p_fl in zip(std.parameters(), fl.parameters()):
+            p_fl.data = p_std.data.copy()
+        x = np.random.randn(B, 1, C)
+        head_dim = C // 2
+        cache = (np.random.randn(B, 2, 3, head_dim), np.random.randn(B, 2, 3, head_dim))
+        out_std, _ = std(Tensor(x.copy()), kv_cache=(cache[0].copy(), cache[1].copy()))
+        out_fl, _ = fl(Tensor(x.copy()), kv_cache=(cache[0].copy(), cache[1].copy()))
+        np.testing.assert_allclose(out_fl.data, out_std.data, atol=1e-9)
