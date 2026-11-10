@@ -138,6 +138,13 @@ def _cf_string(s: str) -> ctypes.c_void_p:
 
 def _init_metal() -> bool:
     """Initialize Metal device, compile JIT kernels, and prepare pipelines."""
+    if _METAL_INITIALIZED:
+        return _IS_METAL_AVAILABLE
+    with _INIT_LOCK:
+        return _init_metal_unlocked()
+
+
+def _init_metal_unlocked() -> bool:
     global _METAL_INITIALIZED, _IS_METAL_AVAILABLE
     global _OBJC, _METAL, _CF, _DEVICE, _COMMAND_QUEUE
     global _PSO_RMSNORM, _PSO_GEMM
@@ -145,10 +152,9 @@ def _init_metal() -> bool:
     if _METAL_INITIALIZED:
         return _IS_METAL_AVAILABLE
 
-    _METAL_INITIALIZED = True
-    _IS_METAL_AVAILABLE = False
-
     if sys.platform != "darwin":
+        _IS_METAL_AVAILABLE = False
+        _METAL_INITIALIZED = True
         return False
 
     try:
@@ -217,15 +223,13 @@ def _init_metal() -> bool:
             ctypes.byref(err),
         )
 
-        if _PSO_RMSNORM and _PSO_GEMM:
-            _IS_METAL_AVAILABLE = True
-            return True
-
+        _IS_METAL_AVAILABLE = bool(_PSO_RMSNORM and _PSO_GEMM)
+        return _IS_METAL_AVAILABLE
     except Exception:
         _IS_METAL_AVAILABLE = False
         return False
-
-    return False
+    finally:
+        _METAL_INITIALIZED = True
 
 
 def is_metal_available() -> bool:
