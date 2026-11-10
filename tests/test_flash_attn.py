@@ -32,6 +32,41 @@ def test_update_online_softmax_single_step():
     np.testing.assert_allclose(actual_out, expected_out, atol=1e-6)
 
 
+def test_update_online_softmax_true_neginf_mask():
+    B, H, Br, Bc, d = 1, 1, 2, 4, 8
+    m_old = np.full((B, H, Br), -np.inf)
+    l_old = np.zeros((B, H, Br))
+    O_old = np.zeros((B, H, Br, d))
+
+    # Row 0 has normal scores, row 1 is fully masked with -inf
+    S_block1 = np.array([[[[1.0, 2.0, 0.0, -1.0], [-np.inf, -np.inf, -np.inf, -np.inf]]]])
+    V_block1 = np.ones((B, H, Bc, d))
+
+    m1, l1, O1 = update_online_softmax(m_old, l_old, O_old, S_block1, V_block1)
+    assert not np.isnan(m1).any()
+    assert not np.isnan(l1).any()
+    assert not np.isnan(O1).any()
+    assert m1[0, 0, 1] == -np.inf
+    assert l1[0, 0, 1] == 0.0
+
+    # Next block provides valid scores for row 1
+    S_block2 = np.array([[[[0.5, 0.2, 0.1, 0.0], [2.0, 1.0, 0.0, -1.0]]]])
+    V_block2 = np.full((B, H, Bc, d), 2.0)
+
+    m2, l2, O2 = update_online_softmax(m1, l1, O1, S_block2, V_block2)
+    assert not np.isnan(m2).any()
+    assert not np.isnan(l2).any()
+    assert not np.isnan(O2).any()
+
+    # Compare row 1 output with exact direct softmax of S_block2 row 1
+    s_row1 = S_block2[:, :, 1:2, :]
+    exp_s = np.exp(s_row1 - np.max(s_row1, axis=-1, keepdims=True))
+    p_row1 = exp_s / np.sum(exp_s, axis=-1, keepdims=True)
+    expected_row1 = np.matmul(p_row1, V_block2)
+    actual_row1 = O2[:, :, 1:2, :] / l2[:, :, 1:2, None]
+    np.testing.assert_allclose(actual_row1, expected_row1, atol=1e-6)
+
+
 def test_reference_attention_shape_and_causality():
     q = np.random.randn(1, 2, 4, 8)
     k = np.random.randn(1, 2, 4, 8)
