@@ -136,3 +136,15 @@ def test_unified_norm_uses_c_rmsnorm_and_matches_numpy():
 
     np.testing.assert_allclose(fused_c, fused_py, atol=1e-7, rtol=1e-7)
     np.testing.assert_allclose(out_c, out_py, atol=1e-6, rtol=1e-5)
+
+
+def test_c_rmsnorm_types_and_empty_shapes():
+    with pytest.raises(TypeError):
+        c_rmsnorm(np.ones((2, 4), dtype=np.complex64), np.ones(4, dtype=np.float32))
+    assert c_rmsnorm(np.ones((0, 8), dtype=np.float32), np.ones(8, dtype=np.float32)).shape == (0, 8)
+    with pytest.raises(ValueError):
+        c_rmsnorm(np.ones((3, 0), dtype=np.float32), np.ones(0, dtype=np.float32))
+    with patch("parallax.c_engine._find_or_build_library", return_value=None):
+        for bad_shape in [(1,), (4, 1), (4, 8)]:
+            with pytest.raises(ValueError):
+                c_rmsnorm(np.ones((4, 8), dtype=np.float32), np.ones(bad_shape, dtype=np.float32))
