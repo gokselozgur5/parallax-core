@@ -5,7 +5,7 @@ Serving with PagedAttention (vLLM).
 Partitions KV cache into fixed-size physical blocks and tracks sequences via block tables.
 """
 
-from typing import List, Tuple, Dict
+from typing import List, Dict
 import numpy as np
 
 

@@ -5,7 +5,6 @@ attention against both previously cached prefix tokens and causal tokens within
 the active chunk.
 """
 
-from typing import Tuple, Optional
 import numpy as np
 
 

@@ -5,7 +5,7 @@ Provides cross-entropy evaluation and sliding-window perplexity (PPL)
 computation for autoregressive models without external dependencies.
 """
 
-from typing import List, Optional, Union
+from typing import List, Optional
 import numpy as np
 from parallax.models.gpt import ParallaxLM
 from parallax.tensor import Tensor
