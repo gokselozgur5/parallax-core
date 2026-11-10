@@ -71,15 +71,33 @@ def test_policy_gradient_step():
 
     tokens = np.array([[1, 2, 3, 4]])
 
+    def _seq_log_prob(model: ParallaxLM, toks: np.ndarray) -> float:
+        logits = model(toks).data[0]
+        targets = toks[0, 1:]
+        length = len(targets)
+        max_l = np.max(logits[:length], axis=-1, keepdims=True)
+        exp_l = np.exp(logits[:length] - max_l)
+        log_p = (logits[:length] - max_l) - np.log(np.sum(exp_l, axis=-1, keepdims=True))
+        return float(np.sum(log_p[np.arange(length), targets]))
+
+    log_prob_before = _seq_log_prob(policy, tokens)
+
     # Baseline = 0.0, Positive Reward = +2.0
     optimizer.zero_grad()
     loss1 = compute_policy_gradient_step(policy, tokens, reward=2.0, baseline=0.0)
     optimizer.step()
 
-    # Probability of target sequence should have increased
-    logits_after = policy(tokens).data[0]
-    pred = np.argmax(logits_after, axis=-1)
-    assert logits_after is not None
+    # Log-probability of target sequence must strictly increase after positive update
+    log_prob_after_pos = _seq_log_prob(policy, tokens)
+    assert log_prob_after_pos > log_prob_before
+
+    # Negative update (reward = -2.0) must decrease log-probability
+    optimizer.zero_grad()
+    loss2 = compute_policy_gradient_step(policy, tokens, reward=-2.0, baseline=0.0)
+    optimizer.step()
+
+    log_prob_after_neg = _seq_log_prob(policy, tokens)
+    assert log_prob_after_neg < log_prob_after_pos
 
 
 def test_compute_sequence_log_probs_and_gradients():
