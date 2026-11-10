@@ -72,8 +72,10 @@ class BitLinear(Module):
                 return
 
             # Straight-Through Estimator (STE): gradient passes directly to continuous weights & input
-            # dL/dW = dL/dY^T @ X
-            grad_w = np.matmul(out.grad.reshape(-1, self.out_features).T, x_data.reshape(-1, self.in_features))
+            # Forward computes: y = (gamma / x_scale) * (x_quant @ W_ternary^T) = (x_quant / x_scale) @ (gamma * W_ternary^T)
+            # Under STE with respect to continuous W, grad_w uses the dequantized activations (x_quant / x_scale)
+            x_dequant = x_quant / x_scale
+            grad_w = np.matmul(out.grad.reshape(-1, self.out_features).T, x_dequant.reshape(-1, self.in_features))
             if self.weight.requires_grad:
                 _accumulate_grad(self.weight, grad_w)
 
