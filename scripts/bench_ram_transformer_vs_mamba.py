@@ -174,23 +174,14 @@ def run_benchmark():
 
     print("==================================================================")
     print("PARALLAX ANTI-RAM BENCHMARK: TRANSFORMER KV-CACHE vs MAMBA (S6)")
-    print("Addressing Sam Altman's 'daha çok RAM lazım' memory expansion claim")
+    print("Evaluating O(1) state space scaling vs O(N) linear token cache growth")
     print("==================================================================")
 
-    gpt_config = ParallaxLMConfig(
-        vocab_size=vocab_size,
-        embed_dim=d_model,
-        num_heads=num_heads,
-        num_layers=num_layers,
-    )
+    gpt_config = ParallaxLMConfig(vocab_size=vocab_size, embed_dim=d_model, num_heads=num_heads, num_layers=num_layers)
     gpt_model = ParallaxLM(gpt_config)
 
-    mamba_block = MambaBlock(
-        d_model=d_model,
-        d_state=d_state,
-        d_conv=d_conv,
-        expand=expand,
-    )
+    bm_config = BitMambaConfig(vocab_size=vocab_size, d_model=d_model, num_layers=num_layers, d_state=d_state, d_conv=d_conv, expand=expand)
+    mamba_model = BitMambaLM(bm_config)
 
     results: List[Dict] = []
 
@@ -204,7 +195,7 @@ def run_benchmark():
 
         # Mamba benchmark
         m_step_ms, m_scan_ms, m_theo_b, m_meas_b = benchmark_mamba(
-            mamba_block, batch_size, T
+            mamba_model, batch_size, T
         )
 
         ratio_mem = tf_meas_b / m_meas_b if m_meas_b > 0 else 0
