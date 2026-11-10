@@ -213,10 +213,10 @@ class HFTokenizer:
                 token_ids.append(self.added_tokens[part])
                 continue
 
-            # Split piece into pre-tokens using standard pre-tokenizer regex
+            # Split piece into pre-tokens using pre-tokenizer regex
             pre_tokens: List[str] = []
             last_end = 0
-            for m in _PRETOKENIZER_REGEX.finditer(part):
+            for m in self.pretokenizer_regex.finditer(part):
                 start, end = m.span()
                 if start > last_end:
                     pre_tokens.append(part[last_end:start])
