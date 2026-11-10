@@ -57,6 +57,22 @@ class Module:
         for p in self.parameters():
             p.zero_grad()
 
+    def train(self, mode: bool = True) -> "Module":
+        """Sets the module in training mode (recursively for all submodules)."""
+        self.training = mode
+        for child in self.__dict__.values():
+            if isinstance(child, Module):
+                child.train(mode)
+            elif isinstance(child, list):
+                for item in child:
+                    if isinstance(item, Module):
+                        item.train(mode)
+        return self
+
+    def eval(self) -> "Module":
+        """Sets the module in evaluation mode."""
+        return self.train(False)
+
 
 class Linear(Module):
     """Linear transformation: y = x @ W^T + b."""
