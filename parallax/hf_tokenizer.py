@@ -183,6 +183,10 @@ class HFTokenizer:
                         token_ids.append(self.vocab[sym])
                     elif self.unk_token_id is not None:
                         token_ids.append(self.unk_token_id)
+                    else:
+                        raise KeyError(
+                            f"Token '{sym}' not found in vocabulary and no unk_token defined."
+                        )
 
         return token_ids
 
@@ -220,23 +224,20 @@ def load_hf_tokenizer(tokenizer_file_or_dir: str) -> HFTokenizer:
     unk_token = None
 
     if os.path.exists(cfg_path):
-        try:
-            with open(cfg_path, "r", encoding="utf-8") as f:
-                cfg = json.load(f)
-                bos_token = cfg.get("bos_token")
-                eos_token = cfg.get("eos_token")
-                pad_token = cfg.get("pad_token")
-                unk_token = cfg.get("unk_token")
-                if isinstance(bos_token, dict):
-                    bos_token = bos_token.get("content")
-                if isinstance(eos_token, dict):
-                    eos_token = eos_token.get("content")
-                if isinstance(pad_token, dict):
-                    pad_token = pad_token.get("content")
-                if isinstance(unk_token, dict):
-                    unk_token = unk_token.get("content")
-        except Exception:
-            pass
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+            bos_token = cfg.get("bos_token")
+            eos_token = cfg.get("eos_token")
+            pad_token = cfg.get("pad_token")
+            unk_token = cfg.get("unk_token")
+            if isinstance(bos_token, dict):
+                bos_token = bos_token.get("content")
+            if isinstance(eos_token, dict):
+                eos_token = eos_token.get("content")
+            if isinstance(pad_token, dict):
+                pad_token = pad_token.get("content")
+            if isinstance(unk_token, dict):
+                unk_token = unk_token.get("content")
 
     return HFTokenizer(
         vocab=vocab,
