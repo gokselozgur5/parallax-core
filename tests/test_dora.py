@@ -27,11 +27,13 @@ def test_dora_linear_backward_shapes_and_finite():
     x = np.random.randn(4, 8).astype(np.float32)
     grad_out = np.random.randn(4, 12).astype(np.float32)
 
-    grad_m, grad_A, grad_B = layer.backward(x, grad_out)
+    grad_m, grad_A, grad_B, dx = layer.backward(x, grad_out)
 
     assert grad_m.shape == layer.m.shape
     assert grad_A.shape == layer.lora_A.shape
     assert grad_B.shape == layer.lora_B.shape
+    assert dx.shape == x.shape
     assert not np.isnan(grad_m).any()
     assert not np.isnan(grad_A).any()
     assert not np.isnan(grad_B).any()
+    assert not np.isnan(dx).any()
