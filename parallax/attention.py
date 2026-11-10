@@ -10,7 +10,7 @@ from typing import Optional, Tuple, Union
 import numpy as np
 from parallax.flash_attn import flash_attention_forward
 from parallax.nn import Linear, Module, Parameter
-from parallax.tensor import Tensor, unbroadcast_grad
+from parallax.tensor import Tensor, _accumulate_grad, unbroadcast_grad
 
 
 def apply_rope(
@@ -263,12 +263,12 @@ class CausalSelfAttention(Module):
 
             dk = np.transpose(dk_heads, (0, 2, 1, 3)).reshape(B, T, self.kv_dim)
 
-            if q.requires_grad and q.grad is not None:
-                q.grad += unbroadcast_grad(dq, q.shape)
-            if k.requires_grad and k.grad is not None:
-                k.grad += unbroadcast_grad(dk, k.shape)
-            if v.requires_grad and v.grad is not None:
-                v.grad += unbroadcast_grad(dv, v.shape)
+            if q.requires_grad:
+                _accumulate_grad(q, dq)
+            if k.requires_grad:
+                _accumulate_grad(k, dk)
+            if v.requires_grad:
+                _accumulate_grad(v, dv)
 
         attn_out._backward = _backward
 
