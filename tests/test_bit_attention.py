@@ -262,3 +262,31 @@ def test_bit_attention_cached_grad_enabled_raises():
     x = Tensor(np.random.randn(1, 2, 16))
     with pytest.raises(RuntimeError, match="BitAttention with kv_cache is inference-only"):
         attn(x, kv_cache=cache)
+
+
+def test_bit_attention_gqa_repeat_vs_tile_numerical():
+    """Verify GQA repeat grouping against per-head reference; kills tile-vs-repeat mutation."""
+    np.random.seed(42)
+    B, T, C, num_heads, num_kv_heads = 2, 4, 32, 4, 2
+    attn = BitAttention(embed_dim=C, num_heads=num_heads, num_kv_heads=num_kv_heads, use_rope=False)
+    x = Tensor(np.random.randn(B, T, C))
+    out = attn(x).data
+
+    q = attn.q_proj(x).data.reshape(B, T, num_heads, C // num_heads).transpose(0, 2, 1, 3)
+    k = attn.k_proj(x).data.reshape(B, T, num_kv_heads, C // num_heads).transpose(0, 2, 1, 3)
+    v = attn.v_proj(x).data.reshape(B, T, num_kv_heads, C // num_heads).transpose(0, 2, 1, 3)
+    scale = 1.0 / np.sqrt(C // num_heads)
+    mask = np.triu(np.ones((T, T), dtype=bool), k=1)
+
+    ref_heads, tile_heads = [], []
+    for h in range(num_heads):
+        for heads_list, kv_h in [(ref_heads, h // (num_heads // num_kv_heads)), (tile_heads, h % num_kv_heads)]:
+            sc = np.where(mask[None, :, :], -1e9, (q[:, h] @ k[:, kv_h].swapaxes(-1, -2)) * scale)
+            w = np.exp(sc - np.max(sc, axis=-1, keepdims=True))
+            heads_list.append((w / np.sum(w, axis=-1, keepdims=True)) @ v[:, kv_h])
+
+    ref_out = attn.out_proj(Tensor(np.transpose(np.stack(ref_heads, axis=1), (0, 2, 1, 3)).reshape(B, T, C))).data
+    tile_out = attn.out_proj(Tensor(np.transpose(np.stack(tile_heads, axis=1), (0, 2, 1, 3)).reshape(B, T, C))).data
+    np.testing.assert_allclose(out, ref_out, rtol=1e-5, atol=1e-5)
+    assert np.max(np.abs(out - tile_out)) > 1.0
+
