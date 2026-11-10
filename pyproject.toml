@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "parallax"
+version = "0.1.0"
+description = "First-principles zero-dependency Autograd and Transformer framework"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [
+    { name = "Göksel Özgür", email = "gokselozgur5@gmail.com" },
+]
+dependencies = [
+    "numpy>=1.26.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[project.scripts]
+parallax-eval = "scripts.eval_model:main"
+parallax-quantize = "scripts.quantize_model:main"
+parallax-infer = "scripts.run_inference:main"
+parallax-serve = "scripts.serve_openai:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["parallax*", "scripts*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
