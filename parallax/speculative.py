@@ -127,9 +127,8 @@ def speculative_generate(
 
     max_seq_len = min(target_model.config.max_seq_len, draft_model.config.max_seq_len)
 
-    while total_generated < max_new_tokens and len(tokens) < max_seq_len:
-        current_len = len(tokens)
-        spec_budget = min(gamma, max_new_tokens - total_generated, max_seq_len - current_len)
+    while total_generated < max_new_tokens:
+        spec_budget = min(gamma, max_new_tokens - total_generated)
         if spec_budget <= 0:
             break
 
