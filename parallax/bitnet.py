@@ -45,7 +45,7 @@ class BitLinear(Module):
             self.bias = None
 
     def forward(self, x: Tensor) -> Tensor:
-        """Forward pass: quantizes W to {-1, 0, 1} and x to INT8, performing addition-based matmul."""
+        """Forward pass: quantizes W to {-1, 0, 1} and x to INT8, simulating ternary linear projection in float64."""
         w_data = self.weight.data
         x_data = x.data
 
@@ -53,7 +53,7 @@ class BitLinear(Module):
         w_ternary, gamma = quantize_weights_ternary(w_data)
         x_quant, x_scale = quantize_activations_int8(x_data)
 
-        # 2. Integer addition-dominated matrix multiplication:
+        # 2. Simulated quantized matrix multiplication:
         # y_int = x_quant @ w_ternary^T
         y_int = np.matmul(x_quant, w_ternary.T)
 
