@@ -99,37 +99,73 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urllib.parse.urlparse(self.path)
-        length = int(self.headers.get("Content-Length", 0))
+
+        # Enforce application/json Content-Type
+        content_type = self.headers.get("Content-Type", "")
+        media_type = content_type.split(";")[0].strip().lower()
+        if media_type != "application/json":
+            self.send_json(
+                {"error": f"Unsupported media type: expected application/json, got {content_type!r}"},
+                status=415,
+            )
+            return
+
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+        except (ValueError, TypeError):
+            self.send_json({"error": "Invalid Content-Length header"}, status=400)
+            return
+
+        if length < 0:
+            self.send_json({"error": "Invalid negative Content-Length"}, status=400)
+            return
+
+        if length > MAX_REQUEST_BODY_BYTES:
+            self.send_json(
+                {"error": f"Request body exceeds {MAX_REQUEST_BODY_BYTES} byte limit"},
+                status=413,
+            )
+            return
+
         body = self.rfile.read(length).decode("utf-8") if length > 0 else "{}"
         try:
             req = json.loads(body)
-        except Exception:
-            req = {}
+            if not isinstance(req, dict):
+                self.send_json({"error": "Request body must be a JSON object"}, status=400)
+                return
+        except Exception as e:
+            self.send_json({"error": f"Invalid JSON payload: {e}"}, status=400)
+            return
 
-        if parsed.path == "/api/generate":
-            self.handle_generate(req)
-        elif parsed.path == "/api/attention":
-            self.handle_attention(req)
-        elif parsed.path == "/api/dag":
-            self.handle_dag(req)
-        elif parsed.path == "/api/train_step":
-            self.handle_train_step(req)
-        elif parsed.path == "/api/model_info":
-            self.handle_model_info()
-        elif parsed.path == "/api/load_checkpoint":
-            self.handle_load_checkpoint(req)
-        elif parsed.path == "/api/toggle_quant":
-            self.handle_toggle_quant(req)
-        elif parsed.path == "/api/rl/score":
-            self.handle_rl_score(req)
-        elif parsed.path == "/api/rl/train_preference":
-            self.handle_rl_train_preference(req)
-        elif parsed.path == "/api/rl/policy_step":
-            self.handle_rl_policy_step(req)
-        elif parsed.path == "/api/rl/dpo_step":
-            self.handle_rl_dpo_step(req)
-        else:
-            self.send_error(404, "Endpoint not found")
+        try:
+            if parsed.path == "/api/generate":
+                self.handle_generate(req)
+            elif parsed.path == "/api/attention":
+                self.handle_attention(req)
+            elif parsed.path == "/api/dag":
+                self.handle_dag(req)
+            elif parsed.path == "/api/train_step":
+                self.handle_train_step(req)
+            elif parsed.path == "/api/model_info":
+                self.handle_model_info()
+            elif parsed.path == "/api/load_checkpoint":
+                self.handle_load_checkpoint(req)
+            elif parsed.path == "/api/toggle_quant":
+                self.handle_toggle_quant(req)
+            elif parsed.path == "/api/rl/score":
+                self.handle_rl_score(req)
+            elif parsed.path == "/api/rl/train_preference":
+                self.handle_rl_train_preference(req)
+            elif parsed.path == "/api/rl/policy_step":
+                self.handle_rl_policy_step(req)
+            elif parsed.path == "/api/rl/dpo_step":
+                self.handle_rl_dpo_step(req)
+            else:
+                self.send_json({"error": f"Endpoint not found: {parsed.path}"}, status=404)
+        except (ValueError, TypeError, KeyError) as e:
+            self.send_json({"error": f"Invalid request parameters: {e}"}, status=400)
+        except Exception as e:
+            self.send_json({"error": f"Internal server error: {e}"}, status=500)
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
