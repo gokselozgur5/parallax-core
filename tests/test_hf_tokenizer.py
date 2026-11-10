@@ -144,3 +144,34 @@ def test_load_hf_tokenizer_from_json_and_pretrained_pipeline():
 
         decoded = tok.decode(out_ids)
         assert isinstance(decoded, str)
+
+
+def test_hf_tokenizer_pretokenizer_qwen_and_llama3_patterns():
+    qwen_pat = r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"
+    llama3_pat = r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"
+
+    # Simple vocab containing byte tokens
+    from parallax.hf_tokenizer import _BYTE_TO_UNICODE
+    vocab = {chr(i): i for i in range(256)}
+    for b, u in _BYTE_TO_UNICODE.items():
+        vocab[u] = len(vocab)
+
+    tok_qwen = HFTokenizer(vocab=vocab, split_pattern=qwen_pat)
+    tok_llama3 = HFTokenizer(vocab=vocab, split_pattern=llama3_pat)
+
+    # Test digits chunking differences:
+    # Qwen splits single digits
+    q_matches = [m.group(0) for m in tok_qwen.pretokenizer_regex.finditer("12345")]
+    assert q_matches == ["1", "2", "3", "4", "5"]
+
+    # Llama 3 splits up to 3 digits
+    l_matches = [m.group(0) for m in tok_llama3.pretokenizer_regex.finditer("12345")]
+    assert l_matches == ["123", "45"]
+
+    # Test Turkish and non-ASCII Unicode letter preservation
+    tr_matches = [m.group(0) for m in tok_qwen.pretokenizer_regex.finditer("çok güzel")]
+    assert tr_matches == ["çok", " güzel"]
+
+    na_matches = [m.group(0) for m in tok_qwen.pretokenizer_regex.finditer("naïve café")]
+    assert na_matches == ["naïve", " café"]
+
