@@ -208,7 +208,8 @@ class BitMambaBlock(Module):
 
             # 7. xz projection split backward through in_proj
             d_xz = np.concatenate([dx, d_z], axis=-1)
-            xz.backward(d_xz)
+            if xz.requires_grad:
+                _accumulate_grad(xz, d_xz)
 
         y_gated_tensor._backward = _backward
         return self.out_proj(y_gated_tensor)
