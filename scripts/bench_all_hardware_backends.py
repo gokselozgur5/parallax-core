@@ -819,20 +819,35 @@ def generate_markdown_report(
     # Engineering Insights & Parallax Axioms
     md.append("## Key Architectural Insights & Verification")
     md.append("")
+    metrics = _extract_report_metrics(gemm_results, rmsnorm_results, weights_summary, flash_results)
+    max_err = metrics["max_err"]
+    peak_c_rms = metrics["peak_c_rms"]
+    peak_metal_gemm = metrics["peak_metal_gemm"]
+    bm_comp = metrics["bitmamba_weight_comp"]
+    max_fd_spd = metrics["max_fd_speedup"]
+
     md.append("1. **Hardware Compute Parity:**")
-    md.append("   - All four hardware compute paths (NumPy, C-Engine, Rust C-ABI, and Apple Metal GPU JIT) achieve bitwise/numerical alignment with max relative discrepancies $< 10^{-5}$ across GEMM and RMSNorm kernels.")
-    md.append("   - Metal GPU JIT demonstrates superior throughput on large matrix regimes ($N \\ge 512$), while C-Engine provides minimal call overhead and $3x+$ speedups for CPU-bound RMSNorm operations.")
+    md.append(f"   - All active hardware compute paths achieve numerical alignment with max relative discrepancy of `{max_err:.2e}` across GEMM and RMSNorm kernels.")
+    if peak_c_rms > 1.0:
+        md.append(f"   - C-Engine demonstrates speedups up to {peak_c_rms:.2f}x for CPU-bound RMSNorm operations.")
+    else:
+        md.append(f"   - C-Engine executes CPU-bound RMSNorm operations at peak relative throughput of {peak_c_rms:.2f}x compared to NumPy BLAS.")
+    if peak_metal_gemm > 1.0:
+        md.append(f"   - Apple Metal GPU JIT achieves speedups up to {peak_metal_gemm:.2f}x over CPU baselines in matrix operations.")
+    else:
+        md.append(f"   - Apple Metal GPU JIT achieves peak throughput of {peak_metal_gemm:.2f}x relative to CPU BLAS baselines.")
     md.append("")
     md.append("2. **Anti-RAM Proof: $O(1)$ State Space Scaling:**")
     first_r = scaling_results[0]
     last_r = scaling_results[-1]
     md.append(f"   - At $T={first_r['T']}$, Transformer KV-cache occupies {format_bytes(first_r['tf_kv_bytes'])} vs Mamba's {format_bytes(first_r['mamba_state_bytes'])}.")
     md.append(f"   - At $T={last_r['T']}$, Transformer KV-cache expands to {format_bytes(last_r['tf_kv_bytes'])} (**{last_r['ratio_kv_to_mamba']:.1f}x higher**), while Mamba and BitMamba retain an invariant {format_bytes(last_r['mamba_state_bytes'])} state buffer.")
-    md.append("   - Combined with BitMamba's 1.58-bit ternary weights, total model footprint shrinks by $>10x$, proving that infinite context does not demand exponentially increasing RAM.")
+    md.append(f"   - Combined with BitMamba's 1.58-bit ternary weights (achieving a {bm_comp:.2f}x weight compression factor), state space models demonstrate constant context memory without exponential RAM growth.")
     md.append("")
     md.append("3. **FlashDecoding-v2 Dynamic Split-K Efficiency:**")
-    md.append("   - Fixed-size splitting in v1 causes excessive partition creation at high sequence lengths (e.g. 64 splits at $T=4096$).")
-    md.append("   - FlashDecoding-v2 caps splits dynamically (e.g. at 8 partitions) with online logsumexp reduction, yielding substantial latency reductions while maintaining exact numerical equivalence.")
+    last_f = flash_results[-1]
+    md.append(f"   - Dynamic Split-K caps partitions dynamically (e.g. from {last_f['v1_splits']} splits in v1 to {last_f['v2_splits']} splits in v2 at $T={last_f['seq_len']}$).")
+    md.append(f"   - Online logsumexp reduction maintains exact numerical equivalence while reaching up to {max_fd_spd:.2f}x relative throughput.")
     md.append("")
     md.append("---")
     md.append("*Sealed by Parallax Swarm Agent 18 (Continuous Benchmarking & Regression Guard) — Parallax Core Lab.*")
