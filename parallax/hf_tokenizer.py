@@ -34,6 +34,46 @@ def _bytes_to_unicode() -> Tuple[Dict[int, str], Dict[str, int]]:
 
 _BYTE_TO_UNICODE, _UNICODE_TO_BYTE = _bytes_to_unicode()
 
+
+def _build_class_pattern(cat_prefix: str) -> str:
+    ranges = []
+    start = prev = None
+    for cp in range(sys.maxunicode + 1):
+        if unicodedata.category(chr(cp)).startswith(cat_prefix):
+            if start is None:
+                start = cp
+            prev = cp
+        elif start is not None:
+            ranges.append((start, prev))
+            start = prev = None
+    if start is not None:
+        ranges.append((start, prev))
+
+    def _esc(cp: int) -> str:
+        c = chr(cp)
+        if cp < 128:
+            if c in r"-[]\^":
+                return "\\" + c
+            if c == "\n":
+                return "\\n"
+            if c == "\r":
+                return "\\r"
+            if c == "\t":
+                return "\\t"
+            if c.isprintable():
+                return c
+        return f"\\u{cp:04x}" if cp <= 0xFFFF else f"\\U{cp:08x}"
+
+    parts = []
+    for s, e in ranges:
+        if s == e:
+            parts.append(_esc(s))
+        elif s + 1 == e:
+            parts.append(_esc(s) + _esc(e))
+        else:
+            parts.append(_esc(s) + "-" + _esc(e))
+    return "".join(parts)
+
 _PRETOKENIZER_REGEX = re.compile(
     r"""'s|'t|'re|'ve|'m|'ll|'d| ?[a-zA-Z]+| ?\d+| ?[^\s\w]+|\s+(?!\S)|\s+"""
 )
