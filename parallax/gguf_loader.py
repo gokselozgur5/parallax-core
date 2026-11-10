@@ -50,6 +50,10 @@ def gguf_metadata_to_parallax(
 ) -> ParallaxLMConfig:
     """Extracts ParallaxLMConfig from GGUF metadata dictionary."""
     arch = str(metadata.get("general.architecture", "llama")).lower()
+    if arch not in ("llama", "mistral", "qwen2", "smollm"):
+        raise ValueError(
+            f"Unsupported GGUF architecture: '{arch}'. Supported: llama, mistral, qwen2, smollm."
+        )
 
     # Architecture hyper-parameters
     required_keys = (
@@ -216,6 +220,18 @@ def save_parallax_to_gguf(
 ) -> None:
     """Serializes a ParallaxLM model and optional tokenizer into a standard GGUF v3 file."""
     cfg = model.config
+
+    if (
+        hasattr(cfg, "num_experts")
+        and cfg.num_experts is not None
+        and cfg.num_experts > 1
+    ) or any(
+        hasattr(block, "moe")
+        or (hasattr(block, "mlp") and (hasattr(block.mlp, "router") or hasattr(block.mlp, "experts")))
+        for block in model.blocks
+    ):
+        raise NotImplementedError("MoE model export is not supported.")
+
     arch = architecture.lower()
 
     # Construct GGUF metadata
