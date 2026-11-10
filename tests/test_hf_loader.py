@@ -199,7 +199,9 @@ def test_qwen2_default_qkv_bias_and_sharded_safetensors():
             "model.layers.0.self_attn.q_proj.weight": np.random.randn(D, D).astype(np.float32),
             "model.layers.0.self_attn.q_proj.bias": q_bias,
             "model.layers.0.self_attn.k_proj.weight": np.random.randn(D, D).astype(np.float32),
+            "model.layers.0.self_attn.k_proj.bias": np.zeros((D,), dtype=np.float32),
             "model.layers.0.self_attn.v_proj.weight": np.random.randn(D, D).astype(np.float32),
+            "model.layers.0.self_attn.v_proj.bias": np.zeros((D,), dtype=np.float32),
             "model.layers.0.self_attn.o_proj.weight": np.random.randn(D, D).astype(np.float32),
             "model.layers.0.self_attn.o_proj.bias": o_bias,
         }
@@ -226,4 +228,4 @@ def test_qwen2_default_qkv_bias_and_sharded_safetensors():
         # Verify shape mismatch raises ValueError
         bad_tensors = {"model.embed_tokens.weight": np.zeros((V + 1, D), dtype=np.float64)}
         with pytest.raises(ValueError, match="Shape mismatch"):
-            load_hf_weights_into_model(model, bad_tensors)
+            load_hf_weights_into_model(model, bad_tensors, strict=False)
