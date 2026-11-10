@@ -305,8 +305,6 @@ def generate_report(
 
     return "\n".join(md)
 
-    return "\n".join(md)
-
 
 if __name__ == "__main__":
     run_benchmark()
