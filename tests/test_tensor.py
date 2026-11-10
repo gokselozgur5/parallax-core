@@ -110,3 +110,13 @@ def test_requires_grad_false_inputs_yield_no_grad_output():
     assert c.requires_grad is False
     assert c.grad is None
     assert len(c._prev) == 0
+
+
+def test_backward_deep_graph_iterative_topo():
+    x = Tensor([1.0], requires_grad=True)
+    curr = x
+    for _ in range(5000):
+        curr = curr + 1.0
+    curr.backward()
+    assert x.grad is not None
+    assert np.allclose(x.grad, [1.0])
