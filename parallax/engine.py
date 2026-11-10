@@ -88,7 +88,8 @@ class Value:
         return other / self
 
     def exp(self) -> "Value":
-        out = Value(math.exp(self.data), (self,), "exp")
+        clamped_data = max(-700.0, min(self.data, 700.0))
+        out = Value(math.exp(clamped_data), (self,), "exp")
 
         def _backward() -> None:
             self.grad += out.data * out.grad
@@ -126,7 +127,11 @@ class Value:
         return out
 
     def sigmoid(self) -> "Value":
-        s = 1.0 / (1.0 + math.exp(-self.data))
+        if self.data >= 0:
+            s = 1.0 / (1.0 + math.exp(-self.data))
+        else:
+            exp_x = math.exp(self.data)
+            s = exp_x / (1.0 + exp_x)
         out = Value(s, (self,), "sigmoid")
 
         def _backward() -> None:
