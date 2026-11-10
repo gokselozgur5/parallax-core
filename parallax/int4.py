@@ -30,6 +30,11 @@ def pack_int4(arr: np.ndarray) -> np.ndarray:
     if arr.shape[-1] % 2 != 0:
         raise ValueError(f"Last dimension must be even, got {arr.shape[-1]}")
 
+    if not (np.issubdtype(arr.dtype, np.integer) or np.issubdtype(arr.dtype, np.bool_)):
+        raise ValueError(f"pack_int4 requires integer array, got {arr.dtype}")
+    if np.any((arr < 0) | (arr > 15)):
+        raise ValueError("pack_int4 values must be in [0, 15]")
+
     arr_u8 = arr.astype(np.uint8) & 0x0F
     low = arr_u8[..., 0::2]
     high = arr_u8[..., 1::2]
@@ -98,7 +103,12 @@ def quantize_int4_groupwise(
     w_min = np.min(w_grouped, axis=2, keepdims=True)
     w_max = np.max(w_grouped, axis=2, keepdims=True)
 
-    denom = np.maximum(w_max - w_min, 1e-8)
+    floor = (
+        np.finfo(weight.dtype).tiny
+        if np.issubdtype(weight.dtype, np.floating)
+        else 1e-8
+    )
+    denom = np.maximum(w_max - w_min, floor)
     scales = denom / 15.0
     zeros = w_min
 
