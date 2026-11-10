@@ -13,6 +13,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict, List, Optional
 from parallax.batching import ContinuousBatchEngine, RequestStatus, SequenceRequest
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
+from parallax.tokenizer import IncrementalTokenDecoder
 
 
 DEFAULT_MAX_REQUEST_BYTES = 10 * 1024 * 1024  # 10MB
@@ -151,13 +152,14 @@ def create_handler(state: OpenAIServerState):
 
                         finish_reason = "length" if max_tokens == 0 else "stop"
                         last_tok = None
+                        stream_decoder = IncrementalTokenDecoder(state.tokenizer)
                         if max_tokens > 0:
                             while req.status != RequestStatus.FINISHED:
                                 step_outputs = state.engine.step()
                                 for r_id, tok in step_outputs:
                                     if r_id == req_id:
                                         last_tok = tok
-                                        piece = decode_tokens([tok])
+                                        piece = stream_decoder.decode_token(tok)
                                         chunk_payload = {
                                             "id": req_id,
                                             "object": "chat.completion.chunk",
@@ -172,6 +174,23 @@ def create_handler(state: OpenAIServerState):
                                             ],
                                         }
                                         self._send_sse_chunk(chunk_payload)
+
+                            remaining = stream_decoder.finish()
+                            if remaining:
+                                chunk_payload = {
+                                    "id": req_id,
+                                    "object": "chat.completion.chunk",
+                                    "created": int(time.time()),
+                                    "model": state.model_name,
+                                    "choices": [
+                                        {
+                                            "index": 0,
+                                            "delta": {"content": remaining},
+                                            "finish_reason": None,
+                                        }
+                                    ],
+                                }
+                                self._send_sse_chunk(chunk_payload)
 
                             eos_id = getattr(req, "eos_token_id", None)
                             if eos_id is not None and last_tok == eos_id:
