@@ -34,6 +34,7 @@ class LoRALinear(Module):
         self.out_features = base_layer.out_features
         self.r = r
         self.lora_alpha = lora_alpha
+        self.lora_dropout = lora_dropout
         self.scaling = lora_alpha / r if r > 0 else 1.0
 
         # Freeze base parameters
@@ -56,6 +57,7 @@ class LoRALinear(Module):
             self.lora_B = None
 
         self.merged = False
+        self.training = True
 
     def forward(self, x: Tensor) -> Tensor:
         # Base forward pass
@@ -65,9 +67,15 @@ class LoRALinear(Module):
             return base_out
 
         # LoRA path: x: [..., in_features]
+        # Inverted dropout on x during training if lora_dropout > 0.0
+        lora_input = x
+        if self.training and self.lora_dropout > 0.0:
+            mask = (np.random.rand(*x.shape) >= self.lora_dropout) / (1.0 - self.lora_dropout)
+            lora_input = x * Tensor(mask)
+
         # x @ A^T -> [..., r]
         # (x @ A^T) @ B^T -> [..., out_features]
-        lora_h = x @ self.lora_A.transpose(1, 0)
+        lora_h = lora_input @ self.lora_A.transpose(1, 0)
         lora_out = lora_h @ self.lora_B.transpose(1, 0)
 
         scaled_lora = lora_out * self.scaling
