@@ -199,3 +199,24 @@ def test_c_engine_empty_shapes():
     assert c_softmax(np.zeros((0, 4), dtype=np.float32)).shape == (0, 4)
     with pytest.raises(ValueError):
         c_softmax(np.zeros((3, 0), dtype=np.float32))
+
+
+def test_c_engine_int32_bounds():
+    class MockArray:
+        ndim = 2
+        dtype = np.float32
+        shape = (2147483648, 4)
+        size = 2147483648 * 4
+
+    b = np.zeros((4, 4), dtype=np.float32)
+    with pytest.raises(ValueError, match="INT32_MAX"):
+        c_gemm(MockArray(), b)
+
+    class MockSoftmaxArray:
+        ndim = 2
+        dtype = np.float32
+        shape = (2147483648, 4)
+        size = 2147483648 * 4
+
+    with pytest.raises(ValueError, match="INT32_MAX"):
+        c_softmax(MockSoftmaxArray())
