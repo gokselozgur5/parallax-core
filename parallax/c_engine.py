@@ -7,6 +7,8 @@ from __future__ import annotations
 import ctypes
 import os
 import sys
+import shutil
+import tempfile
 import subprocess
 import threading
 import logging
@@ -19,6 +21,24 @@ _LIB_LOAD_ATTEMPTED: bool = False
 _INIT_LOCK = threading.Lock()
 _LOAD_ERROR_REASON: Optional[str] = None
 _LOGGER = logging.getLogger("parallax.c_engine")
+
+
+def _get_build_cache_dir() -> Path:
+    cache_base = os.environ.get("XDG_CACHE_HOME")
+    if cache_base:
+        p = Path(cache_base) / "parallax" / "c_engine"
+    else:
+        p = Path.home() / ".cache" / "parallax" / "c_engine"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def _find_candidate_in_dir(d: Path, candidate_names: list[str]) -> Optional[Path]:
+    for name in candidate_names:
+        candidate = d / name
+        if candidate.is_file():
+            return candidate
+    return None
 
 def _find_or_build_library() -> Optional[ctypes.CDLL]:
     global _C_LIB, _LIB_LOAD_ATTEMPTED
