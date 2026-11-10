@@ -74,12 +74,13 @@ def simpo_step(
     """
     def get_token_log_probs(logits, targets):
         m = np.max(logits, axis=-1, keepdims=True)
-        exp_logits = np.exp(logits - m)
-        probs = exp_logits / np.sum(exp_logits, axis=-1, keepdims=True)
+        logsumexp = m + np.log(np.sum(np.exp(logits - m), axis=-1, keepdims=True))
+        log_probs_all = logits - logsumexp
+        probs = np.exp(log_probs_all)
         seq_len = len(targets)
         log_probs = np.zeros(seq_len)
         for i in range(seq_len):
-            log_probs[i] = np.log(probs[i, targets[i]] + 1e-12)
+            log_probs[i] = log_probs_all[i, targets[i]]
         return log_probs, probs
 
     lp_w, probs_w = get_token_log_probs(logits_w, targets_w)
