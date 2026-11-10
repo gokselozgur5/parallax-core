@@ -14,23 +14,27 @@ def test_c_engine_available():
     assert _find_or_build_library() is not None
 
 def test_c_gemm_correctness():
+    if not is_c_engine_available():
+        pytest.skip("C engine native library not available")
     np.random.seed(42)
     M, K, N = 64, 128, 32
     A = np.random.randn(M, K).astype(np.float32)
     B = np.random.randn(K, N).astype(np.float32)
 
-    expected = np.matmul(A, B)
+    expected = (A.astype(np.float64) @ B.astype(np.float64)).astype(np.float32)
     result = c_gemm(A, B)
 
     np.testing.assert_allclose(result, expected, rtol=1e-4, atol=1e-4)
 
 def test_c_gemm_odd_shapes():
+    if not is_c_engine_available():
+        pytest.skip("C engine native library not available")
     np.random.seed(1337)
     M, K, N = 7, 13, 19
     A = np.random.randn(M, K).astype(np.float32)
     B = np.random.randn(K, N).astype(np.float32)
 
-    expected = np.matmul(A, B)
+    expected = (A.astype(np.float64) @ B.astype(np.float64)).astype(np.float32)
     result = c_gemm(A, B)
 
     np.testing.assert_allclose(result, expected, rtol=1e-4, atol=1e-4)
@@ -59,14 +63,17 @@ def test_c_gemm_invalid_shapes():
         c_gemm(np.ones((2, 2, 2)), np.ones((2, 2)))
 
 def test_c_softmax_correctness():
+    if not is_c_engine_available():
+        pytest.skip("C engine native library not available")
     np.random.seed(42)
     rows, cols = 32, 64
     X = np.random.randn(rows, cols).astype(np.float32)
 
-    # Reference softmax
-    shifted = X - np.max(X, axis=-1, keepdims=True)
+    # Reference softmax in float64
+    X64 = X.astype(np.float64)
+    shifted = X64 - np.max(X64, axis=-1, keepdims=True)
     exps = np.exp(shifted)
-    expected = exps / np.sum(exps, axis=-1, keepdims=True)
+    expected = (exps / np.sum(exps, axis=-1, keepdims=True)).astype(np.float32)
 
     result = c_softmax(X)
     np.testing.assert_allclose(result, expected, rtol=1e-5, atol=1e-5)
