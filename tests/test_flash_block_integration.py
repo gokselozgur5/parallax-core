@@ -109,3 +109,72 @@ def test_flash_attention_generation_with_kv_cache():
     tokens_flash = generate(model_flash, prompt, max_new_tokens=4, temperature=0.0, use_cache=True)
 
     assert tokens_flash == tokens_std
+
+
+def test_flash_attention_loss_backward_equivalence_mha():
+    np.random.seed(42)
+    cfg = ParallaxLMConfig(
+        vocab_size=32,
+        embed_dim=16,
+        num_heads=2,
+        num_kv_heads=2,
+        num_layers=2,
+        max_seq_len=64,
+        intermediate_size=32,
+        use_swiglu=True,
+        rope_interleaved=False,
+        use_flash_attn=False,
+    )
+    model_std = ParallaxLM(cfg)
+    model_flash = _clone_model(model_std, use_flash_attn=True)
+
+    idx = np.array([[1, 5, 8, 12, 20]], dtype=np.int64)
+
+    out_std = model_std(idx)
+    loss_std = (out_std * out_std).sum()
+    loss_std.backward()
+
+    out_flash = model_flash(idx)
+    loss_flash = (out_flash * out_flash).sum()
+    loss_flash.backward()
+
+    for i in range(cfg.num_layers):
+        for name in ("q_proj", "k_proj", "v_proj", "out_proj"):
+            g_std = getattr(model_std.blocks[i].attn, name).weight.grad
+            g_flash = getattr(model_flash.blocks[i].attn, name).weight.grad
+            np.testing.assert_allclose(g_flash, g_std, atol=1e-5, rtol=1e-5)
+
+
+def test_flash_attention_loss_backward_equivalence_gqa():
+    np.random.seed(42)
+    cfg = ParallaxLMConfig(
+        vocab_size=32,
+        embed_dim=32,
+        num_heads=4,
+        num_kv_heads=2,
+        num_layers=2,
+        max_seq_len=64,
+        intermediate_size=32,
+        use_swiglu=True,
+        rope_interleaved=False,
+        use_flash_attn=False,
+    )
+    model_std = ParallaxLM(cfg)
+    model_flash = _clone_model(model_std, use_flash_attn=True)
+
+    idx = np.array([[2, 4, 6, 8, 10, 12]], dtype=np.int64)
+
+    out_std = model_std(idx)
+    loss_std = (out_std * out_std).sum()
+    loss_std.backward()
+
+    out_flash = model_flash(idx)
+    loss_flash = (out_flash * out_flash).sum()
+    loss_flash.backward()
+
+    for i in range(cfg.num_layers):
+        for name in ("q_proj", "k_proj", "v_proj", "out_proj"):
+            g_std = getattr(model_std.blocks[i].attn, name).weight.grad
+            g_flash = getattr(model_flash.blocks[i].attn, name).weight.grad
+            np.testing.assert_allclose(g_flash, g_std, atol=1e-5, rtol=1e-5)
+
