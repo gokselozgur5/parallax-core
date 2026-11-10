@@ -154,7 +154,8 @@ class Tensor:
         return self * other
 
     def __matmul__(self, other: "Tensor") -> "Tensor":
-        assert isinstance(other, Tensor), "Matmul requires another Tensor"
+        if not isinstance(other, Tensor):
+            raise TypeError("Matmul requires another Tensor")
         out = Tensor(self.data @ other.data, (self, other), "@")
 
         def _backward() -> None:
@@ -264,7 +265,8 @@ class Tensor:
     def backward(self, grad: Optional[np.ndarray] = None) -> None:
         """Executes backpropagation through the tensor DAG."""
         if grad is None:
-            assert self.shape == () or self.shape == (1,), "Default backward only supported for scalar outputs"
+            if not (self.shape == () or self.shape == (1,)):
+                raise ValueError("Default backward only supported for scalar outputs")
             self.grad = np.ones_like(self.data, dtype=np.float64)
         else:
             self.grad = grad.astype(np.float64)
