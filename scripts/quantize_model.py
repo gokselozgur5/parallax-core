@@ -6,12 +6,9 @@ Supports quantizing uncompressed F32 model tensors to Q8_0 or Q4_0 formats.
 """
 
 import argparse
-import os
-import sys
-from typing import Dict
+from typing import Dict, Union
 import numpy as np
 from parallax.gguf import (
-    GGML_TYPE_F32,
     GGML_TYPE_Q4_0,
     GGML_TYPE_Q8_0,
     GGUFFile,
