@@ -217,3 +217,18 @@ def test_bit_attention_sliding_window_validation_and_causality():
         out = attn(Tensor(x)).data
         out_mod = attn(Tensor(x_mod)).data
         np.testing.assert_allclose(out[0, 0, :], out_mod[0, 0, :], atol=1e-6)
+
+
+def test_bit_attention_flash_standard_sliding_window_prefill():
+    """Verify flash and standard prefill match within 1e-9 with sliding windows."""
+    np.random.seed(42)
+    B, T, C = 2, 6, 16
+    for window in [1, 3, T]:
+        std = BitAttention(C, 2, num_kv_heads=2, sliding_window=window, use_flash_attn=False, use_rope=False)
+        fl = BitAttention(C, 2, num_kv_heads=2, sliding_window=window, use_flash_attn=True, use_rope=False)
+        for p_std, p_fl in zip(std.parameters(), fl.parameters()):
+            p_fl.data = p_std.data.copy()
+        x = np.random.randn(B, T, C)
+        out_std = std(Tensor(x.copy())).data
+        out_fl = fl(Tensor(x.copy())).data
+        np.testing.assert_allclose(out_fl, out_std, atol=1e-9)
