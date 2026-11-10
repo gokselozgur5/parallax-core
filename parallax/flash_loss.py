@@ -27,9 +27,9 @@ def flash_cross_entropy_forward(
             - l_vec: Running sum-exp of shape (N,).
     """
     N, V = logits.shape
-    m_vec = np.full(N, -np.inf, dtype=np.float32)
-    l_vec = np.zeros(N, dtype=np.float32)
-    target_logits = np.zeros(N, dtype=np.float32)
+    m_vec = np.full(N, -np.inf, dtype=np.float64)
+    l_vec = np.zeros(N, dtype=np.float64)
+    target_logits = np.zeros(N, dtype=np.float64)
 
     for i in range(N):
         target_logits[i] = logits[i, targets[i]]
@@ -48,7 +48,7 @@ def flash_cross_entropy_forward(
         m_vec = new_m
 
     # Log-sum-exp = m + log(l)
-    lse = m_vec + np.log(l_vec + 1e-12)
+    lse = m_vec + np.log(l_vec)
     # Loss = mean(lse - target_logit)
     loss = float(np.mean(lse - target_logits))
     return loss, m_vec, l_vec
