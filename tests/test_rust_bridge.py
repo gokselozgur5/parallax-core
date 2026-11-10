@@ -37,22 +37,26 @@ def rust_lib():
     lib.parallax_version.argtypes = []
     lib.parallax_version.restype = ctypes.c_uint32
     
-    # i32 parallax_gemm_f32(size_t m, size_t n, size_t k, float alpha, const float* a, const float* b, float beta, float* c)
+    # i32 parallax_gemm_f32(m, n, k, alpha, a, a_len, b, b_len, beta, c, c_len)
     lib.parallax_gemm_f32.argtypes = [
         ctypes.c_size_t,
         ctypes.c_size_t,
         ctypes.c_size_t,
         ctypes.c_float,
         ctypes.POINTER(ctypes.c_float),
+        ctypes.c_size_t,
         ctypes.POINTER(ctypes.c_float),
+        ctypes.c_size_t,
         ctypes.c_float,
         ctypes.POINTER(ctypes.c_float),
+        ctypes.c_size_t,
     ]
     lib.parallax_gemm_f32.restype = ctypes.c_int32
 
-    # i32 parallax_softmax_f32(float* data, size_t rows, size_t cols)
+    # i32 parallax_softmax_f32(float* data, size_t data_len, size_t rows, size_t cols)
     lib.parallax_softmax_f32.argtypes = [
         ctypes.POINTER(ctypes.c_float),
+        ctypes.c_size_t,
         ctypes.c_size_t,
         ctypes.c_size_t,
     ]
@@ -78,7 +82,9 @@ def test_rust_bridge_gemm(rust_lib):
     b_ptr = b.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
     c_ptr = c.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
 
-    status = rust_lib.parallax_gemm_f32(m, n, k, alpha, a_ptr, b_ptr, beta, c_ptr)
+    status = rust_lib.parallax_gemm_f32(
+        m, n, k, alpha, a_ptr, a.size, b_ptr, b.size, beta, c_ptr, c.size
+    )
     assert status == 0
 
     expected = alpha * (a @ b) + beta * c
@@ -99,7 +105,9 @@ def test_rust_bridge_gemm_with_beta(rust_lib):
     b_ptr = b.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
     c_ptr = c.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
 
-    status = rust_lib.parallax_gemm_f32(m, n, k, alpha, a_ptr, b_ptr, beta, c_ptr)
+    status = rust_lib.parallax_gemm_f32(
+        m, n, k, alpha, a_ptr, a.size, b_ptr, b.size, beta, c_ptr, c.size
+    )
     assert status == 0
 
     np.testing.assert_allclose(c, expected, rtol=1e-5, atol=1e-5)
@@ -114,7 +122,7 @@ def test_rust_bridge_softmax(rust_lib):
     data_copy = data.copy()
     data_ptr = data_copy.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
 
-    status = rust_lib.parallax_softmax_f32(data_ptr, rows, cols)
+    status = rust_lib.parallax_softmax_f32(data_ptr, data_copy.size, rows, cols)
     assert status == 0
 
     np.testing.assert_allclose(data_copy, expected, rtol=1e-5, atol=1e-5)
