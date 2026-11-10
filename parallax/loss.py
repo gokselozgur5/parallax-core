@@ -88,7 +88,7 @@ def cross_entropy_loss(
     return out
 
 
-def compute_perplexity(loss_value: float) -> float:
+def perplexity_from_loss(loss_value: float) -> float:
     """Computes perplexity (PPL) from cross-entropy loss in natural log scale.
 
     PPL = exp(CrossEntropyLoss)
@@ -97,4 +97,8 @@ def compute_perplexity(loss_value: float) -> float:
         return float(math.exp(loss_value))
     except OverflowError:
         return float("inf")
+
+
+# Backward compatibility alias
+compute_perplexity = perplexity_from_loss
 
