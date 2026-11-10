@@ -230,6 +230,7 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         global CURRENT_MODEL, CURRENT_TOKENIZER
         prompt_text = req.get("prompt", "par")
         max_new = int(req.get("max_new_tokens", 20))
+        max_new = max(1, min(max_new, MAX_NEW_TOKENS))
         temp = float(req.get("temperature", 0.7))
         top_k = req.get("top_k", 5)
         top_k = int(top_k) if top_k is not None else None
@@ -395,6 +396,7 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
     def handle_train_step(self, req: Dict[str, Any]):
         global CURRENT_MODEL, DEMO_OPTIM, IS_QUANTIZED, UNQUANTIZED_MODEL
         num_steps = int(req.get("steps", 5))
+        num_steps = max(1, min(num_steps, MAX_STEPS))
         lr = float(req.get("lr", 0.04))
         if IS_QUANTIZED and UNQUANTIZED_MODEL is not None:
             CURRENT_MODEL = UNQUANTIZED_MODEL
@@ -443,6 +445,7 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         chosen_text = req.get("chosen", "parallax builds clarity and depth")
         rejected_text = req.get("rejected", "parallax creates confusion and noise")
         steps = int(req.get("steps", 5))
+        steps = max(1, min(steps, MAX_STEPS))
 
         chosen_ids = CURRENT_TOKENIZER.encode(chosen_text) or [0]
         rejected_ids = CURRENT_TOKENIZER.encode(rejected_text) or [0]
@@ -514,6 +517,7 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         rejected_text = req.get("rejected", "parallax creates confusion and noise")
         beta = float(req.get("beta", 0.1))
         steps = int(req.get("steps", 3))
+        steps = max(1, min(steps, MAX_STEPS))
 
         chosen_ids = CURRENT_TOKENIZER.encode(chosen_text) or [0, 0]
         rejected_ids = CURRENT_TOKENIZER.encode(rejected_text) or [0, 0]
