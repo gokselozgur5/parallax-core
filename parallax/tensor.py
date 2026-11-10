@@ -239,15 +239,20 @@ class Tensor:
 
         topo: List["Tensor"] = []
         visited: Set["Tensor"] = set()
+        stack: List[Tuple["Tensor", bool]] = [(self, False)]
 
-        def build_topo(t: "Tensor") -> None:
-            if t not in visited:
-                visited.add(t)
-                for child in t._prev:
-                    build_topo(child)
-                topo.append(t)
-
-        build_topo(self)
+        while stack:
+            node, processed = stack.pop()
+            if processed:
+                topo.append(node)
+                continue
+            if node in visited:
+                continue
+            visited.add(node)
+            stack.append((node, True))
+            for child in node._prev:
+                if child not in visited:
+                    stack.append((child, False))
 
         for node in reversed(topo):
             node._backward()
