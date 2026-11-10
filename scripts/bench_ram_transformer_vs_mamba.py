@@ -103,6 +103,25 @@ def _measure_mamba_model_state(model: BitMambaLM, batch_size: int, dtype_bytes: 
     return theo_bytes, meas_bytes
 
 
+def _benchmark_mamba_step(model: BitMambaLM, batch_size: int, repeats: int, warmup: int) -> float:
+    """Measures single-token autoregressive decoding latency with state caching."""
+    step_states = [
+        (np.zeros((batch_size, b.d_inner, b.d_state)),
+         np.zeros((batch_size, b.d_inner, b.conv_weight.data.shape[1])))
+        for b in model.blocks
+    ]
+    next_tok = np.random.randint(0, model.config.vocab_size, size=(batch_size, 1))
+    with no_grad():
+        for _ in range(warmup):
+            _, step_states = model(next_tok, states=step_states)
+        latencies = []
+        for _ in range(repeats):
+            t0 = time.perf_counter()
+            _, step_states = model(next_tok, states=step_states)
+            latencies.append((time.perf_counter() - t0) * 1000.0)
+    return float(np.median(latencies))
+
+
 def benchmark_mamba(
     block: MambaBlock,
     batch_size: int,
