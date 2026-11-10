@@ -206,3 +206,14 @@ def test_quantize_int4_exact_levels_kill_3bit():
     assert len(unique_levels) == 16
     assert unique_levels.max() == 15
 
+
+def test_quantize_int4_nmse_tight_bound_kill_3bit():
+    """Verify tight NMSE bound (< 0.015) rejecting 3-bit (NMSE ~0.028)."""
+    np.random.seed(1337)
+    weight = np.random.randn(64, 256).astype(np.float64)
+    packed, scales, zeros = quantize_int4_groupwise(weight, group_size=32)
+    w_recon = dequantize_int4_groupwise(packed, scales, zeros, group_size=32)
+    nmse = np.mean((weight - w_recon) ** 2) / np.var(weight)
+    assert nmse < 0.015, f"NMSE {nmse:.4f} exceeds 4-bit threshold (3-bit leak)"
+
+
