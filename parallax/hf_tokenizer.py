@@ -80,7 +80,7 @@ _N_CLASS_PAT = _build_class_pattern("N")
 
 
 def _translate_hf_regex(pattern: str) -> str:
-    """Translates HuggingFace Rust regex pattern (with \p{L}/\p{N}) to Python re."""
+    r"""Translates HuggingFace Rust regex pattern (with \p{L}/\p{N}) to Python re."""
     out = []
     in_bracket = False
     i = 0
