@@ -147,8 +147,60 @@ def gguf_metadata_to_parallax(
 def load_gguf_weights_into_model(
     model: ParallaxLM,
     gguf_tensors: Dict[str, np.ndarray],
+    strict: bool = True,
 ) -> ParallaxLM:
     """Maps standard GGUF tensor dictionary into ParallaxLM parameters."""
+    expected_keys = [
+        "token_embd.weight",
+        "output_norm.weight",
+    ]
+    if not model.config.tie_weights:
+        expected_keys.append("output.weight")
+
+    for i in range(model.config.num_layers):
+        expected_keys.extend([
+            f"blk.{i}.attn_norm.weight",
+            f"blk.{i}.ffn_norm.weight",
+            f"blk.{i}.attn_q.weight",
+            f"blk.{i}.attn_k.weight",
+            f"blk.{i}.attn_v.weight",
+            f"blk.{i}.attn_output.weight",
+        ])
+        if model.config.qkv_bias:
+            expected_keys.extend([
+                f"blk.{i}.attn_q.bias",
+                f"blk.{i}.attn_k.bias",
+                f"blk.{i}.attn_v.bias",
+                f"blk.{i}.attn_output.bias",
+            ])
+        if model.config.use_swiglu:
+            expected_keys.extend([
+                f"blk.{i}.ffn_gate.weight",
+                f"blk.{i}.ffn_up.weight",
+                f"blk.{i}.ffn_down.weight",
+            ])
+        else:
+            expected_keys.extend([
+                f"blk.{i}.ffn_up.weight",
+                f"blk.{i}.ffn_down.weight",
+            ])
+            block = model.blocks[i]
+            if hasattr(block.mlp, "fc1") and block.mlp.fc1.bias is not None:
+                expected_keys.append(f"blk.{i}.ffn_up.bias")
+            if hasattr(block.mlp, "fc2") and block.mlp.fc2.bias is not None:
+                expected_keys.append(f"blk.{i}.ffn_down.bias")
+
+    missing_keys = [k for k in expected_keys if k not in gguf_tensors]
+    unexpected_keys = [k for k in gguf_tensors if k not in expected_keys]
+
+    model._missing_keys = missing_keys
+    model._unexpected_keys = unexpected_keys
+
+    if strict and (missing_keys or unexpected_keys):
+        raise RuntimeError(
+            f"Strict GGUF weight loading failed. Missing: {missing_keys}, Unexpected: {unexpected_keys}"
+        )
+
     # 1. Token Embeddings
     _assign_param(model.token_embeddings.weight, gguf_tensors, "token_embd.weight")
 
@@ -198,12 +250,13 @@ def load_gguf_weights_into_model(
 def load_gguf_pretrained(
     file_path: str,
     return_tokenizer: bool = False,
+    strict: bool = True,
 ) -> Union[ParallaxLM, Tuple[ParallaxLM, GGUFTokenizer]]:
     """Parses a GGUF file and instantiates a ready-to-run ParallaxLM model, optionally returning its tokenizer."""
     gguf_file = load_gguf(file_path, cast_float64=True)
     p_config = gguf_metadata_to_parallax(gguf_file.metadata, gguf_file.tensors)
     model = ParallaxLM(p_config)
-    load_gguf_weights_into_model(model, gguf_file.tensors)
+    load_gguf_weights_into_model(model, gguf_file.tensors, strict=strict)
 
     if return_tokenizer:
         tokenizer = load_gguf_tokenizer(gguf_file)
@@ -305,12 +358,23 @@ def save_parallax_to_gguf(
 
         if block.attn.q_proj.bias is not None:
             tensors[f"blk.{i}.attn_q.bias"] = block.attn.q_proj.bias.data.astype(np.float32)
+        elif cfg.qkv_bias:
+            tensors[f"blk.{i}.attn_q.bias"] = np.zeros(block.attn.q_proj.out_features, dtype=np.float32)
+
         if block.attn.k_proj.bias is not None:
             tensors[f"blk.{i}.attn_k.bias"] = block.attn.k_proj.bias.data.astype(np.float32)
+        elif cfg.qkv_bias:
+            tensors[f"blk.{i}.attn_k.bias"] = np.zeros(block.attn.k_proj.out_features, dtype=np.float32)
+
         if block.attn.v_proj.bias is not None:
             tensors[f"blk.{i}.attn_v.bias"] = block.attn.v_proj.bias.data.astype(np.float32)
+        elif cfg.qkv_bias:
+            tensors[f"blk.{i}.attn_v.bias"] = np.zeros(block.attn.v_proj.out_features, dtype=np.float32)
+
         if block.attn.out_proj.bias is not None:
             tensors[f"blk.{i}.attn_output.bias"] = block.attn.out_proj.bias.data.astype(np.float32)
+        elif cfg.qkv_bias:
+            tensors[f"blk.{i}.attn_output.bias"] = np.zeros(block.attn.out_proj.out_features, dtype=np.float32)
 
         if hasattr(block.mlp, "w_gate"):
             tensors[f"blk.{i}.ffn_gate.weight"] = block.mlp.w_gate.weight.data.astype(np.float32)
