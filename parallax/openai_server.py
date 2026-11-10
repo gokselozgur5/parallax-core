@@ -15,10 +15,23 @@ from parallax.batching import ContinuousBatchEngine, RequestStatus, SequenceRequ
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 
 
+DEFAULT_MAX_REQUEST_BYTES = 10 * 1024 * 1024  # 10MB
+
+
 class OpenAIServerState:
-    def __init__(self, model: ParallaxLM, model_name: str = "parallax-lm"):
+    def __init__(
+        self,
+        model: ParallaxLM,
+        model_name: str = "parallax-lm",
+        max_request_bytes: int = DEFAULT_MAX_REQUEST_BYTES,
+        max_tokens_limit: Optional[int] = None,
+    ):
         self.model = model
         self.model_name = model_name
+        self.max_request_bytes = max_request_bytes
+        # Context limit fallback from model config or custom limit
+        model_ctx = getattr(model.config, "max_seq_len", None)
+        self.max_tokens_limit = max_tokens_limit if max_tokens_limit is not None else model_ctx
         self.engine = ContinuousBatchEngine(model=model, max_batch_size=8)
 
 
@@ -59,12 +72,28 @@ def create_handler(state: OpenAIServerState):
         def do_POST(self) -> None:
             if self.path == "/v1/chat/completions":
                 try:
-                    content_length = int(self.headers.get("Content-Length", 0))
+                    content_length_header = self.headers.get("Content-Length")
+                    try:
+                        content_length = int(content_length_header) if content_length_header is not None else 0
+                    except ValueError:
+                        self._send_json(400, {"error": {"message": "Invalid Content-Length header", "type": "invalid_request_error"}})
+                        return
+
+                    if content_length < 0:
+                        self._send_json(400, {"error": {"message": "Negative Content-Length not allowed", "type": "invalid_request_error"}})
+                        return
+
+                    if content_length > state.max_request_bytes:
+                        self._send_json(413, {"error": {"message": "Request entity too large", "type": "invalid_request_error"}})
+                        return
+
                     body = self.rfile.read(content_length)
                     data = json.loads(body.decode("utf-8"))
 
                     messages = data.get("messages", [])
                     max_tokens = int(data.get("max_tokens", 32))
+                    if state.max_tokens_limit is not None:
+                        max_tokens = min(max_tokens, state.max_tokens_limit)
                     temperature = float(data.get("temperature", 0.0))
                     stream = bool(data.get("stream", False))
 
