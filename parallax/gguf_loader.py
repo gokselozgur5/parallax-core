@@ -114,7 +114,13 @@ def gguf_metadata_to_parallax(
         use_swiglu = True
 
     # RoPE layout convention
-    rope_interleaved = bool(metadata.get(f"{arch}.rope.interleaved", False))
+    # When omitted in metadata:
+    # - llama, mistral: llama.cpp permutes weights to interleaved layout (default: True)
+    # - qwen2, phi, gemma, etc.: standard contiguous layout (default: False)
+    if f"{arch}.rope.interleaved" in metadata:
+        rope_interleaved = bool(metadata[f"{arch}.rope.interleaved"])
+    else:
+        rope_interleaved = arch in ("llama", "mistral")
 
     return ParallaxLMConfig(
         vocab_size=vocab_size,
