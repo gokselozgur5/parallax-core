@@ -163,3 +163,18 @@ def test_c_gemm_vector_tail_shapes(N):
     expected = (A.astype(np.float64) @ B.astype(np.float64)).astype(np.float32)
     result = c_gemm(A, B)
     np.testing.assert_allclose(result, expected, rtol=1e-4, atol=1e-4)
+
+
+def test_c_softmax_large_logits_and_special_values():
+    if not is_c_engine_available():
+        pytest.skip("C engine native library not available")
+    X_large = np.array([[100.0, 90.0]], dtype=np.float32)
+    res_large = c_softmax(X_large)
+    assert not np.isnan(res_large).any()
+    np.testing.assert_allclose(res_large[0, 0], 1.0 / (1.0 + np.exp(-10.0)), rtol=1e-5, atol=1e-5)
+
+    X_special = np.array([[1.0, -np.inf, 2.0], [5.0, 5.0, 5.0]], dtype=np.float32)
+    res_special = c_softmax(X_special)
+    assert res_special[0, 1] == 0.0
+    np.testing.assert_allclose(np.sum(res_special[0]), 1.0, rtol=1e-5, atol=1e-5)
+    np.testing.assert_allclose(res_special[1], 1.0 / 3.0, rtol=1e-5, atol=1e-5)
