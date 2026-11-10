@@ -217,3 +217,21 @@ def test_quantize_int4_nmse_tight_bound_kill_3bit():
     assert nmse < 0.015, f"NMSE {nmse:.4f} exceeds 4-bit threshold (3-bit leak)"
 
 
+def test_linear4bit_nonzero_bias_preservation():
+    """Verify non-zero bias preservation and forward contribution in Linear4Bit."""
+    np.random.seed(42)
+    in_features, out_features = 64, 32
+    lin = Linear(in_features, out_features, bias=True)
+    bias_vec = np.linspace(1.0, 5.0, out_features)
+    lin.bias.data = bias_vec.copy()
+    l4 = Linear4Bit.from_linear(lin, group_size=32)
+    assert l4.bias_data is not None
+    np.testing.assert_array_equal(l4.bias_data, bias_vec)
+
+    x_zero = Tensor(np.zeros((2, 3, in_features)))
+    out = l4(x_zero)
+    expected = np.broadcast_to(bias_vec, (2, 3, out_features))
+    np.testing.assert_allclose(out.data, expected, atol=1e-6)
+
+
+
