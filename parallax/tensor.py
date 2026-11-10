@@ -195,16 +195,23 @@ class Tensor:
         out._backward = _backward
         return out
 
-    def sum(self, axis: Optional[Union[int, Tuple[int, ...]]] = None, keepdims: bool = False) -> "Tensor":
-        out_data = self.data.sum(axis=axis, keepdims=keepdims)
+    def sum(self, axis: Optional[Union[int, Sequence[int]]] = None, keepdims: bool = False) -> "Tensor":
+        if axis is not None:
+            if isinstance(axis, (int, np.integer)):
+                norm_axis = int(axis)
+            else:
+                norm_axis = tuple(int(a) for a in axis)
+        else:
+            norm_axis = None
+        out_data = self.data.sum(axis=norm_axis, keepdims=keepdims)
         out = Tensor(out_data, (self,), "sum")
 
         def _backward() -> None:
             if self.requires_grad and self.grad is not None:
                 grad = out.grad
-                if not keepdims and axis is not None:
+                if not keepdims and norm_axis is not None:
                     # Expand dimensions back for broadcasting
-                    axes = (axis,) if isinstance(axis, int) else axis
+                    axes = (norm_axis,) if isinstance(norm_axis, int) else norm_axis
                     shape = list(self.shape)
                     for ax in axes:
                         shape[ax] = 1
@@ -214,10 +221,17 @@ class Tensor:
         out._backward = _backward
         return out
 
-    def mean(self, axis: Optional[Union[int, Tuple[int, ...]]] = None, keepdims: bool = False) -> "Tensor":
-        s = self.sum(axis=axis, keepdims=keepdims)
-        num_elements = self.data.size if axis is None else (
-            np.prod([self.shape[ax] for ax in ((axis,) if isinstance(axis, int) else axis)])
+    def mean(self, axis: Optional[Union[int, Sequence[int]]] = None, keepdims: bool = False) -> "Tensor":
+        if axis is not None:
+            if isinstance(axis, (int, np.integer)):
+                norm_axis = int(axis)
+            else:
+                norm_axis = tuple(int(a) for a in axis)
+        else:
+            norm_axis = None
+        s = self.sum(axis=norm_axis, keepdims=keepdims)
+        num_elements = self.data.size if norm_axis is None else (
+            np.prod([self.shape[ax] for ax in ((norm_axis,) if isinstance(norm_axis, int) else norm_axis)])
         )
         return s * (1.0 / num_elements)
 
