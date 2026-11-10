@@ -110,8 +110,10 @@ def apply_lora_to_model(
     Returns:
         List of created LoRALinear instances.
     """
-    # 1. Freeze all model parameters first
+    # 1. Freeze base model parameters, skipping existing LoRA adapter parameters
     for p in model.parameters():
+        if getattr(p, "label", None) and "lora_" in p.label.lower():
+            continue
         p.requires_grad = False
         p.grad = None
 
