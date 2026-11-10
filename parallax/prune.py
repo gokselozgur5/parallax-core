@@ -24,11 +24,14 @@ def prune_unstructured_magnitude(
         return np.zeros_like(weights), np.zeros_like(weights, dtype=bool)
 
     abs_vals = np.abs(weights).flatten()
-    k = int(np.round(sparsity * len(abs_vals)))
-    k = min(max(k, 1), len(abs_vals) - 1)
+    n = len(abs_vals)
+    k = int(np.round(sparsity * n))
+    k = min(max(k, 1), n - 1)
 
-    threshold = np.partition(abs_vals, k)[k]
-    mask = np.abs(weights) >= threshold
+    pruned_indices = np.argpartition(abs_vals, k)[:k]
+    mask_flat = np.ones(n, dtype=bool)
+    mask_flat[pruned_indices] = False
+    mask = mask_flat.reshape(weights.shape)
 
     pruned = weights * mask
     return pruned, mask
