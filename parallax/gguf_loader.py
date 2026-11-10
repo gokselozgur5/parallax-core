@@ -170,6 +170,8 @@ def load_gguf_weights_into_model(
         elif hasattr(block.mlp, "fc1"):
             _assign_param(block.mlp.fc1.weight, gguf_tensors, f"blk.{i}.ffn_up.weight")
             _assign_param(block.mlp.fc2.weight, gguf_tensors, f"blk.{i}.ffn_down.weight")
+            _assign_bias(block.mlp.fc1, gguf_tensors, f"blk.{i}.ffn_up.bias")
+            _assign_bias(block.mlp.fc2, gguf_tensors, f"blk.{i}.ffn_down.bias")
 
     # 3. Final Norm
     _assign_param(model.final_norm.weight, gguf_tensors, "output_norm.weight")
@@ -295,5 +297,9 @@ def save_parallax_to_gguf(
         elif hasattr(block.mlp, "fc1"):
             tensors[f"blk.{i}.ffn_up.weight"] = block.mlp.fc1.weight.data.astype(np.float32)
             tensors[f"blk.{i}.ffn_down.weight"] = block.mlp.fc2.weight.data.astype(np.float32)
+            if block.mlp.fc1.bias is not None:
+                tensors[f"blk.{i}.ffn_up.bias"] = block.mlp.fc1.bias.data.astype(np.float32)
+            if block.mlp.fc2.bias is not None:
+                tensors[f"blk.{i}.ffn_down.bias"] = block.mlp.fc2.bias.data.astype(np.float32)
 
     save_gguf(file_path, metadata=metadata, tensors=tensors, version=3)
