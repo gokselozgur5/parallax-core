@@ -113,6 +113,13 @@ def _objc_send(ret_type, target, sel_name: str | bytes, *args):
     return fn(target, sel, *args)
 
 
+def _release_buffers(*buffers: Optional[ctypes.c_void_p]) -> None:
+    """Release Objective-C / Metal buffers created with retain count +1."""
+    for buf in buffers:
+        if buf:
+            _objc_send(None, buf, "release")
+
+
 def _cf_string(s: str) -> ctypes.c_void_p:
     """Create NSString / CFStringRef from Python string."""
     global _CF
