@@ -98,9 +98,12 @@ def quantize_q4_0(arr: np.ndarray) -> bytes:
     n_blocks = n_elements // QK4_0
     blocks = flat.reshape(n_blocks, QK4_0)
 
-    # Compute max absolute value per block
-    max_abs = np.max(np.abs(blocks), axis=1, keepdims=True)
-    deltas = (max_abs / 8.0).astype("<f2")
+    # Compute signed extreme per block (matching ggml reference)
+    abs_blocks = np.abs(blocks)
+    max_abs_idx = np.argmax(abs_blocks, axis=1, keepdims=True)
+    amax = np.take_along_axis(blocks, max_abs_idx, axis=1)
+
+    deltas = np.where(amax < 0.0, amax / -8.0, amax / 7.0).astype("<f2")
     scale = np.where(deltas.astype(np.float32) == 0.0, 1.0, deltas.astype(np.float32))
 
     # Quantize: x / scale + 8
