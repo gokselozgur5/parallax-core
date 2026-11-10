@@ -62,6 +62,8 @@ flowchart LR
 
 > [!NOTE]
 > The modules `parallax/self_speculative.py`, `parallax/medusa.py`, and `parallax/early_exit.py` serve as architectural verification-loop sketches / prototypes illustrating candidate verification loops without learned drafting models.
+>
+> In addition, advanced optimization and adapter kernels (`parallax/xlora.py`, `parallax/dora.py`, `parallax/muon.py`, `parallax/qgalore.py`, and `parallax/fp8.py`) are provided as standalone mathematical kernels operating directly on NumPy arrays, decoupled from `parallax.nn.Module`, `parallax.optim.AdamW`, and `ParallaxLM` autograd execution.
 
 
 ---

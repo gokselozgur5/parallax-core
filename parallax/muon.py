@@ -3,6 +3,11 @@
 Reference: Keller Jordan et al., 2024 - Muon: An optimizer for hidden layers in neural networks.
 Applies Newton-Schulz iterations to orthogonalize momentum matrices, achieving
 superior convergence speed on 2D weight matrices.
+
+Integration contract:
+    Standalone mathematical optimizer kernel. Operates on pure NumPy parameter and
+    gradient arrays with Newton-Schulz orthogonalization. Standalone optimizer
+    not wired to parallax.trainer.Trainer or ParallaxLM autograd parameters.
 """
 
 from typing import List, Dict, Optional
