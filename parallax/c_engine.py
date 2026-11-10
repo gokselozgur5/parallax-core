@@ -45,7 +45,14 @@ def _find_or_build_library() -> Optional[ctypes.CDLL]:
     if _LIB_LOAD_ATTEMPTED:
         return _C_LIB
 
-    _LIB_LOAD_ATTEMPTED = True
+    with _INIT_LOCK:
+        if _LIB_LOAD_ATTEMPTED:
+            return _C_LIB
+        return _find_or_build_library_unlocked()
+
+
+def _find_or_build_library_unlocked() -> Optional[ctypes.CDLL]:
+    global _C_LIB, _LIB_LOAD_ATTEMPTED, _LOAD_ERROR_REASON
     csrc_dir = Path(__file__).parent / "csrc"
     
     # Candidate shared library names
