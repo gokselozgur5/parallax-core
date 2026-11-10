@@ -54,6 +54,17 @@ def unbroadcast_grad(grad: np.ndarray, target_shape: Tuple[int, ...]) -> np.ndar
     return grad.reshape(target_shape)
 
 
+def _accumulate_grad(tensor: "Tensor", grad: np.ndarray) -> None:
+    """Accumulate gradient into tensor lazily."""
+    if not tensor.requires_grad:
+        return
+    g = unbroadcast_grad(grad, tensor.shape)
+    if tensor.grad is None:
+        tensor.grad = np.array(g, dtype=np.float64)
+    else:
+        tensor.grad += g
+
+
 class Tensor:
     """N-dimensional tensor supporting reverse-mode automatic differentiation."""
 
@@ -78,9 +89,7 @@ class Tensor:
         else:
             self.requires_grad: bool = bool(requires_grad) and grad_enabled
 
-        self.grad: Optional[np.ndarray] = (
-            np.zeros_like(self.data, dtype=np.float64) if self.requires_grad else None
-        )
+        self.grad: Optional[np.ndarray] = None
         self._prev: Set["Tensor"] = set(_children) if self.requires_grad else set()
         self._op: str = _op
         self.label: str = label
@@ -99,18 +108,17 @@ class Tensor:
         return f"Tensor({name}shape={self.shape}, op='{self._op}')"
 
     def zero_grad(self) -> None:
-        if self.grad is not None:
-            self.grad.fill(0.0)
+        self.grad = None
 
     def __add__(self, other: TensorLike) -> "Tensor":
         other = other if isinstance(other, Tensor) else Tensor(other, requires_grad=False)
         out = Tensor(self.data + other.data, (self, other), "+")
 
         def _backward() -> None:
-            if self.requires_grad and self.grad is not None:
-                self.grad += unbroadcast_grad(out.grad, self.shape)
-            if other.requires_grad and other.grad is not None:
-                other.grad += unbroadcast_grad(out.grad, other.shape)
+            if out.grad is None:
+                return
+            _accumulate_grad(self, out.grad)
+            _accumulate_grad(other, out.grad)
 
         out._backward = _backward
         return out
@@ -132,12 +140,12 @@ class Tensor:
         out = Tensor(self.data * other.data, (self, other), "*")
 
         def _backward() -> None:
-            if self.requires_grad and self.grad is not None:
-                grad_self = out.grad * other.data
-                self.grad += unbroadcast_grad(grad_self, self.shape)
-            if other.requires_grad and other.grad is not None:
-                grad_other = out.grad * self.data
-                other.grad += unbroadcast_grad(grad_other, other.shape)
+            if out.grad is None:
+                return
+            if self.requires_grad:
+                _accumulate_grad(self, out.grad * other.data)
+            if other.requires_grad:
+                _accumulate_grad(other, out.grad * self.data)
 
         out._backward = _backward
         return out
@@ -165,19 +173,19 @@ class Tensor:
             else:
                 g_2d = out.grad
 
-            if self.requires_grad and self.grad is not None:
+            if self.requires_grad:
                 other_t = np.swapaxes(b_2d, -1, -2)
                 grad_self = g_2d @ other_t
                 if a_is_1d:
                     grad_self = np.squeeze(grad_self, axis=-2)
-                self.grad += unbroadcast_grad(grad_self, self.shape)
+                _accumulate_grad(self, grad_self)
 
-            if other.requires_grad and other.grad is not None:
+            if other.requires_grad:
                 self_t = np.swapaxes(a_2d, -1, -2)
                 grad_other = self_t @ g_2d
                 if b_is_1d:
                     grad_other = np.squeeze(grad_other, axis=-1)
-                other.grad += unbroadcast_grad(grad_other, other.shape)
+                _accumulate_grad(other, grad_other)
 
         out._backward = _backward
         return out
@@ -190,9 +198,11 @@ class Tensor:
         out = Tensor(np.transpose(self.data, norm_axes), (self,), "transpose")
 
         def _backward() -> None:
-            if self.requires_grad and self.grad is not None:
+            if out.grad is None:
+                return
+            if self.requires_grad:
                 inv_axes = np.argsort(norm_axes)
-                self.grad += np.transpose(out.grad, inv_axes)
+                _accumulate_grad(self, np.transpose(out.grad, inv_axes))
 
         out._backward = _backward
         return out
@@ -209,7 +219,9 @@ class Tensor:
         out = Tensor(out_data, (self,), "sum")
 
         def _backward() -> None:
-            if self.requires_grad and self.grad is not None:
+            if out.grad is None:
+                return
+            if self.requires_grad:
                 grad = out.grad
                 if not keepdims and norm_axis is not None:
                     # Expand dimensions back for broadcasting
@@ -218,7 +230,7 @@ class Tensor:
                     for ax in axes:
                         shape[ax] = 1
                     grad = grad.reshape(shape)
-                self.grad += np.broadcast_to(grad, self.shape)
+                _accumulate_grad(self, np.broadcast_to(grad, self.shape))
 
         out._backward = _backward
         return out
@@ -241,8 +253,10 @@ class Tensor:
         out = Tensor(np.maximum(self.data, 0.0), (self,), "relu")
 
         def _backward() -> None:
-            if self.requires_grad and self.grad is not None:
-                self.grad += (self.data > 0.0) * out.grad
+            if out.grad is None:
+                return
+            if self.requires_grad:
+                _accumulate_grad(self, (self.data > 0.0) * out.grad)
 
         out._backward = _backward
         return out
