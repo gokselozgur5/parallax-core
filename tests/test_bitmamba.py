@@ -137,3 +137,14 @@ def test_bitmamba_step_autoregressive_state_consistency():
 
     # Verify numerical equivalence between full sequence scan and O(1) recurrent stepping
     np.testing.assert_allclose(out_seq, out_stepped, atol=1e-5, rtol=1e-5)
+
+
+def test_bitmamba_step_mode_t_greater_than_one_raises():
+    """Verify ValueError is raised when states are passed with T > 1."""
+    block = BitMambaBlock(d_model=8, d_state=4, d_conv=3, expand=2)
+    ssm = np.zeros((1, block.d_inner, 4))
+    conv = np.zeros((1, block.d_inner, 3))
+    u = Tensor(np.random.randn(1, 5, 8))
+    with no_grad():
+        with pytest.raises(ValueError, match="BitMambaBlock step mode expects T=1"):
+            block(u, ssm_state=ssm, conv_state=conv)
