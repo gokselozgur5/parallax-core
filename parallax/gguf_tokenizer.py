@@ -9,18 +9,23 @@ import re
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from parallax.gguf import GGUFFile, load_gguf
+from parallax.hf_tokenizer import _UNICODE_TO_BYTE
 from parallax.tokenizer import BPETokenizer
 
 
 _BYTE_FALLBACK_RE = re.compile(r"^<0x([0-9a-fA-F]{2})>$")
 
 
-def _parse_gguf_token(token_str: str) -> bytes:
+def _parse_gguf_token(token_str: str, model_type: Optional[str] = None) -> bytes:
     """Converts a GGUF string token representation into raw bytes."""
     m = _BYTE_FALLBACK_RE.match(token_str)
     if m:
         byte_val = int(m.group(1), 16)
         return bytes([byte_val])
+    if model_type == "gpt2":
+        raw = bytes([_UNICODE_TO_BYTE[c] for c in token_str if c in _UNICODE_TO_BYTE])
+        if raw:
+            return raw
     # llama.cpp BPE uses   (U+2581 Lower One Eighth Block) for space
     normalized = token_str.replace("\u2581", " ")
     return normalized.encode("utf-8")
@@ -37,6 +42,7 @@ class GGUFTokenizer:
         eos_token_id: Optional[int] = None,
         pad_token_id: Optional[int] = None,
         unk_token_id: Optional[int] = None,
+        model_type: Optional[str] = None,
     ):
         self.raw_tokens = tokens
         self.vocab_size = len(tokens)
@@ -44,6 +50,7 @@ class GGUFTokenizer:
         self.eos_token_id = eos_token_id
         self.pad_token_id = pad_token_id
         self.unk_token_id = unk_token_id
+        self.model_type = model_type
 
         # Mapping: token_id -> raw bytes
         self.id_to_bytes: Dict[int, bytes] = {}
@@ -54,7 +61,7 @@ class GGUFTokenizer:
 
         for idx, tok in enumerate(tokens):
             self.token_to_id[tok] = idx
-            parsed_bytes = _parse_gguf_token(tok)
+            parsed_bytes = _parse_gguf_token(tok, model_type=model_type)
             self.id_to_bytes[idx] = parsed_bytes
             if parsed_bytes not in self.bytes_to_id:
                 self.bytes_to_id[parsed_bytes] = idx
@@ -170,6 +177,10 @@ def load_gguf_tokenizer(source: Union[str, GGUFFile]) -> GGUFTokenizer:
     if unk_token_id is not None:
         unk_token_id = int(unk_token_id)
 
+    model_type = metadata.get("tokenizer.ggml.model")
+    if model_type is not None:
+        model_type = str(model_type)
+
     return GGUFTokenizer(
         tokens=tokens,
         merges=merges,
@@ -177,4 +188,5 @@ def load_gguf_tokenizer(source: Union[str, GGUFFile]) -> GGUFTokenizer:
         eos_token_id=eos_token_id,
         pad_token_id=pad_token_id,
         unk_token_id=unk_token_id,
+        model_type=model_type,
     )
