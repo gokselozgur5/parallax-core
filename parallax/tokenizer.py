@@ -8,9 +8,10 @@ Implements byte-level BPE tokenization from first principles:
 - Deterministic subword token encoding and decoding
 """
 
+import codecs
 import json
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 def get_pair_stats(ids: List[int], counts: Optional[Dict[Tuple[int, int], int]] = None) -> Dict[Tuple[int, int], int]:
@@ -165,3 +166,38 @@ class BPETokenizer:
             tokenizer.vocab[new_id] = tokenizer.vocab[pair[0]] + tokenizer.vocab[pair[1]]
 
         return tokenizer
+
+
+class IncrementalTokenDecoder:
+    """Incremental UTF-8 token decoder for streaming generation.
+
+    Decodes tokens progressively, buffering incomplete multi-byte UTF-8 sequences
+    so that multi-byte characters split across token boundaries are not corrupted
+    into replacement characters (U+FFFD).
+    """
+
+    def __init__(self, tokenizer: Optional[Any] = None, errors: str = "replace"):
+        self.tokenizer = tokenizer
+        self.decoder = codecs.getincrementaldecoder("utf-8")(errors=errors)
+
+    def decode_token(self, token_id: int) -> str:
+        """Decodes a single token into newly completed text characters."""
+        if self.tokenizer is None:
+            return f"[{token_id}] "
+
+        raw_bytes: Optional[bytes] = None
+        if hasattr(self.tokenizer, "id_to_bytes") and isinstance(self.tokenizer.id_to_bytes, dict):
+            raw_bytes = self.tokenizer.id_to_bytes.get(token_id)
+        elif hasattr(self.tokenizer, "vocab") and isinstance(self.tokenizer.vocab, dict):
+            val = self.tokenizer.vocab.get(token_id)
+            if isinstance(val, bytes):
+                raw_bytes = val
+
+        if raw_bytes is None:
+            raw_bytes = self.tokenizer.decode([token_id]).encode("utf-8", errors="replace")
+
+        return self.decoder.decode(raw_bytes, final=False)
+
+    def finish(self) -> str:
+        """Flushes any remaining buffered bytes."""
+        return self.decoder.decode(b"", final=True)
