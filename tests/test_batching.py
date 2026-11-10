@@ -132,3 +132,60 @@ def test_continuous_batch_engine_step_runs_under_no_grad():
     assert all(enabled is False for enabled in spy_model.grad_enabled_log)
 
 
+def test_continuous_batch_engine_concurrent_requests():
+    import threading
+    import time
+
+    config = ParallaxLMConfig(
+        vocab_size=32,
+        embed_dim=16,
+        num_layers=1,
+        num_heads=2,
+        max_seq_len=64,
+        use_swiglu=False,
+    )
+    model = ParallaxLM(config)
+    engine = ContinuousBatchEngine(model=model, max_batch_size=4)
+
+    def producer(start_idx: int):
+        for i in range(3):
+            req = SequenceRequest(
+                request_id=f"thread-{start_idx}-{i}",
+                prompt_tokens=[1, 2, 3],
+                max_new_tokens=2,
+            )
+            engine.add_request(req)
+            time.sleep(0.005)
+
+    threads = [
+        threading.Thread(target=producer, args=(1,)),
+        threading.Thread(target=producer, args=(2,)),
+    ]
+    for t in threads:
+        t.start()
+
+    # Consumer loop running concurrently
+    completed = 0
+    safety = 0
+    while completed < 6 and safety < 100:
+        outputs = engine.step()
+        if not outputs:
+            time.sleep(0.005)
+        completed = len(engine.completed_requests)
+        safety += 1
+
+    for t in threads:
+        t.join()
+
+    # Finish any remaining
+    while engine.has_unfinished_requests() and safety < 150:
+        engine.step()
+        safety += 1
+
+    assert len(engine.completed_requests) == 6
+    for req in engine.completed_requests.values():
+        assert req.status == RequestStatus.FINISHED
+        assert len(req.generated_tokens) == 2
+
+
+
