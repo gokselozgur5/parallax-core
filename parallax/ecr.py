@@ -14,7 +14,8 @@ class ExpertChoiceRouter:
     def compute_expert_capacity(self, num_tokens: int) -> int:
         """Calculate uniform token capacity per expert."""
         cap = int(np.ceil((num_tokens * self.capacity_factor) / self.num_experts))
-        return max(1, cap)
+        capacity = max(1, cap)
+        return min(capacity, num_tokens)
 
     def route_tokens(
         self, gating_scores: np.ndarray
