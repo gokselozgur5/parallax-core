@@ -116,12 +116,12 @@ def prune_model(
         # Attention projection layers
         if "attn" in targets:
             attn_layers = [
-                block.attn.q_proj,
-                block.attn.k_proj,
-                block.attn.v_proj,
-                block.attn.out_proj,
+                ("q_proj", block.attn.q_proj),
+                ("k_proj", block.attn.k_proj),
+                ("v_proj", block.attn.v_proj),
+                ("out_proj", block.attn.out_proj),
             ]
-            for layer in attn_layers:
+            for name, layer in attn_layers:
                 if method == "2:4":
                     pruned_w, mask = prune_2_to_4_structured(layer.weight.data, sparsity=sparsity)
                 elif method == "magnitude":
@@ -130,24 +130,38 @@ def prune_model(
                     raise ValueError(f"Unknown pruning method: {method}")
                 layer.weight.data = pruned_w
                 layer.weight.mask = mask
-                model_masks[f"block.{i}.attn.{layer.weight.label}"] = mask
+                model_masks[f"block.{i}.attn.{name}"] = mask
                 pruned_layers_count += 1
 
         # MLP projection layers
         if "mlp" in targets:
             mlp_layers = []
             if hasattr(block.mlp, "experts"):
-                for exp in block.mlp.experts:
+                for exp_idx, exp in enumerate(block.mlp.experts):
                     if hasattr(exp, "w_gate"):
-                        mlp_layers.extend([exp.w_gate, exp.w_up, exp.w_down])
+                        mlp_layers.extend([
+                            (f"expert.{exp_idx}.w_gate", exp.w_gate),
+                            (f"expert.{exp_idx}.w_up", exp.w_up),
+                            (f"expert.{exp_idx}.w_down", exp.w_down),
+                        ])
                     elif hasattr(exp, "fc1"):
-                        mlp_layers.extend([exp.fc1, exp.fc2])
+                        mlp_layers.extend([
+                            (f"expert.{exp_idx}.fc1", exp.fc1),
+                            (f"expert.{exp_idx}.fc2", exp.fc2),
+                        ])
             elif hasattr(block.mlp, "w_gate"):
-                mlp_layers.extend([block.mlp.w_gate, block.mlp.w_up, block.mlp.w_down])
+                mlp_layers.extend([
+                    ("w_gate", block.mlp.w_gate),
+                    ("w_up", block.mlp.w_up),
+                    ("w_down", block.mlp.w_down),
+                ])
             elif hasattr(block.mlp, "fc1"):
-                mlp_layers.extend([block.mlp.fc1, block.mlp.fc2])
+                mlp_layers.extend([
+                    ("fc1", block.mlp.fc1),
+                    ("fc2", block.mlp.fc2),
+                ])
 
-            for layer in mlp_layers:
+            for name, layer in mlp_layers:
                 if method == "2:4":
                     pruned_w, mask = prune_2_to_4_structured(layer.weight.data, sparsity=sparsity)
                 elif method == "magnitude":
@@ -156,7 +170,7 @@ def prune_model(
                     raise ValueError(f"Unknown pruning method: {method}")
                 layer.weight.data = pruned_w
                 layer.weight.mask = mask
-                model_masks[f"block.{i}.mlp.{layer.weight.label}"] = mask
+                model_masks[f"block.{i}.mlp.{name}"] = mask
                 pruned_layers_count += 1
 
     stats = calculate_model_sparsity(model)
