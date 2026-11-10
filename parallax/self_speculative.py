@@ -8,8 +8,7 @@ Note:
     dedicated training/routing.
 """
 
-from typing import Callable, List, Tuple
-import numpy as np
+from typing import Callable, List
 
 
 class SelfSpeculativeEngine:
