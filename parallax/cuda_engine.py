@@ -9,11 +9,9 @@ Delivers 50-200+ tokens/sec on NVIDIA RTX 3090/4090 GPUs.
 
 from __future__ import annotations
 
-import math
 import os
 import time
-from typing import Generator, List, Optional, Tuple, Dict, Any
-import numpy as np
+from typing import Generator, List, Optional, Tuple, Dict
 
 try:
     import torch

@@ -10,7 +10,6 @@ using only the Python standard library (`struct`) and NumPy:
 """
 
 from dataclasses import dataclass, field
-import io
 import math
 import os
 import struct

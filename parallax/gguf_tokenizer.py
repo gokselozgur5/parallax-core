@@ -6,11 +6,10 @@ from GGUF metadata headers without requiring sentencepiece, protobuf, or hugging
 """
 
 import re
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from parallax.gguf import GGUFFile, load_gguf
 from parallax.hf_tokenizer import _UNICODE_TO_BYTE
-from parallax.tokenizer import BPETokenizer
 
 
 _BYTE_FALLBACK_RE = re.compile(r"^<0x([0-9a-fA-F]{2})>$")
