@@ -37,7 +37,14 @@ def reference_attention(
     v: np.ndarray,
     is_causal: bool = True,
 ) -> np.ndarray:
-    """Exact full-matrix attention reference implementation."""
+    """Exact full-matrix attention reference implementation.
+
+    Note on causal alignment with Tq != Tk:
+        Causal masking uses top-left alignment (query index `i` can attend to key
+        index `j` if `i >= j`), matching PyTorch SDPA default conventions. When
+        decoding with an external KV cache where Tq < Tk, callers with bottom-right
+        alignment requirements should manage offsets or masking before dispatch.
+    """
     B, H, Tq, d = q.shape
     Tk = k.shape[2]
     scale = 1.0 / np.sqrt(d)
@@ -58,7 +65,12 @@ def flash_attention_forward(
     block_r: int = 16,
     block_c: int = 16,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Exact FlashAttention-2 forward pass using blocked matrix tiling."""
+    """Exact FlashAttention-2 forward pass using blocked matrix tiling.
+
+    Supports arbitrary query and key sequence lengths (Tq != Tk). Under causal
+    masking (`is_causal=True`), uses top-left causal alignment where query `i`
+    attends to keys `j <= i` (consistent with reference_attention and PyTorch SDPA).
+    """
     B, H, Tq, d = q.shape
     Tk = k.shape[2]
     scale = 1.0 / np.sqrt(d)
@@ -160,7 +172,11 @@ def flash_attention_backward(
     block_r: int = 16,
     block_c: int = 16,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Tiled FlashAttention-2 backward pass recomputing attention without materializing full matrix."""
+    """Tiled FlashAttention-2 backward pass recomputing attention without materializing full matrix.
+
+    Supports arbitrary query and key sequence lengths (Tq != Tk), applying consistent
+    top-left causal alignment when `is_causal=True`.
+    """
     B, H, Tq, d = q.shape
     Tk = k.shape[2]
     scale = 1.0 / np.sqrt(d)
