@@ -17,7 +17,8 @@ def prune_unstructured_magnitude(
     sparsity: float = 0.5,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Applies unstructured magnitude pruning to a weight array."""
-    assert 0.0 <= sparsity <= 1.0, "sparsity must be between 0.0 and 1.0"
+    if not (0.0 <= sparsity <= 1.0):
+        raise ValueError("sparsity must be between 0.0 and 1.0")
     if sparsity == 0.0:
         return weights.copy(), np.ones_like(weights, dtype=bool)
     if sparsity == 1.0:

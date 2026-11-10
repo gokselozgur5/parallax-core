@@ -81,7 +81,8 @@ class CosineAnnealingWithWarmup(LRScheduler):
         min_lr: float = 0.0,
         base_lr: Optional[float] = None,
     ):
-        assert total_steps >= warmup_steps, "total_steps must be >= warmup_steps"
+        if total_steps < warmup_steps:
+            raise ValueError("total_steps must be >= warmup_steps")
         self.warmup_steps = warmup_steps
         self.total_steps = total_steps
         self.min_lr = min_lr
