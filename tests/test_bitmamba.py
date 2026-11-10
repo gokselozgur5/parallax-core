@@ -226,3 +226,26 @@ def test_bitmamba_block_strong_ssm_regime_kill_readout_drop():
             steps.append(st.data)
     np.testing.assert_allclose(out_seq, np.concatenate(steps, axis=1), atol=1e-5)
 
+
+def test_bitmamba_block_state_carry_over_verification():
+    """Verify state carry-over is preserved; kills dropped carry-over fault."""
+    np.random.seed(42)
+    B, D = 1, 8
+    block = BitMambaBlock(d_model=D, d_state=4, d_conv=3, expand=2)
+    block.conv_weight.data = np.ones_like(block.conv_weight.data)
+    block.A_log.data.fill(-0.2)
+    u_step = Tensor(np.random.randn(B, 1, D))
+
+    ssm_active = np.ones((B, block.d_inner, block.d_state)) * 2.0
+    conv_active = np.zeros((B, block.d_inner, block.conv_weight.shape[1]))
+    ssm_zero = np.zeros((B, block.d_inner, block.d_state))
+    conv_zero = np.zeros((B, block.d_inner, block.conv_weight.shape[1]))
+
+    with no_grad():
+        out_with_carry, _, _ = block(u_step, ssm_state=ssm_active, conv_state=conv_active)
+        out_without_carry, _, _ = block(u_step, ssm_state=ssm_zero, conv_state=conv_zero)
+
+    diff = np.linalg.norm(out_with_carry.data - out_without_carry.data)
+    assert diff > 0.1, "State carry-over had no effect on output"
+
+
