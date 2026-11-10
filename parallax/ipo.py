@@ -26,11 +26,11 @@ def compute_ipo_loss(
     """Compute IPO quadratic preference loss and scalar gradient weights."""
     h_w = pi_w_logprob - ref_w_logprob
     h_l = pi_l_logprob - ref_l_logprob
-    log_ratio_diff = tau * (h_w - h_l)
+    log_ratio_diff = h_w - h_l
     diff = log_ratio_diff - (1.0 / (2.0 * tau))
     loss = float(np.mean(diff ** 2))
     # Gradient multiplier dLoss / d(log_ratio_diff)
-    grad_weight = 2.0 * diff * tau / len(pi_w_logprob)
+    grad_weight = 2.0 * diff / len(pi_w_logprob)
     return loss, grad_weight
 
 def ipo_step(
