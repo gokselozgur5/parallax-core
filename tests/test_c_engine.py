@@ -113,6 +113,7 @@ def test_c_fallback_when_c_engine_unavailable():
         np.testing.assert_allclose(res_sm, exp_sm, rtol=1e-5, atol=1e-5)
 
 
+<<<<<<< HEAD
 def test_concurrent_initialization_c_and_metal():
     import concurrent.futures
     import parallax.c_engine as ce
@@ -178,3 +179,14 @@ def test_c_softmax_large_logits_and_special_values():
     assert res_special[0, 1] == 0.0
     np.testing.assert_allclose(np.sum(res_special[0]), 1.0, rtol=1e-5, atol=1e-5)
     np.testing.assert_allclose(res_special[1], 1.0 / 3.0, rtol=1e-5, atol=1e-5)
+
+
+def test_c_engine_unsupported_dtypes():
+    with pytest.raises(TypeError):
+        c_gemm(np.array([[1 + 1j]]), np.array([[1 + 1j]]))
+    with pytest.raises(TypeError):
+        c_softmax(np.array([[1 + 1j]]))
+    res = c_gemm(np.array([[16777217, 1]], dtype=np.int64), np.array([[1], [0]], dtype=np.int64))
+    assert res[0, 0] == 16777217
+    res_f64 = c_softmax(np.array([[1e40, 0.0, 1.0]], dtype=np.float64))
+    np.testing.assert_allclose(res_f64, [[1.0, 0.0, 0.0]], atol=1e-6)
