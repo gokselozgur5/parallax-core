@@ -47,10 +47,43 @@ def _assign_bias(proj: Linear, hf_tensors: Dict[str, np.ndarray], key: str) -> N
             proj.bias.grad = np.zeros_like(proj.bias.data)
 
 
-def hf_config_to_parallax(hf_config: Dict[str, Any]) -> ParallaxLMConfig:
+def hf_config_to_parallax(
+    hf_config: Dict[str, Any],
+    hf_tensors: Optional[Dict[str, np.ndarray]] = None,
+) -> ParallaxLMConfig:
     """Translates a HuggingFace model config.json into a ParallaxLMConfig."""
+    model_type = str(hf_config.get("model_type", "")).lower()
+    is_supported_type = (
+        model_type in ("llama", "mistral", "qwen2", "smollm")
+        or model_type.startswith("qwen2")
+        or model_type.startswith("smollm")
+    )
+    if not model_type or not is_supported_type:
+        raise ValueError(
+            f"Unsupported model_type: '{model_type}'. Supported architectures: llama, mistral, qwen2, smollm."
+        )
+
+    if hf_config.get("rope_scaling") is not None:
+        raise NotImplementedError("rope_scaling is not supported in ParallaxLM config")
+
     embed_dim = int(hf_config.get("hidden_size", 576))
     num_heads = int(hf_config.get("num_attention_heads", 9))
+
+    if "head_dim" in hf_config:
+        expected_head_dim = embed_dim // num_heads
+        actual_head_dim = int(hf_config["head_dim"])
+        if actual_head_dim != expected_head_dim:
+            raise NotImplementedError(
+                f"Custom head_dim ({actual_head_dim}) != hidden_size / num_heads ({expected_head_dim}) is not supported"
+            )
+
+    if "hidden_act" in hf_config:
+        act = str(hf_config["hidden_act"]).lower()
+        if act not in ("silu", "gelu"):
+            raise NotImplementedError(
+                f"Unsupported hidden_act: '{act}'. Only 'silu' and 'gelu' are supported."
+            )
+
     num_kv_heads = hf_config.get("num_key_value_heads")
     if num_kv_heads is not None:
         num_kv_heads = int(num_kv_heads)
@@ -69,14 +102,21 @@ def hf_config_to_parallax(hf_config: Dict[str, Any]) -> ParallaxLMConfig:
     rope_theta = float(hf_config.get("rope_theta", 10000.0))
 
     # Qwen2 and some architectures use attention_bias / qkv_bias
-    model_type = str(hf_config.get("model_type", "")).lower()
     qkv_bias = bool(
         hf_config.get("attention_bias", False)
         or hf_config.get("qkv_bias", False)
         or model_type.startswith("qwen2")
     )
 
-    tie_weights = bool(hf_config.get("tie_word_embeddings", True))
+    if "tie_word_embeddings" in hf_config:
+        tie_weights = bool(hf_config["tie_word_embeddings"])
+    else:
+        if hf_tensors is not None and "lm_head.weight" in hf_tensors:
+            tie_weights = False
+        elif hf_tensors is not None and "lm_head.weight" not in hf_tensors:
+            tie_weights = True
+        else:
+            tie_weights = False
 
     return ParallaxLMConfig(
         vocab_size=vocab_size,
@@ -169,12 +209,12 @@ def load_hf_pretrained(
             raise FileNotFoundError(f"No .safetensors files found in {model_dir}")
         weight_files = [os.path.join(model_dir, f) for f in sf_candidates]
 
-    p_config = hf_config_to_parallax(hf_config)
-    model = ParallaxLM(p_config)
-
     tensors: Dict[str, np.ndarray] = {}
     for wf in weight_files:
         tensors.update(load_safetensors(wf, cast_float64=True))
+
+    p_config = hf_config_to_parallax(hf_config, hf_tensors=tensors)
+    model = ParallaxLM(p_config)
     load_hf_weights_into_model(model, tensors)
 
     if return_tokenizer:
