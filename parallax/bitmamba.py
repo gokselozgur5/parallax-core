@@ -20,7 +20,7 @@ from parallax.mamba import (
 )
 from parallax.models.gpt import Embedding
 from parallax.nn import Module, Parameter, RMSNorm
-from parallax.tensor import Tensor, _accumulate_grad
+from parallax.tensor import Tensor, _accumulate_grad, is_grad_enabled
 
 
 class BitMambaBlock(Module):
@@ -72,6 +72,11 @@ class BitMambaBlock(Module):
 
         # Step mode (T == 1 with states provided)
         if ssm_state is not None and conv_state is not None:
+            if is_grad_enabled():
+                raise RuntimeError(
+                    "BitMambaBlock step mode with state cache is inference-only; "
+                    "wrap the call in parallax.no_grad() or call without states."
+                )
             if T != 1:
                 raise ValueError(
                     f"BitMambaBlock step mode expects T=1 when states are provided, got T={T}. "
