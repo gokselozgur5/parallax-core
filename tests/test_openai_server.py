@@ -159,3 +159,22 @@ def test_openai_server_custom_tokenizer():
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_openai_server_invalid_temperature(running_server):
+    url = f"{running_server}/v1/chat/completions"
+    for invalid_temp in [-1.0, "invalid_str", "nan", "inf"]:
+        payload = json.dumps({
+            "model": "test-model",
+            "messages": [{"role": "user", "content": "Hi"}],
+            "temperature": invalid_temp,
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with pytest.raises(urllib.error.HTTPError) as exc_info:
+            urllib.request.urlopen(req)
+        assert exc_info.value.code == 400
