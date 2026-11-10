@@ -148,7 +148,8 @@ class BitAttention(Module):
             v_heads_expanded = v_heads
 
         # 3. Scaled dot-product attention (FlashAttention or standard causal softmax)
-        if self.use_flash_attn and past_len == 0:
+        use_flash_path = self.use_flash_attn and past_len == 0 and self.sliding_window is None
+        if use_flash_path:
             out_heads, lse = flash_attention_forward(
                 q_heads,
                 k_heads_expanded,
@@ -187,7 +188,7 @@ class BitAttention(Module):
 
             dout_heads = np.transpose(dout.reshape(B, T, self.num_heads, self.head_dim), (0, 2, 1, 3))
 
-            if self.use_flash_attn and past_len == 0:
+            if use_flash_path:
                 dq_heads, dk_heads_expanded, dv_expanded = flash_attention_backward(
                     dout_heads,
                     out_heads,
@@ -210,7 +211,7 @@ class BitAttention(Module):
 
             dv = np.transpose(dv_heads, (0, 2, 1, 3)).reshape(B, T, self.kv_dim)
 
-            if not (self.use_flash_attn and past_len == 0):
+            if not use_flash_path:
                 d_attn = dout_heads @ np.swapaxes(v_heads_expanded, -1, -2)
                 sum_dattn_attn = np.sum(d_attn * attn_weights, axis=-1, keepdims=True)
                 d_scores = attn_weights * (d_attn - sum_dattn_attn)
@@ -235,7 +236,7 @@ class BitAttention(Module):
                 )
             dq = np.transpose(dq_heads, (0, 2, 1, 3)).reshape(B, T, C)
 
-            if not (self.use_flash_attn and past_len == 0):
+            if not use_flash_path:
                 dk_expanded = np.swapaxes(d_scores, -1, -2) @ q_heads
             else:
                 dk_expanded = dk_heads_expanded
