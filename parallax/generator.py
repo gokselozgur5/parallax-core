@@ -72,9 +72,12 @@ def sample_next_token(
         sorted_probs = probs[sorted_indices]
         cumulative_probs = np.cumsum(sorted_probs)
 
-        # Remove tokens with cumulative probability above top_p (keep at least the first token)
+        # We want the smallest token set whose cumulative mass reaches top_p.
+        # Shifting the removal mask by 1 keeps the token that crosses the threshold!
         sorted_indices_to_remove = cumulative_probs > top_p
-        sorted_indices_to_remove[0] = False  # Keep at least top 1 token
+        # Shift mask right so that the first token that exceeds top_p is KEPT
+        sorted_indices_to_remove[1:] = sorted_indices_to_remove[:-1].copy()
+        sorted_indices_to_remove[0] = False
 
         indices_to_remove = sorted_indices[sorted_indices_to_remove]
         probs[indices_to_remove] = 0.0
