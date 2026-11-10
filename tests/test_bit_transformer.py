@@ -13,7 +13,7 @@ from parallax.models.bit_transformer import (
     BitTransformerConfig,
     BitTransformerLM,
 )
-from parallax.tensor import Tensor
+from parallax.tensor import Tensor, no_grad
 
 
 def test_bit_swiglu_ternary_weights_and_backward():
@@ -195,13 +195,15 @@ def test_bit_transformer_kv_cache_step_consistency():
 
     # Prefill first 2 tokens
     prompt = tokens[:, :2]
-    logits_prompt, kv_caches = model(prompt, kv_caches=kv_caches)
+    with no_grad():
+        logits_prompt, kv_caches = model(prompt, kv_caches=kv_caches)
     np.testing.assert_allclose(logits_prompt.data, logits_full[:, :2, :], atol=1e-5, rtol=1e-5)
 
     # Autoregressively step token by token
     for t in range(2, seq_len):
         tok = tokens[:, t : t + 1]
-        logits_step, kv_caches = model(tok, kv_caches=kv_caches)
+        with no_grad():
+            logits_step, kv_caches = model(tok, kv_caches=kv_caches)
         np.testing.assert_allclose(
             logits_step.data, logits_full[:, t : t + 1, :], atol=1e-5, rtol=1e-5
         )

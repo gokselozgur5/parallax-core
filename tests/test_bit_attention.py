@@ -7,7 +7,7 @@ import pytest
 
 from parallax.bit_attention import BitAttention
 from parallax.bitnet import BitLinear, quantize_weights_ternary
-from parallax.tensor import Tensor
+from parallax.tensor import Tensor, no_grad
 
 
 def test_bit_attention_projection_types_and_ternary_weights():
@@ -134,21 +134,24 @@ def test_bit_attention_kv_cache_step_consistency():
 
     # Step 0: prompt with first 2 tokens
     x_prompt = Tensor(x_full[:, :2, :])
-    out_prompt, kv_cache = attn(x_prompt, kv_cache=empty_cache)
+    with no_grad():
+        out_prompt, kv_cache = attn(x_prompt, kv_cache=empty_cache)
     assert kv_cache[0].shape == (B, num_heads, 2, head_dim)
     assert kv_cache[1].shape == (B, num_heads, 2, head_dim)
     np.testing.assert_allclose(out_prompt.data, out_full[:, :2, :], rtol=1e-5, atol=1e-5)
 
     # Step 1: token 2
     x_tok2 = Tensor(x_full[:, 2:3, :])
-    out_tok2, kv_cache = attn(x_tok2, kv_cache=kv_cache)
+    with no_grad():
+        out_tok2, kv_cache = attn(x_tok2, kv_cache=kv_cache)
     assert kv_cache[0].shape == (B, num_heads, 3, head_dim)
     assert kv_cache[1].shape == (B, num_heads, 3, head_dim)
     np.testing.assert_allclose(out_tok2.data, out_full[:, 2:3, :], rtol=1e-5, atol=1e-5)
 
     # Step 2: token 3
     x_tok3 = Tensor(x_full[:, 3:4, :])
-    out_tok3, kv_cache = attn(x_tok3, kv_cache=kv_cache)
+    with no_grad():
+        out_tok3, kv_cache = attn(x_tok3, kv_cache=kv_cache)
     assert kv_cache[0].shape == (B, num_heads, 4, head_dim)
     assert kv_cache[1].shape == (B, num_heads, 4, head_dim)
     np.testing.assert_allclose(out_tok3.data, out_full[:, 3:4, :], rtol=1e-5, atol=1e-5)
@@ -246,6 +249,7 @@ def test_bit_attention_flash_standard_sliding_window_cached_decode():
         x = np.random.randn(B, 1, C)
         head_dim = C // 2
         cache = (np.random.randn(B, 2, 3, head_dim), np.random.randn(B, 2, 3, head_dim))
-        out_std, _ = std(Tensor(x.copy()), kv_cache=(cache[0].copy(), cache[1].copy()))
-        out_fl, _ = fl(Tensor(x.copy()), kv_cache=(cache[0].copy(), cache[1].copy()))
+        with no_grad():
+            out_std, _ = std(Tensor(x.copy()), kv_cache=(cache[0].copy(), cache[1].copy()))
+            out_fl, _ = fl(Tensor(x.copy()), kv_cache=(cache[0].copy(), cache[1].copy()))
         np.testing.assert_allclose(out_fl.data, out_std.data, atol=1e-9)
