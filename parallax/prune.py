@@ -85,6 +85,20 @@ def calculate_model_sparsity(model: Module) -> Dict[str, float]:
     }
 
 
+def apply_pruning_masks(model: Module) -> None:
+    """Re-applies stored pruning masks to parameters (e.g. after optimizer steps)."""
+    for param in model.parameters():
+        if hasattr(param, "mask") and param.mask is not None:
+            param.data = param.data * param.mask
+
+
+def create_pruning_step_hook(model: Module):
+    """Returns a post-step hook callable that re-zeros masked weights."""
+    def hook():
+        apply_pruning_masks(model)
+    return hook
+
+
 def prune_model(
     model: ParallaxLM,
     method: str = "2:4",
@@ -96,6 +110,7 @@ def prune_model(
     targets = set(target_modules) if target_modules else valid_targets
 
     pruned_layers_count = 0
+    model_masks: Dict[str, np.ndarray] = {}
 
     for i, block in enumerate(model.blocks):
         # Attention projection layers
@@ -108,12 +123,14 @@ def prune_model(
             ]
             for layer in attn_layers:
                 if method == "2:4":
-                    pruned_w, _ = prune_2_to_4_structured(layer.weight.data, sparsity=sparsity)
+                    pruned_w, mask = prune_2_to_4_structured(layer.weight.data, sparsity=sparsity)
                 elif method == "magnitude":
-                    pruned_w, _ = prune_unstructured_magnitude(layer.weight.data, sparsity=sparsity)
+                    pruned_w, mask = prune_unstructured_magnitude(layer.weight.data, sparsity=sparsity)
                 else:
                     raise ValueError(f"Unknown pruning method: {method}")
                 layer.weight.data = pruned_w
+                layer.weight.mask = mask
+                model_masks[f"block.{i}.attn.{layer.weight.label}"] = mask
                 pruned_layers_count += 1
 
         # MLP projection layers
@@ -132,14 +149,17 @@ def prune_model(
 
             for layer in mlp_layers:
                 if method == "2:4":
-                    pruned_w, _ = prune_2_to_4_structured(layer.weight.data, sparsity=sparsity)
+                    pruned_w, mask = prune_2_to_4_structured(layer.weight.data, sparsity=sparsity)
                 elif method == "magnitude":
-                    pruned_w, _ = prune_unstructured_magnitude(layer.weight.data, sparsity=sparsity)
+                    pruned_w, mask = prune_unstructured_magnitude(layer.weight.data, sparsity=sparsity)
                 else:
                     raise ValueError(f"Unknown pruning method: {method}")
                 layer.weight.data = pruned_w
+                layer.weight.mask = mask
+                model_masks[f"block.{i}.mlp.{layer.weight.label}"] = mask
                 pruned_layers_count += 1
 
     stats = calculate_model_sparsity(model)
     stats["pruned_layers_count"] = float(pruned_layers_count)
+    model.pruning_masks = model_masks
     return stats
