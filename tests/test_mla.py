@@ -26,3 +26,15 @@ def test_mla_compression_and_forward() -> None:
     out = mla.forward(x, causal=True)
     assert out.shape == (seq_len, embed_dim)
     assert np.all(np.isfinite(out))
+
+
+def test_mla_batched_forward() -> None:
+    np.random.seed(42)
+    batch_size, seq_len, embed_dim, latent_dim = 2, 6, 32, 8
+    mla = MultiHeadLatentAttention(
+        embed_dim=embed_dim, num_heads=4, latent_dim=latent_dim, rope_dim=8
+    )
+    x = np.random.randn(batch_size, seq_len, embed_dim)
+    out = mla.forward(x, causal=True)
+    assert out.shape == (batch_size, seq_len, embed_dim)
+    assert np.all(np.isfinite(out))
