@@ -15,7 +15,9 @@ class SequenceBinner:
         for b in self.bucket_boundaries:
             if seq_len <= b:
                 return b
-        return self.bucket_boundaries[-1]
+        raise ValueError(
+            f"Sequence length {seq_len} exceeds largest bucket boundary {self.bucket_boundaries[-1]}"
+        )
 
     def collate_batch(
         self,
