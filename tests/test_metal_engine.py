@@ -101,6 +101,7 @@ def test_metal_rmsnorm_invalid_weight():
         metal_rmsnorm(x, bad_weight)
 
 
+<<<<<<< HEAD
 def test_metal_buffers_released_no_memory_leak():
     if not is_metal_available() or sys.platform != "darwin":
         pytest.skip("Metal not available on this platform")
@@ -133,3 +134,19 @@ def test_metal_buffers_released_no_memory_leak():
         metal_rmsnorm(x, w)
     alloc_after_rms = query_alloc(_DEVICE, sel)
     assert alloc_after_rms == alloc_before_rms, f"RMSNorm leaked memory: {alloc_after_rms - alloc_before_rms} bytes"
+
+
+def test_metal_engine_types_and_empty_shapes():
+    with pytest.raises(TypeError):
+        metal_gemm(np.ones((2, 2), dtype=np.complex64), np.ones((2, 2), dtype=np.complex64))
+    with pytest.raises(TypeError):
+        metal_rmsnorm(np.ones((2, 4), dtype=np.complex64), np.ones(4, dtype=np.float32))
+
+    assert metal_gemm(np.zeros((0, 4), dtype=np.float32), np.zeros((4, 3), dtype=np.float32)).shape == (0, 3)
+    assert metal_gemm(np.zeros((2, 4), dtype=np.float32), np.zeros((4, 0), dtype=np.float32)).shape == (2, 0)
+    assert metal_rmsnorm(np.zeros((0, 8), dtype=np.float32), np.ones(8, dtype=np.float32)).shape == (0, 8)
+    with pytest.raises(ValueError):
+        metal_rmsnorm(np.zeros((3, 0), dtype=np.float32), np.ones(0, dtype=np.float32))
+
+    f64_res = metal_rmsnorm(np.array([[1e150]], dtype=np.float64), np.ones(1, dtype=np.float64))
+    assert not np.isnan(f64_res).any()
