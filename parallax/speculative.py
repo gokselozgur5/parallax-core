@@ -63,6 +63,29 @@ def _compute_token_probs(
     return probs
 
 
+def _verify_candidate(
+    pos_logits: np.ndarray,
+    cand: int,
+    draft_prob: Optional[np.ndarray],
+    temperature: float,
+    top_k: Optional[int],
+    top_p: Optional[float],
+) -> Tuple[bool, int]:
+    """Verifies a single draft candidate token against target logits."""
+    if temperature <= 0.0:
+        target_choice = int(np.argmax(pos_logits))
+        return (cand == target_choice), (cand if cand == target_choice else target_choice)
+    t_p = _compute_token_probs(pos_logits, temperature=temperature, top_k=top_k, top_p=top_p)
+    q_p = draft_prob[cand] if draft_prob is not None else 1e-12
+    ratio = float(t_p[cand]) / max(float(q_p), 1e-12)
+    if np.random.rand() < min(1.0, ratio):
+        return True, cand
+    residual = np.maximum(0.0, t_p - (draft_prob if draft_prob is not None else 0.0))
+    res_sum = float(np.sum(residual))
+    res_dist = (residual / res_sum) if res_sum > 1e-12 else t_p
+    return False, int(np.random.choice(len(res_dist), p=res_dist))
+
+
 def speculative_generate(
     target_model: ParallaxLM,
     draft_model: ParallaxLM,
