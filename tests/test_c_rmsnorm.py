@@ -16,15 +16,18 @@ def test_c_rmsnorm_available():
 
 
 def test_c_rmsnorm_numerical_parity_f32():
+    if not is_c_engine_available():
+        pytest.skip("C engine native library not available")
     np.random.seed(42)
     rows, cols = 32, 128
     x = np.random.randn(rows, cols).astype(np.float32)
     weight = np.random.randn(cols).astype(np.float32)
     eps = 1e-6
 
-    # Reference NumPy RMSNorm
-    rms = np.sqrt(np.mean(x ** 2, axis=-1, keepdims=True) + eps)
-    expected = (x / rms) * weight
+    x64 = x.astype(np.float64)
+    w64 = weight.astype(np.float64)
+    rms = np.sqrt(np.mean(x64 ** 2, axis=-1, keepdims=True) + float(eps))
+    expected = ((x64 / rms) * w64).astype(np.float32)
 
     actual = c_rmsnorm(x, weight, eps=eps)
 
@@ -32,6 +35,8 @@ def test_c_rmsnorm_numerical_parity_f32():
 
 
 def test_c_rmsnorm_numerical_parity_f64():
+    if not is_c_engine_available():
+        pytest.skip("C engine native library not available")
     np.random.seed(42)
     rows, cols = 16, 64
     x = np.random.randn(rows, cols).astype(np.float64)
