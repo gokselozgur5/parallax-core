@@ -73,6 +73,54 @@ def _eval_target_step(
         return target_model(idx).data[0]
 
 
+def _verify_loop(
+    target_model: ParallaxLM,
+    tokens: List[int],
+    draft_tokens: List[int],
+    draft_prob_dists: List[np.ndarray],
+    hit_eos_in_draft: bool,
+    max_new_tokens: int,
+    total_generated: int,
+    temperature: float,
+    top_k: Optional[int],
+    top_p: Optional[float],
+    eos_token_id: Optional[int],
+) -> Tuple[int, int, int, bool]:
+    """Verifies draft tokens sequentially against sliding window target."""
+    n_acc = 0
+    fwd = 0
+    all_acc = True
+    stopped = False
+    for i, cand in enumerate(draft_tokens):
+        pos_logits = _eval_target_step(target_model, tokens)[-1]
+        fwd += 1
+        is_acc, chosen = _verify_candidate(
+            pos_logits, cand, draft_prob_dists[i], temperature, top_k, top_p
+        )
+        tokens.append(chosen)
+        total_generated += 1
+        if is_acc:
+            n_acc += 1
+        else:
+            all_acc = False
+        if (eos_token_id is not None and chosen == eos_token_id) or total_generated >= max_new_tokens:
+            stopped = True
+            break
+        if not is_acc:
+            break
+    else:
+        if not hit_eos_in_draft and all_acc and not stopped:
+            if total_generated < max_new_tokens:
+                bonus_logits = _eval_target_step(target_model, tokens)[-1]
+                fwd += 1
+                b_tok = sample_next_token(bonus_logits, temperature=temperature, top_k=top_k, top_p=top_p)
+                tokens.append(b_tok)
+                total_generated += 1
+                if eos_token_id is not None and b_tok == eos_token_id:
+                    stopped = True
+    return n_acc, fwd, total_generated, stopped
+
+
 def _verify_candidate(
     pos_logits: np.ndarray,
     cand: int,
