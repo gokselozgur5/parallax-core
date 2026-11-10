@@ -45,3 +45,30 @@ def test_q4_0_signed_extreme_scaling():
             err = np.abs(block - deq)
             assert err[0] <= 1e-3
             assert np.max(err) <= abs(extracted_d) / 2.0 + 1e-3
+
+
+from parallax.nn import Linear
+from parallax.quant import QuantizedLinear
+from parallax.tensor import Tensor
+
+
+def test_quantized_linear_cache():
+    """Issue #298: QuantizedLinear caches dequantized weight across forwards."""
+    np.random.seed(42)
+    lin = Linear(16, 8, bias=True)
+    qlin = QuantizedLinear.from_linear(lin)
+
+    assert qlin._cached_weight is None
+    x1 = Tensor(np.random.randn(2, 4, 16))
+    out1 = qlin(x1)
+    assert qlin._cached_weight is not None
+    cached_ref = qlin._cached_weight
+
+    x2 = Tensor(np.random.randn(2, 4, 16))
+    out2 = qlin(x2)
+    assert qlin._cached_weight is cached_ref
+
+    qlin.invalidate_cache()
+    assert qlin._cached_weight is None
+    out3 = qlin(x2)
+    assert qlin._cached_weight is not None
