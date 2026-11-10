@@ -5,11 +5,11 @@ Implements symmetric INT8 weight quantization and dequantization,
 quantized Linear projection with cached dequantized weights, and whole-model quantization.
 """
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple
 import numpy as np
 
-from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
-from parallax.nn import Linear, Module, Parameter
+from parallax.models.gpt import ParallaxLM
+from parallax.nn import Linear, Module
 from parallax.tensor import Tensor
 
 

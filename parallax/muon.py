@@ -10,7 +10,7 @@ Integration contract:
     not wired to parallax.trainer.Trainer or ParallaxLM autograd parameters.
 """
 
-from typing import List, Dict, Optional
+from typing import List
 import numpy as np
 
 

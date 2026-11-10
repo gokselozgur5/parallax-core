@@ -7,9 +7,8 @@ Implements:
 """
 
 import math
-from typing import Optional, Tuple
 import numpy as np
-from parallax.tensor import Tensor, _accumulate_grad, unbroadcast_grad
+from parallax.tensor import Tensor, _accumulate_grad
 
 
 def cross_entropy_loss(

@@ -5,11 +5,11 @@ Implements magnitude-based unstructured pruning and NVIDIA Sparse Tensor Core
 compliant 2:4 structured sparsity patterns from first principles using NumPy.
 """
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from parallax.models.gpt import ParallaxLM
-from parallax.nn import Linear, Module, Parameter
+from parallax.nn import Module
 
 
 def prune_unstructured_magnitude(
