@@ -51,6 +51,21 @@ def test_c_rmsnorm_numerical_parity_f64():
     np.testing.assert_allclose(actual, expected, atol=1e-6, rtol=1e-6)
 
 
+@pytest.mark.parametrize("cols", [63, 65, 37, 7, 1])
+def test_c_rmsnorm_numerical_parity_f64_odd_columns(cols):
+    if not is_c_engine_available():
+        pytest.skip("C engine native library not available")
+    np.random.seed(cols)
+    rows = 4
+    x = np.random.randn(rows, cols).astype(np.float64)
+    weight = np.random.randn(cols).astype(np.float64)
+    eps = 1e-6
+    rms = np.sqrt(np.mean(x ** 2, axis=-1, keepdims=True) + eps)
+    expected = (x / rms) * weight
+    actual = c_rmsnorm(x, weight, eps=eps)
+    np.testing.assert_allclose(actual, expected, atol=1e-6, rtol=1e-6)
+
+
 def test_c_rmsnorm_odd_shapes():
     np.random.seed(1337)
     rows, cols = 7, 37
