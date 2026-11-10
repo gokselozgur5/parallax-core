@@ -21,6 +21,8 @@ class TopASampler:
 
     def sample(self, logits: np.ndarray, temperature: float = 1.0) -> int:
         """Filter logits with Top-A and sample token from resulting distribution."""
+        if temperature <= 0.0 or temperature < 1e-7:
+            return int(np.argmax(logits))
         filtered_logits = self.filter_logits(logits)
         scaled_logits = filtered_logits / max(temperature, 1e-5)
         exp_l = np.exp(scaled_logits - np.max(scaled_logits))

@@ -34,6 +34,8 @@ class ContrastiveDecoder:
     ) -> int:
         """Sample next token using contrastive logits distribution."""
         cd_logits = self.compute_contrastive_logits(expert_logits, amateur_logits)
+        if temperature <= 0.0 or temperature < 1e-7:
+            return int(np.argmax(cd_logits))
         scaled_logits = cd_logits / max(temperature, 1e-5)
         exp_l = np.exp(scaled_logits - np.max(scaled_logits))
         probs = exp_l / np.sum(exp_l)
