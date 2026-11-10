@@ -9,8 +9,8 @@ import math
 from typing import Optional, Tuple, Union
 import numpy as np
 from parallax.flash_attn import flash_attention_backward, flash_attention_forward
-from parallax.nn import Linear, Module, Parameter
-from parallax.tensor import Tensor, _accumulate_grad, unbroadcast_grad
+from parallax.nn import Linear, Module
+from parallax.tensor import Tensor, _accumulate_grad
 
 
 def apply_rope(

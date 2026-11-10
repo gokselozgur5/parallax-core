@@ -13,7 +13,7 @@ using only the Python standard library (`struct`, `json`) and NumPy:
 import json
 import os
 import struct
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 import numpy as np
 
 

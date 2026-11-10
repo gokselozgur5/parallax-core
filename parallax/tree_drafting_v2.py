@@ -1,6 +1,6 @@
 """Speculative Eagle-2 Tree Drafting v2: dynamic branching, vectorized tree attention, and matrix-based path verification."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 
