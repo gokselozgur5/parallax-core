@@ -152,12 +152,12 @@ class Tensor:
                 return
             a_is_1d, b_is_1d = (self.ndim == 1), (other.ndim == 1)
             a_2d = self.data[None, :] if a_is_1d else self.data
-            b_2d = other.data[:, None] if b_is_1d else other.data
+            b_2d = other.data[..., :, None] if b_is_1d else other.data
 
             if a_is_1d and b_is_1d:
                 g_2d = np.array([[float(out.grad)]])
             elif a_is_1d:
-                g_2d = out.grad[None, :]
+                g_2d = out.grad[..., None, :]
             elif b_is_1d:
                 g_2d = out.grad[..., None]
             else:

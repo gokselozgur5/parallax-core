@@ -140,3 +140,21 @@ def test_numpy_array_reflected_ops_issue_290():
 
     add_res.sum().backward()
     assert np.allclose(t.grad, np.ones(3))
+
+
+def test_tensor_matmul_1d_left_operand_backward_issue_291():
+    # 1D @ 3D
+    v = Tensor(np.random.randn(3), requires_grad=True)
+    m = Tensor(np.random.randn(2, 3, 4), requires_grad=True)
+    assert check_tensor_gradient(lambda a, b: (a @ b).sum(), [v, m], eps=1e-5, tol=1e-4) is True
+
+    # 1D @ 4D
+    v4 = Tensor(np.random.randn(3), requires_grad=True)
+    m4 = Tensor(np.random.randn(2, 2, 3, 4), requires_grad=True)
+    assert check_tensor_gradient(lambda a, b: (a @ b).sum(), [v4, m4], eps=1e-5, tol=1e-4) is True
+
+    # 3D @ 1D
+    m3 = Tensor(np.random.randn(2, 4, 3), requires_grad=True)
+    v3 = Tensor(np.random.randn(3), requires_grad=True)
+    assert check_tensor_gradient(lambda a, b: (a @ b).sum(), [m3, v3], eps=1e-5, tol=1e-4) is True
+
