@@ -52,49 +52,99 @@ MAX_NEW_TOKENS = 4096
 
 # Pre-train a tiny micro-model in-memory so the UI is ready to generate immediately
 CORPUS = "parallax creates clarity from multiple perspectives. parallax builds depth and understanding."
-TOKENIZER = CharTokenizer(CORPUS)
 
-DEMO_CONFIG = ParallaxLMConfig(
-    vocab_size=TOKENIZER.vocab_size,
-    embed_dim=32,
-    num_heads=2,
-    num_layers=2,
-    max_seq_len=64,
-    use_rope=True,
-    tie_weights=True,
-)
-DEMO_MODEL = ParallaxLM(DEMO_CONFIG)
-DEMO_OPTIM = AdamW(DEMO_MODEL.parameters(), lr=0.04, weight_decay=0.01)
 
-# In-memory Reward Model initialized on same config
-REWARD_MODEL = RewardModel(DEMO_CONFIG)
-REWARD_OPTIM = AdamW(REWARD_MODEL.parameters(), lr=0.03, weight_decay=0.01)
+class StudioState:
+    """Isolated state holding models, tokenizer, and training state."""
 
-# Active model pointer and state
-CURRENT_MODEL = DEMO_MODEL
-CURRENT_CONFIG = DEMO_CONFIG
-CURRENT_TOKENIZER = TOKENIZER
-IS_QUANTIZED = False
-CURRENT_DATASET = "parallax"
-UNQUANTIZED_MODEL: Optional[ParallaxLM] = None
+    def __init__(self, corpus: str = CORPUS, warmup_steps: int = 40):
+        self.corpus = corpus
+        self.tokenizer = CharTokenizer(corpus)
+        self.demo_config = ParallaxLMConfig(
+            vocab_size=self.tokenizer.vocab_size,
+            embed_dim=32,
+            num_heads=2,
+            num_layers=2,
+            max_seq_len=64,
+            use_rope=True,
+            tie_weights=True,
+        )
+        self.demo_model = ParallaxLM(self.demo_config)
+        self.demo_optim = AdamW(self.demo_model.parameters(), lr=0.04, weight_decay=0.01)
 
-# Perform quick initial warmup training
-tokens_arr = np.array(TOKENIZER.encode(CORPUS), dtype=np.int64)
-CURRENT_TOKENS: np.ndarray = tokens_arr
-seq_l = 12
-for _ in range(40):
-    starts = np.random.randint(0, len(tokens_arr) - seq_l - 1, size=4)
-    xb = np.stack([tokens_arr[i : i + seq_l] for i in starts])
-    yb = np.stack([tokens_arr[i + 1 : i + seq_l + 1] for i in starts])
-    DEMO_OPTIM.zero_grad()
-    logits = DEMO_MODEL(xb)
-    loss = cross_entropy_loss(logits, yb)
-    loss.backward()
-    DEMO_OPTIM.step()
+        self.reward_model = RewardModel(self.demo_config)
+        self.reward_optim = AdamW(self.reward_model.parameters(), lr=0.03, weight_decay=0.01)
+
+        self.current_model: ParallaxLM = self.demo_model
+        self.current_config: ParallaxLMConfig = self.demo_config
+        self.current_tokenizer: CharTokenizer = self.tokenizer
+        self.is_quantized: bool = False
+        self.current_dataset: str = "parallax"
+        self.unquantized_model: Optional[ParallaxLM] = None
+
+        self.tokens_arr = np.array(self.tokenizer.encode(corpus), dtype=np.int64)
+        self.current_tokens: np.ndarray = self.tokens_arr
+        self.seq_len: int = 12
+
+        if warmup_steps > 0 and len(self.tokens_arr) > self.seq_len + 1:
+            for _ in range(warmup_steps):
+                starts = np.random.randint(0, len(self.tokens_arr) - self.seq_len - 1, size=4)
+                xb = np.stack([self.tokens_arr[i : i + self.seq_len] for i in starts])
+                yb = np.stack([self.tokens_arr[i + 1 : i + self.seq_len + 1] for i in starts])
+                self.demo_optim.zero_grad()
+                logits = self.demo_model(xb)
+                loss = cross_entropy_loss(logits, yb)
+                loss.backward()
+                self.demo_optim.step()
+
+
+def init_default_state() -> StudioState:
+    """Explicitly initialize default state and bind legacy globals to module."""
+    mod = sys.modules[__name__]
+    state = getattr(mod, "_state", None)
+    if state is None:
+        state = StudioState()
+        mod._state = state
+        mod.TOKENIZER = state.tokenizer
+        mod.DEMO_CONFIG = state.demo_config
+        mod.DEMO_MODEL = state.demo_model
+        mod.DEMO_OPTIM = state.demo_optim
+        mod.REWARD_MODEL = state.reward_model
+        mod.REWARD_OPTIM = state.reward_optim
+        mod.CURRENT_MODEL = state.current_model
+        mod.CURRENT_CONFIG = state.current_config
+        mod.CURRENT_TOKENIZER = state.current_tokenizer
+        mod.IS_QUANTIZED = state.is_quantized
+        mod.CURRENT_DATASET = state.current_dataset
+        mod.UNQUANTIZED_MODEL = state.unquantized_model
+        mod.tokens_arr = state.tokens_arr
+        mod.CURRENT_TOKENS = state.current_tokens
+        mod.seq_l = state.seq_len
+    return state
+
+
+_STATE_ATTRS = {
+    "TOKENIZER", "DEMO_CONFIG", "DEMO_MODEL", "DEMO_OPTIM",
+    "REWARD_MODEL", "REWARD_OPTIM", "CURRENT_MODEL", "CURRENT_CONFIG",
+    "CURRENT_TOKENIZER", "IS_QUANTIZED", "CURRENT_DATASET",
+    "UNQUANTIZED_MODEL", "tokens_arr", "CURRENT_TOKENS", "seq_l",
+}
+
+
+class _StudioModule(sys.modules[__name__].__class__):
+    def __getattr__(self, name: str) -> Any:
+        if name in _STATE_ATTRS:
+            init_default_state()
+            return getattr(self, name)
+        raise AttributeError(f"module {self.__name__!r} has no attribute {name!r}")
+
+
+sys.modules[__name__].__class__ = _StudioModule
 
 
 class StudioHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
+        init_default_state()
         super().__init__(*args, directory=STATIC_DIR, **kwargs)
 
     def do_POST(self):
