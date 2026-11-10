@@ -118,6 +118,31 @@ def test_bitlinear_nonzero_bias_forward_and_backward():
     np.testing.assert_allclose(layer.bias.grad, expected_bias_grad, atol=1e-7)
 
 
+def test_bitlinear_ste_weight_grad_finite_diff():
+    np.random.seed(42)
+    B, T, in_f, out_f = 2, 3, 4, 5
+    layer = BitLinear(in_features=in_f, out_features=out_f, bias=False)
+    x_data = np.random.randn(B, T, in_f)
+    x = Tensor(x_data, requires_grad=False)
+    out = layer(x)
+    v = np.random.randn(*out.shape)
+    (out * Tensor(v, requires_grad=False)).sum().backward()
+
+    x_quant, x_scale = quantize_activations_int8(x_data)
+    x_dequant = x_quant / x_scale
+    eps = 1e-6
+    grad_num = np.zeros_like(layer.weight.data)
+    for i in range(out_f):
+        for j in range(in_f):
+            w_p, w_m = layer.weight.data.copy(), layer.weight.data.copy()
+            w_p[i, j] += eps
+            w_m[i, j] -= eps
+            lp = np.sum(v * (x_dequant @ w_p.T))
+            lm = np.sum(v * (x_dequant @ w_m.T))
+            grad_num[i, j] = (lp - lm) / (2 * eps)
+
+    assert np.allclose(layer.weight.grad, grad_num, atol=1e-6)
+
 
 
 
