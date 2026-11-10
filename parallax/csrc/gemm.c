@@ -26,9 +26,11 @@ void c_gemm_f32(const float *A, const float *B, float *C, int M, int N, int K) {
         return;
     }
 
+    const size_t Ks = (size_t)K;
+    const size_t Ns = (size_t)N;
     for (int i = 0; i < M; ++i) {
-        const float *a_row = A + i * K;
-        float *c_row = C + i * N;
+        const float *a_row = A + (size_t)i * Ks;
+        float *c_row = C + (size_t)i * Ns;
 
         // Initialize row of C with 0
         for (int j = 0; j < N; ++j) {
@@ -37,7 +39,7 @@ void c_gemm_f32(const float *A, const float *B, float *C, int M, int N, int K) {
 
         for (int k = 0; k < K; ++k) {
             float a_val = a_row[k];
-            const float *b_row = B + k * N;
+            const float *b_row = B + (size_t)k * Ns;
             int j = 0;
 
 #if defined(USE_NEON)
