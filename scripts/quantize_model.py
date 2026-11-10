@@ -11,8 +11,6 @@ import numpy as np
 from parallax.gguf import (
     GGML_TYPE_Q4_0,
     GGML_TYPE_Q8_0,
-    GGUFFile,
-    GGUFTensorInfo,
     LLAMA_FTYPE_MOSTLY_Q4_0,
     LLAMA_FTYPE_MOSTLY_Q8_0,
     load_gguf,
