@@ -72,3 +72,30 @@ def test_quantized_linear_cache():
     assert qlin._cached_weight is None
     out3 = qlin(x2)
     assert qlin._cached_weight is not None
+
+
+from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
+from parallax.quant import calculate_compression_ratio, quantize_model
+
+
+def test_calculate_compression_ratio_baseline_and_inplace():
+    """Issue #299: calculate_compression_ratio supports baseline_dtype and in-place quant."""
+    cfg = ParallaxLMConfig(
+        vocab_size=32,
+        embed_dim=16,
+        num_heads=2,
+        num_layers=2,
+        max_seq_len=16,
+        tie_weights=False,
+    )
+    model = ParallaxLM(cfg)
+
+    quant_model = quantize_model(model)
+    stats_fp32 = calculate_compression_ratio(model, quant_model, baseline_dtype="float32")
+    stats_fp16 = calculate_compression_ratio(model, quant_model, baseline_dtype="float16")
+
+    assert stats_fp32["original_mb"] > 0
+    assert stats_fp32["quantized_mb"] > 0
+    assert stats_fp32["ratio"] > 1.5
+    assert np.isclose(stats_fp16["original_mb"] * 2.0, stats_fp32["original_mb"], atol=1e-2)
+    assert stats_fp16["quantized_mb"] == stats_fp32["quantized_mb"]
