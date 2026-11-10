@@ -51,10 +51,20 @@ def gguf_metadata_to_parallax(
     """Extracts ParallaxLMConfig from GGUF metadata dictionary."""
     arch = str(metadata.get("general.architecture", "llama")).lower()
 
+    # Architecture hyper-parameters
+    required_keys = (
+        f"{arch}.embedding_length",
+        f"{arch}.block_count",
+        f"{arch}.attention.head_count",
+    )
+    for req_key in required_keys:
+        if req_key not in metadata:
+            raise ValueError(f"Missing required GGUF metadata key: '{req_key}'")
+
     # Embedding and sequence dimensions
-    embed_dim = int(metadata.get(f"{arch}.embedding_length", 576))
-    num_layers = int(metadata.get(f"{arch}.block_count", 30))
-    num_heads = int(metadata.get(f"{arch}.attention.head_count", 9))
+    embed_dim = int(metadata[f"{arch}.embedding_length"])
+    num_layers = int(metadata[f"{arch}.block_count"])
+    num_heads = int(metadata[f"{arch}.attention.head_count"])
 
     num_kv_heads = metadata.get(f"{arch}.attention.head_count_kv")
     if num_kv_heads is not None:
