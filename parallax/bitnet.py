@@ -64,7 +64,8 @@ class BitLinear(Module):
         if self.bias is not None:
             out_data += self.bias.data
 
-        out = Tensor(out_data, (x, self.weight), "BitLinear")
+        children = (x, self.weight, self.bias) if self.bias is not None else (x, self.weight)
+        out = Tensor(out_data, children, "BitLinear")
 
         def _backward() -> None:
             if out.grad is None:
