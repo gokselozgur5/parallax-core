@@ -136,3 +136,21 @@ def test_linear4bit_forward():
     np.testing.assert_array_equal(out_l4.data, out_l4_cached.data)
     l4.invalidate_cache()
     assert l4._cached_weight is None
+
+    # Automatic caching test with cache_dequantized=True
+    l4_cached = Linear4Bit.from_linear(lin, group_size=32, cache_dequantized=True)
+    assert l4_cached._cached_weight is None
+    call_count = 0
+    orig_dequantize = l4_cached.dequantize
+
+    def counted_dequantize():
+        nonlocal call_count
+        call_count += 1
+        return orig_dequantize()
+
+    l4_cached.dequantize = counted_dequantize
+    _ = l4_cached(x)
+    assert call_count == 1
+    assert l4_cached._cached_weight is not None
+    _ = l4_cached(x)
+    assert call_count == 1
