@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 from parallax.generator import sample_next_token
 from parallax.models.gpt import ParallaxLM
+from parallax.tensor import no_grad
 
 
 class RequestStatus(Enum):
@@ -32,6 +33,7 @@ class SequenceRequest:
 
     status: RequestStatus = RequestStatus.WAITING
     generated_tokens: List[int] = field(default_factory=list)
+    finish_reason: Optional[str] = None
     # KV cache per layer: List of (K, V) ndarrays of shape [1, num_kv_heads, past_len, head_dim]
     kv_cache: Optional[List[Tuple[np.ndarray, np.ndarray]]] = None
     total_tokens_seen: int = 0
@@ -69,6 +71,11 @@ class ContinuousBatchEngine:
         # Admit new requests up to max_batch_size
         while self.waiting_queue and len(self.running_requests) < self.max_batch_size:
             req = self.waiting_queue.pop(0)
+            if req.max_new_tokens <= 0:
+                req.status = RequestStatus.FINISHED
+                req.finish_reason = "length"
+                self.completed_requests[req.request_id] = req
+                continue
             req.status = RequestStatus.RUNNING
             self.running_requests.append(req)
 
@@ -99,7 +106,8 @@ class ContinuousBatchEngine:
                         )
                         for _ in range(self.model.config.num_layers)
                     ]
-                    logits, updated_kv = self.model(input_tokens, kv_caches=initial_kv)
+                    with no_grad():
+                        logits, updated_kv = self.model(input_tokens, kv_caches=initial_kv)
                     req.kv_cache = updated_kv
                     req.total_tokens_seen = len(req.prompt_tokens)
                     next_token_logits = logits.data[0, -1, :]
@@ -107,7 +115,8 @@ class ContinuousBatchEngine:
                     # Decode single token step
                     last_token = req.generated_tokens[-1]
                     input_tokens = np.array([[last_token]], dtype=np.int64)
-                    logits, updated_kv = self.model(input_tokens, kv_caches=req.kv_cache)
+                    with no_grad():
+                        logits, updated_kv = self.model(input_tokens, kv_caches=req.kv_cache)
                     req.kv_cache = updated_kv
                     req.total_tokens_seen += 1
                     next_token_logits = logits.data[0, -1, :]
