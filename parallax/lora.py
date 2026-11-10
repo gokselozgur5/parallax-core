@@ -127,6 +127,7 @@ def apply_lora_to_model(
     target_modules: Tuple[str, ...] = ("q_proj", "v_proj", "out_proj"),
     r: int = 4,
     lora_alpha: float = 8.0,
+    lora_dropout: float = 0.0,
 ) -> List[LoRALinear]:
     """Inspects a model hierarchy, freezes all non-LoRA parameters, and replaces
 
@@ -148,7 +149,7 @@ def apply_lora_to_model(
         for attr_name, child in list(module.__dict__.items()):
             if isinstance(child, Linear) and any(t in attr_name for t in target_modules):
                 # Replace with LoRALinear
-                lora_layer = LoRALinear(child, r=r, lora_alpha=lora_alpha)
+                lora_layer = LoRALinear(child, r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
                 setattr(module, attr_name, lora_layer)
                 lora_layers.append(lora_layer)
             elif isinstance(child, Module):
