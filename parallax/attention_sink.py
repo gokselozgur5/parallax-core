@@ -19,8 +19,10 @@ class RollingKVCache:
     """
 
     def __init__(self, sink_tokens: int = 4, window_size: int = 128):
-        assert sink_tokens >= 0, "sink_tokens must be non-negative"
-        assert window_size > 0, "window_size must be positive"
+        if sink_tokens < 0:
+            raise ValueError("sink_tokens must be non-negative")
+        if window_size <= 0:
+            raise ValueError("window_size must be positive")
         self.sink_tokens = sink_tokens
         self.window_size = window_size
         self.max_capacity = sink_tokens + window_size

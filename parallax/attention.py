@@ -28,7 +28,8 @@ def apply_rope(
     orig_shape = x.shape
     seq_len = orig_shape[seq_dim]
     dim = orig_shape[-1]
-    assert dim % 2 == 0, "RoPE requires even embedding dimension"
+    if dim % 2 != 0:
+        raise ValueError("RoPE requires even embedding dimension")
 
     # Compute inverse frequencies
     half_dim = dim // 2
@@ -90,11 +91,13 @@ class CausalSelfAttention(Module):
         use_flash_attn: bool = False,
     ):
         super().__init__()
-        assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
+        if embed_dim % num_heads != 0:
+            raise ValueError("embed_dim must be divisible by num_heads")
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.num_kv_heads = num_kv_heads if num_kv_heads is not None else num_heads
-        assert num_heads % self.num_kv_heads == 0, "num_heads must be divisible by num_kv_heads for GQA"
+        if num_heads % self.num_kv_heads != 0:
+            raise ValueError("num_heads must be divisible by num_kv_heads for GQA")
         self.num_queries_per_kv = self.num_heads // self.num_kv_heads
 
         self.head_dim = embed_dim // num_heads
