@@ -162,19 +162,27 @@ def c_gemm(A: np.ndarray, B: np.ndarray) -> np.ndarray:
     A: 2D array of shape (M, K), float32
     B: 2D array of shape (K, N), float32
     """
+    if np.iscomplexobj(A) or np.iscomplexobj(B):
+        raise TypeError("Complex dtypes are not supported")
     if A.ndim != 2 or B.ndim != 2:
         raise ValueError(f"Inputs must be 2D matrices, got shapes {A.shape} and {B.shape}")
     if A.shape[1] != B.shape[0]:
         raise ValueError(f"Incompatible shapes for GEMM: {A.shape} and {B.shape}")
 
+    M, K = A.shape
+    K2, N = B.shape
+    if M > _INT32_MAX or N > _INT32_MAX or K > _INT32_MAX or (M * K) > _INT32_MAX or (K * N) > _INT32_MAX or (M * N) > _INT32_MAX:
+        raise ValueError(f"Matrix dimensions exceed INT32_MAX: ({M}, {K}) @ ({K2}, {N})")
+
+    if M == 0 or N == 0 or K == 0 or A.dtype != np.float32 or B.dtype != np.float32:
+        return np.matmul(A, B)
+
     lib = _find_or_build_library()
     if lib is None:
-        return np.matmul(A, B, dtype=np.float32)
+        return np.matmul(A, B)
 
     A_c = np.ascontiguousarray(A, dtype=np.float32)
     B_c = np.ascontiguousarray(B, dtype=np.float32)
-    M, K = A_c.shape
-    K2, N = B_c.shape
 
     if K == 0:
         return np.zeros((M, N), dtype=np.float32)
