@@ -99,3 +99,35 @@ def test_calculate_compression_ratio_baseline_and_inplace():
     assert stats_fp32["ratio"] > 1.5
     assert np.isclose(stats_fp16["original_mb"] * 2.0, stats_fp32["original_mb"], atol=1e-2)
     assert stats_fp16["quantized_mb"] == stats_fp32["quantized_mb"]
+
+
+import tempfile
+from parallax.gguf import (
+    LLAMA_FTYPE_MOSTLY_Q4_0,
+    LLAMA_FTYPE_MOSTLY_Q8_0,
+    load_gguf,
+    save_gguf,
+)
+from scripts.quantize_model import quantize_model as cli_quantize_model
+
+
+def test_cli_quantize_model_file_type_metadata():
+    """Issue #300: quantize_model CLI writes standard llama_ftype enum constants."""
+    with tempfile.NamedTemporaryFile(suffix=".gguf") as in_f, \
+         tempfile.NamedTemporaryFile(suffix=".gguf") as out_q8, \
+         tempfile.NamedTemporaryFile(suffix=".gguf") as out_q4:
+
+        shape = (32, 32)
+        weights = {"model.weight": np.random.randn(*shape).astype(np.float32)}
+        metadata = {"general.architecture": "llama"}
+        save_gguf(in_f.name, metadata, weights)
+
+        cli_quantize_model(in_f.name, out_q8.name, "q8_0")
+        gguf_q8 = load_gguf(out_q8.name, cast_float64=False)
+        assert gguf_q8.metadata["general.file_type"] == LLAMA_FTYPE_MOSTLY_Q8_0
+        assert gguf_q8.metadata["general.file_type"] == 7
+
+        cli_quantize_model(in_f.name, out_q4.name, "q4_0")
+        gguf_q4 = load_gguf(out_q4.name, cast_float64=False)
+        assert gguf_q4.metadata["general.file_type"] == LLAMA_FTYPE_MOSTLY_Q4_0
+        assert gguf_q4.metadata["general.file_type"] == 2
