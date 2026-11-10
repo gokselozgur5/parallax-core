@@ -40,27 +40,18 @@ void c_softmax_f32(const float *input, float *output, int rows, int cols) {
             }
         }
 
-        // Step 2: Compute exp(x - max_val) and accumulate sum
-        float sum = 0.0f;
+        // Step 2: Compute exp(x - max_val) and accumulate sum in double
+        double sum = 0.0;
         for (c = 0; c < cols; ++c) {
             float exp_val = expf(in_row[c] - max_val);
             out_row[c] = exp_val;
-            sum += exp_val;
+            sum += (double)exp_val;
         }
 
         // Step 3: Normalize
-        float inv_sum = 1.0f / sum;
-        c = 0;
-#if defined(USE_NEON)
-        float32x4_t inv_vec = vdupq_n_f32(inv_sum);
-        for (; c + 3 < cols; c += 4) {
-            float32x4_t v = vld1q_f32(out_row + c);
-            v = vmulq_f32(v, inv_vec);
-            vst1q_f32(out_row + c, v);
-        }
-#endif
-        for (; c < cols; ++c) {
-            out_row[c] *= inv_sum;
+        double inv_sum = (sum > 0.0) ? (1.0 / sum) : 0.0;
+        for (c = 0; c < cols; ++c) {
+            out_row[c] = (float)((double)out_row[c] * inv_sum);
         }
     }
 }
