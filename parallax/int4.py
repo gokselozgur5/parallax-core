@@ -167,6 +167,7 @@ class Linear4Bit(Module):
         out_features: int,
         bias: bool = False,
         group_size: int = 32,
+        cache_dequantized: bool = False,
     ):
         super().__init__()
         if in_features % group_size != 0:
@@ -180,6 +181,7 @@ class Linear4Bit(Module):
         self.out_features = out_features
         self.group_size = group_size
         self.num_groups = in_features // group_size
+        self.cache_dequantized = cache_dequantized
 
         # Packed weights: uint8 array of shape [out_features, in_features // 2]
         self.packed_weight: np.ndarray = np.zeros(
@@ -201,6 +203,7 @@ class Linear4Bit(Module):
         cls,
         linear: Linear,
         group_size: int = 32,
+        cache_dequantized: bool = False,
     ) -> "Linear4Bit":
         """Constructs a Linear4Bit instance from a trained float Linear layer."""
         l4 = cls(
@@ -208,6 +211,7 @@ class Linear4Bit(Module):
             linear.out_features,
             bias=(linear.bias is not None),
             group_size=group_size,
+            cache_dequantized=cache_dequantized,
         )
         packed, scales, zeros = quantize_int4_groupwise(
             linear.weight.data, group_size=group_size
@@ -239,6 +243,8 @@ class Linear4Bit(Module):
         """
         if self._cached_weight is None:
             w_float = self.dequantize()
+            if self.cache_dequantized:
+                self._cached_weight = w_float
         else:
             w_float = self._cached_weight
 
