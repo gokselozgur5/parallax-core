@@ -1,7 +1,13 @@
 import numpy as np
 import pytest
 from parallax.nn import LayerNorm, Linear, Parameter, RMSNorm
-from parallax.tensor import Tensor
+from parallax.tensor import Tensor, no_grad
+
+
+def test_parameter_under_no_grad():
+    with no_grad():
+        p = Parameter(np.ones(3))
+        assert p.requires_grad is True
 
 
 def test_linear_forward_backward():
