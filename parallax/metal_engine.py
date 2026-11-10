@@ -13,7 +13,7 @@ import sys
 import threading
 import ctypes
 from ctypes import util
-from typing import Optional, Tuple
+from typing import Optional
 import numpy as np
 
 # Global cached Metal state

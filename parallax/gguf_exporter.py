@@ -9,7 +9,7 @@ Supports uncompressed F32/F16 as well as Q8_0 and Q4_0 block quantization.
 from typing import Any, Dict, Optional, Tuple, Union
 import numpy as np
 
-from parallax.bitmamba import BitMambaConfig, BitMambaLM
+from parallax.bitmamba import BitMambaLM
 from parallax.gguf import (
     GGML_TYPE_F32,
     GGML_TYPE_F16,
@@ -22,7 +22,7 @@ from parallax.gguf import (
     save_gguf,
 )
 from parallax.gguf_quant import quantize_q4_0, quantize_q8_0
-from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
+from parallax.models.gpt import ParallaxLM
 
 
 def _collect_gpt_tensors(model: ParallaxLM) -> Tuple[Dict[str, Any], Dict[str, np.ndarray]]:

@@ -8,7 +8,7 @@ for saving and resuming ParallaxLM model weights and optimizer moments.
 from dataclasses import asdict
 import json
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 import numpy as np
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
