@@ -134,5 +134,52 @@ def test_flash_attention_backward_causal_gradcheck():
                     np.testing.assert_allclose(dq_flash[b, h, t, c], num_grad, atol=1e-5, rtol=1e-4)
 
 
+def test_flash_attention_asymmetric_sequence_lengths_causal():
+    np.random.seed(42)
+    B, H, Tq, Tk, d = 2, 3, 7, 19, 8
+    q = np.random.randn(B, H, Tq, d)
+    k = np.random.randn(B, H, Tk, d)
+    v = np.random.randn(B, H, Tk, d)
+
+    ref_out = reference_attention(q, k, v, is_causal=True)
+    flash_out, _ = flash_attention_forward(q, k, v, is_causal=True, block_r=4, block_c=5)
+
+    np.testing.assert_allclose(flash_out, ref_out, atol=1e-6, rtol=1e-5)
+
+
+def test_flash_attention_asymmetric_sequence_lengths_backward():
+    np.random.seed(42)
+    B, H, Tq, Tk, d = 1, 2, 6, 14, 8
+    q = np.random.randn(B, H, Tq, d)
+    k = np.random.randn(B, H, Tk, d)
+    v = np.random.randn(B, H, Tk, d)
+    do = np.random.randn(B, H, Tq, d)
+
+    o, lse = flash_attention_forward(q, k, v, is_causal=True, block_r=4, block_c=4)
+    dq_flash, dk_flash, _ = flash_attention_backward(
+        do, o, q, k, v, lse, is_causal=True, block_r=4, block_c=4
+    )
+
+    eps = 1e-5
+    # Numerical grad check for q element
+    q_pos, q_neg = q.copy(), q.copy()
+    q_pos[0, 0, 1, 1] += eps
+    q_neg[0, 0, 1, 1] -= eps
+    o_pos, _ = flash_attention_forward(q_pos, k, v, is_causal=True, block_r=4, block_c=4)
+    o_neg, _ = flash_attention_forward(q_neg, k, v, is_causal=True, block_r=4, block_c=4)
+    num_grad_q = np.sum((o_pos - o_neg) * do) / (2 * eps)
+    np.testing.assert_allclose(dq_flash[0, 0, 1, 1], num_grad_q, atol=1e-5, rtol=1e-4)
+
+    # Numerical grad check for k element
+    k_pos, k_neg = k.copy(), k.copy()
+    k_pos[0, 0, 2, 2] += eps
+    k_neg[0, 0, 2, 2] -= eps
+    o_pos_k, _ = flash_attention_forward(q, k_pos, v, is_causal=True, block_r=4, block_c=4)
+    o_neg_k, _ = flash_attention_forward(q, k_neg, v, is_causal=True, block_r=4, block_c=4)
+    num_grad_k = np.sum((o_pos_k - o_neg_k) * do) / (2 * eps)
+    np.testing.assert_allclose(dk_flash[0, 0, 2, 2], num_grad_k, atol=1e-5, rtol=1e-4)
+
+
+
 
 
