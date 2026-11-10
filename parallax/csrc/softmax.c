@@ -14,9 +14,10 @@
 void c_softmax_f32(const float *input, float *output, int rows, int cols) {
     if (!input || !output || rows <= 0 || cols <= 0) return;
 
+    const size_t cols_s = (size_t)cols;
     for (int r = 0; r < rows; ++r) {
-        const float *in_row = input + r * cols;
-        float *out_row = output + r * cols;
+        const float *in_row = input + (size_t)r * cols_s;
+        float *out_row = output + (size_t)r * cols_s;
 
         // Step 1: Find max value for numerical stability
         float max_val = in_row[0];
