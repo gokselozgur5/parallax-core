@@ -43,8 +43,12 @@ from parallax.rl import (
 from parallax.tensor import Tensor
 from parallax.viz import to_mermaid
 
+HOST = "127.0.0.1"
 PORT = 8080
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "web")
+MAX_REQUEST_BODY_BYTES = 10 * 1024 * 1024  # 10 MB
+MAX_STEPS = 1000
+MAX_NEW_TOKENS = 4096
 
 # Pre-train a tiny micro-model in-memory so the UI is ready to generate immediately
 CORPUS = "parallax creates clarity from multiple perspectives. parallax builds depth and understanding."
@@ -513,11 +517,11 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         })
 
 
-def run_server(port: int = PORT):
+def run_server(port: int = PORT, host: str = HOST):
     os.makedirs(STATIC_DIR, exist_ok=True)
     socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("", port), StudioHandler) as httpd:
-        print(f"Parallax Studio running at http://localhost:{port}")
+    with socketserver.TCPServer((host, port), StudioHandler) as httpd:
+        print(f"Parallax Studio running at http://{host}:{port}")
         httpd.serve_forever()
 
 
