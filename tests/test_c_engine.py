@@ -120,3 +120,26 @@ def test_concurrent_initialization_c_and_metal():
 
     assert all(r == c_results[0] for r in c_results)
     assert all(r == metal_results[0] for r in metal_results)
+
+
+def test_c_engine_diagnostic_reporting_and_require_flag(monkeypatch):
+    import os
+    import parallax.c_engine as ce
+
+    # Force library load failure
+    monkeypatch.setattr(ce, "_C_LIB", None)
+    monkeypatch.setattr(ce, "_LIB_LOAD_ATTEMPTED", False)
+    monkeypatch.setattr(ce, "_LOAD_ERROR_REASON", None)
+    monkeypatch.setattr("ctypes.CDLL", lambda path: (_ for _ in ()).throw(OSError("dummy load error")))
+
+    assert ce.is_c_engine_available() is False
+    err = ce.get_c_engine_load_error()
+    assert err is not None
+    assert "dummy load error" in err
+
+    # Test PARALLAX_REQUIRE_C_ENGINE=1 raises RuntimeError
+    monkeypatch.setenv("PARALLAX_REQUIRE_C_ENGINE", "1")
+    monkeypatch.setattr(ce, "_C_LIB", None)
+    monkeypatch.setattr(ce, "_LIB_LOAD_ATTEMPTED", False)
+    with pytest.raises(RuntimeError, match="PARALLAX_REQUIRE_C_ENGINE=1"):
+        ce.is_c_engine_available()
