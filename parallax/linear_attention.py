@@ -10,7 +10,7 @@ step forward for constant O(1) memory autoregressive decoding.
 from typing import Optional, Tuple, Union
 import numpy as np
 from parallax.nn import Linear, Module, Parameter
-from parallax.tensor import Tensor
+from parallax.tensor import Tensor, _accumulate_grad
 
 
 def elu_feature_map(x: np.ndarray) -> np.ndarray:
@@ -57,9 +57,13 @@ class LinearAttention(Module):
         x_tensor = x if isinstance(x, Tensor) else Tensor(x)
         B, T, C = x_tensor.shape
 
-        q = self.q_proj(x_tensor).data.reshape(B, T, self.num_heads, self.head_dim).swapaxes(1, 2)
-        k = self.k_proj(x_tensor).data.reshape(B, T, self.num_heads, self.head_dim).swapaxes(1, 2)
-        v = self.v_proj(x_tensor).data.reshape(B, T, self.num_heads, self.head_dim).swapaxes(1, 2)
+        q_proj = self.q_proj(x_tensor)
+        k_proj = self.k_proj(x_tensor)
+        v_proj = self.v_proj(x_tensor)
+
+        q = q_proj.data.reshape(B, T, self.num_heads, self.head_dim).swapaxes(1, 2)
+        k = k_proj.data.reshape(B, T, self.num_heads, self.head_dim).swapaxes(1, 2)
+        v = v_proj.data.reshape(B, T, self.num_heads, self.head_dim).swapaxes(1, 2)
 
         # Feature maps: phi(Q), phi(K) -> [B, num_heads, T, head_dim]
         phi_q = elu_feature_map(q)
@@ -113,7 +117,38 @@ class LinearAttention(Module):
 
         out_heads = num / den  # [B, H, T, D]
         merged = out_heads.swapaxes(1, 2).reshape(B, T, C)
-        out = self.out_proj(Tensor(merged, (x_tensor,), "LinearAttention"))
+        attn_tensor = Tensor(merged, (q_proj, k_proj, v_proj), "LinearAttention")
+
+        def _backward() -> None:
+            if attn_tensor.grad is None:
+                return
+            d_out_heads = attn_tensor.grad.reshape(B, T, self.num_heads, self.head_dim).swapaxes(1, 2)
+
+            G = d_out_heads / den
+            delta = -(d_out_heads * out_heads).sum(axis=-1, keepdims=True) / den
+            d_phi_q = (G[..., :, None, :] @ S_cum.swapaxes(-1, -2)).squeeze(-2) + (delta * Z_cum.squeeze(-1))
+            d_S_cum = phi_q[..., :, :, None] @ G[..., :, None, :]
+            d_Z_cum = phi_q[..., :, :, None] * delta[..., :, None]
+
+            d_kv = np.flip(np.cumsum(np.flip(d_S_cum, axis=2), axis=2), axis=2)
+            d_k_col_from_Z = np.flip(np.cumsum(np.flip(d_Z_cum, axis=2), axis=2), axis=2)
+
+            d_v = (phi_k[..., :, None, :] @ d_kv).squeeze(-2)
+            d_phi_k = (d_kv @ v[..., :, :, None] + d_k_col_from_Z).squeeze(-1)
+
+            d_q = d_phi_q * np.where(q > 0, 1.0, np.exp(q))
+            d_k = d_phi_k * np.where(k > 0, 1.0, np.exp(k))
+
+            dq_proj = d_q.swapaxes(1, 2).reshape(B, T, C)
+            dk_proj = d_k.swapaxes(1, 2).reshape(B, T, C)
+            dv_proj = d_v.swapaxes(1, 2).reshape(B, T, C)
+
+            _accumulate_grad(q_proj, dq_proj)
+            _accumulate_grad(k_proj, dk_proj)
+            _accumulate_grad(v_proj, dv_proj)
+
+        attn_tensor._backward = _backward
+        out = self.out_proj(attn_tensor)
         return out
 
 
