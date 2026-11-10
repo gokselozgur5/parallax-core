@@ -127,3 +127,18 @@ def test_rust_bridge_softmax(rust_lib):
 
     np.testing.assert_allclose(data_copy, expected, rtol=1e-5, atol=1e-5)
     np.testing.assert_allclose(np.sum(data_copy, axis=-1), np.ones(rows), rtol=1e-5, atol=1e-5)
+
+
+def test_rust_bridge_validation_errors(rust_lib):
+    buf = np.ones((2, 2), dtype=np.float32)
+    ptr = buf.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+    assert rust_lib.parallax_gemm_f32(2, 2, 2, 1.0, ptr, 2, ptr, 4, 0.0, ptr, 4) == -2
+    assert rust_lib.parallax_softmax_f32(ptr, 2, 2, 2) == -2
+
+
+def test_rust_bridge_softmax_nan_and_inf(rust_lib):
+    data = np.array([[1.0, np.nan, 3.0], [1.0, -np.inf, 2.0]], dtype=np.float32)
+    ptr = data.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+    assert rust_lib.parallax_softmax_f32(ptr, data.size, 2, 3) == 0
+    assert np.isnan(data[0]).all()
+    np.testing.assert_allclose(data[1], [0.26894143, 0.0, 0.7310586], rtol=1e-5, atol=1e-5)
