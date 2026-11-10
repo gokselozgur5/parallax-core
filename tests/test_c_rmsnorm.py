@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 from parallax.c_engine import (
     c_rmsnorm,
+    c_softmax,
     is_c_engine_available,
     _find_or_build_library,
 )
@@ -160,3 +161,22 @@ def test_c_rmsnorm_int32_bounds():
     weight = np.ones(4, dtype=np.float32)
     with pytest.raises(ValueError, match="INT32_MAX"):
         c_rmsnorm(MockRMSNormArray(), weight)
+
+
+def test_c_engine_wide_rows():
+    if not is_c_engine_available():
+        pytest.skip("C engine not available")
+    cols = 1048576
+    rng = np.random.RandomState(42)
+
+    for logits in [rng.randn(1, cols).astype(np.float32), (0.01 * rng.randn(1, cols)).astype(np.float32)]:
+        out_sm = c_softmax(logits)
+        row_sum = float(np.sum(out_sm.astype(np.float64)))
+        assert abs(row_sum - 1.0) < 1e-6
+
+    x = rng.randn(1, cols).astype(np.float32)
+    weight = np.ones(cols, dtype=np.float32)
+    out_rms = c_rmsnorm(x, weight, eps=1e-6)
+    x_64 = x.astype(np.float64)
+    ref = (x_64 / np.sqrt(np.mean(x_64 ** 2, axis=-1, keepdims=True) + 1e-6)) * weight.astype(np.float64)
+    np.testing.assert_allclose(out_rms, ref.astype(np.float32), atol=1e-5, rtol=1e-5)
