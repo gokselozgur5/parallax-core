@@ -25,7 +25,7 @@ void c_rmsnorm_f32(const float *x, const float *weight, float *output, int rows,
         float *out_row = output + (size_t)r * cols_s;
 
         // Step 1: Calculate sum of squares
-        float sum_sq = 0.0f;
+        double sum_sq = 0.0;
         int c = 0;
 
 #if defined(USE_NEON)
@@ -49,13 +49,13 @@ void c_rmsnorm_f32(const float *x, const float *weight, float *output, int rows,
 #endif
 
         for (; c < cols; ++c) {
-            float v = x_row[c];
+            double v = (double)x_row[c];
             sum_sq += v * v;
         }
 
         // Step 2: Compute RMS and normalization factor
-        float mean_sq = sum_sq * inv_cols;
-        float rms = sqrtf(mean_sq + eps);
+        double mean_sq = sum_sq * (1.0 / (double)cols);
+        float rms = (float)sqrt(mean_sq + (double)eps);
         float inv_rms = 1.0f / rms;
 
         // Step 3: Compute output = (x / rms) * weight
