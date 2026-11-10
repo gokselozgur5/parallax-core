@@ -13,7 +13,7 @@ import numpy as np
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.nn import Linear, Module, Parameter
-from parallax.tensor import Tensor, unbroadcast_grad
+from parallax.tensor import Tensor, _accumulate_grad, unbroadcast_grad
 
 
 class RewardModel(Module):
@@ -35,7 +35,9 @@ class RewardModel(Module):
         last_hidden = Tensor(last_hidden_data, (hidden,), "LastTokenPool")
 
         def _pool_backward():
-            if hidden.requires_grad and hidden.grad is not None and last_hidden.grad is not None:
+            if hidden.requires_grad and last_hidden.grad is not None:
+                if hidden.grad is None:
+                    hidden.grad = np.zeros_like(hidden.data, dtype=np.float64)
                 hidden.grad[:, -1:, :] += last_hidden.grad
 
         last_hidden._backward = _pool_backward
@@ -46,8 +48,8 @@ class RewardModel(Module):
         out = Tensor(reward_squeezed_data, (reward,), "RewardSqueeze")
 
         def _squeeze_backward():
-            if reward.requires_grad and reward.grad is not None and out.grad is not None:
-                reward.grad += out.grad[:, :, None]
+            if reward.requires_grad and out.grad is not None:
+                _accumulate_grad(reward, out.grad[:, :, None])
 
         out._backward = _squeeze_backward
         return out
@@ -73,10 +75,10 @@ def bradley_terry_reward_loss(r_chosen: Tensor, r_rejected: Tensor, margin: floa
         d_chosen = -sig_neg_diff * grad_scale
         d_rejected = sig_neg_diff * grad_scale
 
-        if r_chosen.requires_grad and r_chosen.grad is not None:
-            r_chosen.grad += unbroadcast_grad(d_chosen, r_chosen.shape)
-        if r_rejected.requires_grad and r_rejected.grad is not None:
-            r_rejected.grad += unbroadcast_grad(d_rejected, r_rejected.shape)
+        if r_chosen.requires_grad:
+            _accumulate_grad(r_chosen, d_chosen)
+        if r_rejected.requires_grad:
+            _accumulate_grad(r_rejected, d_rejected)
 
     out._backward = _backward
     return out

@@ -5,7 +5,7 @@ Selective State Space Model (S6 / Mamba: Gu & Dao, 2023) mathematical primitives
 from typing import Optional, Tuple
 import numpy as np
 from parallax.nn import Linear, Module, Parameter
-from parallax.tensor import Tensor
+from parallax.tensor import Tensor, _accumulate_grad
 
 
 def discretize_zoh(
@@ -249,12 +249,12 @@ class MambaBlock(Module):
                 d_y, x_conv, delta, A, B_ssm_data, C_ssm_data, self.D.data, h_states
             )
 
-            if self.D.requires_grad and self.D.grad is not None and dD is not None:
-                self.D.grad += dD
+            if self.D.requires_grad and dD is not None:
+                _accumulate_grad(self.D, dD)
 
-            if self.A_log.requires_grad and self.A_log.grad is not None:
+            if self.A_log.requires_grad:
                 # A = -exp(A_log) -> dA_log = dA * (-exp(A_log)) = dA * A
-                self.A_log.grad += dA * A
+                _accumulate_grad(self.A_log, dA * A)
 
             # 3. Delta softplus & dt_proj backward
             d_dt_proj_out = ddelta * delta_sig
@@ -278,16 +278,16 @@ class MambaBlock(Module):
                 d_conv_out, x_data, self.conv_weight.data, self.conv_bias.data
             )
 
-            if self.conv_weight.requires_grad and self.conv_weight.grad is not None:
-                self.conv_weight.grad += d_conv_w
+            if self.conv_weight.requires_grad:
+                _accumulate_grad(self.conv_weight, d_conv_w)
 
-            if self.conv_bias.requires_grad and self.conv_bias.grad is not None:
-                self.conv_bias.grad += d_conv_b
+            if self.conv_bias.requires_grad:
+                _accumulate_grad(self.conv_bias, d_conv_b)
 
             # 7. xz projection split backward
             d_xz = np.concatenate([dx, d_z], axis=-1)
-            if xz.requires_grad and xz.grad is not None:
-                xz.grad += d_xz
+            if xz.requires_grad:
+                _accumulate_grad(xz, d_xz)
 
         y_gated_tensor._backward = _backward
         return self.out_proj(y_gated_tensor)

@@ -5,7 +5,7 @@ BitNet b1.58 (1.58-bit LLMs: Ma et al., 2024) mathematical primitives.
 from typing import Tuple
 import numpy as np
 from parallax.nn import Module, Parameter
-from parallax.tensor import Tensor, unbroadcast_grad
+from parallax.tensor import Tensor, _accumulate_grad, unbroadcast_grad
 
 
 def quantize_weights_ternary(weight: np.ndarray) -> Tuple[np.ndarray, float]:
@@ -73,16 +73,16 @@ class BitLinear(Module):
             # Straight-Through Estimator (STE): gradient passes directly to continuous weights & input
             # dL/dW = dL/dY^T @ X
             grad_w = np.matmul(out.grad.reshape(-1, self.out_features).T, x_data.reshape(-1, self.in_features))
-            if self.weight.requires_grad and self.weight.grad is not None:
-                self.weight.grad += grad_w
+            if self.weight.requires_grad:
+                _accumulate_grad(self.weight, grad_w)
 
             # dL/dX = dL/dY @ W_eff = dL/dY @ (W_ternary * gamma)
             grad_x = np.matmul(out.grad, w_ternary) * gamma
-            if x.requires_grad and x.grad is not None:
-                x.grad += unbroadcast_grad(grad_x, x.shape)
+            if x.requires_grad:
+                _accumulate_grad(x, grad_x)
 
-            if self.bias is not None and self.bias.requires_grad and self.bias.grad is not None:
-                self.bias.grad += np.sum(out.grad.reshape(-1, self.out_features), axis=0)
+            if self.bias is not None and self.bias.requires_grad:
+                _accumulate_grad(self.bias, np.sum(out.grad.reshape(-1, self.out_features), axis=0))
 
         out._backward = _backward
         return out

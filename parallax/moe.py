@@ -15,7 +15,7 @@ import numpy as np
 
 from parallax.models.gpt import MLP, SwiGLU
 from parallax.nn import Linear, Module, Parameter
-from parallax.tensor import Tensor, unbroadcast_grad
+from parallax.tensor import Tensor, _accumulate_grad, unbroadcast_grad
 
 
 class SparseMoE(Module):
@@ -168,12 +168,12 @@ class SparseMoE(Module):
             dlogits_flat[row_indices, topk_indices] = d_topk_logits
 
             # Propagate to x and gate_logits
-            if x.requires_grad and x.grad is not None:
-                x.grad += unbroadcast_grad(dx_flat.reshape(B, T, D), x.shape)
+            if x.requires_grad:
+                _accumulate_grad(x, dx_flat.reshape(B, T, D))
 
-            if gate_logits.requires_grad and gate_logits.grad is not None:
+            if gate_logits.requires_grad:
                 dgate = dlogits_flat.reshape(B, T, self.num_experts)
-                gate_logits.grad += unbroadcast_grad(dgate, gate_logits.shape)
+                _accumulate_grad(gate_logits, dgate)
 
         out._backward = _backward
         return out
