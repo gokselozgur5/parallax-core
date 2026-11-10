@@ -102,12 +102,12 @@ class Trainer:
                 grad_norm = clip_grad_norm_(model.parameters(), cfg.max_grad_norm)
 
             # Optimizer & Scheduler step
+            current_lr = opt.lr
             opt.step()
             opt.zero_grad()
 
-            current_lr = opt.lr
             if self.scheduler is not None:
-                current_lr = self.scheduler.step()
+                self.scheduler.step()
 
             step_time = time.perf_counter() - t0
             metrics: Dict[str, float] = {

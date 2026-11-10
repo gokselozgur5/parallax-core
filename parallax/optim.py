@@ -50,6 +50,10 @@ class LRScheduler:
         self.optimizer = optimizer
         self.base_lr = base_lr if base_lr is not None else optimizer.lr
         self.step_count = 0
+        try:
+            self.optimizer.lr = self.get_lr(0)
+        except (NotImplementedError, AttributeError):
+            pass
 
     def get_lr(self, step: int) -> float:
         raise NotImplementedError
@@ -77,11 +81,12 @@ class CosineAnnealingWithWarmup(LRScheduler):
         min_lr: float = 0.0,
         base_lr: Optional[float] = None,
     ):
-        super().__init__(optimizer, base_lr=base_lr)
         assert total_steps >= warmup_steps, "total_steps must be >= warmup_steps"
         self.warmup_steps = warmup_steps
         self.total_steps = total_steps
         self.min_lr = min_lr
+        super().__init__(optimizer, base_lr=base_lr)
+        self.optimizer.lr = self.get_lr(0)
 
     def get_lr(self, step: int) -> float:
         if step <= self.warmup_steps:
