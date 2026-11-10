@@ -55,12 +55,26 @@ def test_hf_config_hidden_act_validation():
             "hidden_act": "relu",
         })
 
+    with pytest.raises(NotImplementedError, match="Unsupported hidden_act"):
+        hf_config_to_parallax({
+            "model_type": "llama",
+            "hidden_size": 128,
+            "hidden_act": "gelu",
+        })
+
     cfg_silu = hf_config_to_parallax({
         "model_type": "llama",
         "hidden_size": 128,
         "hidden_act": "silu",
     })
     assert cfg_silu.use_swiglu is True
+
+    cfg_swish = hf_config_to_parallax({
+        "model_type": "llama",
+        "hidden_size": 128,
+        "hidden_act": "swish",
+    })
+    assert cfg_swish.use_swiglu is True
 
 
 def test_hf_config_tie_word_embeddings_defaults():
