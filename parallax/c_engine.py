@@ -6,9 +6,7 @@ from __future__ import annotations
 
 import ctypes
 import os
-import sys
 import shutil
-import tempfile
 import subprocess
 import threading
 import logging
