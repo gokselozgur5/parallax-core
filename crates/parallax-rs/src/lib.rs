@@ -56,20 +56,18 @@ pub unsafe extern "C" fn parallax_gemm_f32(
 /// 0 on success, negative status code on error.
 #[no_mangle]
 pub unsafe extern "C" fn parallax_softmax_f32(
-    data_ptr: *mut f32,
-    rows: usize,
-    cols: usize,
+    data_ptr: *mut f32, data_len: usize, rows: usize, cols: usize,
 ) -> i32 {
-    if data_ptr.is_null() {
-        return STATUS_NULL_POINTER;
-    }
-
-    let data = slice::from_raw_parts_mut(data_ptr, rows * cols);
-
-    match tensor::softmax_2d(data, rows, cols) {
-        Ok(()) => STATUS_OK,
-        Err(_) => STATUS_INVALID_DIMENSION,
-    }
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        if data_ptr.is_null() { return STATUS_NULL_POINTER; }
+        let Some(req) = rows.checked_mul(cols) else { return STATUS_INVALID_DIMENSION; };
+        if data_len != req { return STATUS_INVALID_DIMENSION; }
+        let data = slice::from_raw_parts_mut(data_ptr, data_len);
+        match tensor::softmax_2d(data, rows, cols) {
+            Ok(()) => STATUS_OK,
+            Err(_) => STATUS_INVALID_DIMENSION,
+        }
+    })).unwrap_or(STATUS_INVALID_DIMENSION)
 }
 
 /// C-ABI export for version check / smoke test.
@@ -109,7 +107,7 @@ mod tests {
     fn test_c_abi_softmax() {
         let mut data = vec![0.0f32, 0.0f32];
         unsafe {
-            let res = parallax_softmax_f32(data.as_mut_ptr(), 1, 2);
+            let res = parallax_softmax_f32(data.as_mut_ptr(), data.len(), 1, 2);
             assert_eq!(res, STATUS_OK);
         }
         assert!((data[0] - 0.5).abs() < 1e-6);
