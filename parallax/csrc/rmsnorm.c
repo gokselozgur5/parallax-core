@@ -29,23 +29,29 @@ void c_rmsnorm_f32(const float *x, const float *weight, float *output, int rows,
         int c = 0;
 
 #if defined(USE_NEON)
-        float32x4_t sum_vec = vdupq_n_f32(0.0f);
+        float64x2_t sv0 = vdupq_n_f64(0.0), sv1 = vdupq_n_f64(0.0);
         for (; c + 3 < cols; c += 4) {
             float32x4_t xv = vld1q_f32(x_row + c);
-            sum_vec = vmlaq_f32(sum_vec, xv, xv);
+            float64x2_t x0 = vcvt_f64_f32(vget_low_f32(xv));
+            float64x2_t x1 = vcvt_f64_f32(vget_high_f32(xv));
+            sv0 = vmlaq_f64(sv0, x0, x0);
+            sv1 = vmlaq_f64(sv1, x1, x1);
         }
-        float tmp[4];
-        vst1q_f32(tmp, sum_vec);
-        sum_sq = tmp[0] + tmp[1] + tmp[2] + tmp[3];
+        double t0[2], t1[2];
+        vst1q_f64(t0, sv0); vst1q_f64(t1, sv1);
+        sum_sq = (t0[0] + t0[1]) + (t1[0] + t1[1]);
 #elif defined(USE_AVX2)
-        __m256 sum_vec = _mm256_setzero_ps();
+        __m256d sv0 = _mm256_setzero_pd(), sv1 = _mm256_setzero_pd();
         for (; c + 7 < cols; c += 8) {
             __m256 xv = _mm256_loadu_ps(x_row + c);
-            sum_vec = _mm256_fmadd_ps(xv, xv, sum_vec);
+            __m256d x0 = _mm256_cvtps_pd(_mm256_castps256_ps128(xv));
+            __m256d x1 = _mm256_cvtps_pd(_mm256_extractf128_ps(xv, 1));
+            sv0 = _mm256_fmadd_pd(x0, x0, sv0);
+            sv1 = _mm256_fmadd_pd(x1, x1, sv1);
         }
-        float tmp[8];
-        _mm256_storeu_ps(tmp, sum_vec);
-        for (int k = 0; k < 8; ++k) sum_sq += tmp[k];
+        double t0[4], t1[4];
+        _mm256_storeu_pd(t0, sv0); _mm256_storeu_pd(t1, sv1);
+        for (int k = 0; k < 4; ++k) sum_sq += t0[k] + t1[k];
 #endif
 
         for (; c < cols; ++c) {
