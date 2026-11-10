@@ -17,6 +17,9 @@ class TopASampler:
         p_max = np.max(probs, axis=-1, keepdims=True)
         threshold = self.alpha * (p_max ** 2)
         mask = probs >= threshold
+        # Always retain at least the top candidate token
+        top_indices = np.argmax(logits, axis=-1, keepdims=True)
+        np.put_along_axis(mask, top_indices, True, axis=-1)
         return np.where(mask, logits, -1e9)
 
     def sample(self, logits: np.ndarray, temperature: float = 1.0) -> int:
