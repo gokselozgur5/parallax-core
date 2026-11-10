@@ -184,3 +184,29 @@ def test_tensor_sum_mean_numpy_integer_axis_issue_292():
     assert np.allclose(x.grad, np.ones((2, 2)))
 
 
+def test_no_grad_thread_local_isolation():
+    import threading
+    import time
+
+    results = {}
+
+    def worker_with_nograd():
+        with no_grad():
+            time.sleep(0.05)
+            results["worker_inside"] = is_grad_enabled()
+        results["worker_after"] = is_grad_enabled()
+
+    t = threading.Thread(target=worker_with_nograd)
+    t.start()
+    time.sleep(0.02)
+    results["main_during_worker"] = is_grad_enabled()
+    t.join()
+    results["main_after_worker"] = is_grad_enabled()
+
+    assert results["worker_inside"] is False
+    assert results["worker_after"] is True
+    assert results["main_during_worker"] is True
+    assert results["main_after_worker"] is True
+
+
+
