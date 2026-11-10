@@ -249,6 +249,7 @@ class BitMambaLM(Module):
             )
             for _ in range(config.num_layers)
         ]
+        self.norms = [RMSNorm(config.d_model, eps=config.rms_norm_eps) for _ in range(config.num_layers)]
         self.final_norm = RMSNorm(config.d_model, eps=config.rms_norm_eps)
         # 1.58-bit LM Head
         self.lm_head = BitLinear(config.d_model, config.vocab_size, bias=False)
@@ -274,12 +275,14 @@ class BitMambaLM(Module):
 
         new_states: List[Tuple[np.ndarray, np.ndarray]] = []
         for i, block in enumerate(self.blocks):
+            normed = self.norms[i](x)
             if states is not None:
                 ssm_s, conv_s = states[i]
-                x, new_ssm_s, new_conv_s = block(x, ssm_state=ssm_s, conv_state=conv_s)
+                block_out, new_ssm_s, new_conv_s = block(normed, ssm_state=ssm_s, conv_state=conv_s)
+                x = x + block_out
                 new_states.append((new_ssm_s, new_conv_s))
             else:
-                x = block(x)
+                x = x + block(normed)
 
         hidden = self.final_norm(x)
         logits = self.lm_head(hidden)
