@@ -6,7 +6,7 @@ attention sink tokens and evicting older middle tokens while preserving
 the rolling recent local window.
 """
 
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 import numpy as np
 
 

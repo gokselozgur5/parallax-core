@@ -10,12 +10,12 @@ Auxiliary Load Balancing Loss:
 where f_i is the fraction of tokens routed to expert i, and P_i is the average gate probability.
 """
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional
 import numpy as np
 
 from parallax.models.gpt import MLP, SwiGLU
-from parallax.nn import Linear, Module, Parameter
-from parallax.tensor import Tensor, _accumulate_grad, unbroadcast_grad
+from parallax.nn import Linear, Module
+from parallax.tensor import Tensor, _accumulate_grad
 
 
 class SparseMoE(Module):
