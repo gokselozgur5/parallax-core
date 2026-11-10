@@ -158,3 +158,29 @@ def test_tensor_matmul_1d_left_operand_backward_issue_291():
     v3 = Tensor(np.random.randn(3), requires_grad=True)
     assert check_tensor_gradient(lambda a, b: (a @ b).sum(), [m3, v3], eps=1e-5, tol=1e-4) is True
 
+
+def test_tensor_sum_mean_numpy_integer_axis_issue_292():
+    x = Tensor(np.array([[1.0, 2.0], [3.0, 4.0]]), requires_grad=True)
+
+    # Test sum with np.int64 axis
+    s = x.sum(axis=np.int64(0))
+    assert np.allclose(s.data, np.array([4.0, 6.0]))
+    s.backward(np.array([1.0, 1.0]))
+    assert np.allclose(x.grad, np.ones((2, 2)))
+
+    x.zero_grad()
+
+    # Test mean with np.int32 axis
+    m = x.mean(axis=np.int32(1))
+    assert np.allclose(m.data, np.array([1.5, 3.5]))
+    m.backward(np.array([1.0, 1.0]))
+    assert np.allclose(x.grad, np.array([[0.5, 0.5], [0.5, 0.5]]))
+
+    # Test tuple containing numpy integer
+    x.zero_grad()
+    s2 = x.sum(axis=(np.int64(0), 1))
+    assert float(s2.data) == 10.0
+    s2.backward()
+    assert np.allclose(x.grad, np.ones((2, 2)))
+
+
