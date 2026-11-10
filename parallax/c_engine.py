@@ -19,6 +19,7 @@ _LIB_LOAD_ATTEMPTED: bool = False
 _INIT_LOCK = threading.Lock()
 _LOAD_ERROR_REASON: Optional[str] = None
 _LOGGER = logging.getLogger("parallax.c_engine")
+_INT32_MAX: int = 2147483647
 
 
 def _get_build_cache_dir() -> Path:
