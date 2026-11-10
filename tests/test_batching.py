@@ -96,3 +96,39 @@ def test_continuous_batch_engine_ejects_failed_request():
     assert good_req.status == RequestStatus.FINISHED
     assert len(good_req.generated_tokens) == 2
 
+
+def test_continuous_batch_engine_step_runs_under_no_grad():
+    from parallax.tensor import is_grad_enabled
+
+    config = ParallaxLMConfig(
+        vocab_size=32,
+        embed_dim=16,
+        num_layers=1,
+        num_heads=2,
+        max_seq_len=64,
+        use_swiglu=False,
+    )
+
+    class SpyLM(ParallaxLM):
+        def __init__(self, cfg):
+            super().__init__(cfg)
+            self.grad_enabled_log = []
+
+        def __call__(self, *args, **kwargs):
+            self.grad_enabled_log.append(is_grad_enabled())
+            return super().__call__(*args, **kwargs)
+
+    spy_model = SpyLM(config)
+    engine = ContinuousBatchEngine(model=spy_model, max_batch_size=2)
+    req = SequenceRequest(request_id="r1", prompt_tokens=[1, 2], max_new_tokens=2)
+    engine.add_request(req)
+
+    # Step 1: prefill
+    engine.step()
+    # Step 2: decode
+    engine.step()
+
+    assert len(spy_model.grad_enabled_log) == 2
+    assert all(enabled is False for enabled in spy_model.grad_enabled_log)
+
+
