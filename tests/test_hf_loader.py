@@ -19,6 +19,7 @@ from parallax.safetensors import save_safetensors
 
 def test_hf_config_to_parallax_translation():
     hf_cfg = {
+        "model_type": "llama",
         "hidden_size": 576,
         "num_attention_heads": 9,
         "num_key_value_heads": 3,
@@ -54,6 +55,7 @@ def test_load_hf_pretrained_and_inference_e2e():
     with tempfile.TemporaryDirectory() as tmpdir:
         # 1. Write HuggingFace config.json
         hf_cfg = {
+            "model_type": "llama",
             "hidden_size": D,
             "num_attention_heads": H,
             "num_key_value_heads": H,
@@ -131,6 +133,7 @@ def test_load_hf_untied_lm_head():
 
     with tempfile.TemporaryDirectory() as tmpdir:
         hf_cfg = {
+            "model_type": "llama",
             "hidden_size": D,
             "num_attention_heads": H,
             "num_hidden_layers": L,

@@ -75,6 +75,7 @@ def test_load_hf_tokenizer_from_json_and_pretrained_pipeline():
     with tempfile.TemporaryDirectory() as tmp_dir:
         # 1. Config.json
         cfg = {
+            "model_type": "llama",
             "hidden_size": 16,
             "num_attention_heads": 2,
             "num_key_value_heads": 2,
