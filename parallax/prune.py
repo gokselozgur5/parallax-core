@@ -119,7 +119,13 @@ def prune_model(
         # MLP projection layers
         if "mlp" in targets:
             mlp_layers = []
-            if hasattr(block.mlp, "w_gate"):
+            if hasattr(block.mlp, "experts"):
+                for exp in block.mlp.experts:
+                    if hasattr(exp, "w_gate"):
+                        mlp_layers.extend([exp.w_gate, exp.w_up, exp.w_down])
+                    elif hasattr(exp, "fc1"):
+                        mlp_layers.extend([exp.fc1, exp.fc2])
+            elif hasattr(block.mlp, "w_gate"):
                 mlp_layers.extend([block.mlp.w_gate, block.mlp.w_up, block.mlp.w_down])
             elif hasattr(block.mlp, "fc1"):
                 mlp_layers.extend([block.mlp.fc1, block.mlp.fc2])
