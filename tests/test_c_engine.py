@@ -35,6 +35,20 @@ def test_c_gemm_odd_shapes():
 
     np.testing.assert_allclose(result, expected, rtol=1e-4, atol=1e-4)
 
+def test_c_gemm_zero_inner_dimension():
+    # Issue #374: K == 0 must return zeros of shape (M, N)
+    A = np.zeros((3, 0), dtype=np.float32)
+    B = np.zeros((0, 4), dtype=np.float32)
+    result = c_gemm(A, B)
+    assert result.shape == (3, 4)
+    np.testing.assert_array_equal(result, np.zeros((3, 4), dtype=np.float32))
+
+    # Also test fallback path
+    with patch("parallax.c_engine._find_or_build_library", return_value=None):
+        result_fallback = c_gemm(A, B)
+        assert result_fallback.shape == (3, 4)
+        np.testing.assert_array_equal(result_fallback, np.zeros((3, 4), dtype=np.float32))
+
 def test_c_gemm_invalid_shapes():
     A = np.ones((5, 10), dtype=np.float32)
     B = np.ones((8, 4), dtype=np.float32)
