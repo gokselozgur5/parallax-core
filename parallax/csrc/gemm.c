@@ -18,7 +18,13 @@
  * C: M x N (row-major)
  */
 void c_gemm_f32(const float *A, const float *B, float *C, int M, int N, int K) {
-    if (!A || !B || !C || M <= 0 || N <= 0 || K <= 0) return;
+    if (!A || !B || !C || M <= 0 || N <= 0) return;
+    if (K <= 0) {
+        for (int i = 0; i < M * N; ++i) {
+            C[i] = 0.0f;
+        }
+        return;
+    }
 
     for (int i = 0; i < M; ++i) {
         const float *a_row = A + i * K;
