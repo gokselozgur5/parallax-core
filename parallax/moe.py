@@ -46,6 +46,7 @@ class SparseMoE(Module):
 
         # Router / Gating linear projection: [embed_dim -> num_experts]
         self.gate = Linear(embed_dim, num_experts, bias=False)
+        self.router = self.gate
 
         # Expert networks
         self.experts: List[Module] = []
@@ -55,6 +56,7 @@ class SparseMoE(Module):
 
         # Buffer for latest auxiliary loss and routing metrics
         self.last_aux_loss: float = 0.0
+        self.aux_loss: Optional[Tensor] = None
         self.last_expert_counts: np.ndarray = np.zeros(num_experts, dtype=np.int64)
 
     def forward(self, x: Tensor) -> Tensor:
@@ -85,8 +87,12 @@ class SparseMoE(Module):
         row_indices = np.arange(N)[:, None]
         topk_probs_raw = probs[row_indices, topk_indices]  # [N, K]
 
-        # Renormalize top-k weights so they sum to 1.0 per token
-        topk_weights = topk_probs_raw / np.sum(topk_probs_raw, axis=-1, keepdims=True)  # [N, K]
+        # Renormalize top-k weights so they sum to 1.0 per token (when top_k > 1)
+        # When top_k == 1, do not renormalize to 1.0 (which zeroes router gradient)
+        if self.top_k == 1:
+            topk_weights = topk_probs_raw  # [N, 1] raw softmax probability
+        else:
+            topk_weights = topk_probs_raw / np.sum(topk_probs_raw, axis=-1, keepdims=True)  # [N, K]
 
         # 3. Compute Switch Transformer style Load Balancing Auxiliary Loss
         # f_i: fraction of tokens routed to expert i
@@ -99,6 +105,21 @@ class SparseMoE(Module):
         aux_loss = self.aux_loss_coef * float(self.num_experts * np.sum(f * P))
         self.last_aux_loss = aux_loss
         self.last_expert_counts = expert_counts.astype(np.int64)
+
+        # Expose aux_loss as Tensor connected to gate_logits autograd graph
+        aux_loss_tensor = Tensor(np.array(aux_loss, dtype=np.float64), (gate_logits,), "aux_loss")
+
+        def _aux_backward() -> None:
+            if aux_loss_tensor.grad is None or not gate_logits.requires_grad:
+                return
+            g = float(aux_loss_tensor.grad)
+            dL_dp = (g * self.aux_loss_coef * self.num_experts / N) * np.broadcast_to(f, (N, self.num_experts))
+            sum_p_dLdp = np.sum(probs * dL_dp, axis=-1, keepdims=True)
+            dL_dlogits = probs * (dL_dp - sum_p_dLdp)
+            _accumulate_grad(gate_logits, dL_dlogits.reshape(B, T, self.num_experts))
+
+        aux_loss_tensor._backward = _aux_backward
+        self.aux_loss = aux_loss_tensor
 
         # 4. Expert Execution & Accumulation
         x_flat = x.data.reshape(N, D)
@@ -163,9 +184,15 @@ class SparseMoE(Module):
                 d_topk_weights[token_idx, match_k] = d_weight
 
             # Propagate through exact Top-K Softmax Jacobian
-            sum_dw = np.sum(d_topk_weights * topk_weights, axis=-1, keepdims=True)
-            d_topk_logits = topk_weights * (d_topk_weights - sum_dw)
-            dlogits_flat[row_indices, topk_indices] = d_topk_logits
+            if self.top_k == 1:
+                dL_dprobs = np.zeros_like(probs)
+                dL_dprobs[row_indices, topk_indices] = d_topk_weights
+                sum_p_dLdp = np.sum(probs * dL_dprobs, axis=-1, keepdims=True)
+                dlogits_flat = probs * (dL_dprobs - sum_p_dLdp)
+            else:
+                sum_dw = np.sum(d_topk_weights * topk_weights, axis=-1, keepdims=True)
+                d_topk_logits = topk_weights * (d_topk_weights - sum_dw)
+                dlogits_flat[row_indices, topk_indices] = d_topk_logits
 
             # Propagate to x and gate_logits
             if x.requires_grad:
