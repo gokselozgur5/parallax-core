@@ -38,3 +38,24 @@ def test_mla_batched_forward() -> None:
     out = mla.forward(x, causal=True)
     assert out.shape == (batch_size, seq_len, embed_dim)
     assert np.all(np.isfinite(out))
+
+
+def test_mla_positional_dependence() -> None:
+    """Permuting early tokens must change outputs of later tokens due to RoPE."""
+    np.random.seed(42)
+    seq_len, embed_dim, latent_dim = 8, 32, 8
+    mla = MultiHeadLatentAttention(
+        embed_dim=embed_dim, num_heads=4, latent_dim=latent_dim, rope_dim=8
+    )
+    x = np.random.randn(seq_len, embed_dim)
+    out_orig = mla.forward(x, causal=True)
+
+    # Permute first two tokens
+    x_perm = x.copy()
+    x_perm[[0, 1]] = x[[1, 0]]
+    out_perm = mla.forward(x_perm, causal=True)
+
+    # Output at last position must differ due to positional dependence
+    assert not np.allclose(out_orig[-1], out_perm[-1], atol=1e-5)
+    diff = np.max(np.abs(out_orig[-1] - out_perm[-1]))
+    assert diff > 1e-3
