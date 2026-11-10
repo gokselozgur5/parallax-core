@@ -98,40 +98,62 @@ def generate_stream(
     tokens = list(prompt_tokens)
     max_seq_len = model.config.max_seq_len
 
-    with no_grad():
-        if not use_cache:
-            for _ in range(max_new_tokens):
-                context = tokens[-max_seq_len:]
-                idx = np.array([context], dtype=np.int64)
+    if not use_cache:
+        for _ in range(max_new_tokens):
+            context = tokens[-max_seq_len:]
+            idx = np.array([context], dtype=np.int64)
+            with no_grad():
                 logits = model(idx)
-                next_token_logits = logits.data[0, -1, :]
-                next_token = sample_next_token(
-                    next_token_logits,
-                    temperature=temperature,
-                    top_k=top_k,
-                    top_p=top_p,
-                )
-                tokens.append(next_token)
-                yield next_token
-                if eos_token_id is not None and next_token == eos_token_id:
-                    break
-            return
+            next_token_logits = logits.data[0, -1, :]
+            next_token = sample_next_token(
+                next_token_logits,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+            )
+            tokens.append(next_token)
+            yield next_token
+            if eos_token_id is not None and next_token == eos_token_id:
+                break
+        return
 
-        # Fast KV cached stream
-        context = tokens[-max_seq_len:]
-        idx = np.array([context], dtype=np.int64)
+    # Fast KV cached stream
+    context = tokens[-max_seq_len:]
+    idx = np.array([context], dtype=np.int64)
 
-        B = 1
-        num_heads = model.config.num_heads
-        num_kv_heads = model.config.num_kv_heads if model.config.num_kv_heads is not None else num_heads
-        head_dim = model.config.embed_dim // num_heads
-        kv_caches: List[Tuple[np.ndarray, np.ndarray]] = [
-            (np.empty((B, num_kv_heads, 0, head_dim), dtype=np.float64),
-             np.empty((B, num_kv_heads, 0, head_dim), dtype=np.float64))
-            for _ in range(model.config.num_layers)
-        ]
+    B = 1
+    num_heads = model.config.num_heads
+    num_kv_heads = model.config.num_kv_heads if model.config.num_kv_heads is not None else num_heads
+    head_dim = model.config.embed_dim // num_heads
+    kv_caches: List[Tuple[np.ndarray, np.ndarray]] = [
+        (np.empty((B, num_kv_heads, 0, head_dim), dtype=np.float64),
+         np.empty((B, num_kv_heads, 0, head_dim), dtype=np.float64))
+        for _ in range(model.config.num_layers)
+    ]
 
+    with no_grad():
         logits, kv_caches = model(idx, kv_caches=kv_caches)
+    if rolling_cache is not None:
+        kv_caches = rolling_cache.evict_layers(kv_caches)
+    next_token_logits = logits.data[0, -1, :]
+    next_token = sample_next_token(
+        next_token_logits,
+        temperature=temperature,
+        top_k=top_k,
+        top_p=top_p,
+    )
+    tokens.append(next_token)
+    yield next_token
+    if eos_token_id is not None and next_token == eos_token_id:
+        return
+
+    for _ in range(max_new_tokens - 1):
+        if rolling_cache is None and len(tokens) >= max_seq_len:
+            break
+
+        idx_next = np.array([[next_token]], dtype=np.int64)
+        with no_grad():
+            logits, kv_caches = model(idx_next, kv_caches=kv_caches)
         if rolling_cache is not None:
             kv_caches = rolling_cache.evict_layers(kv_caches)
         next_token_logits = logits.data[0, -1, :]
@@ -144,27 +166,7 @@ def generate_stream(
         tokens.append(next_token)
         yield next_token
         if eos_token_id is not None and next_token == eos_token_id:
-            return
-
-        for _ in range(max_new_tokens - 1):
-            if rolling_cache is None and len(tokens) >= max_seq_len:
-                break
-
-            idx_next = np.array([[next_token]], dtype=np.int64)
-            logits, kv_caches = model(idx_next, kv_caches=kv_caches)
-            if rolling_cache is not None:
-                kv_caches = rolling_cache.evict_layers(kv_caches)
-            next_token_logits = logits.data[0, -1, :]
-            next_token = sample_next_token(
-                next_token_logits,
-                temperature=temperature,
-                top_k=top_k,
-                top_p=top_p,
-            )
-            tokens.append(next_token)
-            yield next_token
-            if eos_token_id is not None and next_token == eos_token_id:
-                break
+            break
 
 
 def generate(
