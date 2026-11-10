@@ -36,6 +36,12 @@ def cross_entropy_loss(
     flat_logits = logits_data.reshape(-1, V)
     flat_targets = targets.reshape(-1)
 
+    # Validate targets outside [0, V) unless equal to ignore_index
+    invalid_targets = (flat_targets != ignore_index) & ((flat_targets < 0) | (flat_targets >= V))
+    if np.any(invalid_targets):
+        first_bad = int(flat_targets[invalid_targets][0])
+        raise ValueError(f"Target index {first_bad} out of bounds for vocab_size {V}")
+
     # Valid mask for ignore_index
     valid_mask = flat_targets != ignore_index
     N_valid = int(np.sum(valid_mask))
