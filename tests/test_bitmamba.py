@@ -249,3 +249,28 @@ def test_bitmamba_block_state_carry_over_verification():
     assert diff > 0.1, "State carry-over had no effect on output"
 
 
+def test_bitmamba_selective_scan_independent_recurrence_reference():
+    """Verify selective scan against independent sequential loop recurrence."""
+    from parallax.mamba import selective_scan_forward
+    np.random.seed(42)
+    B, L, D, N = 2, 4, 3, 2
+    u, delta = np.random.randn(B, L, D), np.random.uniform(0.1, 0.5, (B, L, D))
+    A, B_m, C_m, D_v = -np.random.uniform(0.5, 2.0, (D, N)), np.random.randn(B, L, N), np.random.randn(B, L, N), np.random.randn(D)
+
+    y, h = selective_scan_forward(u, delta, A, B_m, C_m, D=D_v)
+
+    h_ref = np.zeros((B, L, D, N))
+    y_ref = np.zeros((B, L, D))
+    h_prev = np.zeros((B, D, N))
+    for i in range(L):
+        dt = delta[:, i, :, None]
+        h_curr = np.exp(dt * A[None, :, :]) * h_prev + (dt * B_m[:, i, None, :]) * u[:, i, :, None]
+        h_ref[:, i] = h_curr
+        h_prev = h_curr
+        y_ref[:, i] = np.sum(C_m[:, i, None, :] * h_curr, axis=-1) + D_v[None, :] * u[:, i]
+
+    np.testing.assert_allclose(y, y_ref, atol=1e-6)
+    np.testing.assert_allclose(h, h_ref, atol=1e-6)
+
+
+
