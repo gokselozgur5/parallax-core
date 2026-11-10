@@ -50,7 +50,7 @@ def speculative_generate(
 
     while total_generated < max_new_tokens and len(tokens) < max_seq_len:
         current_len = len(tokens)
-        spec_budget = min(gamma, max_new_tokens - total_generated, max_seq_len - current_len - 1)
+        spec_budget = min(gamma, max_new_tokens - total_generated, max_seq_len - current_len)
         if spec_budget <= 0:
             break
 
