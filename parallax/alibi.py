@@ -1,6 +1,5 @@
 """ALiBi (Attention with Linear Biases) positional bias kernel."""
 
-from typing import Optional
 import numpy as np
 
 

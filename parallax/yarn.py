@@ -2,7 +2,6 @@
 YaRN (Yet another RoPE extensioN: Bowen Peng et al., 2023) mathematical primitives.
 """
 
-from typing import Tuple
 import numpy as np
 
 

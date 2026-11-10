@@ -2,7 +2,7 @@
 Contrastive Search decoding (Su et al., 2022) mathematical primitives.
 """
 
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 import numpy as np
 
 from parallax.tensor import no_grad

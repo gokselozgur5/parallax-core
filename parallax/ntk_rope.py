@@ -1,6 +1,5 @@
 """NTK-aware Scaled Rotary Position Embedding (RoPE)."""
 
-from typing import Tuple
 import numpy as np
 
 

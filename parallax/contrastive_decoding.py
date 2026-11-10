@@ -1,6 +1,5 @@
 """Contrastive Decoding (expert vs amateur logit subtraction)."""
 
-from typing import Optional
 import numpy as np
 
 
