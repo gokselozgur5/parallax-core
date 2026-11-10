@@ -66,6 +66,10 @@ class Muon:
 
     def step(self, grads: List[np.ndarray]):
         """Perform a single optimization step."""
+        if len(self.params) != len(grads):
+            raise ValueError(
+                f"Mismatched params ({len(self.params)}) and grads ({len(grads)})"
+            )
         for p, g, buf in zip(self.params, grads, self.m_buffers):
             # Update momentum buffer: buf = momentum * buf + g
             buf[:] = self.momentum * buf + g
