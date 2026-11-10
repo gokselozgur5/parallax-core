@@ -104,3 +104,19 @@ def test_c_fallback_when_c_engine_unavailable():
         shifted = X - np.max(X, axis=-1, keepdims=True)
         exp_sm = np.exp(shifted) / np.sum(np.exp(shifted), axis=-1, keepdims=True)
         np.testing.assert_allclose(res_sm, exp_sm, rtol=1e-5, atol=1e-5)
+
+
+def test_concurrent_initialization_c_and_metal():
+    import concurrent.futures
+    import parallax.c_engine as ce
+    import parallax.metal_engine as me
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        c_futures = [executor.submit(ce.is_c_engine_available) for _ in range(8)]
+        metal_futures = [executor.submit(me.is_metal_available) for _ in range(8)]
+
+        c_results = [f.result() for f in c_futures]
+        metal_results = [f.result() for f in metal_futures]
+
+    assert all(r == c_results[0] for r in c_results)
+    assert all(r == metal_results[0] for r in metal_results)
