@@ -34,7 +34,7 @@ def test_qgalore_quantization_and_reconstruction():
 
 
 def test_qgalore_rank_exceeds_dimension():
-    import pytest
     proj = QGaLoreProjector(rank=16)
-    with pytest.raises(ValueError, match="cannot exceed min"):
-        proj.update_basis(np.random.randn(8, 12))
+    proj.update_basis(np.random.randn(8, 12))
+    assert proj.effective_rank == 8
+    assert proj.U.shape == (8, 8)

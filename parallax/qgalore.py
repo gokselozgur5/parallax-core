@@ -26,11 +26,13 @@ class QGaLoreProjector:
 
 
     def update_basis(self, grad: np.ndarray):
-        """Recompute low-rank SVD projection basis U from gradient."""
+        """Recompute low-rank SVD projection basis U from gradient.
+
+        If rank exceeds min(M, N), effective_rank is clamped to min(M, N).
+        """
         max_rank = min(grad.shape[0], grad.shape[1])
-        if self.rank > max_rank:
-            raise ValueError(f"rank ({self.rank}) cannot exceed min(M, N) ({max_rank})")
-        effective_rank = self.rank
+        effective_rank = min(self.rank, max_rank)
+        self.effective_rank = effective_rank
         U, _, Vt = np.linalg.svd(grad, full_matrices=False)
         self.U = U[:, :effective_rank].astype(np.float32)
         self.V_T = Vt[:effective_rank, :].astype(np.float32)
