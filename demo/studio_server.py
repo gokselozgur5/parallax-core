@@ -30,7 +30,7 @@ from parallax.bench import count_parameters, estimate_flops_per_token
 from parallax.checkpoint import load_checkpoint
 from parallax.engine import Value
 from parallax.generator import CharTokenizer, generate, sample_next_token
-from parallax.loss import compute_perplexity, cross_entropy_loss
+from parallax.loss import cross_entropy_loss, perplexity_from_loss
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.optim import AdamW
 from parallax.quant import quantize_model
@@ -468,7 +468,7 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
             DEMO_OPTIM.step()
             losses.append(round(float(loss.data), 4))
 
-        ppl = compute_perplexity(losses[-1]) if losses else 0.0
+        ppl = perplexity_from_loss(losses[-1]) if losses else 0.0
         self.send_json({
             "losses": losses,
             "last_loss": losses[-1] if losses else 0.0,

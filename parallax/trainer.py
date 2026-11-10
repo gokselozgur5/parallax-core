@@ -15,7 +15,7 @@ from typing import Callable, Dict, Iterator, List, Optional, Tuple
 import numpy as np
 
 from parallax.checkpoint import save_checkpoint
-from parallax.loss import compute_perplexity, cross_entropy_loss
+from parallax.loss import cross_entropy_loss, perplexity_from_loss
 from parallax.models.gpt import ParallaxLM
 from parallax.optim import AdamW, LRScheduler, clip_grad_norm_
 
@@ -113,7 +113,7 @@ class Trainer:
             metrics: Dict[str, float] = {
                 "step": float(step),
                 "loss": step_loss,
-                "ppl": compute_perplexity(step_loss),
+                "ppl": perplexity_from_loss(step_loss),
                 "grad_norm": grad_norm,
                 "lr": current_lr,
                 "dt_ms": step_time * 1000.0,
@@ -123,7 +123,7 @@ class Trainer:
             if self.val_loader is not None and step % cfg.eval_interval == 0:
                 val_loss = self.evaluate()
                 metrics["val_loss"] = val_loss
-                metrics["val_ppl"] = compute_perplexity(val_loss)
+                metrics["val_ppl"] = perplexity_from_loss(val_loss)
 
             # Checkpoint callback
             if cfg.checkpoint_interval is not None and step % cfg.checkpoint_interval == 0:
