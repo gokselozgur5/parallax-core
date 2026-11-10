@@ -5,8 +5,7 @@ Benchmark: Transformer KV-Cache vs Mamba Selective State Space (S6) RAM & Latenc
 Evaluates memory footprint scaling and inference latency across sequence lengths:
 T in [128, 256, 512, 1024, 2048].
 
-Addresses the industry premise ("daha çok RAM lazım") by comparing quadratic/linear
-KV-cache growth O(N * d) against Mamba's constant state O(1) memory footprint.
+Empirically compares linear KV-cache growth O(N * d) against Mamba's constant state O(1) memory footprint.
 """
 
 import os
@@ -21,8 +20,8 @@ if repo_root not in sys.path:
     sys.path.insert(0, repo_root)
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
-from parallax.mamba import MambaBlock
-from parallax.tensor import Tensor
+from parallax.bitmamba import BitMambaLM, BitMambaConfig
+from parallax.tensor import Tensor, no_grad
 
 
 def benchmark_transformer(
