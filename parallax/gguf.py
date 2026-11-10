@@ -29,6 +29,9 @@ from parallax.gguf_quant import (
 
 GGUF_MAGIC = b"GGUF"
 GGUF_DEFAULT_ALIGNMENT = 32
+MAX_GGUF_HEADER_SIZE: int = 100 * 1024 * 1024  # 100MB limit for header/metadata to prevent DoS
+MAX_GGUF_STRING_LEN: int = 64 * 1024 * 1024  # 64MB limit for any single string
+MAX_GGUF_ARRAY_LEN: int = 10_000_000  # 10M elements limit for array metadata
 
 # GGUF Metadata Value Types
 GGUF_TYPE_UINT8 = 0
@@ -81,8 +84,15 @@ class GGUFFile:
 
 
 def _read_string(f: BinaryIO) -> str:
-    str_len = struct.unpack("<Q", f.read(8))[0]
+    len_bytes = f.read(8)
+    if len(len_bytes) < 8:
+        raise ValueError("Unexpected EOF reading GGUF string length")
+    str_len = struct.unpack("<Q", len_bytes)[0]
+    if str_len > MAX_GGUF_STRING_LEN:
+        raise ValueError(f"GGUF string length {str_len} exceeds maximum allowed limit {MAX_GGUF_STRING_LEN}")
     raw = f.read(str_len)
+    if len(raw) < str_len:
+        raise ValueError("Unexpected EOF reading GGUF string payload")
     return raw.decode("utf-8", errors="replace")
 
 
@@ -112,7 +122,12 @@ def _read_metadata_value(f: BinaryIO, val_type: int) -> Any:
     elif val_type == GGUF_TYPE_STRING:
         return _read_string(f)
     elif val_type == GGUF_TYPE_ARRAY:
-        elem_type, elem_count = struct.unpack("<IQ", f.read(12))
+        hdr_bytes = f.read(12)
+        if len(hdr_bytes) < 12:
+            raise ValueError("Unexpected EOF reading GGUF array metadata header")
+        elem_type, elem_count = struct.unpack("<IQ", hdr_bytes)
+        if elem_count > MAX_GGUF_ARRAY_LEN:
+            raise ValueError(f"GGUF array element count {elem_count} exceeds maximum limit {MAX_GGUF_ARRAY_LEN}")
         return [_read_metadata_value(f, elem_type) for _ in range(elem_count)]
     elif val_type == GGUF_TYPE_UINT64:
         return struct.unpack("<Q", f.read(8))[0]
@@ -170,27 +185,61 @@ def load_gguf(file_path: str, cast_float64: bool = True) -> GGUFFile:
         if version not in (2, 3):
             raise ValueError(f"Unsupported GGUF version: {version} (expected v2 or v3)")
 
-        tensor_count, metadata_kv_count = struct.unpack("<QQ", f.read(16))
+        hdr_info = f.read(16)
+        if len(hdr_info) < 16:
+            raise ValueError("Truncated GGUF file header: unable to read tensor and metadata counts")
+        tensor_count, metadata_kv_count = struct.unpack("<QQ", hdr_info)
+        if tensor_count > 1_000_000 or metadata_kv_count > 1_000_000:
+            raise ValueError(f"Excessive GGUF counts (tensor_count={tensor_count}, metadata_kv_count={metadata_kv_count}) exceeds DoS threshold")
+
+        f.seek(0, os.SEEK_END)
+        total_file_size = f.tell()
+        f.seek(24)  # 4 magic + 4 version + 8 tensor_count + 8 metadata_kv_count
 
         # Parse key-value metadata
         metadata: Dict[str, Any] = {}
         for _ in range(metadata_kv_count):
+            if f.tell() > MAX_GGUF_HEADER_SIZE or f.tell() > total_file_size:
+                raise ValueError("GGUF header/metadata exceeded maximum allowed size limit (DoS protection)")
             key = _read_string(f)
-            val_type = struct.unpack("<I", f.read(4))[0]
+            type_bytes = f.read(4)
+            if len(type_bytes) < 4:
+                raise ValueError("Unexpected EOF reading GGUF metadata value type")
+            val_type = struct.unpack("<I", type_bytes)[0]
             val = _read_metadata_value(f, val_type)
             metadata[key] = val
 
         alignment = int(metadata.get("general.alignment", GGUF_DEFAULT_ALIGNMENT))
+        if alignment <= 0 or (alignment & (alignment - 1)) != 0:
+            raise ValueError(f"Invalid GGUF alignment: {alignment} must be a positive power of 2")
 
         # Parse tensor descriptors
         tensor_infos: Dict[str, GGUFTensorInfo] = {}
         for _ in range(tensor_count):
+            if f.tell() > MAX_GGUF_HEADER_SIZE or f.tell() > total_file_size:
+                raise ValueError("GGUF header/descriptors exceeded maximum allowed size limit (DoS protection)")
             name = _read_string(f)
-            n_dims = struct.unpack("<I", f.read(4))[0]
-            dims = [struct.unpack("<Q", f.read(8))[0] for _ in range(n_dims)]
+            ndims_bytes = f.read(4)
+            if len(ndims_bytes) < 4:
+                raise ValueError(f"Unexpected EOF reading dimension count for tensor '{name}'")
+            n_dims = struct.unpack("<I", ndims_bytes)[0]
+            if n_dims > 16:
+                raise ValueError(f"Unreasonable tensor rank {n_dims} for tensor '{name}' (DoS protection)")
+
+            dims = []
+            for _ in range(n_dims):
+                dim_bytes = f.read(8)
+                if len(dim_bytes) < 8:
+                    raise ValueError(f"Unexpected EOF reading dimensions for tensor '{name}'")
+                dim = struct.unpack("<Q", dim_bytes)[0]
+                dims.append(dim)
+
             # In GGUF, dimensions are stored inner-to-outer; reverse for standard NumPy row-major shape
             shape = tuple(reversed(dims))
-            ggml_type, offset = struct.unpack("<IQ", f.read(12))
+            desc_tail = f.read(12)
+            if len(desc_tail) < 12:
+                raise ValueError(f"Unexpected EOF reading tensor type and offset for '{name}'")
+            ggml_type, offset = struct.unpack("<IQ", desc_tail)
             tensor_infos[name] = GGUFTensorInfo(
                 name=name,
                 shape=shape,
@@ -203,13 +252,15 @@ def load_gguf(file_path: str, cast_float64: bool = True) -> GGUFFile:
         padding = (alignment - (header_end % alignment)) % alignment
         data_base_offset = header_end + padding
 
-        f.seek(0, os.SEEK_END)
-        total_file_size = f.tell()
-
         # Extract tensors
         tensors: Dict[str, np.ndarray] = {}
         for name, info in tensor_infos.items():
-            num_elements = math.prod(info.shape) if info.shape else 1
+            if any(d < 0 for d in info.shape):
+                raise ValueError(f"Negative dimension in shape {info.shape} for tensor '{name}'")
+            try:
+                num_elements = math.prod(info.shape) if info.shape else 1
+            except OverflowError as e:
+                raise ValueError(f"Integer overflow calculating element count for tensor '{name}': {e}") from e
 
             if info.ggml_type == GGML_TYPE_F32:
                 byte_size = num_elements * 4

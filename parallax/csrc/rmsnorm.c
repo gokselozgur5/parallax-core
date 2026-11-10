@@ -1,0 +1,159 @@
+#include <stddef.h>
+#include <math.h>
+
+#if defined(__ARM_NEON) || defined(__ARM_NEON__)
+#include <arm_neon.h>
+#define USE_NEON 1
+#elif defined(__AVX2__)
+#include <immintrin.h>
+#define USE_AVX2 1
+#endif
+
+/*
+ * RMSNorm forward pass with SIMD acceleration (float32):
+ * output[r, c] = (x[r, c] / rms) * weight[c]
+ * where rms = sqrt(mean(x[r, :]^2) + eps)
+ */
+void c_rmsnorm_f32(const float *x, const float *weight, float *output, int rows, int cols, float eps) {
+    if (!x || !weight || !output || rows <= 0 || cols <= 0) return;
+
+    const float inv_cols = 1.0f / (float)cols;
+
+    for (int r = 0; r < rows; ++r) {
+        const float *x_row = x + r * cols;
+        float *out_row = output + r * cols;
+
+        // Step 1: Calculate sum of squares
+        float sum_sq = 0.0f;
+        int c = 0;
+
+#if defined(USE_NEON)
+        float32x4_t sum_vec = vdupq_n_f32(0.0f);
+        for (; c + 3 < cols; c += 4) {
+            float32x4_t xv = vld1q_f32(x_row + c);
+            sum_vec = vmlaq_f32(sum_vec, xv, xv);
+        }
+        float tmp[4];
+        vst1q_f32(tmp, sum_vec);
+        sum_sq = tmp[0] + tmp[1] + tmp[2] + tmp[3];
+#elif defined(USE_AVX2)
+        __m256 sum_vec = _mm256_setzero_ps();
+        for (; c + 7 < cols; c += 8) {
+            __m256 xv = _mm256_loadu_ps(x_row + c);
+            sum_vec = _mm256_fmadd_ps(xv, xv, sum_vec);
+        }
+        float tmp[8];
+        _mm256_storeu_ps(tmp, sum_vec);
+        for (int k = 0; k < 8; ++k) sum_sq += tmp[k];
+#endif
+
+        for (; c < cols; ++c) {
+            float v = x_row[c];
+            sum_sq += v * v;
+        }
+
+        // Step 2: Compute RMS and normalization factor
+        float mean_sq = sum_sq * inv_cols;
+        float rms = sqrtf(mean_sq + eps);
+        float inv_rms = 1.0f / rms;
+
+        // Step 3: Compute output = (x / rms) * weight
+        c = 0;
+#if defined(USE_NEON)
+        float32x4_t inv_rms_vec = vdupq_n_f32(inv_rms);
+        for (; c + 3 < cols; c += 4) {
+            float32x4_t xv = vld1q_f32(x_row + c);
+            float32x4_t wv = vld1q_f32(weight + c);
+            float32x4_t normed = vmulq_f32(xv, inv_rms_vec);
+            float32x4_t out_v = vmulq_f32(normed, wv);
+            vst1q_f32(out_row + c, out_v);
+        }
+#elif defined(USE_AVX2)
+        __m256 inv_rms_vec = _mm256_set1_ps(inv_rms);
+        for (; c + 7 < cols; c += 8) {
+            __m256 xv = _mm256_loadu_ps(x_row + c);
+            __m256 wv = _mm256_loadu_ps(weight + c);
+            __m256 normed = _mm256_mul_ps(xv, inv_rms_vec);
+            __m256 out_v = _mm256_mul_ps(normed, wv);
+            _mm256_storeu_ps(out_row + c, out_v);
+        }
+#endif
+
+        for (; c < cols; ++c) {
+            out_row[c] = (x_row[c] * inv_rms) * weight[c];
+        }
+    }
+}
+
+/*
+ * RMSNorm forward pass with SIMD acceleration (float64):
+ * output[r, c] = (x[r, c] / rms) * weight[c]
+ * where rms = sqrt(mean(x[r, :]^2) + eps)
+ */
+void c_rmsnorm_f64(const double *x, const double *weight, double *output, int rows, int cols, double eps) {
+    if (!x || !weight || !output || rows <= 0 || cols <= 0) return;
+
+    const double inv_cols = 1.0 / (double)cols;
+
+    for (int r = 0; r < rows; ++r) {
+        const double *x_row = x + r * cols;
+        double *out_row = output + r * cols;
+
+        double sum_sq = 0.0;
+        int c = 0;
+
+#if defined(USE_NEON)
+        float64x2_t sum_vec = vdupq_n_f64(0.0);
+        for (; c + 1 < cols; c += 2) {
+            float64x2_t xv = vld1q_f64(x_row + c);
+            sum_vec = vmlaq_f64(sum_vec, xv, xv);
+        }
+        double tmp[2];
+        vst1q_f64(tmp, sum_vec);
+        sum_sq = tmp[0] + tmp[1];
+#elif defined(USE_AVX2)
+        __m256d sum_vec = _mm256_setzero_pd();
+        for (; c + 3 < cols; c += 4) {
+            __m256d xv = _mm256_loadu_pd(x_row + c);
+            sum_vec = _mm256_fmadd_pd(xv, xv, sum_vec);
+        }
+        double tmp[4];
+        _mm256_storeu_pd(tmp, sum_vec);
+        for (int k = 0; k < 4; ++k) sum_sq += tmp[k];
+#endif
+
+        for (; c < cols; ++c) {
+            double v = x_row[c];
+            sum_sq += v * v;
+        }
+
+        double mean_sq = sum_sq * inv_cols;
+        double rms = sqrt(mean_sq + eps);
+        double inv_rms = 1.0 / rms;
+
+        c = 0;
+#if defined(USE_NEON)
+        float64x2_t inv_rms_vec = vdupq_n_f64(inv_rms);
+        for (; c + 1 < cols; c += 2) {
+            float64x2_t xv = vld1q_f64(x_row + c);
+            float64x2_t wv = vld1q_f64(weight + c);
+            float64x2_t normed = vmulq_f64(xv, inv_rms_vec);
+            float64x2_t out_v = vmulq_f64(normed, wv);
+            vst1q_f64(out_row + c, out_v);
+        }
+#elif defined(USE_AVX2)
+        __m256d inv_rms_vec = _mm256_set1_pd(inv_rms);
+        for (; c + 3 < cols; c += 4) {
+            __m256d xv = _mm256_loadu_pd(x_row + c);
+            __m256d wv = _mm256_loadu_pd(weight + c);
+            __m256d normed = _mm256_mul_pd(xv, inv_rms_vec);
+            __m256d out_v = _mm256_mul_pd(normed, wv);
+            _mm256_storeu_pd(out_row + c, out_v);
+        }
+#endif
+
+        for (; c < cols; ++c) {
+            out_row[c] = (x_row[c] * inv_rms) * weight[c];
+        }
+    }
+}

@@ -31,11 +31,17 @@ from demo.studio_server import (
 
 @pytest.fixture(scope="module")
 def studio_server_batch6():
-    port = 8391
-    t = threading.Thread(target=run_server, args=(port, "127.0.0.1"), daemon=True)
+    class EphemeralTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+        allow_reuse_address = True
+
+    httpd = EphemeralTCPServer(("127.0.0.1", 0), StudioHandler)
+    port = httpd.server_address[1]
+    t = threading.Thread(target=httpd.serve_forever, daemon=True)
     t.start()
-    time.sleep(0.5)
-    return f"http://127.0.0.1:{port}"
+    time.sleep(0.1)
+    yield f"http://127.0.0.1:{port}"
+    httpd.shutdown()
+    httpd.server_close()
 
 
 def test_import_has_no_side_effects_or_training():

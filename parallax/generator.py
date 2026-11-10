@@ -1,11 +1,15 @@
+from __future__ import annotations
+
 """
 Character-level tokenizer and autoregressive text generation utilities.
 """
 
-from typing import Dict, Iterator, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Tuple
 import numpy as np
 from parallax.attention_sink import RollingKVCache
-from parallax.models.gpt import ParallaxLM
+
+if TYPE_CHECKING:
+    from parallax.models.gpt import ParallaxLM
 from parallax.tensor import no_grad
 
 

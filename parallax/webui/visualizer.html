@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Parallax Visualizer — Interactive Attention, KV Cache & Token Generation</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #111827;
+      --card-border: #1f293d;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --accent: #14b8a6;
+      --accent-hover: #0d9488;
+      --accent-glow: rgba(20, 184, 166, 0.15);
+      --danger: #ef4444;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+      padding: 24px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #14b8a6, #3b82f6);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      font-size: 20px;
+      color: #fff;
+    }
+
+    .brand-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .brand-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 20px;
+      flex: 1;
+    }
+
+    @media (max-width: 960px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      display: block;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    input, textarea, select {
+      width: 100%;
+      background-color: #0b0f19;
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--accent);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+    }
+
+    button {
+      background-color: var(--accent);
+      color: #042f2e;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background-color 0.2s, transform 0.1s;
+    }
+
+    button:hover:not(:disabled) {
+      background-color: var(--accent-hover);
+    }
+
+    button:active:not(:disabled) {
+      transform: translateY(1px);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    button.secondary {
+      background-color: #1e293b;
+      color: var(--text);
+    }
+
+    button.secondary:hover:not(:disabled) {
+      background-color: #334155;
+    }
+
+    /* KV Cache Meter */
+    .kv-meter-container {
+      background-color: #0b0f19;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .kv-bar-track {
+      height: 16px;
+      background: #1e293b;
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 8px 0;
+      position: relative;
+    }
+
+    .kv-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #14b8a6, #3b82f6);
+      transition: width 0.2s ease-out;
+    }
+
+    .kv-stats {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+
+    /* Token Sequence Display */
+    .token-stream {
+      background-color: #0b0f19;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 80px;
+      max-height: 180px;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.8;
+      word-break: break-all;
+    }
+
+    .token-chip {
+      display: inline-block;
+      padding: 2px 6px;
+      margin: 2px;
+      border-radius: 4px;
+      background: #1e293b;
+      color: var(--text);
+      border: 1px solid #334155;
+    }
+
+    .token-chip.prompt {
+      background: rgba(59, 130, 246, 0.15);
+      border-color: rgba(59, 130, 246, 0.4);
+      color: #93c5fd;
+    }
+
+    .token-chip.generated {
+      background: rgba(20, 184, 166, 0.15);
+      border-color: rgba(20, 184, 166, 0.4);
+      color: #5eead4;
+    }
+
+    .token-chip.latest {
+      animation: pulseHighlight 1s ease-out;
+      border-color: #14b8a6;
+      box-shadow: 0 0 8px rgba(20, 184, 166, 0.5);
+    }
+
+    @keyframes pulseHighlight {
+      0% { transform: scale(1.15); background-color: var(--accent); color: #042f2e; }
+      100% { transform: scale(1.0); }
+    }
+
+    /* Attention Matrix Canvas Section */
+    .viz-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .canvas-container {
+      position: relative;
+      background: #0b0f19;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+      overflow: auto;
+      min-height: 420px;
+    }
+
+    canvas {
+      display: block;
+      border-radius: 4px;
+    }
+
+    .head-selector {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .head-btn {
+      padding: 6px 12px;
+      font-size: 11px;
+      border-radius: 4px;
+      background: #1e293b;
+      color: var(--text-muted);
+      border: 1px solid #334155;
+      cursor: pointer;
+    }
+
+    .head-btn.active {
+      background: var(--accent);
+      color: #042f2e;
+      font-weight: 600;
+      border-color: var(--accent);
+    }
+
+    .tooltip {
+      position: absolute;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--accent);
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      pointer-events: none;
+      display: none;
+      z-index: 100;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    }
+
+    .candidate-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .candidate-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: #0b0f19;
+      padding: 6px 10px;
+      border-radius: 4px;
+      border: 1px solid var(--card-border);
+    }
+
+    .candidate-prob-bar {
+      height: 4px;
+      background: var(--accent);
+      border-radius: 2px;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-logo">P</div>
+      <div>
+        <div class="brand-title">PARALLAX VISUALIZER</div>
+        <div class="brand-subtitle">Interactive Attention Heatmap & Live KV-Cache Memory Stream</div>
+      </div>
+    </div>
+    <div style="font-family: var(--font-mono); font-size: 12px; color: var(--text-muted);">
+      Pure HTML5 • Canvas • Zero External Dependencies
+    </div>
+  </header>
+
+  <div class="main-grid">
+    <!-- Left Column: Controls & KV Cache Telemetry -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+      
+      <!-- Generation Controls -->
+      <div class="card">
+        <div class="card-title">Prompt & Generation</div>
+        <div>
+          <label for="prompt-input">Input Prompt</label>
+          <textarea id="prompt-input" rows="3">parallax</textarea>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div>
+            <label for="temp-input">Temperature</label>
+            <input type="number" id="temp-input" value="0.7" step="0.1" min="0.0" max="2.0">
+          </div>
+          <div>
+            <label for="topk-input">Top-K</label>
+            <input type="number" id="topk-input" value="5" step="1" min="1" max="20">
+          </div>
+        </div>
+
+        <div class="btn-group">
+          <button id="step-btn" onclick="stepGeneration()">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+              <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/>
+            </svg>
+            Step (+1)
+          </button>
+          <button id="play-btn" onclick="toggleAutoPlay()">
+            <span id="play-btn-label">Auto Run</span>
+          </button>
+          <button class="secondary" onclick="resetVisualizer()">Reset</button>
+        </div>
+      </div>
+
+      <!-- KV Cache Memory Block Meter -->
+      <div class="card">
+        <div class="card-title">KV Cache Buffer Allocation</div>
+        <div class="kv-meter-container">
+          <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600;">
+            <span>Memory Block Filling</span>
+            <span id="kv-percent-text" style="color: var(--accent); font-family: var(--font-mono);">0.0%</span>
+          </div>
+          <div class="kv-bar-track">
+            <div id="kv-bar-fill" class="kv-bar-fill"></div>
+          </div>
+          <div class="kv-stats">
+            <span id="kv-tokens-stat">Tokens: 0 / 64</span>
+            <span id="kv-bytes-stat">0 B / 0 KB</span>
+          </div>
+        </div>
+        <div style="font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">
+          Layer Count: 2 • Heads: 2 • Head Dim: 16 • Float64 (8 bytes/elem)
+        </div>
+      </div>
+
+      <!-- Next Token Predictions -->
+      <div class="card">
+        <div class="card-title">Next-Token Logits & Probabilities</div>
+        <div id="candidate-list" class="candidate-list">
+          <div style="font-size: 12px; color: var(--text-muted); font-family: var(--font-mono);">
+            Press Step or Auto Run to compute probabilities.
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right Column: Interactive Canvas & Token Stream -->
+    <div class="viz-panel">
+      
+      <!-- Generated Token Stream -->
+      <div class="card">
+        <div class="card-title">Token Sequence Stream</div>
+        <div id="token-stream" class="token-stream">
+          <span style="color: var(--text-muted); font-size: 12px;">Prompt ready.</span>
+        </div>
+      </div>
+
+      <!-- Attention Heatmap -->
+      <div class="card" style="flex: 1;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div class="card-title">Causal Attention Matrix (Q · Kᵀ / √d)</div>
+          <div class="head-selector">
+            <span style="font-size: 11px; color: var(--text-muted);">Head:</span>
+            <button id="head-btn-0" class="head-btn active" onclick="selectHead(0)">Head 0</button>
+            <button id="head-btn-1" class="head-btn" onclick="selectHead(1)">Head 1</button>
+          </div>
+        </div>
+
+        <div class="canvas-container" id="canvas-wrapper">
+          <canvas id="attnCanvas" width="480" height="480"></canvas>
+          <div id="tooltip" class="tooltip"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let generatedTokens = [];
+    let currentTokens = [];
+    let attentionData = null;
+    let selectedHead = 0;
+    let isAutoPlaying = false;
+    let autoPlayTimer = null;
+
+    const canvas = document.getElementById("attnCanvas");
+    const ctx = canvas.getContext("2d");
+    const tooltip = document.getElementById("tooltip");
+
+    let matrixGrid = []; // stores bounding boxes of cells for mouse hover
+
+    async function stepGeneration() {
+      const prompt = document.getElementById("prompt-input").value;
+      const temperature = parseFloat(document.getElementById("temp-input").value) || 0.8;
+      const top_k = parseInt(document.getElementById("topk-input").value) || 5;
+
+      try {
+        const res = await fetch("/api/visualize_step", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: prompt,
+            generated_tokens: generatedTokens,
+            temperature: temperature,
+            top_k: top_k,
+            use_cache: true
+          })
+        });
+
+        if (!res.ok) {
+          console.error("Step request failed:", res.statusText);
+          return false;
+        }
+
+        const data = await res.json();
+        updateUI(data);
+
+        // Append next token to generated tokens
+        if (data.next_token) {
+          generatedTokens.push(data.next_token);
+        }
+
+        // Stop auto-play if we hit max sequence length
+        if (data.seq_len >= data.max_seq_len) {
+          stopAutoPlay();
+          return false;
+        }
+
+        return true;
+      } catch (err) {
+        console.error("Step error:", err);
+        stopAutoPlay();
+        return false;
+      }
+    }
+
+    function updateUI(data) {
+      currentTokens = data.tokens || [];
+      attentionData = data.attention;
+
+      // 1. Update Token Sequence Stream
+      const streamDiv = document.getElementById("token-stream");
+      streamDiv.innerHTML = "";
+      const promptLen = data.tokens.length - generatedTokens.length;
+
+      data.tokens.forEach((tok, idx) => {
+        const chip = document.createElement("span");
+        chip.className = "token-chip " + (idx < promptLen ? "prompt" : "generated");
+        if (idx === data.tokens.length - 1 && generatedTokens.length > 0) {
+          chip.classList.add("latest");
+        }
+        chip.textContent = tok === " " ? "␣" : tok;
+        chip.title = `Token: "${tok}" (Pos: ${idx})`;
+        streamDiv.appendChild(chip);
+      });
+      streamDiv.scrollTop = streamDiv.scrollHeight;
+
+      // 2. Update KV Cache Meter
+      const kv = data.kv_cache;
+      if (kv) {
+        const fillBar = document.getElementById("kv-bar-fill");
+        const percentText = document.getElementById("kv-percent-text");
+        const tokensStat = document.getElementById("kv-tokens-stat");
+        const bytesStat = document.getElementById("kv-bytes-stat");
+
+        fillBar.style.width = `${Math.min(100, kv.percent_used)}%`;
+        percentText.textContent = `${kv.percent_used}%`;
+        tokensStat.textContent = `Tokens: ${kv.active_tokens} / ${kv.max_tokens}`;
+
+        const formatBytes = (bytes) => {
+          if (bytes < 1024) return `${bytes} B`;
+          return `${(bytes / 1024).toFixed(1)} KB`;
+        };
+        bytesStat.textContent = `${formatBytes(kv.used_bytes)} / ${formatBytes(kv.max_bytes)}`;
+      }
+
+      // 3. Update Next-Token Probabilities
+      const candidateList = document.getElementById("candidate-list");
+      candidateList.innerHTML = "";
+      if (data.top_candidates) {
+        data.top_candidates.forEach(cand => {
+          const row = document.createElement("div");
+          row.className = "candidate-row";
+          const charDisplay = cand.token === " " ? "␣ (space)" : `"${cand.token}"`;
+          const pct = (cand.prob * 100).toFixed(1);
+          row.innerHTML = `
+            <div style="flex: 1;">
+              <div style="display: flex; justify-content: space-between;">
+                <span style="font-weight: 600; color: #5eead4;">${charDisplay}</span>
+                <span>${pct}%</span>
+              </div>
+              <div class="candidate-prob-bar" style="width: ${pct}%;"></div>
+            </div>
+          `;
+          candidateList.appendChild(row);
+        });
+      }
+
+      // 4. Render Attention Heatmap on Canvas
+      renderHeatmap();
+    }
+
+    function selectHead(headIdx) {
+      selectedHead = headIdx;
+      document.querySelectorAll(".head-btn").forEach((btn, idx) => {
+        btn.classList.toggle("active", idx === headIdx);
+      });
+      renderHeatmap();
+    }
+
+    function renderHeatmap() {
+      if (!attentionData || !attentionData[0] || !attentionData[0].heads) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        return;
+      }
+
+      const matrix = attentionData[0].heads[selectedHead];
+      if (!matrix) return;
+
+      const N = matrix.length;
+      const paddingLeft = 40;
+      const paddingTop = 40;
+      const totalWidth = 440;
+      const totalHeight = 440;
+
+      canvas.width = totalWidth + paddingLeft + 10;
+      canvas.height = totalHeight + paddingTop + 10;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      matrixGrid = [];
+
+      const cellSize = Math.min(32, totalWidth / N);
+      const startX = paddingLeft;
+      const startY = paddingTop;
+
+      ctx.font = "11px " + getComputedStyle(document.body).getPropertyValue("--font-mono");
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+
+      // Draw Axis Token Labels
+      for (let i = 0; i < N; i++) {
+        const tokenLabel = currentTokens[i] === " " ? "␣" : currentTokens[i];
+        
+        // Column labels (Keys / X axis)
+        ctx.fillStyle = "#94a3b8";
+        ctx.fillText(tokenLabel, startX + i * cellSize + cellSize / 2, startY - 12);
+
+        // Row labels (Queries / Y axis)
+        ctx.fillStyle = "#94a3b8";
+        ctx.fillText(tokenLabel, startX - 16, startY + i * cellSize + cellSize / 2);
+      }
+
+      // Draw Heatmap Cells
+      for (let r = 0; r < N; r++) {
+        for (let c = 0; c < N; c++) {
+          const val = matrix[r][c]; // range 0.0 to 1.0
+          const cellX = startX + c * cellSize;
+          const cellY = startY + r * cellSize;
+
+          // Color calculation: interpolate from dark slate to vibrant teal/cyan
+          if (val > 0.0001) {
+            // R: 20 -> 20, G: 184, B: 166
+            const alpha = Math.min(1.0, val * 1.5 + 0.1);
+            ctx.fillStyle = `rgba(20, 184, 166, ${alpha})`;
+          } else {
+            ctx.fillStyle = "rgba(15, 23, 42, 0.4)";
+          }
+
+          ctx.fillRect(cellX, cellY, cellSize - 1, cellSize - 1);
+
+          // Save bounding box for mouse hover
+          matrixGrid.push({
+            x: cellX,
+            y: cellY,
+            w: cellSize - 1,
+            h: cellSize - 1,
+            row: r,
+            col: c,
+            val: val,
+            queryToken: currentTokens[r],
+            keyToken: currentTokens[c]
+          });
+        }
+      }
+    }
+
+    // Canvas Mouse Hover Tooltip
+    canvas.addEventListener("mousemove", (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      let found = null;
+      for (const cell of matrixGrid) {
+        if (mouseX >= cell.x && mouseX <= cell.x + cell.w &&
+            mouseY >= cell.y && mouseY <= cell.y + cell.h) {
+          found = cell;
+          break;
+        }
+      }
+
+      if (found) {
+        const qChar = found.queryToken === " " ? "␣" : found.queryToken;
+        const kChar = found.keyToken === " " ? "␣" : found.keyToken;
+        tooltip.innerHTML = `
+          <strong>Query:</strong> "${qChar}" (pos ${found.row})<br>
+          <strong>Key:</strong> "${kChar}" (pos ${found.col})<br>
+          <strong>Attention:</strong> ${(found.val * 100).toFixed(2)}%
+        `;
+        tooltip.style.left = `${mouseX + 16}px`;
+        tooltip.style.top = `${mouseY + 16}px`;
+        tooltip.style.display = "block";
+      } else {
+        tooltip.style.display = "none";
+      }
+    });
+
+    canvas.addEventListener("mouseleave", () => {
+      tooltip.style.display = "none";
+    });
+
+    function toggleAutoPlay() {
+      if (isAutoPlaying) {
+        stopAutoPlay();
+      } else {
+        startAutoPlay();
+      }
+    }
+
+    function startAutoPlay() {
+      isAutoPlaying = true;
+      document.getElementById("play-btn-label").textContent = "Pause";
+      document.getElementById("play-btn").classList.add("secondary");
+      document.getElementById("step-btn").disabled = true;
+
+      autoPlayTimer = setInterval(async () => {
+        const continuePlaying = await stepGeneration();
+        if (!continuePlaying) {
+          stopAutoPlay();
+        }
+      }, 350);
+    }
+
+    function stopAutoPlay() {
+      isAutoPlaying = false;
+      if (autoPlayTimer) {
+        clearInterval(autoPlayTimer);
+        autoPlayTimer = null;
+      }
+      document.getElementById("play-btn-label").textContent = "Auto Run";
+      document.getElementById("play-btn").classList.remove("secondary");
+      document.getElementById("step-btn").disabled = false;
+    }
+
+    function resetVisualizer() {
+      stopAutoPlay();
+      generatedTokens = [];
+      stepGeneration();
+    }
+
+    // Auto-run first step on load
+    window.addEventListener("DOMContentLoaded", () => {
+      stepGeneration();
+    });
+  </script>
+</body>
+</html>

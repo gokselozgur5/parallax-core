@@ -1,0 +1,302 @@
+"""
+Parallax WebUI Visualizer Server: Zero-dependency local web backend.
+
+Serves the interactive Attention, KV-Cache and Token Generation Visualizer UI.
+Provides the `/api/visualize_step` endpoint and helper APIs.
+"""
+
+import http.server
+import json
+import os
+import socketserver
+import sys
+import time
+import urllib.parse
+from typing import Any, Dict, List, Optional, Tuple
+
+# Add repo root to sys.path
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+
+import numpy as np
+
+from parallax.generator import CharTokenizer, sample_next_token
+from parallax.loss import cross_entropy_loss
+from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
+from parallax.optim import AdamW
+from parallax.tensor import no_grad
+
+HOST = "127.0.0.1"
+PORT = 8088
+STATIC_DIR = os.path.join(REPO_ROOT, "demo")
+HTML_FILE = os.path.join(STATIC_DIR, "visualizer.html")
+MAX_REQUEST_BODY_BYTES = 5 * 1024 * 1024  # 5 MB
+
+CORPUS = "parallax creates clarity from multiple perspectives. parallax builds depth and understanding."
+
+
+class VisualizerState:
+    """Encapsulates model, tokenizer, and KV cache runtime state."""
+
+    def __init__(self, corpus: str = CORPUS, warmup_steps: int = 40):
+        self.corpus = corpus
+        self.tokenizer = CharTokenizer(corpus)
+        self.config = ParallaxLMConfig(
+            vocab_size=self.tokenizer.vocab_size,
+            embed_dim=32,
+            num_heads=2,
+            num_layers=2,
+            max_seq_len=64,
+            use_rope=True,
+            tie_weights=True,
+        )
+        self.model = ParallaxLM(self.config)
+        self.optim = AdamW(self.model.parameters(), lr=0.04, weight_decay=0.01)
+
+        # Train a few steps so outputs are reasonable
+        tokens_arr = np.array(self.tokenizer.encode(corpus), dtype=np.int64)
+        seq_len = 12
+        if warmup_steps > 0 and len(tokens_arr) > seq_len + 1:
+            for _ in range(warmup_steps):
+                starts = np.random.randint(0, len(tokens_arr) - seq_len - 1, size=4)
+                xb = np.stack([tokens_arr[i : i + seq_len] for i in starts])
+                yb = np.stack([tokens_arr[i + 1 : i + seq_len + 1] for i in starts])
+                self.optim.zero_grad()
+                logits = self.model(xb)
+                loss = cross_entropy_loss(logits, yb)
+                loss.backward()
+                self.optim.step()
+
+    def step_generation(
+        self,
+        prompt: str,
+        generated_tokens: Optional[List[str]] = None,
+        use_cache: bool = True,
+        temperature: float = 0.8,
+        top_k: Optional[int] = 5,
+        top_p: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """Perform a single forward pass / generation step and extract KV cache & attention state."""
+        if generated_tokens is None:
+            generated_tokens = []
+
+        # Full text so far
+        prompt_tokens = list(prompt) if prompt else ["P"]
+        current_sequence = prompt_tokens + generated_tokens
+
+        # Map to IDs
+        token_ids = [self.tokenizer.stoi.get(ch, 0) for ch in current_sequence]
+        if not token_ids:
+            token_ids = [0]
+            current_sequence = ["<unk>"]
+
+        max_seq_len = self.config.max_seq_len
+        # Constrain context to max_seq_len
+        if len(token_ids) > max_seq_len:
+            token_ids = token_ids[-max_seq_len:]
+            current_sequence = current_sequence[-max_seq_len:]
+
+        idx = np.array([token_ids], dtype=np.int64)
+
+        # Forward pass with no_grad to capture attention weights in blocks
+        with no_grad():
+            logits = self.model(idx)
+
+        # Compute next token prediction
+        next_token_logits = logits.data[0, -1, :]
+        next_token_id = sample_next_token(
+            next_token_logits,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+        )
+        next_token_str = self.tokenizer.decode([next_token_id])
+
+        # Top 5 candidate probabilities
+        scaled_logits = next_token_logits / max(temperature, 1e-5)
+        shifted = scaled_logits - np.max(scaled_logits)
+        probs = np.exp(shifted) / np.sum(np.exp(shifted))
+        top_indices = np.argsort(probs)[::-1][:5]
+        top_candidates = [
+            {
+                "token": self.tokenizer.decode([int(t)]),
+                "prob": float(probs[t]),
+                "id": int(t),
+            }
+            for t in top_indices
+        ]
+
+        # Extract Attention Matrix from layer 0 (or all layers)
+        # block.attn.last_attn_weights is [batch_size, num_heads, seq_len, seq_len]
+        layers_attn = []
+        for l_idx, block in enumerate(self.model.blocks):
+            if hasattr(block.attn, "last_attn_weights") and block.attn.last_attn_weights is not None:
+                # Shape: [num_heads, T, T]
+                attn_weights = block.attn.last_attn_weights[0]
+                num_heads = attn_weights.shape[0]
+                heads = [attn_weights[h].tolist() for h in range(num_heads)]
+                layers_attn.append({
+                    "layer": l_idx,
+                    "num_heads": num_heads,
+                    "heads": heads,
+                })
+
+        # Calculate KV-Cache Memory & Block Usage
+        # Each layer caches K and V: shape [B, num_kv_heads, current_len, head_dim]
+        # dtype float64 = 8 bytes
+        seq_len_current = len(token_ids)
+        num_layers = self.config.num_layers
+        num_kv_heads = self.config.num_kv_heads or self.config.num_heads
+        head_dim = self.config.embed_dim // self.config.num_heads
+        bytes_per_elem = 8  # float64
+
+        kv_elements_per_token = num_layers * 2 * num_kv_heads * head_dim
+        kv_bytes_current = seq_len_current * kv_elements_per_token * bytes_per_elem
+        kv_bytes_max = max_seq_len * kv_elements_per_token * bytes_per_elem
+        kv_percent = round((seq_len_current / max_seq_len) * 100, 2)
+
+        return {
+            "tokens": current_sequence,
+            "seq_len": seq_len_current,
+            "max_seq_len": max_seq_len,
+            "next_token": next_token_str,
+            "next_token_id": int(next_token_id),
+            "top_candidates": top_candidates,
+            "kv_cache": {
+                "active_tokens": seq_len_current,
+                "max_tokens": max_seq_len,
+                "used_bytes": kv_bytes_current,
+                "max_bytes": kv_bytes_max,
+                "percent_used": kv_percent,
+                "num_layers": num_layers,
+                "num_kv_heads": num_kv_heads,
+                "head_dim": head_dim,
+                "use_cache": use_cache,
+            },
+            "attention": layers_attn,
+        }
+
+
+# Global visualizer state instance
+STATE = VisualizerState()
+
+
+class VisualizerHandler(http.server.BaseHTTPRequestHandler):
+    """HTTP request handler for Visualizer Web UI and REST API."""
+
+    def log_message(self, format: str, *args: Any) -> None:
+        pass
+
+    def send_json(self, data: Any, status: int = 200) -> None:
+        body = json.dumps(data).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_OPTIONS(self) -> None:
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.end_headers()
+
+    def do_GET(self) -> None:
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+
+        if path in ("/", "/index.html", "/visualizer", "/visualizer.html"):
+            self.serve_file(HTML_FILE, "text/html; charset=utf-8")
+        elif path == "/api/info":
+            self.send_json({
+                "model": "ParallaxLM-Micro",
+                "vocab_size": STATE.config.vocab_size,
+                "embed_dim": STATE.config.embed_dim,
+                "num_heads": STATE.config.num_heads,
+                "num_layers": STATE.config.num_layers,
+                "max_seq_len": STATE.config.max_seq_len,
+            })
+        else:
+            self.send_response(404)
+            self.end_headers()
+            self.wfile.write(b"404 Not Found")
+
+    def do_POST(self) -> None:
+        parsed = urllib.parse.urlparse(self.path)
+        content_length = int(self.headers.get("Content-Length", 0))
+
+        if content_length > MAX_REQUEST_BODY_BYTES:
+            self.send_json({"error": "Request body too large"}, 413)
+            return
+
+        body = self.rfile.read(content_length) if content_length > 0 else b"{}"
+        try:
+            req = json.loads(body.decode("utf-8")) if body else {}
+        except json.JSONDecodeError:
+            self.send_json({"error": "Invalid JSON"}, 400)
+            return
+
+        if parsed.path == "/api/visualize_step":
+            self.handle_visualize_step(req)
+        elif parsed.path == "/api/reset":
+            self.send_json({"status": "ok", "message": "State reset ready"})
+        else:
+            self.send_response(404)
+            self.end_headers()
+            self.wfile.write(b"404 Not Found")
+
+    def handle_visualize_step(self, req: Dict[str, Any]) -> None:
+        prompt = req.get("prompt", "parallax")
+        generated_tokens = req.get("generated_tokens", [])
+        use_cache = bool(req.get("use_cache", True))
+        temperature = float(req.get("temperature", 0.8))
+        top_k = req.get("top_k", 5)
+        top_p = req.get("top_p", None)
+
+        if not isinstance(generated_tokens, list):
+            generated_tokens = []
+
+        result = STATE.step_generation(
+            prompt=prompt,
+            generated_tokens=generated_tokens,
+            use_cache=use_cache,
+            temperature=temperature,
+            top_k=top_k,
+            top_p=top_p,
+        )
+        self.send_json(result)
+
+    def serve_file(self, filepath: str, content_type: str) -> None:
+        if not os.path.exists(filepath):
+            self.send_response(404)
+            self.end_headers()
+            self.wfile.write(b"File not found")
+            return
+        with open(filepath, "rb") as f:
+            data = f.read()
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+
+def run_server(port: int = PORT, host: str = HOST) -> None:
+    class ThreadingServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+        allow_reuse_address = True
+
+    with ThreadingServer((host, port), VisualizerHandler) as server:
+        print(f"[*] Parallax Visualizer Server running at http://{host}:{port}/")
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            print("\nShutting down server.")
+
+
+if __name__ == "__main__":
+    run_server()

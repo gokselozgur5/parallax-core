@@ -1,0 +1,14 @@
+[package]
+name = "parallax-rs"
+version = "0.1.0"
+edition = "2021"
+authors = ["Göksel Özgür <gokselozgur5@gmail.com>"]
+description = "High-performance zero-dependency core computation engine for Parallax"
+license = "BSD-3-Clause"
+
+[lib]
+name = "parallax_rs"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Zero external dependencies

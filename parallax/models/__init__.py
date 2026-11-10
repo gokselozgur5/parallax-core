@@ -1,5 +1,11 @@
 """Models package for ParallaxLM."""
 
+from parallax.models.bit_transformer import (
+    BitSwiGLU,
+    BitTransformerBlock,
+    BitTransformerConfig,
+    BitTransformerLM,
+)
 from parallax.models.gpt import MLP, ParallaxLM, ParallaxLMConfig, SwiGLU, TransformerBlock
 from parallax.models.llama import LlamaConfig, LlamaForCausalLM
 from parallax.models.qwen2 import (
@@ -9,6 +15,10 @@ from parallax.models.qwen2 import (
 )
 
 __all__ = [
+    "BitSwiGLU",
+    "BitTransformerBlock",
+    "BitTransformerConfig",
+    "BitTransformerLM",
     "ParallaxLM",
     "ParallaxLMConfig",
     "TransformerBlock",

@@ -3,6 +3,8 @@
 from typing import Optional, Tuple
 import numpy as np
 
+from parallax.c_engine import is_c_engine_available, c_rmsnorm
+
 
 class UnifiedNorm:
     """Supports both LayerNorm and RMSNorm with fused residual addition."""
@@ -27,8 +29,11 @@ class UnifiedNorm:
         """Compute normalization forward with optional fused residual addition."""
         fused_x = x + residual if residual is not None else x
         if self.norm_type == "rmsnorm":
-            rms = np.sqrt(np.mean(fused_x ** 2, axis=-1, keepdims=True) + self.eps)
-            normed = (fused_x / rms) * self.weight
+            if is_c_engine_available():
+                normed = c_rmsnorm(fused_x, self.weight, eps=self.eps)
+            else:
+                rms = np.sqrt(np.mean(fused_x ** 2, axis=-1, keepdims=True) + self.eps)
+                normed = (fused_x / rms) * self.weight
         else:
             mean = np.mean(fused_x, axis=-1, keepdims=True)
             var = np.var(fused_x, axis=-1, keepdims=True)

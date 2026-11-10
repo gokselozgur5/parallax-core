@@ -42,6 +42,9 @@ SAFETENSORS_TO_NUMPY_DTYPE: Dict[str, str] = {
 }
 
 
+MAX_HEADER_SIZE: int = 100 * 1024 * 1024  # 100MB security limit to prevent DoS
+
+
 def save_safetensors(
     file_path: str,
     tensors: Dict[str, np.ndarray],
@@ -114,6 +117,9 @@ def load_safetensors(
             raise ValueError(f"Invalid safetensors file: {file_path} is smaller than 8 bytes")
 
         header_len = struct.unpack("<Q", header_len_bytes)[0]
+        if header_len > MAX_HEADER_SIZE:
+            raise ValueError(f"Header size {header_len} exceeds maximum allowed limit of {MAX_HEADER_SIZE} bytes (DoS protection)")
+
         f.seek(0, os.SEEK_END)
         total_file_size = f.tell()
         f.seek(8)
@@ -125,7 +131,14 @@ def load_safetensors(
         if len(header_json_bytes) < header_len:
             raise ValueError(f"Truncated header in safetensors file: {file_path}")
 
-        header = json.loads(header_json_bytes.decode("utf-8"))
+        try:
+            header = json.loads(header_json_bytes.decode("utf-8"))
+        except Exception as e:
+            raise ValueError(f"Malformed JSON header in safetensors file: {e}") from e
+
+        if not isinstance(header, dict):
+            raise ValueError("Malformed safetensors header: root must be a JSON object")
+
         data_base_offset = 8 + header_len
 
         tensors: Dict[str, np.ndarray] = {}
@@ -134,13 +147,37 @@ def load_safetensors(
             if key == "__metadata__":
                 continue
 
-            dtype_str = info["dtype"]
-            shape = tuple(info["shape"])
-            start_off, end_off = info["data_offsets"]
-            byte_len = end_off - start_off
+            if not isinstance(info, dict):
+                raise ValueError(f"Invalid tensor metadata for '{key}': expected dictionary")
 
+            if "dtype" not in info or "shape" not in info or "data_offsets" not in info:
+                raise ValueError(f"Missing required fields (dtype, shape, data_offsets) in tensor '{key}'")
+
+            dtype_str = info["dtype"]
+            shape_raw = info["shape"]
+            offsets = info["data_offsets"]
+
+            if not isinstance(shape_raw, (list, tuple)):
+                raise ValueError(f"Invalid shape for tensor '{key}': expected list or tuple")
+
+            shape = tuple(shape_raw)
+            for dim in shape:
+                if not isinstance(dim, int) or dim < 0:
+                    raise ValueError(f"Invalid dimension {dim} for tensor '{key}': must be non-negative integer")
+
+            if not isinstance(offsets, (list, tuple)) or len(offsets) != 2:
+                raise ValueError(f"Invalid data_offsets for tensor '{key}': expected [start, end]")
+
+            start_off, end_off = offsets
+            if not isinstance(start_off, int) or not isinstance(end_off, int):
+                raise ValueError(f"Offsets must be integers for tensor '{key}'")
+
+            if start_off < 0 or end_off < start_off:
+                raise ValueError(f"Invalid tensor offsets [{start_off}, {end_off}] for tensor '{key}'")
+
+            byte_len = end_off - start_off
             tensor_start_offset = data_base_offset + start_off
-            if start_off < 0 or byte_len < 0 or tensor_start_offset + byte_len > total_file_size:
+            if tensor_start_offset < 0 or byte_len < 0 or tensor_start_offset + byte_len > total_file_size:
                 raise ValueError("Invalid tensor offset/length: exceeds file bounds")
 
             f.seek(tensor_start_offset)

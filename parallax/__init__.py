@@ -32,6 +32,7 @@ from parallax.gguf_quant import (
     quantize_q4_0,
     quantize_q8_0,
 )
+from parallax.gguf_exporter import export_to_gguf_v3
 from parallax.prune import (
     apply_pruning_masks,
     calculate_model_sparsity,
@@ -45,6 +46,12 @@ from parallax.kv_cache_pruner import KVCachePruner, PruningMetrics
 from parallax.linear_attention import LinearAttention, elu_feature_map
 from parallax.bitmamba import BitMambaBlock, BitMambaConfig, BitMambaLM
 from parallax.bit_attention import BitAttention
+from parallax.models.bit_transformer import (
+    BitSwiGLU,
+    BitTransformerBlock,
+    BitTransformerConfig,
+    BitTransformerLM,
+)
 
 __all__ = [
     "Tensor",
@@ -73,6 +80,7 @@ __all__ = [
     "load_gguf_pretrained",
     "load_gguf_weights_into_model",
     "save_parallax_to_gguf",
+    "export_to_gguf_v3",
     "GGUFTokenizer",
     "load_gguf_tokenizer",
     "dequantize_q4_0",
@@ -92,6 +100,10 @@ __all__ = [
     "BitMambaConfig",
     "BitMambaLM",
     "BitAttention",
+    "BitSwiGLU",
+    "BitTransformerBlock",
+    "BitTransformerConfig",
+    "BitTransformerLM",
     "compute_cross_entropy_loss",
     "compute_perplexity",
     "ContinuousBatchEngine",
