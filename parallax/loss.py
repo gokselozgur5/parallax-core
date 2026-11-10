@@ -99,6 +99,4 @@ def perplexity_from_loss(loss_value: float) -> float:
         return float("inf")
 
 
-# Backward compatibility alias
-compute_perplexity = perplexity_from_loss
 

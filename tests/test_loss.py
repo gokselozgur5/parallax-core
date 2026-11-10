@@ -6,7 +6,7 @@ import math
 import numpy as np
 import pytest
 
-from parallax.loss import compute_perplexity, cross_entropy_loss
+from parallax.loss import cross_entropy_loss, perplexity_from_loss
 from parallax.tensor import Tensor
 
 
@@ -41,9 +41,9 @@ def test_cross_entropy_ignore_index():
     assert not np.allclose(logits.grad[0], [0.0, 0.0, 0.0])
 
 
-def test_compute_perplexity():
+def test_perplexity_from_loss():
     # Loss 0.0 -> PPL = 1.0
-    assert math.isclose(compute_perplexity(0.0), 1.0, rel_tol=1e-5)
+    assert math.isclose(perplexity_from_loss(0.0), 1.0, rel_tol=1e-5)
 
     # Loss ln(10) -> PPL = 10.0
-    assert math.isclose(compute_perplexity(math.log(10.0)), 10.0, rel_tol=1e-5)
+    assert math.isclose(perplexity_from_loss(math.log(10.0)), 10.0, rel_tol=1e-5)
