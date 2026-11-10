@@ -40,6 +40,25 @@ def test_pack_int4_odd_dim_raises():
         pack_int4(odd_arr)
 
 
+def test_pack_int4_validation():
+    """Verify pack_int4 rejects out of bounds or non-integer inputs."""
+    with pytest.raises(ValueError, match="requires integer"):
+        pack_int4(np.array([1.5, 2.0]))
+    with pytest.raises(ValueError, match="must be in \\[0, 15\\]"):
+        pack_int4(np.array([16, 0]))
+    with pytest.raises(ValueError, match="must be in \\[0, 15\\]"):
+        pack_int4(np.array([-1, 4]))
+
+
+def test_quantize_float16_constant_group():
+    """Verify float16 constant groups quantize with non-zero scale without warning."""
+    w = np.full((4, 32), 0.5, dtype=np.float16)
+    packed, scales, zeros = quantize_int4_groupwise(w, group_size=32)
+    assert np.all(scales > 0)
+    w_recon = dequantize_int4_groupwise(packed, scales, zeros, group_size=32)
+    np.testing.assert_allclose(w_recon, w, rtol=1e-3, atol=1e-3)
+
+
 @pytest.mark.parametrize("group_size", [32, 128])
 def test_quantize_dequantize_int4_groupwise_mse(group_size: int):
     """Verify group-wise quantization-dequantization error (MSE)."""
