@@ -60,15 +60,15 @@ class DoRALinear:
         self,
         x: np.ndarray,
         grad_out: np.ndarray,
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Compute gradients for magnitude vector m and adapter matrices A and B.
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Compute gradients for magnitude vector m, adapter matrices A and B, and input x.
 
         Args:
-            x: Input activation of shape (B, in_features).
-            grad_out: Output gradient of shape (B, out_features).
+            x: Input activation of shape (B, in_features) or (in_features,).
+            grad_out: Output gradient of shape (B, out_features) or (out_features,).
 
         Returns:
-            Tuple of (grad_m, grad_A, grad_B).
+            Tuple of (grad_m, grad_A, grad_B, dx).
         """
         x_in = x if x.ndim == 2 else x[np.newaxis, :]
         grad_y = grad_out if grad_out.ndim == 2 else grad_out[np.newaxis, :]
@@ -94,4 +94,10 @@ class DoRALinear:
         grad_B = self.scaling * np.dot(grad_V, self.lora_A.T)
         grad_A = self.scaling * np.dot(self.lora_B.T, grad_V)
 
-        return grad_m, grad_A, grad_B
+        # Input gradient dL/dx = grad_y @ W_eff
+        W_eff = m_col * V_norm
+        dx = np.dot(grad_y, W_eff)
+        if x.ndim == 1:
+            dx = dx.squeeze(0)
+
+        return grad_m, grad_A, grad_B, dx
