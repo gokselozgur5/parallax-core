@@ -171,6 +171,11 @@ def test_markdown_report_generation_and_saving():
     assert "## 4. Context State RAM Scaling" in report_str
     assert "## 5. FlashDecoding v1 vs FlashDecoding v2" in report_str
     assert "Sealed by Parallax Swarm Agent 18" in report_str
+    assert f"- **Operating System:** `{hw_info['os']}`" in report_str
+    assert f"**{gemm_results[0]['size'][0]} x {gemm_results[0]['size'][1]}**" in report_str
+    assert f"**{rmsnorm_results[0]['shape'][0]} x {rmsnorm_results[0]['shape'][1]}**" in report_str
+    assert f"{weights_summary['transformer_fp32']['params']:,}" in report_str
+    assert f"**{int4_stats['total_compression_ratio']:.2f}x**" in report_str
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_file = os.path.join(tmpdir, "report.md")
