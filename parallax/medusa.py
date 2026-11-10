@@ -4,6 +4,12 @@ Reference: Cai et al., 2023 - Medusa: Simple Framework for Accelerating LLM
 Generation with Multiple Decoding Heads.
 Adds extra linear heads to predict multiple future tokens simultaneously,
 verifying candidate continuations via tree/prefix matching.
+
+Note:
+    Architectural Verification-Loop Sketch / Prototype.
+    This module provides an architectural verification-loop sketch for Medusa
+    decoding. In this prototype, candidate generation heads are unlearned linear
+    projections and tree decoding paths are simplified for verification flow.
 """
 
 from typing import List, Tuple
