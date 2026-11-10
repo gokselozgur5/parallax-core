@@ -80,57 +80,62 @@ class ContinuousBatchEngine:
 
         # Process each running request for 1 iteration
         for req in self.running_requests:
-            if req.kv_cache is None:
-                # Prefill step
-                input_tokens = np.array([req.prompt_tokens], dtype=np.int64)
-                # Initialize empty KV cache per layer
-                num_heads = self.model.config.num_heads
-                num_kv_heads = (
-                    self.model.config.num_kv_heads
-                    if self.model.config.num_kv_heads is not None
-                    else num_heads
-                )
-                head_dim = self.model.config.embed_dim // num_heads
-                initial_kv = [
-                    (
-                        np.empty((1, num_kv_heads, 0, head_dim), dtype=np.float64),
-                        np.empty((1, num_kv_heads, 0, head_dim), dtype=np.float64),
+            try:
+                if req.kv_cache is None:
+                    # Prefill step
+                    input_tokens = np.array([req.prompt_tokens], dtype=np.int64)
+                    # Initialize empty KV cache per layer
+                    num_heads = self.model.config.num_heads
+                    num_kv_heads = (
+                        self.model.config.num_kv_heads
+                        if self.model.config.num_kv_heads is not None
+                        else num_heads
                     )
-                    for _ in range(self.model.config.num_layers)
-                ]
-                logits, updated_kv = self.model(input_tokens, kv_caches=initial_kv)
-                req.kv_cache = updated_kv
-                req.total_tokens_seen = len(req.prompt_tokens)
-                next_token_logits = logits.data[0, -1, :]
-            else:
-                # Decode single token step
-                last_token = req.generated_tokens[-1]
-                input_tokens = np.array([[last_token]], dtype=np.int64)
-                logits, updated_kv = self.model(input_tokens, kv_caches=req.kv_cache)
-                req.kv_cache = updated_kv
-                req.total_tokens_seen += 1
-                next_token_logits = logits.data[0, -1, :]
+                    head_dim = self.model.config.embed_dim // num_heads
+                    initial_kv = [
+                        (
+                            np.empty((1, num_kv_heads, 0, head_dim), dtype=np.float64),
+                            np.empty((1, num_kv_heads, 0, head_dim), dtype=np.float64),
+                        )
+                        for _ in range(self.model.config.num_layers)
+                    ]
+                    logits, updated_kv = self.model(input_tokens, kv_caches=initial_kv)
+                    req.kv_cache = updated_kv
+                    req.total_tokens_seen = len(req.prompt_tokens)
+                    next_token_logits = logits.data[0, -1, :]
+                else:
+                    # Decode single token step
+                    last_token = req.generated_tokens[-1]
+                    input_tokens = np.array([[last_token]], dtype=np.int64)
+                    logits, updated_kv = self.model(input_tokens, kv_caches=req.kv_cache)
+                    req.kv_cache = updated_kv
+                    req.total_tokens_seen += 1
+                    next_token_logits = logits.data[0, -1, :]
 
-            # Sample next token
-            next_token = sample_next_token(
-                next_token_logits,
-                temperature=req.temperature,
-                top_k=req.top_k,
-                top_p=req.top_p,
-            )
+                # Sample next token
+                next_token = sample_next_token(
+                    next_token_logits,
+                    temperature=req.temperature,
+                    top_k=req.top_k,
+                    top_p=req.top_p,
+                )
 
-            req.generated_tokens.append(next_token)
-            step_outputs.append((req.request_id, next_token))
+                req.generated_tokens.append(next_token)
+                step_outputs.append((req.request_id, next_token))
 
-            # Check completion criteria
-            reached_max = len(req.generated_tokens) >= req.max_new_tokens
-            hit_eos = req.eos_token_id is not None and next_token == req.eos_token_id
+                # Check completion criteria
+                reached_max = len(req.generated_tokens) >= req.max_new_tokens
+                hit_eos = req.eos_token_id is not None and next_token == req.eos_token_id
 
-            if reached_max or hit_eos:
-                req.status = RequestStatus.FINISHED
+                if reached_max or hit_eos:
+                    req.status = RequestStatus.FINISHED
+                    self.completed_requests[req.request_id] = req
+                else:
+                    still_running.append(req)
+            except Exception as e:
+                req.status = RequestStatus.FAILED
+                req.error = str(e)
                 self.completed_requests[req.request_id] = req
-            else:
-                still_running.append(req)
 
         self.running_requests = still_running
         return step_outputs
