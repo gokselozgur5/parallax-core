@@ -158,3 +158,18 @@ def test_bitmamba_step_mode_grad_enabled_raises():
     u = Tensor(np.random.randn(1, 1, 8))
     with pytest.raises(RuntimeError, match="BitMambaBlock step mode with state cache is inference-only"):
         block(u, ssm_state=ssm, conv_state=conv)
+
+
+def test_bitmamba_default_config_logits_nonzero():
+    """Verify default BitMambaLM produces non-zero logits and valid gradients."""
+    np.random.seed(42)
+    config = BitMambaConfig()
+    model = BitMambaLM(config)
+    idx = np.random.randint(0, config.vocab_size, size=(2, 5))
+    logits = model(idx)
+    assert np.var(logits.data) > 0.0
+    loss = (logits * 0.1).sum()
+    loss.backward()
+    for p in model.parameters():
+        assert p.grad is not None
+        assert np.any(p.grad != 0.0)
