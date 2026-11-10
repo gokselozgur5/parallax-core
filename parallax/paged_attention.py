@@ -30,9 +30,16 @@ class BlockAllocator:
 
     def free_block(self, block_id: int):
         """Return a block ID back to the free list."""
+        if block_id < 0 or block_id >= self.num_blocks:
+            raise ValueError(f"Block {block_id} out of bounds for num_blocks {self.num_blocks}")
         if block_id in self.free_blocks:
             raise ValueError(f"Block {block_id} is already free")
         self.free_blocks.append(block_id)
+
+    def free_blocks(self, block_ids: List[int]):
+        """Return multiple block IDs back to the free list."""
+        for block_id in block_ids:
+            self.free_block(block_id)
 
 
 
@@ -65,6 +72,19 @@ class SequenceManager:
         self.allocator.k_cache[target_block_id, offset] = k_vec
         self.allocator.v_cache[target_block_id, offset] = v_vec
         self.seq_lengths[seq_id] += 1
+
+    def release_sequence(self, seq_id: int) -> None:
+        """Release allocated physical blocks of a sequence back to allocator."""
+        if seq_id not in self.block_tables:
+            return
+        blocks = self.block_tables.pop(seq_id)
+        self.seq_lengths.pop(seq_id, None)
+        for block_id in blocks:
+            self.allocator.free_block(block_id)
+
+    def release(self, seq_id: int) -> None:
+        """Alias for release_sequence."""
+        self.release_sequence(seq_id)
 
 
 def paged_attention(
