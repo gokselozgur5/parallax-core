@@ -14,7 +14,7 @@ import time
 from parallax.generator import generate_stream
 from parallax.gguf_loader import load_gguf_pretrained
 from parallax.hf_loader import load_hf_pretrained
-from parallax.tokenizer import BPETokenizer
+from parallax.tokenizer import BPETokenizer, IncrementalTokenDecoder
 
 
 def main() -> None:
@@ -95,6 +95,7 @@ def main() -> None:
 
     token_count = 0
     t_start = time.time()
+    stream_decoder = IncrementalTokenDecoder(tokenizer) if tokenizer is not None else None
 
     for token_id in generate_stream(
         model=model,
@@ -106,11 +107,16 @@ def main() -> None:
         eos_token_id=eos_id,
     ):
         token_count += 1
-        if tokenizer is not None:
-            chunk = tokenizer.decode([token_id])
+        if stream_decoder is not None:
+            chunk = stream_decoder.decode_token(token_id)
             print(chunk, end="", flush=True)
         else:
             print(f"[{token_id}]", end=" ", flush=True)
+
+    if stream_decoder is not None:
+        chunk = stream_decoder.finish()
+        if chunk:
+            print(chunk, end="", flush=True)
 
     elapsed = time.time() - t_start
     tps = token_count / elapsed if elapsed > 0 else 0.0
