@@ -204,10 +204,21 @@ def c_softmax(X: np.ndarray, axis: int = -1) -> np.ndarray:
     otherwise fallback to NumPy.
     Supports 2D arrays (and treats multi-dim flattened to 2D along last axis).
     """
+    if np.iscomplexobj(X):
+        raise TypeError("Complex dtypes are not supported")
+    if X.ndim == 0:
+        raise ValueError("Input array must have at least 1 dimension")
+    if axis < -X.ndim or axis >= X.ndim:
+        raise ValueError(f"axis {axis} is out of bounds for array of dimension {X.ndim}")
+
+    norm_axis = axis if axis >= 0 else axis + X.ndim
+    if X.shape[norm_axis] == 0:
+        raise ValueError("Cannot compute softmax along empty dimension")
+    if X.size == 0:
+        return np.empty(X.shape, dtype=X.dtype if X.dtype in (np.float32, np.float64) else np.float32)
+
     lib = _find_or_build_library()
-    
-    if lib is None or (axis != -1 and axis != X.ndim - 1):
-        # Fallback to pure numpy
+    if lib is None or (axis != -1 and axis != X.ndim - 1) or X.dtype != np.float32:
         shifted = X - np.max(X, axis=axis, keepdims=True)
         exps = np.exp(shifted)
         return exps / np.sum(exps, axis=axis, keepdims=True)
@@ -215,6 +226,8 @@ def c_softmax(X: np.ndarray, axis: int = -1) -> np.ndarray:
     orig_shape = X.shape
     cols = orig_shape[-1]
     rows = X.size // cols
+    if rows > _INT32_MAX or cols > _INT32_MAX or (rows * cols) > _INT32_MAX:
+        raise ValueError(f"Dimensions exceed INT32_MAX: rows={rows}, cols={cols}")
 
     X_c = np.ascontiguousarray(X, dtype=np.float32).reshape(rows, cols)
     out = np.empty((rows, cols), dtype=np.float32)
