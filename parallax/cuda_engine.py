@@ -2,7 +2,8 @@
 Parallax CUDA High-Performance Engine.
 
 Provides GPU-accelerated inference for Transformer models (Qwen2.5, LLaMA, etc.)
-using native CUDA tensor acceleration with KV-cache support and bfloat16 precision.
+using native CUDA tensor acceleration with KV-cache support, bfloat16 precision,
+Top-P (Nucleus) and Top-K sampling with repetition penalties.
 Delivers 50-200+ tokens/sec on NVIDIA RTX 3090/4090 GPUs.
 """
 
@@ -34,7 +35,6 @@ class Qwen2CUDAModel:
             raise RuntimeError("CUDA is not available. Please ensure an NVIDIA GPU and PyTorch CUDA build are installed.")
         
         self.device = torch.device(device)
-        # Use bfloat16 on Ampere/Ada Lovelace (RTX 3090/4090) for numerical stability and max speed
         if dtype is None:
             self.dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32
         else:
@@ -203,9 +203,10 @@ class Qwen2CUDAModel:
         self,
         prompt_tokens: List[int],
         max_new_tokens: int = 512,
-        temperature: float = 0.0,
-        top_k: int = 40,
-        repetition_penalty: float = 1.05,
+        temperature: float = 0.7,
+        top_p: float = 0.85,
+        top_k: int = 50,
+        repetition_penalty: float = 1.15,
         eos_token_ids: Optional[List[int]] = None,
     ) -> Generator[int, None, None]:
         if eos_token_ids is None:
@@ -219,11 +220,11 @@ class Qwen2CUDAModel:
         cur_pos = len(prompt_tokens)
         
         for _ in range(max_new_tokens):
-            next_logits = logits[0].clone()
+            next_logits = logits[0].clone().float()
             
-            # Repetition penalty applied ONLY to generated output tokens
+            # Repetition penalty applied to recent generated tokens
             if repetition_penalty != 1.0 and generated:
-                for token_id in set(generated[-20:]):  # penalty on last 20 tokens
+                for token_id in set(generated[-30:]):
                     if next_logits[token_id] > 0:
                         next_logits[token_id] /= repetition_penalty
                     else:
@@ -231,9 +232,22 @@ class Qwen2CUDAModel:
                         
             # Sampling / Greedy
             if temperature > 0:
+                # Top-K
                 if top_k > 0:
                     v, _ = torch.topk(next_logits, min(top_k, next_logits.size(-1)))
                     next_logits[next_logits < v[-1]] = -float("Inf")
+                
+                # Top-P (Nucleus)
+                if top_p < 1.0:
+                    sorted_logits, sorted_indices = torch.sort(next_logits, descending=True)
+                    cumulative_probs = torch.cumsum(F.softmax(sorted_logits / temperature, dim=-1), dim=-1)
+                    sorted_indices_to_remove = cumulative_probs > top_p
+                    # Shift indices right to keep first token above threshold
+                    sorted_indices_to_remove[1:] = sorted_indices_to_remove[:-1].clone()
+                    sorted_indices_to_remove[0] = False
+                    indices_to_remove = sorted_indices[sorted_indices_to_remove]
+                    next_logits[indices_to_remove] = -float("Inf")
+                    
                 probs = F.softmax(next_logits / temperature, dim=-1)
                 next_token = int(torch.multinomial(probs, num_samples=1).item())
             else:
