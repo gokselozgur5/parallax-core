@@ -134,8 +134,16 @@ def _find_or_build_library_unlocked() -> Optional[ctypes.CDLL]:
             ]
             lib.c_rmsnorm_f64.restype = None
             _C_LIB = lib
-        except Exception:
+            _LOAD_ERROR_REASON = None
+        except Exception as e:
             _C_LIB = None
+            _LOAD_ERROR_REASON = f"Failed to load shared library {lib_path}: {e}"
+
+    _LIB_LOAD_ATTEMPTED = True
+    if _C_LIB is None:
+        if os.environ.get("PARALLAX_REQUIRE_C_ENGINE") == "1":
+            raise RuntimeError(f"PARALLAX_REQUIRE_C_ENGINE=1 but C-engine failed: {_LOAD_ERROR_REASON}")
+        _LOGGER.warning("C-engine unavailable, falling back to NumPy. Reason: %s", _LOAD_ERROR_REASON)
 
     return _C_LIB
 
