@@ -246,17 +246,29 @@ def c_rmsnorm(x: np.ndarray, weight: np.ndarray, eps: float = 1e-6) -> np.ndarra
     weight: 1D array of shape (dim,)
     eps: numerical stability epsilon
     """
-    lib = _find_or_build_library()
-    if lib is None:
-        rms = np.sqrt(np.mean(x ** 2, axis=-1, keepdims=True) + eps)
-        return (x / rms) * weight
+    if np.iscomplexobj(x) or np.iscomplexobj(weight):
+        raise TypeError("Complex dtypes are not supported")
+    if x.ndim == 0:
+        raise ValueError("Input array must have at least 1 dimension")
 
     orig_shape = x.shape
     cols = orig_shape[-1]
-    rows = x.size // cols
-
+    if cols == 0:
+        raise ValueError("Feature dimension cannot be 0")
     if weight.shape != (cols,):
         raise ValueError(f"Weight shape {weight.shape} incompatible with feature dim {cols}")
+
+    if x.size == 0:
+        return np.empty(orig_shape, dtype=x.dtype if x.dtype in (np.float32, np.float64) else np.float32)
+
+    rows = x.size // cols
+    if rows > _INT32_MAX or cols > _INT32_MAX or (rows * cols) > _INT32_MAX:
+        raise ValueError(f"Dimensions exceed INT32_MAX: rows={rows}, cols={cols}")
+
+    lib = _find_or_build_library()
+    if lib is None or np.issubdtype(x.dtype, np.integer) or np.issubdtype(weight.dtype, np.integer):
+        rms = np.sqrt(np.mean(x ** 2, axis=-1, keepdims=True) + eps)
+        return (x / rms) * weight
 
     orig_dtype = x.dtype
     if orig_dtype == np.float64 or weight.dtype == np.float64:
