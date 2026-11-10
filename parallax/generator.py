@@ -120,6 +120,7 @@ def generate_stream(
     rolling_cache: Optional[RollingKVCache] = None,
 ) -> Iterator[int]:
     """Yields newly generated token IDs one by one."""
+    model.eval()
     tokens = list(prompt_tokens)
     max_seq_len = model.config.max_seq_len
 

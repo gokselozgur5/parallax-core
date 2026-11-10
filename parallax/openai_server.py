@@ -30,6 +30,8 @@ class OpenAIServerState:
         tokenizer: Optional[Any] = None,
     ):
         self.model = model
+        if hasattr(self.model, "eval"):
+            self.model.eval()
         self.model_name = model_name
         self.max_request_bytes = max_request_bytes
         # Context limit fallback from model config or custom limit
