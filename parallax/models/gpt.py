@@ -11,7 +11,7 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 from parallax.attention import CausalSelfAttention
 from parallax.nn import Linear, Module, Parameter, RMSNorm
-from parallax.tensor import Tensor, unbroadcast_grad
+from parallax.tensor import Tensor, _accumulate_grad, unbroadcast_grad
 
 
 def tensor_gelu(x: Tensor) -> Tensor:
@@ -27,12 +27,14 @@ def tensor_gelu(x: Tensor) -> Tensor:
     out = Tensor(out_data, (x,), "GELU")
 
     def _backward() -> None:
-        if x.requires_grad and x.grad is not None:
+        if out.grad is None:
+            return
+        if x.requires_grad:
             sech2 = 1.0 - tanh_inner**2
             d_inner = c * (1.0 + 3.0 * 0.044715 * (x_data**2))
             d_cdf = 0.5 * sech2 * d_inner
             dx = (cdf + x_data * d_cdf) * out.grad
-            x.grad += unbroadcast_grad(dx, x.shape)
+            _accumulate_grad(x, dx)
 
     out._backward = _backward
     return out
@@ -61,11 +63,13 @@ def tensor_silu(x: Tensor) -> Tensor:
     out = Tensor(out_data, (x,), "SiLU")
 
     def _backward() -> None:
-        if x.requires_grad and x.grad is not None:
+        if out.grad is None:
+            return
+        if x.requires_grad:
             # d/dx (x * sig) = sig + x * sig * (1 - sig) = sig * (1 + x * (1 - sig))
             dsilu = sig * (1.0 + x_data * (1.0 - sig))
             dx = dsilu * out.grad
-            x.grad += unbroadcast_grad(dx, x.shape)
+            _accumulate_grad(x, dx)
 
     out._backward = _backward
     return out
@@ -208,9 +212,13 @@ class Embedding(Module):
         out = Tensor(out_data, (self.weight,), "Embedding")
 
         def _backward() -> None:
-            if self.weight.requires_grad and self.weight.grad is not None:
+            if out.grad is None:
+                return
+            if self.weight.requires_grad:
                 # Accumulate gradients into indexed rows
                 dout = out.grad
+                if self.weight.grad is None:
+                    self.weight.grad = np.zeros_like(self.weight.data, dtype=np.float64)
                 np.add.at(self.weight.grad, idx_arr, dout)
 
         out._backward = _backward
