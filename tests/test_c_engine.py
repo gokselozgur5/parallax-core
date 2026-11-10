@@ -150,3 +150,16 @@ def test_c_engine_diagnostic_reporting_and_require_flag(monkeypatch):
     monkeypatch.setattr(ce, "_LIB_LOAD_ATTEMPTED", False)
     with pytest.raises(RuntimeError, match="PARALLAX_REQUIRE_C_ENGINE=1"):
         ce.is_c_engine_available()
+
+
+@pytest.mark.parametrize("N", [20, 21, 24, 28, 31])
+def test_c_gemm_vector_tail_shapes(N):
+    if not is_c_engine_available():
+        pytest.skip("C engine native library not available")
+    M, K = 8, 16
+    np.random.seed(N)
+    A = np.random.randn(M, K).astype(np.float32)
+    B = np.random.randn(K, N).astype(np.float32)
+    expected = (A.astype(np.float64) @ B.astype(np.float64)).astype(np.float32)
+    result = c_gemm(A, B)
+    np.testing.assert_allclose(result, expected, rtol=1e-4, atol=1e-4)
