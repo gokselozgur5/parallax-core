@@ -127,25 +127,38 @@ def test_flash_attention_backward_causal_gradcheck():
         do, o, q, k, v, lse, is_causal=True, block_r=8, block_c=8
     )
 
-    # Reference numerical gradient on Q via finite differences
+    # Reference numerical gradient via finite differences covering dq, dk, and dv
     eps = 1e-5
     for b in range(B):
         for h in range(H):
-            for t in range(2):  # Sample first 2 tokens
+            for t in range(2):
                 for c in range(2):
-                    q_pos = q.copy()
+                    # Check dq
+                    q_pos, q_neg = q.copy(), q.copy()
                     q_pos[b, h, t, c] += eps
-                    o_pos, _ = flash_attention_forward(q_pos, k, v, is_causal=True)
-
-                    q_neg = q.copy()
                     q_neg[b, h, t, c] -= eps
+                    o_pos, _ = flash_attention_forward(q_pos, k, v, is_causal=True)
                     o_neg, _ = flash_attention_forward(q_neg, k, v, is_causal=True)
+                    num_dq = (np.sum(o_pos * do) - np.sum(o_neg * do)) / (2 * eps)
+                    np.testing.assert_allclose(dq_flash[b, h, t, c], num_dq, atol=1e-5, rtol=1e-4)
 
-                    loss_pos = np.sum(o_pos * do)
-                    loss_neg = np.sum(o_neg * do)
-                    num_grad = (loss_pos - loss_neg) / (2 * eps)
+                    # Check dk
+                    k_pos, k_neg = k.copy(), k.copy()
+                    k_pos[b, h, t, c] += eps
+                    k_neg[b, h, t, c] -= eps
+                    o_pos_k, _ = flash_attention_forward(q, k_pos, v, is_causal=True)
+                    o_neg_k, _ = flash_attention_forward(q, k_neg, v, is_causal=True)
+                    num_dk = (np.sum(o_pos_k * do) - np.sum(o_neg_k * do)) / (2 * eps)
+                    np.testing.assert_allclose(dk_flash[b, h, t, c], num_dk, atol=1e-5, rtol=1e-4)
 
-                    np.testing.assert_allclose(dq_flash[b, h, t, c], num_grad, atol=1e-5, rtol=1e-4)
+                    # Check dv
+                    v_pos, v_neg = v.copy(), v.copy()
+                    v_pos[b, h, t, c] += eps
+                    v_neg[b, h, t, c] -= eps
+                    o_pos_v, _ = flash_attention_forward(q, k, v_pos, is_causal=True)
+                    o_neg_v, _ = flash_attention_forward(q, k, v_neg, is_causal=True)
+                    num_dv = (np.sum(o_pos_v * do) - np.sum(o_neg_v * do)) / (2 * eps)
+                    np.testing.assert_allclose(dv_flash[b, h, t, c], num_dv, atol=1e-5, rtol=1e-4)
 
 
 def test_flash_attention_asymmetric_sequence_lengths_causal():
