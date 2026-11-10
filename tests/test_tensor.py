@@ -209,4 +209,22 @@ def test_no_grad_thread_local_isolation():
     assert results["main_after_worker"] is True
 
 
+def test_lazy_grad_allocation_and_unused_param():
+    w1 = Tensor(np.ones((2, 2)), requires_grad=True)
+    w2 = Tensor(np.ones((2, 2)), requires_grad=True)
+    assert w1.grad is None
+    assert w2.grad is None
+
+    loss = (w1 * 2.0).sum()
+    loss.backward()
+
+    assert w1.grad is not None
+    assert np.allclose(w1.grad, np.full((2, 2), 2.0))
+    assert w2.grad is None
+
+    w1.zero_grad()
+    assert w1.grad is None
+
+
+
 
