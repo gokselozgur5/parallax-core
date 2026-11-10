@@ -3,8 +3,7 @@ BitMamba: Zero-RAM / Sub-2-bit Selective State Space Model Architecture.
 
 Fuses BitNet b1.58 ternary weights {-1, 0, +1} and INT8 activation quantization
 with Selective State Space (Mamba / S6) recurrence. Eliminates KV cache for O(1) memory
-inference while replacing energy-intensive floating-point multiplications with integer
-addition-dominated matrix operations.
+inference using simulated low-bit quantization in float64.
 """
 
 from dataclasses import dataclass
