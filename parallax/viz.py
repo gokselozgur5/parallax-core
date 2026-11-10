@@ -47,12 +47,12 @@ def to_mermaid(root: Union[Value, Tensor], direction: str = "LR") -> str:
             node_desc = f"{lbl}shape: {n.shape} | {grad_status}"
 
         # Clean string for Mermaid
-        node_desc = node_desc.replace('"', '\\"')
+        node_desc = node_desc.replace('"', '#quot;')
         lines.append(f'    {uid}["{node_desc}"]')
 
         if n._op:
             op_uid = f"op_{id(n)}"
-            op_label = n._op.replace('"', '\\"')
+            op_label = n._op.replace('"', '#quot;')
             lines.append(f'    {op_uid}(["{op_label}"])')
             lines.append(f"    {op_uid} --> {uid}")
 
