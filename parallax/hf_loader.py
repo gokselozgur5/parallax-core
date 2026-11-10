@@ -18,7 +18,6 @@ from parallax.models.qwen2 import (
     Qwen2ForCausalLM,
     calculate_qwen2_intermediate_size,
 )
-from parallax.nn import Linear, Parameter
 from parallax.safetensors import load_safetensors, save_safetensors
 from parallax.hf_tokenizer import HFTokenizer, load_hf_tokenizer
 from parallax.loader_utils import _assign_bias, _assign_param

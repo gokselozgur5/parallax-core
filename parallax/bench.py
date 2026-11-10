@@ -8,7 +8,7 @@ and autoregressive inference (with and without KV cache).
 
 from dataclasses import dataclass
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 import numpy as np
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig

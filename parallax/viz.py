@@ -5,7 +5,7 @@ Provides exporters for Scalar Value and Tensor DAGs to Mermaid and Graphviz DOT,
 as well as ASCII heatmaps and visualizers for Attention matrices.
 """
 
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import List, Optional, Set, Tuple, Union
 import numpy as np
 
 from parallax.engine import Value

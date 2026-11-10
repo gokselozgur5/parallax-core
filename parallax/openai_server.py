@@ -10,10 +10,10 @@ import json
 import math
 import time
 import uuid
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler
 from typing import Any, Dict, List, Optional
 from parallax.batching import ContinuousBatchEngine, RequestStatus, SequenceRequest
-from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
+from parallax.models.gpt import ParallaxLM
 from parallax.tokenizer import IncrementalTokenDecoder
 
 

@@ -8,7 +8,7 @@ Implements byte-level BPE decoding and encoding directly from standard HuggingFa
 import json
 import os
 import re
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 
 def _bytes_to_unicode() -> Tuple[Dict[int, str], Dict[str, int]]:
