@@ -33,20 +33,33 @@ def test_gradcheck_multi_branch_recurrence():
 
 
 def test_gradcheck_detects_deliberate_error():
-    # Simulate a broken analytical gradient to ensure checker rejects it
-    def fn(x):
-        return x**2
+    # Simulate a broken analytical gradient and assert checker returns False
+    def fn_scalar(x):
+        out = x**2
+        orig_backward = out._backward
 
-    var = Value(3.0)
-    out = fn(var)
-    out.backward()
+        def bad_backward():
+            orig_backward()
+            x.grad += 10.0
 
-    # Tamper with the gradient
-    var.grad = 999.0
+        out._backward = bad_backward
+        return out
 
-    numerical = compute_numerical_gradient(fn, [3.0])[0]
-    rel_err = abs(var.grad - numerical) / max(abs(var.grad), abs(numerical))
-    assert rel_err > 1e-2
+    assert check_gradient(fn_scalar, [3.0]) is False
+
+    def fn_tensor(x):
+        out = x * x
+        orig_backward = out._backward
+
+        def bad_backward():
+            orig_backward()
+            x.grad += 10.0
+
+        out._backward = bad_backward
+        return out.sum()
+
+    x_tensor = Tensor(np.array([[2.0, 3.0]]), requires_grad=True)
+    assert check_tensor_gradient(fn_tensor, [x_tensor]) is False
 
 
 def test_gradcheck_tensor_linear():
