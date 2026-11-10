@@ -68,11 +68,25 @@ def test_update_online_softmax_true_neginf_mask():
 
 
 def test_reference_attention_shape_and_causality():
+    np.random.seed(42)
     q = np.random.randn(1, 2, 4, 8)
     k = np.random.randn(1, 2, 4, 8)
     v = np.random.randn(1, 2, 4, 8)
     out = reference_attention(q, k, v, is_causal=True)
     assert out.shape == (1, 2, 4, 8)
+
+    # Perturb future key/values and assert that earlier outputs are unchanged
+    # Specifically, mutate k and v at future position t=3
+    k_mutated = k.copy()
+    v_mutated = v.copy()
+    k_mutated[:, :, 3, :] += np.random.randn(1, 2, 8) * 5.0
+    v_mutated[:, :, 3, :] += np.random.randn(1, 2, 8) * 5.0
+
+    out_mutated = reference_attention(q, k_mutated, v_mutated, is_causal=True)
+    # Output at positions t < 3 must be strictly identical
+    np.testing.assert_allclose(out[:, :, :3, :], out_mutated[:, :, :3, :], atol=1e-12)
+    # Output at position t=3 should change
+    assert not np.allclose(out[:, :, 3, :], out_mutated[:, :, 3, :])
 
 
 def test_flash_attention_exact_causal_match():
