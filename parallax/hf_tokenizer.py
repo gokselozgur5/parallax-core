@@ -32,6 +32,10 @@ def _bytes_to_unicode() -> Tuple[Dict[int, str], Dict[str, int]]:
 
 _BYTE_TO_UNICODE, _UNICODE_TO_BYTE = _bytes_to_unicode()
 
+_PRETOKENIZER_REGEX = re.compile(
+    r"""'s|'t|'re|'ve|'m|'ll|'d| ?[a-zA-Z]+| ?\d+| ?[^\s\w]+|\s+(?!\S)|\s+"""
+)
+
 
 class HFTokenizer:
     """Byte-level BPE tokenizer loaded from a HuggingFace tokenizer.json file."""
@@ -125,45 +129,60 @@ class HFTokenizer:
                 token_ids.append(self.added_tokens[part])
                 continue
 
-            # Convert raw bytes of part to GPT-2 unicode characters
-            raw_bytes = part.encode("utf-8")
-            unicode_chars = [_BYTE_TO_UNICODE[b] for b in raw_bytes]
+            # Split piece into pre-tokens using standard pre-tokenizer regex
+            pre_tokens: List[str] = []
+            last_end = 0
+            for m in _PRETOKENIZER_REGEX.finditer(part):
+                start, end = m.span()
+                if start > last_end:
+                    pre_tokens.append(part[last_end:start])
+                pre_tokens.append(m.group(0))
+                last_end = end
+            if last_end < len(part):
+                pre_tokens.append(part[last_end:])
 
-            # Iterative BPE merging over unicode character symbols
-            symbols = list(unicode_chars)
-            while len(symbols) >= 2:
-                # Find pair with lowest merge rank
-                best_pair = None
-                best_rank = float("inf")
-                for i in range(len(symbols) - 1):
-                    pair = (symbols[i], symbols[i + 1])
-                    if pair in self.merges:
-                        rank = self.merges[pair]
-                        if rank < best_rank:
-                            best_rank = rank
-                            best_pair = pair
+            for pre_token in pre_tokens:
+                if not pre_token:
+                    continue
+                # Convert raw bytes of pre_token to GPT-2 unicode characters
+                raw_bytes = pre_token.encode("utf-8")
+                unicode_chars = [_BYTE_TO_UNICODE[b] for b in raw_bytes]
 
-                if best_pair is None:
-                    break
+                # Iterative BPE merging over unicode character symbols
+                symbols = list(unicode_chars)
+                while len(symbols) >= 2:
+                    # Find pair with lowest merge rank
+                    best_pair = None
+                    best_rank = float("inf")
+                    for i in range(len(symbols) - 1):
+                        pair = (symbols[i], symbols[i + 1])
+                        if pair in self.merges:
+                            rank = self.merges[pair]
+                            if rank < best_rank:
+                                best_rank = rank
+                                best_pair = pair
 
-                # Replace occurrences of best_pair
-                new_symbols = []
-                i = 0
-                while i < len(symbols):
-                    if i < len(symbols) - 1 and (symbols[i], symbols[i + 1]) == best_pair:
-                        new_symbols.append(best_pair[0] + best_pair[1])
-                        i += 2
-                    else:
-                        new_symbols.append(symbols[i])
-                        i += 1
-                symbols = new_symbols
+                    if best_pair is None:
+                        break
 
-            # Map symbols to vocab IDs
-            for sym in symbols:
-                if sym in self.vocab:
-                    token_ids.append(self.vocab[sym])
-                elif self.unk_token_id is not None:
-                    token_ids.append(self.unk_token_id)
+                    # Replace occurrences of best_pair
+                    new_symbols = []
+                    i = 0
+                    while i < len(symbols):
+                        if i < len(symbols) - 1 and (symbols[i], symbols[i + 1]) == best_pair:
+                            new_symbols.append(best_pair[0] + best_pair[1])
+                            i += 2
+                        else:
+                            new_symbols.append(symbols[i])
+                            i += 1
+                    symbols = new_symbols
+
+                # Map symbols to vocab IDs
+                for sym in symbols:
+                    if sym in self.vocab:
+                        token_ids.append(self.vocab[sym])
+                    elif self.unk_token_id is not None:
+                        token_ids.append(self.unk_token_id)
 
         return token_ids
 
