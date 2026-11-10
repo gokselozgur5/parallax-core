@@ -63,6 +63,16 @@ def _compute_token_probs(
     return probs
 
 
+def _eval_target_step(
+    target_model: ParallaxLM,
+    seq: List[int],
+) -> np.ndarray:
+    """Evaluates target model on seq respecting context limit."""
+    idx = np.array([seq[-target_model.config.max_seq_len:]], dtype=np.int64)
+    with no_grad():
+        return target_model(idx).data[0]
+
+
 def _verify_candidate(
     pos_logits: np.ndarray,
     cand: int,
