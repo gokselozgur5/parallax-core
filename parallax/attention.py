@@ -117,6 +117,7 @@ class CausalSelfAttention(Module):
         self,
         x: Tensor,
         kv_cache: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+        rope_offset: Optional[int] = None,
     ) -> Union[Tensor, Tuple[Tensor, Tuple[np.ndarray, np.ndarray]]]:
         # x shape: [batch_size, seq_len, embed_dim]
         B, T, C = x.shape
@@ -138,16 +139,18 @@ class CausalSelfAttention(Module):
             past_k, past_v = kv_cache
             past_len = past_k.shape[2]  # [B, num_kv_heads, past_len, head_dim]
 
+        offset = past_len if rope_offset is None else rope_offset
+
         if self.use_rope:
-            # Apply RoPE on sequence dimension with past_len offset
+            # Apply RoPE on sequence dimension with offset
             q_rope_in = np.transpose(q_heads, (0, 2, 1, 3))
             k_rope_in = np.transpose(k_heads, (0, 2, 1, 3))
             q_heads = np.transpose(
-                apply_rope(q_rope_in, seq_dim=1, offset=past_len, theta=self.rope_theta, interleaved=self.rope_interleaved),
+                apply_rope(q_rope_in, seq_dim=1, offset=offset, theta=self.rope_theta, interleaved=self.rope_interleaved),
                 (0, 2, 1, 3),
             )
             k_heads = np.transpose(
-                apply_rope(k_rope_in, seq_dim=1, offset=past_len, theta=self.rope_theta, interleaved=self.rope_interleaved),
+                apply_rope(k_rope_in, seq_dim=1, offset=offset, theta=self.rope_theta, interleaved=self.rope_interleaved),
                 (0, 2, 1, 3),
             )
 
@@ -242,7 +245,7 @@ class CausalSelfAttention(Module):
             if self.use_rope:
                 dq_rope_in = np.transpose(dq_heads, (0, 2, 1, 3))
                 dq_heads = np.transpose(
-                    apply_rope(dq_rope_in, seq_dim=1, offset=past_len, conjugate=True, theta=self.rope_theta, interleaved=self.rope_interleaved),
+                    apply_rope(dq_rope_in, seq_dim=1, offset=offset, conjugate=True, theta=self.rope_theta, interleaved=self.rope_interleaved),
                     (0, 2, 1, 3),
                 )
             dq = np.transpose(dq_heads, (0, 2, 1, 3)).reshape(B, T, C)
@@ -252,7 +255,7 @@ class CausalSelfAttention(Module):
             if self.use_rope:
                 dk_rope_in = np.transpose(dk_expanded, (0, 2, 1, 3))
                 dk_expanded = np.transpose(
-                    apply_rope(dk_rope_in, seq_dim=1, offset=past_len, conjugate=True, theta=self.rope_theta, interleaved=self.rope_interleaved),
+                    apply_rope(dk_rope_in, seq_dim=1, offset=offset, conjugate=True, theta=self.rope_theta, interleaved=self.rope_interleaved),
                     (0, 2, 1, 3),
                 )
             if self.num_queries_per_kv > 1:
