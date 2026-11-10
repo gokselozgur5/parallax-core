@@ -156,15 +156,24 @@ def generate_stream(
         return
 
     for _ in range(max_new_tokens - 1):
-        if rolling_cache is None and len(tokens) >= max_seq_len:
-            break
-
-        idx_next = np.array([[next_token]], dtype=np.int64)
-        rope_offset = rolling_cache.total_seen if rolling_cache is not None else None
-        with no_grad():
-            logits, kv_caches = model(idx_next, kv_caches=kv_caches, rope_offset=rope_offset)
-        if rolling_cache is not None:
-            kv_caches = rolling_cache.evict_layers(kv_caches)
+        if rolling_cache is None and len(context) >= max_seq_len:
+            context = tokens[-max_seq_len:]
+            idx = np.array([context], dtype=np.int64)
+            kv_caches = [
+                (np.empty((B, num_kv_heads, 0, head_dim), dtype=np.float64),
+                 np.empty((B, num_kv_heads, 0, head_dim), dtype=np.float64))
+                for _ in range(model.config.num_layers)
+            ]
+            with no_grad():
+                logits, kv_caches = model(idx, kv_caches=kv_caches)
+        else:
+            context.append(next_token)
+            idx_next = np.array([[next_token]], dtype=np.int64)
+            rope_offset = rolling_cache.total_seen if rolling_cache is not None else None
+            with no_grad():
+                logits, kv_caches = model(idx_next, kv_caches=kv_caches, rope_offset=rope_offset)
+            if rolling_cache is not None:
+                kv_caches = rolling_cache.evict_layers(kv_caches)
         next_token_logits = logits.data[0, -1, :]
         next_token = sample_next_token(
             next_token_logits,
@@ -254,15 +263,22 @@ def generate(
 
         # 2. Incrementally generate one token at a time using cached history
         for _ in range(max_new_tokens - 1):
-            if rolling_cache is None and len(tokens) >= max_seq_len:
-                # Context exceeded max length for pure increment
-                break
-
-            idx_next = np.array([[next_token]], dtype=np.int64)
-            rope_offset = rolling_cache.total_seen if rolling_cache is not None else None
-            logits, kv_caches = model(idx_next, kv_caches=kv_caches, rope_offset=rope_offset)
-            if rolling_cache is not None:
-                kv_caches = rolling_cache.evict_layers(kv_caches)
+            if rolling_cache is None and len(context) >= max_seq_len:
+                context = tokens[-max_seq_len:]
+                idx = np.array([context], dtype=np.int64)
+                kv_caches = [
+                    (np.empty((B, num_kv_heads, 0, head_dim), dtype=np.float64),
+                     np.empty((B, num_kv_heads, 0, head_dim), dtype=np.float64))
+                    for _ in range(model.config.num_layers)
+                ]
+                logits, kv_caches = model(idx, kv_caches=kv_caches)
+            else:
+                context.append(next_token)
+                idx_next = np.array([[next_token]], dtype=np.int64)
+                rope_offset = rolling_cache.total_seen if rolling_cache is not None else None
+                logits, kv_caches = model(idx_next, kv_caches=kv_caches, rope_offset=rope_offset)
+                if rolling_cache is not None:
+                    kv_caches = rolling_cache.evict_layers(kv_caches)
             next_token_logits = logits.data[0, -1, :]
             next_token = sample_next_token(
                 next_token_logits,
