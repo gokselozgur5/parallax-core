@@ -7,7 +7,7 @@ including Linear projections, LayerNorm, and RMSNorm.
 
 from typing import Iterator, List, Optional
 import numpy as np
-from parallax.tensor import Tensor, unbroadcast_grad
+from parallax.tensor import Tensor, _accumulate_grad, unbroadcast_grad
 
 
 class Parameter(Tensor):
@@ -109,19 +109,21 @@ class RMSNorm(Module):
         out = Tensor(out_data, (x, self.weight), "RMSNorm")
 
         def _backward() -> None:
-            if self.weight.requires_grad and self.weight.grad is not None:
+            if out.grad is None:
+                return
+            if self.weight.requires_grad:
                 # dL/dWeight = sum(dL/dOut * norm_x)
                 grad_w = out.grad * norm_x
-                self.weight.grad += unbroadcast_grad(grad_w, self.weight.shape)
+                _accumulate_grad(self.weight, grad_w)
 
-            if x.requires_grad and x.grad is not None:
+            if x.requires_grad:
                 # Analytical gradient of RMSNorm w.r.t x:
                 # dL/dx = (g * w / RMS) - (x / (d * RMS^3)) * sum(g * w * x)
                 g_w = out.grad * self.weight.data
                 d = x_data.shape[-1]
                 sum_gwx = np.sum(g_w * x_data, axis=-1, keepdims=True)
                 dx = (g_w / rms) - (x_data / (d * (rms**3))) * sum_gwx
-                x.grad += unbroadcast_grad(dx, x.shape)
+                _accumulate_grad(x, dx)
 
         out._backward = _backward
         return out
@@ -147,19 +149,21 @@ class LayerNorm(Module):
         out = Tensor(out_data, (x, self.weight, self.bias), "LayerNorm")
 
         def _backward() -> None:
-            if self.weight.requires_grad and self.weight.grad is not None:
-                self.weight.grad += unbroadcast_grad(out.grad * x_hat, self.weight.shape)
-            if self.bias.requires_grad and self.bias.grad is not None:
-                self.bias.grad += unbroadcast_grad(out.grad, self.bias.shape)
+            if out.grad is None:
+                return
+            if self.weight.requires_grad:
+                _accumulate_grad(self.weight, out.grad * x_hat)
+            if self.bias.requires_grad:
+                _accumulate_grad(self.bias, out.grad)
 
-            if x.requires_grad and x.grad is not None:
+            if x.requires_grad:
                 d = x_data.shape[-1]
                 dout = out.grad * self.weight.data
                 dx_hat = dout
                 dvar = np.sum(dx_hat * (x_data - mean) * -0.5 * (std_inv**3), axis=-1, keepdims=True)
                 dmean = np.sum(dx_hat * -std_inv, axis=-1, keepdims=True) + dvar * np.mean(-2.0 * (x_data - mean), axis=-1, keepdims=True)
                 dx = dx_hat * std_inv + dvar * 2.0 * (x_data - mean) / d + dmean / d
-                x.grad += unbroadcast_grad(dx, x.shape)
+                _accumulate_grad(x, dx)
 
         out._backward = _backward
         return out

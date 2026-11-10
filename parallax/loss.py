@@ -9,7 +9,7 @@ Implements:
 import math
 from typing import Optional, Tuple
 import numpy as np
-from parallax.tensor import Tensor, unbroadcast_grad
+from parallax.tensor import Tensor, _accumulate_grad, unbroadcast_grad
 
 
 def cross_entropy_loss(
@@ -63,7 +63,7 @@ def cross_entropy_loss(
     out = Tensor(mean_loss, (logits,), "CrossEntropyLoss")
 
     def _backward() -> None:
-        if logits.requires_grad and logits.grad is not None:
+        if logits.requires_grad:
             # Gradient calculation
             dlogits = np.zeros_like(flat_logits)
             if label_smoothing == 0.0:
@@ -76,7 +76,7 @@ def cross_entropy_loss(
 
             loss_grad = float(out.grad if out.grad is not None else 1.0)
             dlogits = (dlogits / N_valid) * loss_grad
-            logits.grad += unbroadcast_grad(dlogits.reshape(orig_shape), logits.shape)
+            _accumulate_grad(logits, dlogits.reshape(orig_shape))
 
     out._backward = _backward
     return out
