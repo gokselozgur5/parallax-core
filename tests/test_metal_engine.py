@@ -101,7 +101,6 @@ def test_metal_rmsnorm_invalid_weight():
         metal_rmsnorm(x, bad_weight)
 
 
-<<<<<<< HEAD
 def test_metal_buffers_released_no_memory_leak():
     if not is_metal_available() or sys.platform != "darwin":
         pytest.skip("Metal not available on this platform")

@@ -113,7 +113,6 @@ def test_c_fallback_when_c_engine_unavailable():
         np.testing.assert_allclose(res_sm, exp_sm, rtol=1e-5, atol=1e-5)
 
 
-<<<<<<< HEAD
 def test_concurrent_initialization_c_and_metal():
     import concurrent.futures
     import parallax.c_engine as ce
