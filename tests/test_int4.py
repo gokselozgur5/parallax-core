@@ -154,3 +154,22 @@ def test_linear4bit_forward():
     assert l4_cached._cached_weight is not None
     _ = l4_cached(x)
     assert call_count == 1
+
+
+def test_linear4bit_gradient_propagation():
+    """Verify gradients propagate through Linear4Bit to upstream layers."""
+    np.random.seed(42)
+    in_f, out_f = 32, 16
+    pre = Linear(8, in_f, bias=True)
+    lin = Linear(in_f, out_f, bias=True)
+    q = Linear4Bit.from_linear(lin, group_size=32)
+
+    x = Tensor(np.random.randn(2, 8), requires_grad=True)
+    h = pre(x)
+    y = q(h)
+    loss = y.sum()
+    loss.backward()
+
+    assert h.grad is not None
+    assert pre.weight.grad is not None
+    assert x.grad is not None
