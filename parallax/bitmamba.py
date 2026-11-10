@@ -72,6 +72,11 @@ class BitMambaBlock(Module):
 
         # Step mode (T == 1 with states provided)
         if ssm_state is not None and conv_state is not None:
+            if T != 1:
+                raise ValueError(
+                    f"BitMambaBlock step mode expects T=1 when states are provided, got T={T}. "
+                    "For full sequence processing, call without states or iterate one token at a time."
+                )
             # 1. Dual projection
             xz = self.in_proj(u)  # [B, 1, 2 * d_inner]
             x_data = xz.data[:, 0, : self.d_inner]  # [B, d_inner]
