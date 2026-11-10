@@ -5,7 +5,11 @@
 /// `rows`: number of rows.
 /// `cols`: number of columns per row.
 pub fn softmax_2d(data: &mut [f32], rows: usize, cols: usize) -> Result<(), &'static str> {
-    if data.len() != rows * cols {
+    let req_len = match rows.checked_mul(cols) {
+        Some(v) => v,
+        None => return Err("rows * cols overflow"),
+    };
+    if data.len() != req_len {
         return Err("data length does not match rows * cols");
     }
     if cols == 0 {
@@ -14,13 +18,27 @@ pub fn softmax_2d(data: &mut [f32], rows: usize, cols: usize) -> Result<(), &'st
 
     for r in 0..rows {
         let row_slice = &mut data[r * cols..(r + 1) * cols];
-        
+
+        if row_slice.iter().any(|v| v.is_nan()) {
+            for val in row_slice.iter_mut() {
+                *val = f32::NAN;
+            }
+            continue;
+        }
+
         // Numerical stability: find max
         let mut max_val = row_slice[0];
         for &val in row_slice.iter().skip(1) {
             if val > max_val {
                 max_val = val;
             }
+        }
+
+        if max_val.is_infinite() {
+            for val in row_slice.iter_mut() {
+                *val = f32::NAN;
+            }
+            continue;
         }
 
         // Exponentiate and sum
@@ -31,11 +49,9 @@ pub fn softmax_2d(data: &mut [f32], rows: usize, cols: usize) -> Result<(), &'st
         }
 
         // Normalize
-        if sum_exp > 0.0 {
-            let inv_sum = 1.0 / sum_exp;
-            for val in row_slice.iter_mut() {
-                *val *= inv_sum;
-            }
+        let inv_sum = 1.0 / sum_exp;
+        for val in row_slice.iter_mut() {
+            *val *= inv_sum;
         }
     }
 
