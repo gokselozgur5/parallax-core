@@ -232,14 +232,33 @@ def save_hf_pretrained(
     model_type: str = "llama",
 ) -> None:
     """Exports a ParallaxLM model into standard HuggingFace format (config.json + model.safetensors)."""
-    os.makedirs(output_dir, exist_ok=True)
     cfg = model.config
 
-    intermediate_size = (
-        cfg.intermediate_size
-        if cfg.intermediate_size is not None
-        else int(cfg.embed_dim * 8 // 3)
-    )
+    if (
+        hasattr(cfg, "num_experts")
+        and cfg.num_experts is not None
+        and cfg.num_experts > 1
+    ) or any(
+        hasattr(block, "moe")
+        or (hasattr(block, "mlp") and (hasattr(block.mlp, "router") or hasattr(block.mlp, "experts")))
+        for block in model.blocks
+    ):
+        raise NotImplementedError("MoE model export is not supported.")
+
+    if not cfg.use_swiglu:
+        raise NotImplementedError(
+            "Saving GELU-MLP models to HuggingFace format is not supported (HuggingFace LLaMA/Qwen2 requires SwiGLU gate/up/down projections)."
+        )
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    if cfg.intermediate_size is not None:
+        intermediate_size = cfg.intermediate_size
+    elif cfg.use_swiglu:
+        inter = int(2 * (4 * cfg.embed_dim) / 3)
+        intermediate_size = 64 * ((inter + 64 - 1) // 64)
+    else:
+        intermediate_size = 4 * cfg.embed_dim
     num_kv_heads = cfg.num_kv_heads if cfg.num_kv_heads is not None else cfg.num_heads
 
     # 1. Write config.json
