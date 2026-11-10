@@ -68,3 +68,51 @@ def test_openai_server_chat_completions_endpoint(running_server):
         assert "message" in data["choices"][0]
         assert "content" in data["choices"][0]["message"]
         assert data["usage"]["completion_tokens"] == 4
+
+
+def test_openai_server_request_body_size_and_content_length(running_server):
+    url = f"{running_server}/v1/chat/completions"
+    req = urllib.request.Request(
+        url,
+        data=b"{}",
+        headers={"Content-Type": "application/json", "Content-Length": "-5"},
+        method="POST",
+    )
+    try:
+        urllib.request.urlopen(req)
+        assert False, "Should fail on negative Content-Length"
+    except urllib.error.HTTPError as e:
+        assert e.code == 400
+
+    huge_len_req = urllib.request.Request(
+        url,
+        data=b"{}",
+        headers={"Content-Type": "application/json", "Content-Length": str(20 * 1024 * 1024)},
+        method="POST",
+    )
+    try:
+        urllib.request.urlopen(huge_len_req)
+        assert False, "Should fail on oversized request"
+    except urllib.error.HTTPError as e:
+        assert e.code == 413
+
+
+def test_openai_server_max_tokens_zero_and_finish_reason(running_server):
+    url = f"{running_server}/v1/chat/completions"
+    payload = json.dumps({
+        "model": "test-model",
+        "messages": [{"role": "user", "content": "Hi"}],
+        "max_tokens": 0,
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req) as resp:
+        assert resp.status == 200
+        data = json.loads(resp.read().decode("utf-8"))
+        assert data["choices"][0]["finish_reason"] == "length"
+        assert data["choices"][0]["message"]["content"] == ""
+        assert data["usage"]["completion_tokens"] == 0
