@@ -83,4 +83,19 @@ def test_bitlinear_forward_against_independent_reference():
     np.testing.assert_allclose(out.data, expected, rtol=1e-5, atol=1e-5)
 
 
+def test_bitlinear_forward_gamma_scaling_sensitivity():
+    """Verify forward pass scales proportionally with gamma; kills gamma-dropped fault."""
+    layer = BitLinear(in_features=4, out_features=2, bias=False)
+    x = Tensor(np.array([[[1.0, 2.0, -1.0, -2.0]]]))
+    out1 = layer(x).data.copy()
+
+    # Scale weights by 5.0: w_ternary remains identical, gamma increases by 5.0x
+    layer.weight.data = layer.weight.data * 5.0
+    out2 = layer(x).data.copy()
+
+    np.testing.assert_allclose(out2, out1 * 5.0, rtol=1e-5, atol=1e-5)
+    assert not np.allclose(out2, out1, atol=1e-3)
+
+
+
 
