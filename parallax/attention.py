@@ -8,7 +8,7 @@ causal upper-triangular masking, multi-head projection, and RoPE dynamics.
 import math
 from typing import Optional, Tuple, Union
 import numpy as np
-from parallax.flash_attn import flash_attention_forward
+from parallax.flash_attn import flash_attention_backward, flash_attention_forward
 from parallax.nn import Linear, Module, Parameter
 from parallax.tensor import Tensor, _accumulate_grad, unbroadcast_grad
 
@@ -171,7 +171,7 @@ class CausalSelfAttention(Module):
             v_heads_expanded = v_heads
 
         if self.use_flash_attn and past_len == 0:
-            out_heads, _ = flash_attention_forward(
+            out_heads, lse = flash_attention_forward(
                 q_heads,
                 k_heads_expanded,
                 v_heads_expanded,
@@ -214,8 +214,19 @@ class CausalSelfAttention(Module):
             # Reshape dout into heads: [B, num_heads, T, head_dim]
             dout_heads = np.transpose(dout.reshape(B, T, self.num_heads, self.head_dim), (0, 2, 1, 3))
 
-            # dL/dV_expanded = Attn^T @ dL/dOut
-            dv_expanded = np.swapaxes(attn_weights, -1, -2) @ dout_heads
+            if self.use_flash_attn and past_len == 0:
+                dq_heads, dk_heads_expanded, dv_expanded = flash_attention_backward(
+                    dout_heads,
+                    out_heads,
+                    q_heads,
+                    k_heads_expanded,
+                    v_heads_expanded,
+                    lse,
+                    is_causal=True,
+                )
+            else:
+                # dL/dV_expanded = Attn^T @ dL/dOut
+                dv_expanded = np.swapaxes(attn_weights, -1, -2) @ dout_heads
 
             # Sum gradients back across repeated KV heads for GQA
             if self.num_queries_per_kv > 1:
@@ -227,18 +238,20 @@ class CausalSelfAttention(Module):
 
             dv = np.transpose(dv_heads, (0, 2, 1, 3)).reshape(B, T, self.kv_dim)
 
-            # dL/dAttn = dL/dOut @ V_expanded^T
-            d_attn = dout_heads @ np.swapaxes(v_heads_expanded, -1, -2)
+            if not (self.use_flash_attn and past_len == 0):
+                # dL/dAttn = dL/dOut @ V_expanded^T
+                d_attn = dout_heads @ np.swapaxes(v_heads_expanded, -1, -2)
 
-            # Backprop through softmax:
-            sum_dattn_attn = np.sum(d_attn * attn_weights, axis=-1, keepdims=True)
-            d_scores = attn_weights * (d_attn - sum_dattn_attn)
-            if T > 1 or past_len > 0:
-                d_scores = np.where(causal_mask[None, None, :, :], 0.0, d_scores)
-            d_scores = d_scores * self.scale
+                # Backprop through softmax:
+                sum_dattn_attn = np.sum(d_attn * attn_weights, axis=-1, keepdims=True)
+                d_scores = attn_weights * (d_attn - sum_dattn_attn)
+                if T > 1 or past_len > 0:
+                    d_scores = np.where(causal_mask[None, None, :, :], 0.0, d_scores)
+                d_scores = d_scores * self.scale
 
-            # dL/dQ = d_scores @ K_expanded
-            dq_heads = d_scores @ k_heads_expanded
+                # dL/dQ = d_scores @ K_expanded
+                dq_heads = d_scores @ k_heads_expanded
+
             if self.use_rope:
                 dq_rope_in = np.transpose(dq_heads, (0, 2, 1, 3))
                 dq_heads = np.transpose(
@@ -247,8 +260,12 @@ class CausalSelfAttention(Module):
                 )
             dq = np.transpose(dq_heads, (0, 2, 1, 3)).reshape(B, T, C)
 
-            # dL/dK_expanded = d_scores^T @ Q
-            dk_expanded = np.swapaxes(d_scores, -1, -2) @ q_heads
+            if not (self.use_flash_attn and past_len == 0):
+                # dL/dK_expanded = d_scores^T @ Q
+                dk_expanded = np.swapaxes(d_scores, -1, -2) @ q_heads
+            else:
+                dk_expanded = dk_heads_expanded
+
             if self.use_rope:
                 dk_rope_in = np.transpose(dk_expanded, (0, 2, 1, 3))
                 dk_expanded = np.transpose(
