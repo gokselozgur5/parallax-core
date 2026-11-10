@@ -99,9 +99,9 @@ def hf_config_to_parallax(
 
     if "hidden_act" in hf_config:
         act = str(hf_config["hidden_act"]).lower()
-        if act not in ("silu", "gelu"):
+        if act not in ("silu", "swish"):
             raise NotImplementedError(
-                f"Unsupported hidden_act: '{act}'. Only 'silu' and 'gelu' are supported."
+                f"Unsupported hidden_act: '{act}'. Only 'silu' and 'swish' are supported for SwiGLU MLP."
             )
 
     num_kv_heads = hf_config.get("num_key_value_heads")
