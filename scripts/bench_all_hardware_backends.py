@@ -81,19 +81,26 @@ def get_system_hardware_info() -> Dict[str, str]:
 
     if is_metal_available():
         try:
-            from parallax.metal_engine import _DEVICE, _objc_send
+            from parallax.metal_engine import _DEVICE, _objc_send, _init_metal
+            _init_metal()
+            from parallax.metal_engine import _DEVICE
             if _DEVICE:
-                dev_name_cf = _objc_send(ctypes.c_void_p, _DEVICE, "name")
-                # Attempt to extract CFString or fallback to generic Apple Silicon GPU
-                info["metal_device"] = "Apple Silicon Metal GPU"
+                name_ptr = _objc_send(ctypes.c_void_p, _DEVICE, "name")
+                utf8_ptr = _objc_send(ctypes.c_char_p, name_ptr, "UTF8String")
+                if utf8_ptr:
+                    info["metal_device"] = utf8_ptr.decode("utf-8")
+                else:
+                    info["metal_device"] = "Apple Silicon Metal GPU"
             else:
                 info["metal_device"] = "Apple Metal GPU"
         except Exception:
             info["metal_device"] = "Apple Metal GPU (JIT MSL Active)"
 
-    rust_lib = find_rust_lib()
+    rust_lib = get_rust_lib()
     if rust_lib is not None:
-        info["rust_engine_available"] = f"Yes ({os.path.basename(rust_lib)})"
+        lib_path = find_rust_lib()
+        lib_name = os.path.basename(lib_path) if lib_path else "libparallax_rs"
+        info["rust_engine_available"] = f"Yes ({lib_name})"
 
     # CPU branding via sysctl on macOS
     if platform.system() == "Darwin":
@@ -142,6 +149,12 @@ def get_rust_lib() -> Optional[ctypes.CDLL]:
 
     try:
         lib = ctypes.CDLL(lib_path)
+        lib.parallax_version.argtypes = []
+        lib.parallax_version.restype = ctypes.c_uint32
+        ver = lib.parallax_version()
+        if ver != 1:
+            _RUST_CDLL = None
+            return None
         lib.parallax_gemm_f32.argtypes = [
             ctypes.c_size_t,
             ctypes.c_size_t,
