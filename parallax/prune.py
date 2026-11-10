@@ -39,8 +39,13 @@ def prune_unstructured_magnitude(
 
 def prune_2_to_4_structured(
     weights: np.ndarray,
+    sparsity: Optional[float] = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Applies NVIDIA 2:4 structured sparsity (exactly 2 zeroes out of every 4 elements)."""
+    if sparsity is not None and abs(sparsity - 0.5) > 1e-4:
+        raise ValueError(
+            "2:4 structured pruning strictly requires sparsity=0.5 (2 non-zeros per 4 elements)."
+        )
     orig_shape = weights.shape
     total_elements = weights.size
     if total_elements % 4 != 0:
@@ -103,7 +108,7 @@ def prune_model(
             ]
             for layer in attn_layers:
                 if method == "2:4":
-                    pruned_w, _ = prune_2_to_4_structured(layer.weight.data)
+                    pruned_w, _ = prune_2_to_4_structured(layer.weight.data, sparsity=sparsity)
                 elif method == "magnitude":
                     pruned_w, _ = prune_unstructured_magnitude(layer.weight.data, sparsity=sparsity)
                 else:
@@ -121,7 +126,7 @@ def prune_model(
 
             for layer in mlp_layers:
                 if method == "2:4":
-                    pruned_w, _ = prune_2_to_4_structured(layer.weight.data)
+                    pruned_w, _ = prune_2_to_4_structured(layer.weight.data, sparsity=sparsity)
                 elif method == "magnitude":
                     pruned_w, _ = prune_unstructured_magnitude(layer.weight.data, sparsity=sparsity)
                 else:
