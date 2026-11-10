@@ -370,18 +370,30 @@ def metal_rmsnorm(
     eps: numerical epsilon
     Returns: normalized array of same shape as x, float32
     """
-    cols = x.shape[-1]
+    if np.iscomplexobj(x) or np.iscomplexobj(weight):
+        raise TypeError("Complex dtypes are not supported")
+    if x.ndim == 0:
+        raise ValueError("Input array must have at least 1 dimension")
+
+    orig_shape = x.shape
+    cols = orig_shape[-1]
+    if cols == 0:
+        raise ValueError("Feature dimension cannot be 0")
     if weight.shape != (cols,):
         raise ValueError(
             f"Weight shape {weight.shape} does not match last dimension {cols}"
         )
 
-    if not is_metal_available():
+    if x.size == 0:
+        return np.empty(orig_shape, dtype=x.dtype if x.dtype == np.float32 else np.float32)
+
+    rows = x.size // cols
+    if rows > _INT32_MAX or cols > _INT32_MAX or (rows * cols) > _INT32_MAX:
+        raise ValueError(f"Dimensions exceed INT32_MAX: rows={rows}, cols={cols}")
+
+    if not is_metal_available() or x.dtype != np.float32 or weight.dtype != np.float32:
         variance = np.mean(x**2, axis=-1, keepdims=True)
         return (x / np.sqrt(variance + eps)) * weight
-
-    orig_shape = x.shape
-    rows = x.size // cols
 
     x_c = np.ascontiguousarray(x.reshape(rows, cols), dtype=np.float32)
     w_c = np.ascontiguousarray(weight, dtype=np.float32)
