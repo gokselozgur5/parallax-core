@@ -164,4 +164,15 @@ mod tests {
         assert!((data[3] - 0.7310586).abs() < 1e-5);
         assert!(((data[2] + data[3]) - 1.0).abs() < 1e-6);
     }
+
+    #[test]
+    fn test_softmax_nan_and_infinities() {
+        let mut data = vec![1.0, f32::NAN, 3.0, 1.0, f32::NEG_INFINITY, 2.0];
+        let res = softmax_2d(&mut data, 2, 3);
+        assert!(res.is_ok());
+        assert!(data[0].is_nan() && data[1].is_nan() && data[2].is_nan());
+        assert!((data[3] - 0.26894143).abs() < 1e-5);
+        assert_eq!(data[4], 0.0);
+        assert!((data[5] - 0.7310586).abs() < 1e-5);
+    }
 }
