@@ -35,9 +35,10 @@ def test_speculative_loop_bound_near_context_limit():
         gamma=2,
         temperature=0.0,
     )
-    # Target emits 1 token to reach exactly max_seq_len=16
-    assert len(tokens) == 16
-    assert stats["total_accepted"] == 1
+    # Continues past context limit using sliding window, matching generate(use_cache=True)
+    expected = generate(model, prompt_tokens=prompt, max_new_tokens=5, temperature=0.0, use_cache=True)
+    assert tokens == expected
+    assert len(tokens) == 20
 
 
 def test_speculative_metrics_include_elapsed_time_and_accepted_per_step():
