@@ -120,10 +120,12 @@ def format_attention_heatmap(attn_matrix: np.ndarray, tokens: Optional[List[str]
         attn_matrix: 2D array of shape [T, T] with sum along rows = 1.
         tokens: Optional list of token strings of length T.
     """
-    assert attn_matrix.ndim == 2, f"Expected 2D matrix, got shape {attn_matrix.shape}"
+    if attn_matrix.ndim != 2:
+        raise ValueError(f"Expected 2D matrix, got shape {attn_matrix.shape}")
     rows, cols = attn_matrix.shape
     if tokens is not None:
-        assert len(tokens) == rows, "tokens length must match matrix dimensions"
+        if len(tokens) != rows:
+            raise ValueError("tokens length must match matrix dimensions")
 
     shades = [" ", "░", "▒", "▓", "█"]
     max_val = np.max(attn_matrix) if np.max(attn_matrix) > 0 else 1.0

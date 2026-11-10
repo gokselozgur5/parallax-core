@@ -63,7 +63,8 @@ class BPETokenizer:
 
     def train(self, text: str, vocab_size: int, verbose: bool = False) -> None:
         """Trains BPE merge rules on raw text up to the desired target vocab size."""
-        assert vocab_size >= 260, "vocab_size must be at least 260 to accommodate byte tokens + specials"
+        if vocab_size < 260:
+            raise ValueError("vocab_size must be at least 260 to accommodate byte tokens + specials")
         num_merges = vocab_size - len(self.vocab)
         if num_merges <= 0:
             return

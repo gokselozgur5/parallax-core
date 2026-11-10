@@ -47,7 +47,8 @@ def apply_yarn_rope(
 ) -> np.ndarray:
     """Applies YaRN frequency-interpolated RoPE to an ndarray."""
     dim = x.shape[-1]
-    assert dim % 2 == 0, "YaRN requires even head dimension"
+    if dim % 2 != 0:
+        raise ValueError("YaRN requires even head dimension")
     half_dim = dim // 2
 
     # Standard inverse frequencies
