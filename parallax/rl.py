@@ -128,7 +128,9 @@ def compute_policy_gradient_step(
     dlogits[np.arange(L), target_ids] -= 1.0
     dlogits[:L] *= advantage
 
-    if kl_coef != 0.0 and ref_logits is not None:
+    if kl_coef != 0.0:
+        if ref_logits is None:
+            raise ValueError("kl_coef is non-zero but ref_logits was not provided.")
         ref_arr = ref_logits[0] if ref_logits.ndim == 3 else ref_logits
         ref_slice = ref_arr[:L]
         max_r = np.max(ref_slice, axis=-1, keepdims=True)
