@@ -17,8 +17,11 @@ def update_online_softmax(
     m_block = np.max(S_block, axis=-1)
     m_new = np.maximum(m_old, m_block)
 
-    P_block = np.exp(S_block - m_new[:, :, :, None])
-    alpha = np.exp(m_old - m_new)
+    mask_inf = np.isneginf(m_new)
+    safe_m_new = np.where(mask_inf, 0.0, m_new)
+
+    P_block = np.where(mask_inf[:, :, :, None], 0.0, np.exp(S_block - safe_m_new[:, :, :, None]))
+    alpha = np.where(mask_inf, 1.0, np.exp(m_old - safe_m_new))
     alpha = np.nan_to_num(alpha, nan=0.0)
 
     l_new = alpha * l_old + np.sum(P_block, axis=-1)
