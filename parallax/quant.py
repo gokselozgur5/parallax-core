@@ -104,10 +104,19 @@ def quantize_model(model: ParallaxLM) -> ParallaxLM:
     return model
 
 
-def calculate_compression_ratio(model: ParallaxLM, quantized_model: ParallaxLM) -> Dict[str, float]:
-    """Calculates theoretical memory footprint before and after INT8 quantization."""
-    unique_params = {id(p): p for p in model.parameters()}
-    float_bytes = sum(p.data.nbytes for p in unique_params.values())
+def calculate_compression_ratio(
+    model: ParallaxLM,
+    quantized_model: ParallaxLM,
+    baseline_dtype: str = "float32",
+) -> Dict[str, float]:
+    """Calculates theoretical memory footprint before and after INT8 quantization.
+
+    Args:
+        model: Baseline model or original model.
+        quantized_model: Quantized model.
+        baseline_dtype: Explicit baseline dtype ('float32' [4 bytes] or 'float16' [2 bytes]).
+    """
+    baseline_bytes_per_elem = 2 if baseline_dtype in ("float16", "fp16") else 4
 
     def _layer_bytes(layer: Any) -> int:
         if isinstance(layer, QuantizedLinear):
@@ -117,40 +126,63 @@ def calculate_compression_ratio(model: ParallaxLM, quantized_model: ParallaxLM) 
             return b
         return sum(p.data.nbytes for p in layer.parameters())
 
+    def _layer_numel(layer: Any) -> int:
+        if isinstance(layer, QuantizedLinear):
+            n = layer.w_int8.size
+            if layer.bias_data is not None:
+                n += layer.bias_data.size
+            return n
+        return sum(p.data.size for p in layer.parameters())
+
     quant_bytes = 0
+    total_elements = 0
+
     for block in quantized_model.blocks:
         # Attention projections
         for ql in [block.attn.q_proj, block.attn.k_proj, block.attn.v_proj, block.attn.out_proj]:
             quant_bytes += _layer_bytes(ql)
+            total_elements += _layer_numel(ql)
 
         # MLP layers (MoE, SwiGLU, or Standard)
         if hasattr(block.mlp, "experts"):
             quant_bytes += block.mlp.gate.weight.data.nbytes
+            total_elements += block.mlp.gate.weight.data.size
             for exp in block.mlp.experts:
                 if block.use_swiglu:
                     for l in [exp.w_gate, exp.w_up, exp.w_down]:
                         quant_bytes += _layer_bytes(l)
+                        total_elements += _layer_numel(l)
                 else:
                     for l in [exp.fc1, exp.fc2]:
                         quant_bytes += _layer_bytes(l)
+                        total_elements += _layer_numel(l)
         elif block.use_swiglu:
             for l in [block.mlp.w_gate, block.mlp.w_up, block.mlp.w_down]:
                 quant_bytes += _layer_bytes(l)
+                total_elements += _layer_numel(l)
         else:
             for l in [block.mlp.fc1, block.mlp.fc2]:
                 quant_bytes += _layer_bytes(l)
+                total_elements += _layer_numel(l)
 
         # Layer norms
         quant_bytes += block.attn_norm.weight.data.nbytes
+        total_elements += block.attn_norm.weight.data.size
         quant_bytes += block.mlp_norm.weight.data.nbytes
+        total_elements += block.mlp_norm.weight.data.size
 
     # Embeddings and final norm
     quant_bytes += quantized_model.token_embeddings.weight.data.nbytes
+    total_elements += quantized_model.token_embeddings.weight.data.size
     quant_bytes += quantized_model.final_norm.weight.data.nbytes
+    total_elements += quantized_model.final_norm.weight.data.size
 
     # LM Head (if not tied to token embeddings)
-    if not model.config.tie_weights:
+    if not quantized_model.config.tie_weights:
         quant_bytes += _layer_bytes(quantized_model.lm_head)
+        total_elements += _layer_numel(quantized_model.lm_head)
+
+    float_bytes = total_elements * baseline_bytes_per_elem
 
     return {
         "original_mb": round(float_bytes / (1024 * 1024), 3),
