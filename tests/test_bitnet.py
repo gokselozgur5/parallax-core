@@ -65,3 +65,22 @@ def test_bitlinear_ste_backward_analytical_gamma_scaling():
     assert np.allclose(x.grad, expected_x_grad, atol=1e-7)
 
 
+def test_bitlinear_forward_against_independent_reference():
+    """Verify BitLinear forward against explicit independent scalar reference."""
+    np.random.seed(42)
+    B, T, in_f, out_f = 2, 3, 8, 4
+    layer = BitLinear(in_f, out_f, bias=True)
+    layer.bias.data = np.linspace(0.5, 2.0, out_f)
+    x = Tensor(np.random.randn(B, T, in_f))
+    out = layer(x)
+
+    w = layer.weight.data
+    gamma = float(np.mean(np.abs(w))) + 1e-12
+    w_ternary = np.clip(np.round(w / gamma), -1.0, 1.0)
+    x_scale = 127.0 / (np.max(np.abs(x.data), axis=-1, keepdims=True) + 1e-12)
+    x_quant = np.clip(np.round(x.data * x_scale), -128.0, 127.0)
+    expected = (x_quant @ w_ternary.T) * (gamma / x_scale) + layer.bias.data
+    np.testing.assert_allclose(out.data, expected, rtol=1e-5, atol=1e-5)
+
+
+
