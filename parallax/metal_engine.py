@@ -344,6 +344,7 @@ def metal_gemm(A: np.ndarray, B: np.ndarray) -> np.ndarray:
     res = np.ctypeslib.as_array(
         ctypes.cast(contents_ptr, ctypes.POINTER(ctypes.c_float)), shape=(M, N)
     ).copy()
+    _release_buffers(buf_A, buf_B, buf_C)
     return res
 
 
