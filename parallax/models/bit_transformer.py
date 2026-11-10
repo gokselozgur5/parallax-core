@@ -250,6 +250,8 @@ class BitTransformerLM(Module):
         eos_token_id: Optional[int] = None,
     ) -> List[int]:
         """Autoregressively generates new tokens conditioned on prompt tokens."""
+        if max_new_tokens < 0:
+            raise ValueError(f"max_new_tokens must be non-negative, got {max_new_tokens}")
         tokens = list(prompt_tokens)
         for token in self.generate_stream(
             prompt_tokens=prompt_tokens,
@@ -276,6 +278,10 @@ class BitTransformerLM(Module):
         """Yields newly generated token IDs one by one using KV caching or sequence recompute."""
         from parallax.generator import sample_next_token
 
+        if max_new_tokens < 0:
+            raise ValueError(f"max_new_tokens must be non-negative, got {max_new_tokens}")
+        if max_new_tokens == 0:
+            return
         tokens = list(prompt_tokens)
         max_seq_len = self.config.max_seq_len
 
