@@ -253,3 +253,12 @@ def test_bit_attention_flash_standard_sliding_window_cached_decode():
             out_std, _ = std(Tensor(x.copy()), kv_cache=(cache[0].copy(), cache[1].copy()))
             out_fl, _ = fl(Tensor(x.copy()), kv_cache=(cache[0].copy(), cache[1].copy()))
         np.testing.assert_allclose(out_fl.data, out_std.data, atol=1e-9)
+
+
+def test_bit_attention_cached_grad_enabled_raises():
+    """Verify RuntimeError is raised when kv_cache is passed with autograd enabled."""
+    attn = BitAttention(embed_dim=16, num_heads=2)
+    cache = (np.zeros((1, 2, 0, 8)), np.zeros((1, 2, 0, 8)))
+    x = Tensor(np.random.randn(1, 2, 16))
+    with pytest.raises(RuntimeError, match="BitAttention with kv_cache is inference-only"):
+        attn(x, kv_cache=cache)
