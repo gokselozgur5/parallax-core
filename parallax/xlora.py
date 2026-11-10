@@ -85,16 +85,18 @@ class XLoRALinear:
         x: np.ndarray,
         grad_out: np.ndarray,
         gate_weights: np.ndarray,
-    ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
-        """Compute parameter gradients for active LoRA adapters A_i and B_i.
+    ) -> Tuple[List[np.ndarray], List[np.ndarray], np.ndarray, np.ndarray]:
+        """Compute parameter gradients for active LoRA adapters A_i and B_i,
+
+        along with gate weight gradient and input gradient dL/dx.
 
         Args:
-            x: Input activation of shape (B, in_features).
-            grad_out: Output gradient dL/dY of shape (B, out_features).
-            gate_weights: Softmax router probabilities of shape (B, num_adapters).
+            x: Input activation of shape (B, in_features) or (in_features,).
+            grad_out: Output gradient dL/dY of shape (B, out_features) or (out_features,).
+            gate_weights: Softmax router probabilities of shape (B, num_adapters) or (num_adapters,).
 
         Returns:
-            Tuple of (grads_A, grads_B) lists.
+            Tuple of (grads_A, grads_B, d_gate, dx).
         """
         x_in = x if x.ndim == 2 else x[np.newaxis, :]
         grad_in = grad_out if grad_out.ndim == 2 else grad_out[np.newaxis, :]
@@ -102,6 +104,9 @@ class XLoRALinear:
 
         grads_A = []
         grads_B = []
+
+        d_g = np.zeros_like(gates)
+        dx_adapters = np.zeros_like(x_in)
 
         for i in range(self.num_adapters):
             g_i = gates[:, i : i + 1]  # (B, 1)
@@ -123,4 +128,24 @@ class XLoRALinear:
             grads_A.append(grad_A)
             grads_B.append(grad_B)
 
-        return grads_A, grads_B
+            # Adapter output contribution to router gradient
+            adapter_out_i = np.dot(a_out, self.lora_B[i].T) * self.scaling
+            d_g[:, i] = np.sum(grad_in * adapter_out_i, axis=-1)
+
+            # Input gradient contribution through adapter i
+            dx_adapters += np.dot(grad_a, self.lora_A[i])
+
+        # Softmax backward for gate weights:
+        # d_logits = gates * (d_g - sum(d_g * gates, axis=-1, keepdims=True))
+        d_logits = gates * (d_g - np.sum(d_g * gates, axis=-1, keepdims=True))
+        d_gate = np.dot(x_in.T, d_logits)
+
+        # Full input gradient: base layer + adapters + gating network
+        dx_base = np.dot(grad_in, self.base_weight)
+        dx_gate = np.dot(d_logits, self.gate_weight.T)
+        dx = dx_base + dx_adapters + dx_gate
+
+        if x.ndim == 1:
+            dx = dx.squeeze(0)
+
+        return grads_A, grads_B, d_gate, dx
