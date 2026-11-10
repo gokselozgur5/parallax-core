@@ -53,4 +53,19 @@ def test_evict_kv_cache_preserves_sinks_and_window():
     np.testing.assert_array_equal(k_evicted[0, 0, 3:, 0], [25, 26, 27, 28, 29])
 
 
+def test_evict_kv_cache_window_size_zero():
+    B, H, T, d = 1, 1, 5, 4
+    num_sinks = 2
+    window_size = 0
+    k = np.arange(T)[None, None, :, None] * np.ones((B, H, T, d))
+    v = k.copy()
+
+    k_evicted, v_evicted = evict_kv_cache_with_sinks(
+        k, v, window_size=window_size, num_sinks=num_sinks
+    )
+    assert k_evicted.shape[2] == num_sinks
+    assert v_evicted.shape[2] == num_sinks
+    np.testing.assert_array_equal(k_evicted[0, 0, :, 0], [0, 1])
+
+
 

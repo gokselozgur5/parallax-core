@@ -58,6 +58,9 @@ def evict_kv_cache_with_sinks(
     if T <= max_allowed:
         return k_cache, v_cache
 
+    if window_size == 0:
+        return k_cache[:, :, :num_sinks, :], v_cache[:, :, :num_sinks, :]
+
     sink_k, sink_v = k_cache[:, :, :num_sinks, :], v_cache[:, :, :num_sinks, :]
     recent_k, recent_v = k_cache[:, :, -window_size:, :], v_cache[:, :, -window_size:, :]
 
