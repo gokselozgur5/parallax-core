@@ -10,9 +10,8 @@ import json
 import os
 import socketserver
 import sys
-import time
 import urllib.parse
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 # Add repo root to sys.path
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))

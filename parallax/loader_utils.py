@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict
 import numpy as np
 from parallax.nn import Linear, Parameter
 

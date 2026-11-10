@@ -11,7 +11,7 @@ Encapsulates the standard LLM pretraining / fine-tuning loop:
 
 from dataclasses import dataclass
 import time
-from typing import Callable, Dict, Iterator, List, Optional, Tuple
+from typing import Dict, Iterator, List, Optional, Tuple
 import numpy as np
 
 from parallax.checkpoint import save_checkpoint
