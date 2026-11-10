@@ -150,3 +150,19 @@ def test_metal_engine_types_and_empty_shapes():
 
     f64_res = metal_rmsnorm(np.array([[1e150]], dtype=np.float64), np.ones(1, dtype=np.float64))
     assert not np.isnan(f64_res).any()
+
+
+def test_metal_engine_int32_bounds():
+    class MockArray:
+        ndim = 2
+        dtype = np.float32
+        shape = (2147483648, 4)
+        size = 2147483648 * 4
+
+    b = np.zeros((4, 4), dtype=np.float32)
+    with pytest.raises(ValueError, match="INT32_MAX"):
+        metal_gemm(MockArray(), b)
+
+    weight = np.ones(4, dtype=np.float32)
+    with pytest.raises(ValueError, match="INT32_MAX"):
+        metal_rmsnorm(MockArray(), weight)
