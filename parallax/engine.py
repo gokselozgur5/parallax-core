@@ -61,7 +61,8 @@ class Value:
         return self * other
 
     def __pow__(self, other: Union[int, float]) -> "Value":
-        assert isinstance(other, (int, float)), "Power must be int or float"
+        if not isinstance(other, (int, float)):
+            raise TypeError("Power must be int or float")
         out = Value(self.data**other, (self,), f"**{other}")
 
         def _backward() -> None:
@@ -98,7 +99,8 @@ class Value:
         return out
 
     def log(self) -> "Value":
-        assert self.data > 0, "Logarithm undefined for non-positive values"
+        if self.data <= 0:
+            raise ValueError("Logarithm undefined for non-positive values")
         out = Value(math.log(self.data), (self,), "log")
 
         def _backward() -> None:
