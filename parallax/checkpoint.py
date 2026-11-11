@@ -190,17 +190,25 @@ def load_checkpoint(
 
     archive = np.load(target_path, allow_pickle=False)
     try:
+        if "__config_json__" not in archive:
+            raise KeyError("Missing required '__config_json__' in checkpoint archive")
+        if "__step__" not in archive:
+            raise KeyError("Missing required '__step__' in checkpoint archive")
+
         config_json = str(archive["__config_json__"])
         step = int(archive["__step__"])
         config_dict = json.loads(config_json)
         config = ParallaxLMConfig(**config_dict)
 
-        model = ParallaxLM(config)
         state_dict = {
             k: archive[k].copy()
             for k in archive.files
             if not k.startswith("__")
         }
+        if not state_dict:
+            raise ValueError("Checkpoint archive contains empty model state_dict")
+
+        model = ParallaxLM(config)
         load_model_state_dict(model, state_dict)
 
         if optimizer is not None:
