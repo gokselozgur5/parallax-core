@@ -53,3 +53,25 @@ def test_simpo_step_execution_and_finite_gradients():
     assert not np.isnan(loss)
     assert not np.isnan(grad_w).any()
     assert not np.isnan(grad_l).any()
+
+
+def test_simpo_step_empty_targets_raises_value_error():
+    import pytest
+
+    vocab_size = 10
+    logits_w = np.random.randn(0, vocab_size)
+    targets_w = np.array([], dtype=np.int64)
+    logits_l = np.random.randn(2, vocab_size)
+    targets_l = np.array([1, 2], dtype=np.int64)
+
+    with pytest.raises(ValueError, match="targets_w cannot be empty"):
+        simpo_step(logits_w, targets_w, logits_l, targets_l)
+
+    logits_w_valid = np.random.randn(2, vocab_size)
+    targets_w_valid = np.array([0, 1], dtype=np.int64)
+    logits_l_empty = np.random.randn(0, vocab_size)
+    targets_l_empty = np.array([], dtype=np.int64)
+
+    with pytest.raises(ValueError, match="targets_l cannot be empty"):
+        simpo_step(logits_w_valid, targets_w_valid, logits_l_empty, targets_l_empty)
+
