@@ -195,9 +195,6 @@ def c_gemm(A: np.ndarray, B: np.ndarray) -> np.ndarray:
     A_c = np.ascontiguousarray(A, dtype=np.float32)
     B_c = np.ascontiguousarray(B, dtype=np.float32)
 
-    if K == 0:
-        return np.zeros((M, N), dtype=np.float32)
-
     C = np.empty((M, N), dtype=np.float32)
 
     a_ptr = A_c.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
