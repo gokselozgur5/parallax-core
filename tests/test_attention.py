@@ -142,3 +142,18 @@ def test_causal_attention_sliding_window_flash_and_causal():
     out_std = mha_std(x).data
     out_flash = mha_flash(x).data
     np.testing.assert_allclose(out_std, out_flash, atol=1e-5)
+
+
+def test_causal_attention_sliding_window_flash_backward():
+    np.random.seed(42)
+    B, T, C = 2, 8, 16
+    mha = CausalSelfAttention(embed_dim=C, num_heads=4, use_flash_attn=True, sliding_window=3)
+    x = Tensor(np.random.randn(B, T, C), requires_grad=True)
+    out = mha(x)
+    loss = (out * out).sum()
+    loss.backward()
+
+    assert x.grad is not None
+    assert x.grad.shape == (B, T, C)
+    assert mha.q_proj.weight.grad is not None
+
