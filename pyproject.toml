@@ -54,7 +54,6 @@ follow_imports = "silent"
 [[tool.mypy.overrides]]
 module = [
     "parallax.tree_drafting_v2",
-    "parallax.qgalore",
     "parallax.paged_attention",
     "parallax.metal_engine",
     "parallax.kv_cache_pruner",
@@ -76,7 +75,6 @@ module = [
     "parallax.quant",
     "parallax.prune",
     "parallax.checkpoint",
-    "parallax.gguf_tokenizer",
     "parallax.gguf_loader",
 ]
 ignore_errors = true
