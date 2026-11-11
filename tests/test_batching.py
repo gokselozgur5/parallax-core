@@ -188,4 +188,33 @@ def test_continuous_batch_engine_concurrent_requests():
         assert len(req.generated_tokens) == 2
 
 
+def test_pop_completed_request_clears_kv_cache():
+    config = ParallaxLMConfig(
+        vocab_size=32,
+        embed_dim=16,
+        num_layers=1,
+        num_heads=2,
+        max_seq_len=64,
+        use_swiglu=False,
+    )
+    model = ParallaxLM(config)
+    engine = ContinuousBatchEngine(model=model, max_batch_size=2)
+
+    req = SequenceRequest(request_id="pop-test", prompt_tokens=[1, 2], max_new_tokens=2)
+    engine.add_request(req)
+
+    # Step until finished
+    while engine.has_unfinished_requests():
+        engine.step()
+
+    assert req.status == RequestStatus.FINISHED
+    assert req.kv_cache is not None
+    assert "pop-test" in engine.completed_requests
+
+    popped = engine.pop_completed_request("pop-test", clear_kv=True)
+    assert popped is req
+    assert popped.kv_cache is None
+    assert "pop-test" not in engine.completed_requests
+
+
 
