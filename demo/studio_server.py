@@ -17,7 +17,7 @@ import socketserver
 import sys
 import time
 import urllib.parse
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 # Add repo root to sys.path
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -26,11 +26,10 @@ if REPO_ROOT not in sys.path:
 
 import numpy as np
 
-from parallax.attention import CausalSelfAttention, apply_rope
 from parallax.bench import count_parameters, estimate_flops_per_token
 from parallax.checkpoint import load_checkpoint
 from parallax.engine import Value
-from parallax.generator import CharTokenizer, generate, sample_next_token
+from parallax.generator import CharTokenizer, generate
 from parallax.loss import cross_entropy_loss, perplexity_from_loss
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.optim import AdamW
@@ -41,7 +40,6 @@ from parallax.rl import (
     compute_policy_gradient_step,
     dpo_loss,
 )
-from parallax.tensor import Tensor
 from parallax.viz import to_mermaid
 
 HOST = "127.0.0.1"
