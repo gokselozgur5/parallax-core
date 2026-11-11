@@ -4,7 +4,6 @@ Unit tests for Gradient Clipping and Learning Rate Schedules.
 
 import math
 import numpy as np
-import pytest
 
 from parallax.nn import Parameter
 from parallax.optim import AdamW, CosineAnnealingWithWarmup, clip_grad_norm_
