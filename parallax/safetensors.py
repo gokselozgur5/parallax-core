@@ -152,6 +152,29 @@ def load_safetensors(
 
         data_base_offset = 8 + header_len
 
+        # Validate that tensor data offset intervals are disjoint
+        sorted_intervals = sorted(
+            (
+                (info["data_offsets"][0], info["data_offsets"][1], key)
+                for key, info in header.items()
+                if key != "__metadata__"
+                and isinstance(info, dict)
+                and "data_offsets" in info
+                and isinstance(info["data_offsets"], (list, tuple))
+                and len(info["data_offsets"]) == 2
+                and isinstance(info["data_offsets"][0], int)
+                and isinstance(info["data_offsets"][1], int)
+            ),
+            key=lambda item: (item[0], item[1]),
+        )
+        for i in range(len(sorted_intervals) - 1):
+            cur_start, cur_end, cur_name = sorted_intervals[i]
+            next_start, _, next_name = sorted_intervals[i + 1]
+            if cur_end > next_start:
+                raise ValueError(
+                    f"Overlapping tensor offsets detected between '{cur_name}' and '{next_name}'"
+                )
+
         tensors: Dict[str, np.ndarray] = {}
 
         for key, info in header.items():
