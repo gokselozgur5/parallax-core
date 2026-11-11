@@ -3,7 +3,6 @@ Unit tests for BitNet b1.58 ternary quantization (M30).
 """
 
 import numpy as np
-import pytest
 from parallax.bitnet import (
     BitLinear,
     quantize_activations_int8,
