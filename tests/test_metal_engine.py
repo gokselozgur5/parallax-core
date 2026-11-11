@@ -196,3 +196,16 @@ def test_metal_buffers_released_on_exception():
     res = metal_rmsnorm(x, w)
     assert res.shape == (64, 64)
 
+
+def test_metal_rmsnorm_floating_eps_types():
+    x = np.random.randn(8, 16).astype(np.float32)
+    w = np.ones(16, dtype=np.float32)
+    # Test numpy float types and python float
+    out1 = metal_rmsnorm(x, w, eps=np.float32(1e-5))
+    out2 = metal_rmsnorm(x, w, eps=np.float64(1e-5))
+    out3 = metal_rmsnorm(x, w, eps=1e-5)
+    assert np.allclose(out1, out2)
+    assert np.allclose(out2, out3)
+    with pytest.raises(TypeError):
+        metal_rmsnorm(x, w, eps=True)
+
