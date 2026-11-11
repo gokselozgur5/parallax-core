@@ -6,7 +6,7 @@ Zero-dependency implementation using NumPy and Parallax primitives.
 """
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 
@@ -54,7 +54,7 @@ class Qwen2Config(ParallaxLMConfig):
     @classmethod
     def qwen2_5_0_5b(cls, **kwargs) -> "Qwen2Config":
         """Returns standard configuration for Qwen/Qwen2.5-0.5B."""
-        cfg_dict = {
+        cfg_dict: Dict[str, Any] = {
             "vocab_size": 151936,
             "embed_dim": 896,
             "num_heads": 14,
@@ -77,7 +77,7 @@ class Qwen2Config(ParallaxLMConfig):
     @classmethod
     def qwen2_5_coder_1_5b(cls, **kwargs) -> "Qwen2Config":
         """Returns standard configuration for Qwen/Qwen2.5-Coder-1.5B."""
-        cfg_dict = {
+        cfg_dict: Dict[str, Any] = {
             "vocab_size": 151936,
             "embed_dim": 1536,
             "num_heads": 12,
@@ -100,7 +100,7 @@ class Qwen2Config(ParallaxLMConfig):
     @classmethod
     def qwen2_5_coder_7b(cls, **kwargs) -> "Qwen2Config":
         """Returns standard configuration for Qwen/Qwen2.5-Coder-7B."""
-        cfg_dict = {
+        cfg_dict: Dict[str, Any] = {
             "vocab_size": 152064,
             "embed_dim": 3584,
             "num_heads": 28,
