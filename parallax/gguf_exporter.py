@@ -26,10 +26,12 @@ from parallax.gguf_quant import quantize_q4_0, quantize_q8_0
 from parallax.models.gpt import ParallaxLM
 
 
-def _collect_gpt_tensors(model: ParallaxLM) -> Tuple[Dict[str, Any], Dict[str, np.ndarray]]:
+def _collect_gpt_tensors(
+    model: ParallaxLM, architecture: str = "llama"
+) -> Tuple[Dict[str, Any], Dict[str, np.ndarray]]:
     """Extracts metadata and tensor map from a ParallaxLM model."""
     cfg = model.config
-    arch = "llama"
+    arch = architecture.lower()
 
     if (
         hasattr(cfg, "num_experts")
@@ -192,14 +194,15 @@ def export_to_gguf_v3(
     if isinstance(model, BitMambaLM):
         metadata, tensors = _collect_bitmamba_tensors(model)
         vocab_size = model.config.vocab_size
+        if architecture is not None:
+            arch = architecture.lower()
+            metadata["general.architecture"] = arch
     elif isinstance(model, ParallaxLM):
-        metadata, tensors = _collect_gpt_tensors(model)
+        arch = architecture.lower() if architecture is not None else "llama"
+        metadata, tensors = _collect_gpt_tensors(model, architecture=arch)
         vocab_size = model.config.vocab_size
     else:
         raise TypeError(f"Unsupported model type for GGUF export: {type(model).__name__}")
-
-    if architecture is not None:
-        metadata["general.architecture"] = architecture.lower()
 
     # Populate tokenizer metadata
     if tokenizer is not None:
