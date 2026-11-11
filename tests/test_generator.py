@@ -69,3 +69,22 @@ def test_generate_max_new_tokens_zero_and_negative():
     with pytest.raises(ValueError, match="max_new_tokens"):
         next(generate_stream(model, prompt, max_new_tokens=-1, use_cache=False))
 
+
+def test_generate_preserves_model_training_mode():
+    model = _create_mini_model()
+    prompt = [1, 2, 3]
+
+    model.train()
+    assert model.training is True
+    generate(model, prompt, max_new_tokens=2, use_cache=True)
+    assert model.training is True
+
+    generate(model, prompt, max_new_tokens=2, use_cache=False)
+    assert model.training is True
+
+    model.eval()
+    assert model.training is False
+    generate(model, prompt, max_new_tokens=2, use_cache=True)
+    assert model.training is False
+
+
