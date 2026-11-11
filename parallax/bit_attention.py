@@ -281,6 +281,6 @@ class BitAttention(Module):
 
         # 5. Final projection layer through BitLinear
         proj_out = self.out_proj(attn_out)
-        if kv_cache is not None:
+        if updated_kv_cache is not None:
             return proj_out, updated_kv_cache
         return proj_out
