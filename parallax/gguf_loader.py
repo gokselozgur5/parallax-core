@@ -128,6 +128,7 @@ def load_gguf_weights_into_model(
         expected_keys.append("output.weight")
 
     for i in range(model.config.num_layers):
+        block = model.blocks[i]
         expected_keys.extend([
             f"blk.{i}.attn_norm.weight",
             f"blk.{i}.ffn_norm.weight",
@@ -141,8 +142,9 @@ def load_gguf_weights_into_model(
                 f"blk.{i}.attn_q.bias",
                 f"blk.{i}.attn_k.bias",
                 f"blk.{i}.attn_v.bias",
-                f"blk.{i}.attn_output.bias",
             ])
+            if getattr(block.attn, "out_proj", None) is not None and block.attn.out_proj.bias is not None:
+                expected_keys.append(f"blk.{i}.attn_output.bias")
         if model.config.use_swiglu:
             expected_keys.extend([
                 f"blk.{i}.ffn_gate.weight",
@@ -343,8 +345,6 @@ def save_parallax_to_gguf(
 
         if block.attn.out_proj.bias is not None:
             tensors[f"blk.{i}.attn_output.bias"] = block.attn.out_proj.bias.data.astype(np.float32)
-        elif cfg.qkv_bias:
-            tensors[f"blk.{i}.attn_output.bias"] = np.zeros(block.attn.out_proj.out_features, dtype=np.float32)
 
         if hasattr(block.mlp, "w_gate"):
             tensors[f"blk.{i}.ffn_gate.weight"] = block.mlp.w_gate.weight.data.astype(np.float32)
