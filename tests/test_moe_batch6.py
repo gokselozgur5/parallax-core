@@ -8,7 +8,6 @@ Covers:
 """
 
 import numpy as np
-import pytest
 
 from parallax.ecr import ExpertChoiceRouter
 from parallax.gradcheck import check_tensor_gradient
