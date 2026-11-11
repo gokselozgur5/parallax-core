@@ -10,6 +10,7 @@ import json
 import os
 import socketserver
 import sys
+import threading
 import urllib.parse
 from typing import Any, Dict, List, Optional
 
@@ -184,8 +185,22 @@ class VisualizerState:
         }
 
 
-# Global visualizer state instance
-STATE = VisualizerState()
+_STATE: Optional[VisualizerState] = None
+_STATE_LOCK = threading.Lock()
+
+
+def get_visualizer_state() -> VisualizerState:
+    global _STATE
+    with _STATE_LOCK:
+        if _STATE is None:
+            _STATE = VisualizerState()
+        return _STATE
+
+
+def __getattr__(name: str) -> Any:
+    if name == "STATE":
+        return get_visualizer_state()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 class VisualizerHandler(http.server.BaseHTTPRequestHandler):
@@ -219,13 +234,14 @@ class VisualizerHandler(http.server.BaseHTTPRequestHandler):
         if path in ("/", "/index.html", "/visualizer", "/visualizer.html"):
             self.serve_file(HTML_FILE, "text/html; charset=utf-8")
         elif path == "/api/info":
+            state = get_visualizer_state()
             self.send_json({
                 "model": "ParallaxLM-Micro",
-                "vocab_size": STATE.config.vocab_size,
-                "embed_dim": STATE.config.embed_dim,
-                "num_heads": STATE.config.num_heads,
-                "num_layers": STATE.config.num_layers,
-                "max_seq_len": STATE.config.max_seq_len,
+                "vocab_size": state.config.vocab_size,
+                "embed_dim": state.config.embed_dim,
+                "num_heads": state.config.num_heads,
+                "num_layers": state.config.num_layers,
+                "max_seq_len": state.config.max_seq_len,
             })
         else:
             self.send_response(404)
