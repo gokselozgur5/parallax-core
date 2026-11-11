@@ -8,6 +8,25 @@ use std::slice;
 pub const STATUS_OK: i32 = 0;
 pub const STATUS_NULL_POINTER: i32 = -1;
 pub const STATUS_INVALID_DIMENSION: i32 = -2;
+pub const STATUS_UNALIGNED_POINTER: i32 = -3;
+pub const STATUS_ALIASING_POINTER: i32 = -4;
+
+#[inline]
+fn is_aligned_f32<T>(ptr: *const T) -> bool {
+    (ptr as usize).is_multiple_of(std::mem::align_of::<f32>())
+}
+
+#[inline]
+fn ranges_overlap(p1: usize, len1: usize, p2: usize, len2: usize) -> bool {
+    if len1 == 0 || len2 == 0 {
+        return false;
+    }
+    let Some(size1) = len1.checked_mul(std::mem::size_of::<f32>()) else { return true };
+    let Some(size2) = len2.checked_mul(std::mem::size_of::<f32>()) else { return true };
+    let Some(end1) = p1.checked_add(size1) else { return true };
+    let Some(end2) = p2.checked_add(size2) else { return true };
+    p1 < end2 && p2 < end1
+}
 
 /// C-ABI export for GEMM: C = alpha * (A @ B) + beta * C
 ///
@@ -33,9 +52,17 @@ pub unsafe extern "C" fn parallax_gemm_f32(
         if a_ptr.is_null() || b_ptr.is_null() || c_ptr.is_null() {
             return STATUS_NULL_POINTER;
         }
+        if !is_aligned_f32(a_ptr) || !is_aligned_f32(b_ptr) || !is_aligned_f32(c_ptr) {
+            return STATUS_UNALIGNED_POINTER;
+        }
         let (ra, rb, rc) = (m.checked_mul(k), k.checked_mul(n), m.checked_mul(n));
         let (Some(ra), Some(rb), Some(rc)) = (ra, rb, rc) else { return STATUS_INVALID_DIMENSION };
         if a_len != ra || b_len != rb || c_len != rc { return STATUS_INVALID_DIMENSION; }
+        if ranges_overlap(c_ptr as usize, c_len, a_ptr as usize, a_len)
+            || ranges_overlap(c_ptr as usize, c_len, b_ptr as usize, b_len)
+        {
+            return STATUS_ALIASING_POINTER;
+        }
         let (a, b) = (slice::from_raw_parts(a_ptr, a_len), slice::from_raw_parts(b_ptr, b_len));
         let c = slice::from_raw_parts_mut(c_ptr, c_len);
         match tensor::gemm_f32(m, n, k, alpha, a, b, beta, c) {
@@ -60,6 +87,7 @@ pub unsafe extern "C" fn parallax_softmax_f32(
 ) -> i32 {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         if data_ptr.is_null() { return STATUS_NULL_POINTER; }
+        if !is_aligned_f32(data_ptr) { return STATUS_UNALIGNED_POINTER; }
         let Some(req) = rows.checked_mul(cols) else { return STATUS_INVALID_DIMENSION; };
         if data_len != req { return STATUS_INVALID_DIMENSION; }
         let data = slice::from_raw_parts_mut(data_ptr, data_len);
