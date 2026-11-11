@@ -155,25 +155,30 @@ def _extract_split_pattern(data: Dict[str, Any]) -> Optional[str]:
     pre_tok = data.get("pre_tokenizer")
     if not pre_tok:
         return None
+    splits: List[Dict[str, Any]] = []
 
-    def _find_in_obj(obj: Any) -> Optional[str]:
+    def _collect(obj: Any) -> None:
         if isinstance(obj, dict):
             if obj.get("type") == "Split":
-                pattern = obj.get("pattern", {})
-                if isinstance(pattern, dict) and "Regex" in pattern:
-                    return pattern["Regex"]
+                splits.append(obj)
             for v in obj.values():
-                res = _find_in_obj(v)
-                if res is not None:
-                    return res
+                _collect(v)
         elif isinstance(obj, list):
             for item in obj:
-                res = _find_in_obj(item)
-                if res is not None:
-                    return res
-        return None
+                _collect(item)
 
-    return _find_in_obj(pre_tok)
+    _collect(pre_tok)
+    if not splits:
+        return None
+    if len(splits) > 1 or splits[0].get("invert", False):
+        warnings.warn("Unsupported Split configuration (multiple or inverted): falling back to default regex.", UserWarning, stacklevel=2)
+        return None
+    behavior = splits[0].get("behavior")
+    if behavior not in (None, "Isolated"):
+        warnings.warn(f"Unsupported Split behavior={behavior!r}: falling back to default regex.", UserWarning, stacklevel=2)
+        return None
+    pattern = splits[0].get("pattern", {})
+    return pattern.get("Regex") if isinstance(pattern, dict) else None
 
 _PRETOKENIZER_REGEX = re.compile(
     r"""'s|'t|'re|'ve|'m|'ll|'d| ?[a-zA-Z]+| ?\d+| ?[^\s\w]+|\s+(?!\S)|\s+"""
