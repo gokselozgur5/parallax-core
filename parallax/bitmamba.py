@@ -1,5 +1,5 @@
 """
-BitMamba: Zero-RAM / Sub-2-bit Selective State Space Model Architecture.
+BitMamba: Selective State Space Model Architecture with Simulated Ternary Quantization.
 
 Fuses BitNet b1.58 ternary weights {-1, 0, +1} and INT8 activation quantization
 with Selective State Space (Mamba / S6) recurrence. Eliminates KV cache for O(1) memory
@@ -241,8 +241,8 @@ class BitMambaConfig:
 class BitMambaLM(Module):
     """Full Autoregressive Language Model combining BitNet b1.58 quantization with Mamba SSM.
 
-    Achieves O(1) state memory during inference without KV caches, while replacing
-    weight-activation multiplications with ternary additions across all linear projections.
+    Achieves O(1) state memory during inference without KV caches, using simulated
+    ternary quantization in float64 across all linear projections.
     """
 
     def __init__(self, config: BitMambaConfig):
