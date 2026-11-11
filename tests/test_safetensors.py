@@ -108,3 +108,20 @@ def test_safetensors_disjoint_offsets_validation():
 
         with pytest.raises(ValueError, match="Overlapping tensor offsets"):
             load_safetensors(file_path)
+
+
+def test_safetensors_metadata_validation():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        file_path = os.path.join(tmpdir, "bad_meta.safetensors")
+        header = {
+            "__metadata__": ["not", "a", "dict"],
+            "a": {"dtype": "F32", "shape": [1], "data_offsets": [0, 4]},
+        }
+        h_bytes = json.dumps(header).encode("utf-8")
+        with open(file_path, "wb") as f:
+            f.write(struct.pack("<Q", len(h_bytes)))
+            f.write(h_bytes)
+            f.write(b"\x00" * 4)
+
+        with pytest.raises(ValueError, match="Invalid safetensors __metadata__"):
+            load_safetensors(file_path)
