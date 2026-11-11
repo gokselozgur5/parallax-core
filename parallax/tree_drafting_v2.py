@@ -68,6 +68,7 @@ def build_vectorized_tree_attention_mask(
     n = len(parents)
     if n == 0:
         return np.zeros((0, 0), dtype=np.int64), np.zeros((0, 0), dtype=bool)
+    validate_tree_topology(parents)
 
     # Initialize identity (each node attends to itself)
     ancestors = np.eye(n, dtype=bool)
@@ -115,6 +116,7 @@ def prune_tree_topology(
     n = len(tokens_arr)
     if n == 0:
         return np.zeros(0, dtype=np.int64), np.zeros(0, dtype=np.int64), np.zeros(0, dtype=np.int64)
+    validate_tree_topology(parents_arr)
 
     # Group children by parent
     children_by_parent: Dict[int, List[int]] = {}
