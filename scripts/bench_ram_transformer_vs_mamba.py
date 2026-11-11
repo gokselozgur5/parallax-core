@@ -21,7 +21,7 @@ if repo_root not in sys.path:
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.bitmamba import BitMambaLM, BitMambaConfig
-from parallax.tensor import Tensor, no_grad
+from parallax.tensor import no_grad
 
 
 def benchmark_transformer(

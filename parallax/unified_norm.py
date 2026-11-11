@@ -37,7 +37,9 @@ class UnifiedNorm:
         else:
             mean = np.mean(fused_x, axis=-1, keepdims=True)
             var = np.var(fused_x, axis=-1, keepdims=True)
-            normed = ((fused_x - mean) / np.sqrt(var + self.eps)) * self.weight + self.bias
+            normed = ((fused_x - mean) / np.sqrt(var + self.eps)) * self.weight
+            if self.bias is not None:
+                normed = normed + self.bias
         return normed, fused_x
 
     def backward(
