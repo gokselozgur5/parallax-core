@@ -80,7 +80,6 @@ class Trainer:
             model.train()
 
         opt.zero_grad()
-        accum_loss = 0.0
 
         for step in range(1, cfg.max_steps + 1):
             t0 = time.perf_counter()

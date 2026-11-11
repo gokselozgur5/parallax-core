@@ -124,7 +124,6 @@ def compute_policy_gradient_step(
     T, V = logits_data.shape
 
     # Target sequence is tokens shifted by 1
-    input_ids = tokens[0, :-1]
     target_ids = tokens[0, 1:]
     L = len(target_ids)
 

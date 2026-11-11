@@ -37,7 +37,6 @@ def newton_schulz5(G: np.ndarray, steps: int = 5, eps: float = 1e-7) -> np.ndarr
         X = X.T
         transposed = True
 
-    I = np.eye(X.shape[0], dtype=np.float64)
     for _ in range(steps):
         A = np.dot(X, X.T)
         B = b * A + c * np.dot(A, A)

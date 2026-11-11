@@ -49,7 +49,6 @@ class UnifiedNorm:
     ) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
         """Analytical backward pass returning (grad_fused_x, grad_weight, grad_bias)."""
         d_hat = grad_out * self.weight
-        d = self.dim
         if self.norm_type == "rmsnorm":
             rms = np.sqrt(np.mean(fused_x ** 2, axis=-1, keepdims=True) + self.eps)
             x_hat = fused_x / rms
