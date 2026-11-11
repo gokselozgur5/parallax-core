@@ -349,3 +349,31 @@ def test_bit_attention_dq_dk_dv_central_difference_reference():
         np.testing.assert_allclose(proj.bias.grad, fd, rtol=1e-4, atol=1e-4)
 
 
+
+
+def test_bit_attention_flash_prefill_empty_cache_then_decode():
+    """Verify flash prefill through empty cache followed by cached decode matches standard path (closes #437)."""
+    np.random.seed(42)
+    B, T, C = 1, 8, 16
+    window = 3
+    std = BitAttention(C, 2, num_kv_heads=2, sliding_window=window, use_flash_attn=False, use_rope=False)
+    fl = BitAttention(C, 2, num_kv_heads=2, sliding_window=window, use_flash_attn=True, use_rope=False)
+    for p_std, p_fl in zip(std.parameters(), fl.parameters()):
+        p_fl.data = p_std.data.copy()
+
+    x_prefill = np.random.randn(B, T, C)
+    head_dim = C // 2
+    empty_cache = (np.zeros((B, 2, 0, head_dim)), np.zeros((B, 2, 0, head_dim)))
+
+    with no_grad():
+        out_std, cache_std = std(Tensor(x_prefill), kv_cache=empty_cache)
+        out_fl, cache_fl = fl(Tensor(x_prefill), kv_cache=empty_cache)
+
+    np.testing.assert_allclose(out_fl.data, out_std.data, atol=1e-9)
+
+    x_decode = np.random.randn(B, 1, C)
+    with no_grad():
+        dec_std, _ = std(Tensor(x_decode), kv_cache=cache_std)
+        dec_fl, _ = fl(Tensor(x_decode), kv_cache=cache_fl)
+
+    np.testing.assert_allclose(dec_fl.data, dec_std.data, atol=1e-9)
