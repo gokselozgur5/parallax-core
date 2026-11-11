@@ -3,7 +3,6 @@ Unit tests for Reward Modeling and Reinforcement Learning (M18).
 """
 
 import numpy as np
-import pytest
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.optim import AdamW
@@ -84,7 +83,7 @@ def test_policy_gradient_step():
 
     # Baseline = 0.0, Positive Reward = +2.0
     optimizer.zero_grad()
-    loss1 = compute_policy_gradient_step(policy, tokens, reward=2.0, baseline=0.0)
+    compute_policy_gradient_step(policy, tokens, reward=2.0, baseline=0.0)
     optimizer.step()
 
     # Log-probability of target sequence must strictly increase after positive update
@@ -93,7 +92,7 @@ def test_policy_gradient_step():
 
     # Negative update (reward = -2.0) must decrease log-probability
     optimizer.zero_grad()
-    loss2 = compute_policy_gradient_step(policy, tokens, reward=-2.0, baseline=0.0)
+    compute_policy_gradient_step(policy, tokens, reward=-2.0, baseline=0.0)
     optimizer.step()
 
     log_prob_after_neg = _seq_log_prob(policy, tokens)
@@ -186,7 +185,7 @@ def test_policy_gradient_step_kl_penalty_finite_differences():
     ref_logits = np.random.randn(1, 3, 6)
 
     policy.zero_grad()
-    loss0 = compute_policy_gradient_step(
+    compute_policy_gradient_step(
         policy, tokens, reward=1.5, baseline=0.5, kl_coef=0.3, ref_logits=ref_logits
     )
     analytic_grad = policy.token_embeddings.weight.grad.copy()
