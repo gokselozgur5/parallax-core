@@ -283,16 +283,24 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         max_new = int(req.get("max_new_tokens", 20))
         max_new = max(1, min(max_new, MAX_NEW_TOKENS))
         temp = float(req.get("temperature", 0.7))
+        if not math.isfinite(temp) or temp <= 0.0:
+            raise ValueError("temperature must be a finite positive number")
         top_k = req.get("top_k", 5)
         top_k = int(top_k) if top_k is not None else None
         top_p = req.get("top_p", 0.9)
-        top_p = float(top_p) if top_p is not None else None
+        if top_p is not None:
+            top_p = float(top_p)
+            if not math.isfinite(top_p) or top_p <= 0.0 or top_p > 1.0:
+                raise ValueError("top_p must be in (0, 1]")
         use_cache = bool(req.get("use_cache", True))
 
         # Encode prompt using tokenizer (fallback to char ID 0 if unknown)
         prompt_ids = CURRENT_TOKENIZER.encode(prompt_text)
         if not prompt_ids:
             prompt_ids = [0]
+        max_seq_len = CURRENT_MODEL.config.max_seq_len
+        if len(prompt_ids) > max_seq_len:
+            prompt_ids = prompt_ids[-max_seq_len:]
 
         t0 = time.perf_counter()
         generated_ids = generate(
