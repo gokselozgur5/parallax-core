@@ -315,14 +315,28 @@ class VisualizerHandler(http.server.BaseHTTPRequestHandler):
 
     def handle_visualize_step(self, req: Dict[str, Any]) -> None:
         prompt = req.get("prompt", "parallax")
+        if not isinstance(prompt, str):
+            raise TypeError("prompt must be a string")
         generated_tokens = req.get("generated_tokens", [])
-        use_cache = bool(req.get("use_cache", True))
-        temperature = float(req.get("temperature", 0.8))
-        top_k = req.get("top_k", 5)
-        top_p = req.get("top_p", None)
-
         if not isinstance(generated_tokens, list):
-            generated_tokens = []
+            raise TypeError("generated_tokens must be a list")
+        use_cache = bool(req.get("use_cache", True))
+        temp_val = req.get("temperature", 0.8)
+        temperature = float(temp_val)
+        if not math.isfinite(temperature) or temperature <= 0.0:
+            raise ValueError("temperature must be a finite positive number")
+
+        top_k = req.get("top_k", 5)
+        if top_k is not None:
+            top_k = int(top_k)
+            if top_k <= 0:
+                raise ValueError("top_k must be positive")
+
+        top_p = req.get("top_p", None)
+        if top_p is not None:
+            top_p = float(top_p)
+            if not math.isfinite(top_p) or top_p <= 0.0 or top_p > 1.0:
+                raise ValueError("top_p must be in (0, 1]")
 
         state = get_visualizer_state()
         with _STATE_LOCK:
