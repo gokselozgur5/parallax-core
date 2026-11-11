@@ -66,6 +66,10 @@ def save_safetensors(
 
     for name, arr in tensors.items():
         arr_contiguous = np.ascontiguousarray(arr)
+        if arr_contiguous.dtype.byteorder == ">" or (
+            arr_contiguous.dtype.byteorder == "=" and np.little_endian is False
+        ):
+            arr_contiguous = arr_contiguous.astype(arr_contiguous.dtype.newbyteorder("<"))
         dtype_name = arr_contiguous.dtype.name
 
         if dtype_name in NUMPY_TO_SAFETENSORS_DTYPE:
