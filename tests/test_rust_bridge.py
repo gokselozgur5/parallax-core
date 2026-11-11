@@ -155,8 +155,31 @@ def test_rust_bridge_softmax(rust_lib):
 def test_rust_bridge_validation_errors(rust_lib):
     buf = np.ones((2, 2), dtype=np.float32)
     ptr = buf.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
-    assert rust_lib.parallax_gemm_f32(2, 2, 2, 1.0, ptr, 2, ptr, 4, 0.0, ptr, 4) == -2
+    out = np.zeros((2, 2), dtype=np.float32)
+    out_ptr = out.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+    assert rust_lib.parallax_gemm_f32(2, 2, 2, 1.0, ptr, 2, ptr, 4, 0.0, out_ptr, 4) == -2
+    assert rust_lib.parallax_gemm_f32(2, 2, 2, 1.0, ptr, 4, ptr, 4, 0.0, ptr, 4) == -4
     assert rust_lib.parallax_softmax_f32(ptr, 2, 2, 2) == -2
+
+
+def test_rust_bridge_pointer_alignment_and_null(rust_lib):
+    buf = np.ones((2, 2), dtype=np.float32)
+    ptr = buf.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+    null_ptr = ctypes.POINTER(ctypes.c_float)()
+
+    # Null pointer checks (-1)
+    assert rust_lib.parallax_gemm_f32(2, 2, 2, 1.0, null_ptr, 4, ptr, 4, 0.0, ptr, 4) == -1
+    assert rust_lib.parallax_gemm_f32(2, 2, 2, 1.0, ptr, 4, null_ptr, 4, 0.0, ptr, 4) == -1
+    assert rust_lib.parallax_gemm_f32(2, 2, 2, 1.0, ptr, 4, ptr, 4, 0.0, null_ptr, 4) == -1
+    assert rust_lib.parallax_softmax_f32(null_ptr, 4, 2, 2) == -1
+
+    # Unaligned pointer checks (-3)
+    raw = (ctypes.c_char * 64)()
+    unaligned = ctypes.cast(ctypes.byref(raw, 1), ctypes.POINTER(ctypes.c_float))
+    assert rust_lib.parallax_gemm_f32(2, 2, 2, 1.0, unaligned, 4, ptr, 4, 0.0, ptr, 4) == -3
+    assert rust_lib.parallax_gemm_f32(2, 2, 2, 1.0, ptr, 4, unaligned, 4, 0.0, ptr, 4) == -3
+    assert rust_lib.parallax_gemm_f32(2, 2, 2, 1.0, ptr, 4, ptr, 4, 0.0, unaligned, 4) == -3
+    assert rust_lib.parallax_softmax_f32(unaligned, 4, 2, 2) == -3
 
 
 def test_rust_bridge_softmax_nan_and_inf(rust_lib):
