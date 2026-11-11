@@ -207,7 +207,7 @@ def test_hf_tokenizer_unicode_categories_pattern():
 
 
 def test_hf_tokenizer_unsupported_pattern_fallback(monkeypatch):
-    import warnings, builtins, pytest
+    import warnings, builtins
     from parallax.hf_tokenizer import _PRETOKENIZER_REGEX, _translate_hf_regex
 
     with pytest.raises(ValueError, match="Unsupported regex construct"):
