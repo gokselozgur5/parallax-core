@@ -132,7 +132,7 @@ def test_adamw_weight_decay_skips_frozen_lora_base_weights():
 
 
 def test_lora_generate_stream_sets_eval_mode_on_nested_model():
-    """Verify generate_stream sets eval() recursively on nested LoRA modules (closes #437)."""
+    """Verify generate_stream evaluates in eval() mode and restores training mode upon exit (closes #437)."""
     cfg = ParallaxLMConfig(vocab_size=16, embed_dim=8, num_layers=2, num_heads=2, max_seq_len=16)
     model = ParallaxLM(cfg)
     apply_lora_to_model(model, r=2, lora_dropout=0.5)
@@ -142,22 +142,27 @@ def test_lora_generate_stream_sets_eval_mode_on_nested_model():
         assert block.attn.q_proj.training is True
 
     from parallax.generator import generate_stream
-    _ = list(generate_stream(model, prompt_tokens=[1, 2], max_new_tokens=2))
-
+    gen = generate_stream(model, prompt_tokens=[1, 2], max_new_tokens=2)
+    _ = next(gen)
     for block in model.blocks:
         assert block.attn.q_proj.training is False
+
+    list(gen)
+    assert model.training is True
+    for block in model.blocks:
+        assert block.attn.q_proj.training is True
 
     tokens_in = np.array([[1, 2, 3]])
     for block in model.blocks:
         block.attn.q_proj.lora_B.data = np.ones_like(block.attn.q_proj.lora_B.data)
 
-    # In eval mode, outputs are deterministic despite lora_dropout=0.5
-    out1 = model(tokens_in).data
-    out2 = model(tokens_in).data
-    np.testing.assert_allclose(out1, out2)
-
-    # In train mode, outputs differ due to dropout mask
-    model.train()
+    # After exit, training mode is restored, so outputs differ due to dropout mask
     out_tr1 = model(tokens_in).data
     out_tr2 = model(tokens_in).data
     assert not np.allclose(out_tr1, out_tr2)
+
+    # When in eval mode, outputs are deterministic despite lora_dropout=0.5
+    model.eval()
+    out1 = model(tokens_in).data
+    out2 = model(tokens_in).data
+    np.testing.assert_allclose(out1, out2)
