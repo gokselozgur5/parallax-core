@@ -57,7 +57,6 @@ module = [
     "parallax.models.bit_transformer",
     "parallax.hf_loader",
     "parallax.quant",
-    "parallax.prune",
     "parallax.checkpoint",
     "parallax.gguf_loader",
 ]
