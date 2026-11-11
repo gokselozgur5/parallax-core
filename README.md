@@ -62,19 +62,19 @@ Standard Softmax Attention retains past keys and values linearly with sequence l
 
 | Sequence Length ($T$) | Transformer KV Cache ($O(T)$) | Mamba State Space ($O(1)$) | RAM Advantage (Transformer / Mamba) | Transformer Step Latency | Mamba Step Latency |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **128** | 256.00 KB | 19.00 KB | **13.47x** | 0.39 ms | **0.08 ms** |
-| **512** | 1.00 MB | 19.00 KB | **53.89x** | 0.45 ms | **0.18 ms** |
-| **1024** | 2.00 MB | 19.00 KB | **107.79x** | 0.90 ms | **0.09 ms** |
-| **2048** | 4.00 MB | 19.00 KB | **215.58x** | 1.08 ms | **0.09 ms** |
-| **8192** | 8.00 MB | 19.00 KB | **431.16x** | >4.50 ms | **0.09 ms** |
+| **128** | 256.00 KB | 40.00 KB | **6.40x** | 0.32 ms | **0.51 ms** |
+| **256** | 512.00 KB | 40.00 KB | **12.80x** | 0.30 ms | **0.48 ms** |
+| **512** | 1.00 MB | 40.00 KB | **25.60x** | 0.34 ms | **0.44 ms** |
+| **1024** | 2.00 MB | 40.00 KB | **51.20x** | 0.44 ms | **0.56 ms** |
+| **2048** | 4.00 MB | 40.00 KB | **102.40x** | 0.81 ms | **0.58 ms** |
 
 ```mermaid
 xychart-beta
     title "Inference Memory Footprint (KB) vs Context Length (T)"
-    x-axis ["128", "512", "1024", "2048", "8192"]
-    y-axis "Memory Footprint (KB)" 0 --> 8200
-    bar [256, 1024, 2048, 4096, 8192]
-    line [19, 19, 19, 19, 19]
+    x-axis ["128", "256", "512", "1024", "2048"]
+    y-axis "Memory Footprint (KB)" 0 --> 4200
+    bar [256, 512, 1024, 2048, 4096]
+    line [40, 40, 40, 40, 40]
 ```
 
 ### 2. Hardware Compute Matrix (GEMM & RMSNorm)
@@ -82,9 +82,9 @@ Tested on Apple M2 (`arm64`), FP32 precision:
 
 | Kernel Operation | Matrix / Tensor Shape | NumPy CPU BLAS | C-Engine Native | Rust C-ABI (`libparallax_rs`) | Apple Metal GPU JIT | Parity Max Error |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **GEMM ($A \times B$)** | $1024 \times 1024$ | 13.21 ms | 78.89 ms | 83.32 ms | **11.36 ms (1.16x)** | `2.37e-04` |
-| **RMSNorm** | $1024 \times 1024$ | 1.626 ms | **0.631 ms (2.57x)** | — | 2.573 ms | `3.10e-06` |
-| **RMSNorm** | $1024 \times 2048$ | 3.160 ms | **1.367 ms (2.31x)** | — | 5.326 ms | `4.29e-06` |
+| **GEMM ($A \times B$)** | $1024 \times 1024$ | 1.71 ms | 81.20 ms | — | 11.56 ms (0.15x) | `0.00e+00` |
+| **RMSNorm** | $1024 \times 1024$ | 1.066 ms | **0.657 ms (1.62x)** | — | 2.000 ms | `3.10e-06` |
+| **RMSNorm** | $1024 \times 2048$ | 2.668 ms | **1.352 ms (1.97x)** | — | 4.300 ms | `4.29e-06` |
 
 ### 3. Model Weight Compression Matrix (INT4 & BitNet 1.58)
 

@@ -14,7 +14,7 @@
 
 Bir yapay zeka modelinin kalbinde çalışan tüm mekanizmalar (FlashAttention-2 online softmax, FlashDecoding Split-K, DeepSeek Multi-Head Latent Attention, Muon matris polar ayrışımı, BitNet 1.58 ternary kuantizasyon, Mamba Selective SSM ve INT4 nibble packing) harici tek bir `import torch` olmadan, **570 geçen test** ve **628 atomik commit** ile inşa edilmiştir.
 
-Endüstrinin *"Daha uzun bağlam için yüzlerce gigabayt RAM satın almalısınız"* dayatmasına karşı Parallax Core, **Mamba S6 mimarisiyle 215x–431x RAM tasarrufu**, **1.58-bit BitMamba/BitTransformer** ve **INT4 affine kuantizasyon** ile matematiksel cevabı sahada vermiştir.
+Endüstrinin *"Daha uzun bağlam için yüzlerce gigabayt RAM satın almalısınız"* dayatmasına karşı Parallax Core, **Mamba S6 mimarisiyle 102x–410x RAM tasarrufu**, **1.58-bit BitMamba/BitTransformer** ve **INT4 affine kuantizasyon** ile matematiksel cevabı sahada vermiştir.
 
 ```mermaid
 flowchart TD
@@ -75,7 +75,7 @@ flowchart TD
 
 4. **Anti-RAM & Seçici Durum-Uzayı (Selective State Space - Mamba):**
    - **Mamba S6 Discrete-Time Engine:** Girişe duyarlı $\Delta$ zaman ölçeği ile sürekli diferansiyel denklemlerin ZOH ayrıklaştırılması.
-   - **$O(1)$ Durum Alanı (State Space):** Dizi uzunluğu $T=8192$'ye çıktığında Transformer KV belleği 8.00 MB'a fırlarken Mamba durumu **19.00 KB'ta sabit kalır (431x RAM tasarrufu).**
+   - **$O(1)$ Durum Alanı (State Space):** Dizi uzunluğu $T=8192$'ye çıktığında Transformer KV belleği 8.00 MB'a çıkarken Mamba durumu **20.00 KB'ta sabit kalır (410x RAM tasarrufu).**
    - **BitMamba:** Mamba S6 durum uzayı ile 1.58-bit BitNet projeksiyonlarının birleşimi (hem sıfır KV-cache hem sıfır kayan nokta çarpımı).
 
 5. **Kuantizasyon & Ternary Matris Operasyonları:**
@@ -168,12 +168,11 @@ Bu sayede $T=4096$'da aşırı split oluşumu engellenir ve **$2.64x$ hızlanma*
 
 | Dizi Uzunluğu ($T$) | Transformer KV Cache ($O(T)$) | Mamba State Space ($O(1)$) | RAM Tasarruf Çarpanı | Transformer Adım Süresi | Mamba Adım Süresi |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **128** | 256.00 KB | 19.00 KB | **13.47x** | 0.39 ms | **0.08 ms** |
-| **256** | 512.00 KB | 19.00 KB | **26.95x** | 0.32 ms | **0.26 ms** |
-| **512** | 1.00 MB | 19.00 KB | **53.89x** | 0.45 ms | **0.18 ms** |
-| **1024** | 2.00 MB | 19.00 KB | **107.79x** | 0.90 ms | **0.09 ms** |
-| **2048** | 4.00 MB | 19.00 KB | **215.58x** | 1.08 ms | **0.09 ms** |
-| **4096** | 8.00 MB | 19.00 KB | **431.16x** | 2.15 ms | **0.09 ms** |
+| **128** | 256.00 KB | 40.00 KB | **6.40x** | 0.32 ms | **0.51 ms** |
+| **256** | 512.00 KB | 40.00 KB | **12.80x** | 0.30 ms | **0.48 ms** |
+| **512** | 1.00 MB | 40.00 KB | **25.60x** | 0.34 ms | **0.44 ms** |
+| **1024** | 2.00 MB | 40.00 KB | **51.20x** | 0.44 ms | **0.56 ms** |
+| **2048** | 4.00 MB | 40.00 KB | **102.40x** | 0.81 ms | **0.58 ms** |
 
 ---
 
@@ -182,12 +181,12 @@ Bu sayede $T=4096$'da aşırı split oluşumu engellenir ve **$2.64x$ hızlanma*
 
 | Kernel Operasyonu | Matris / Tensör Boyutu | NumPy BLAS | C-Engine | Rust C-ABI | Apple Metal GPU | Cerrahi Hata Farkı |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **GEMM ($M=N=K$)** | $256 \times 256$ | 0.44 ms | 1.30 ms | 4.14 ms | 1.54 ms | `1.91e-05` |
-| **GEMM ($M=N=K$)** | $512 \times 512$ | 2.14 ms | 17.60 ms | 19.86 ms | 2.17 ms | `9.16e-05` |
-| **GEMM ($M=N=K$)** | $1024 \times 1024$ | 13.21 ms | 78.89 ms | 83.32 ms | **11.36 ms (1.16x)** | `2.37e-04` |
-| **RMSNorm** | $512 \times 512$ | 0.148 ms | **0.109 ms (1.36x)** | — | 0.594 ms | `2.15e-06` |
-| **RMSNorm** | $1024 \times 1024$ | 1.626 ms | **0.631 ms (2.57x)** | — | 2.573 ms | `3.10e-06` |
-| **RMSNorm** | $1024 \times 2048$ | 3.160 ms | **1.367 ms (2.31x)** | — | 5.326 ms | `4.29e-06` |
+| **GEMM ($M=N=K$)** | $256 \times 256$ | 0.03 ms | 1.28 ms | — | 0.59 ms (0.05x) | `0.00e+00` |
+| **GEMM ($M=N=K$)** | $512 \times 512$ | 0.20 ms | 10.51 ms | — | 2.20 ms (0.09x) | `0.00e+00` |
+| **GEMM ($M=N=K$)** | $1024 \times 1024$ | 1.71 ms | 81.20 ms | — | 11.56 ms (0.15x) | `0.00e+00` |
+| **RMSNorm** | $512 \times 512$ | 0.153 ms | **0.119 ms (1.29x)** | — | 0.589 ms | `2.15e-06` |
+| **RMSNorm** | $1024 \times 1024$ | 1.066 ms | **0.657 ms (1.62x)** | — | 2.000 ms | `3.10e-06` |
+| **RMSNorm** | $1024 \times 2048$ | 2.668 ms | **1.352 ms (1.97x)** | — | 4.300 ms | `4.29e-06` |
 
 ---
 
