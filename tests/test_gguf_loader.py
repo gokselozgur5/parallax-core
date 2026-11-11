@@ -1,16 +1,14 @@
 import os
 import tempfile
 import numpy as np
-import pytest
 
 from parallax.generator import generate
 from parallax.gguf import save_gguf
 from parallax.gguf_loader import (
     gguf_metadata_to_parallax,
     load_gguf_pretrained,
-    load_gguf_weights_into_model,
 )
-from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
+from parallax.models.gpt import ParallaxLM
 from parallax.tensor import Tensor
 
 
