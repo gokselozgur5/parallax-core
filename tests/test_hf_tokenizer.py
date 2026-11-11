@@ -231,3 +231,28 @@ def test_hf_tokenizer_unsupported_pattern_fallback(monkeypatch):
     assert tok.pretokenizer_regex == _PRETOKENIZER_REGEX
 
 
+def test_hf_tokenizer_unsupported_sequence_fallback(tmp_path):
+    import json, warnings
+    from parallax.hf_tokenizer import _PRETOKENIZER_REGEX
+
+    tok_file = tmp_path / "tokenizer.json"
+    tok_data = {
+        "model": {"type": "BPE", "vocab": {"a": 0}, "merges": []},
+        "pre_tokenizer": {
+            "type": "Sequence",
+            "pretokenizers": [
+                {"type": "Split", "pattern": {"Regex": r"\d+"}},
+                {"type": "Split", "pattern": {"Regex": r"\s+"}},
+            ],
+        },
+    }
+    tok_file.write_text(json.dumps(tok_data))
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        tok = load_hf_tokenizer(str(tok_file))
+        assert len(w) == 1
+        assert "Unsupported Split configuration" in str(w[0].message)
+    assert tok.pretokenizer_regex == _PRETOKENIZER_REGEX
+
+
+
