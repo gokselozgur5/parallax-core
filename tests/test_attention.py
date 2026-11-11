@@ -116,3 +116,29 @@ def test_attention_non_interleaved_rope_gradcheck():
         return (y * y).sum()
 
     assert check_tensor_gradient(fn, [x], eps=1e-5, tol=1e-3) is True
+
+
+def test_causal_attention_sliding_window_validation():
+    with pytest.raises(ValueError, match="sliding_window must be >= 1"):
+        CausalSelfAttention(embed_dim=16, num_heads=2, sliding_window=0)
+
+    with pytest.raises(ValueError, match="sliding_window must be >= 1"):
+        CausalSelfAttention(embed_dim=16, num_heads=2, sliding_window=-5)
+
+
+def test_causal_attention_sliding_window_flash_and_causal():
+    np.random.seed(42)
+    B, T, C = 1, 10, 16
+    mha_std = CausalSelfAttention(embed_dim=C, num_heads=4, use_flash_attn=False, sliding_window=3)
+    mha_flash = CausalSelfAttention(embed_dim=C, num_heads=4, use_flash_attn=True, sliding_window=3)
+
+    # Share weights
+    mha_flash.q_proj.weight.data = mha_std.q_proj.weight.data.copy()
+    mha_flash.k_proj.weight.data = mha_std.k_proj.weight.data.copy()
+    mha_flash.v_proj.weight.data = mha_std.v_proj.weight.data.copy()
+    mha_flash.out_proj.weight.data = mha_std.out_proj.weight.data.copy()
+
+    x = Tensor(np.random.randn(B, T, C))
+    out_std = mha_std(x).data
+    out_flash = mha_flash(x).data
+    np.testing.assert_allclose(out_std, out_flash, atol=1e-5)

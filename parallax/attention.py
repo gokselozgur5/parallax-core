@@ -108,6 +108,8 @@ class CausalSelfAttention(Module):
         self.rope_theta = float(rope_theta)
         self.rope_interleaved = rope_interleaved
         self.use_flash_attn = use_flash_attn
+        if sliding_window is not None and (isinstance(sliding_window, bool) or sliding_window < 1):
+            raise ValueError(f"sliding_window must be >= 1 or None, got {sliding_window}")
         self.sliding_window = sliding_window
         self.scale = 1.0 / math.sqrt(self.head_dim)
 
@@ -178,7 +180,7 @@ class CausalSelfAttention(Module):
             k_heads_expanded = k_heads
             v_heads_expanded = v_heads
 
-        if self.use_flash_attn and past_len == 0:
+        if self.use_flash_attn and past_len == 0 and self.sliding_window is None:
             out_heads, lse = flash_attention_forward(
                 q_heads,
                 k_heads_expanded,
