@@ -1,6 +1,12 @@
+import os
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
+
 import numpy as np
 import pytest
-from unittest.mock import patch
 
 from parallax.c_engine import (
     c_gemm,
@@ -244,3 +250,27 @@ def test_require_c_engine_raises_consistently_when_unavailable(monkeypatch):
     with pytest.raises(RuntimeError, match="PARALLAX_REQUIRE_C_ENGINE=1"):
         ce._find_or_build_library()
 
+
+def test_makefile_builds_with_default_cc():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        bin_dir = Path(tmpdir) / "bin"
+        bin_dir.mkdir()
+        cc_path = shutil.which("cc")
+        make_path = shutil.which("make")
+        uname_path = shutil.which("uname")
+        if not (cc_path and make_path and uname_path):
+            pytest.skip("Required tools (cc, make, uname) not available")
+        os.symlink(cc_path, bin_dir / "cc")
+        os.symlink(make_path, bin_dir / "make")
+        os.symlink(uname_path, bin_dir / "uname")
+        rm_path = shutil.which("rm")
+        if rm_path:
+            os.symlink(rm_path, bin_dir / "rm")
+
+        src_dir = Path(tmpdir) / "csrc"
+        csrc_repo = Path(__file__).parent.parent / "parallax" / "csrc"
+        shutil.copytree(csrc_repo, src_dir)
+
+        env = {"PATH": str(bin_dir), "HOME": os.environ.get("HOME", "")}
+        res = subprocess.run(["make", "-C", str(src_dir)], env=env, capture_output=True, text=True)
+        assert res.returncode == 0, f"Makefile build failed with cc: {res.stderr}"
