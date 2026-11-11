@@ -285,5 +285,32 @@ def test_bitmamba_docstrings_accurate():
         assert claim not in lm_doc, f"BitMambaLM docstring contains unbacked claim: {claim}"
 
 
+def test_bitmamba_lm_sequential_state_reference():
+    """Verify BitMambaLM incremental state cache against full-sequence execution."""
+    np.random.seed(42)
+    config = BitMambaConfig(vocab_size=32, d_model=16, num_layers=2, d_state=4, d_conv=3, expand=2)
+    model = BitMambaLM(config)
+
+    B = 1
+    idx = np.array([[3, 5, 8, 12]], dtype=np.int64)
+
+    with no_grad():
+        logits_full = model(idx).data
+
+    states_step = [(np.zeros((B, 32, 4)), np.zeros((B, 32, 3))) for _ in range(config.num_layers)]
+    step_logits = []
+    with no_grad():
+        for t in range(idx.shape[1]):
+            token = idx[:, t : t + 1]
+            logits_t, states_step = model(token, states=states_step)
+            step_logits.append(logits_t.data)
+    logits_step = np.concatenate(step_logits, axis=1)
+
+    np.testing.assert_allclose(logits_full, logits_step, atol=1e-5)
+    for layer_idx, (ssm, conv) in enumerate(states_step):
+        assert np.any(ssm != 0.0), f"layer {layer_idx} ssm state must update"
+        assert np.any(conv != 0.0), f"layer {layer_idx} conv state must update"
+
+
 
 
