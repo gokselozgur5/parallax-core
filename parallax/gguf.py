@@ -240,29 +240,23 @@ def load_gguf(file_path: str, cast_float64: bool = True) -> GGUFFile:
         # Parse tensor descriptors
         tensor_infos: Dict[str, GGUFTensorInfo] = {}
         for _ in range(tensor_count):
-            if f.tell() > MAX_GGUF_HEADER_SIZE or f.tell() > total_file_size:
+            if f.tell() > effective_max_header:
                 raise ValueError("GGUF header/descriptors exceeded maximum allowed size limit (DoS protection)")
             name = _read_string(f)
-            ndims_bytes = f.read(4)
-            if len(ndims_bytes) < 4:
-                raise ValueError(f"Unexpected EOF reading dimension count for tensor '{name}'")
+            ndims_bytes = _read_exact(f, 4, f"dimension count for tensor '{name}'")
             n_dims = struct.unpack("<I", ndims_bytes)[0]
             if n_dims > 16:
                 raise ValueError(f"Unreasonable tensor rank {n_dims} for tensor '{name}' (DoS protection)")
 
             dims = []
             for _ in range(n_dims):
-                dim_bytes = f.read(8)
-                if len(dim_bytes) < 8:
-                    raise ValueError(f"Unexpected EOF reading dimensions for tensor '{name}'")
+                dim_bytes = _read_exact(f, 8, f"dimensions for tensor '{name}'")
                 dim = struct.unpack("<Q", dim_bytes)[0]
                 dims.append(dim)
 
             # In GGUF, dimensions are stored inner-to-outer; reverse for standard NumPy row-major shape
             shape = tuple(reversed(dims))
-            desc_tail = f.read(12)
-            if len(desc_tail) < 12:
-                raise ValueError(f"Unexpected EOF reading tensor type and offset for '{name}'")
+            desc_tail = _read_exact(f, 12, f"tensor type and offset for '{name}'")
             ggml_type, offset = struct.unpack("<IQ", desc_tail)
             tensor_infos[name] = GGUFTensorInfo(
                 name=name,
