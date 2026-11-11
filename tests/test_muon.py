@@ -43,7 +43,6 @@ from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.muon import MuonOptimizer
 from parallax.qgalore import QGaLoreAdamW
 from parallax.trainer import Trainer, TrainerConfig
-from parallax.tensor import Tensor
 
 
 def test_muon_optimizer_with_trainer():
