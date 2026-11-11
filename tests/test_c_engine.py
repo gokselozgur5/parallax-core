@@ -104,19 +104,27 @@ def test_c_softmax_3d_tensor():
     np.testing.assert_allclose(result, expected, rtol=1e-5, atol=1e-5)
 
 def test_c_fallback_when_c_engine_unavailable():
-    # Test GEMM fallback
+    # Test GEMM fallback against independent float64 reference
     with patch("parallax.c_engine._find_or_build_library", return_value=None):
         A = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
         B = np.array([[5.0, 6.0], [7.0, 8.0]], dtype=np.float32)
         res = c_gemm(A, B)
-        np.testing.assert_allclose(res, A @ B)
+        # Independent reference: float64 loop / hand-calculated values
+        expected_gemm = np.zeros((2, 2), dtype=np.float32)
+        for i in range(2):
+            for j in range(2):
+                expected_gemm[i, j] = sum(float(A[i, k]) * float(B[k, j]) for k in range(2))
+        np.testing.assert_allclose(res, expected_gemm)
 
-        # Test Softmax fallback
+        # Test Softmax fallback against independent reference
         X = np.array([[1.0, 2.0, 3.0]], dtype=np.float32)
         res_sm = c_softmax(X)
-        shifted = X - np.max(X, axis=-1, keepdims=True)
-        exp_sm = np.exp(shifted) / np.sum(np.exp(shifted), axis=-1, keepdims=True)
-        np.testing.assert_allclose(res_sm, exp_sm, rtol=1e-5, atol=1e-5)
+        import math
+        # Hand-computed reference: max = 3.0, exps = [exp(-2), exp(-1), exp(0)]
+        e = [math.exp(float(x) - 3.0) for x in X[0]]
+        s = sum(e)
+        expected_sm = np.array([[v / s for v in e]], dtype=np.float32)
+        np.testing.assert_allclose(res_sm, expected_sm, rtol=1e-5, atol=1e-5)
 
 
 def test_concurrent_initialization_c_and_metal():
