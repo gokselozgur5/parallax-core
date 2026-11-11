@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 from parallax.gradcheck import check_tensor_gradient
 from parallax.tensor import Tensor, is_grad_enabled, no_grad
 
