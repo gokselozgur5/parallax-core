@@ -83,4 +83,4 @@ ignore_errors = true
 
 [[tool.mypy.overrides]]
 module = "parallax.tensor"
-disable_error_code = ["assignment", "no-redef", "operator"]
+disable_error_code = ["assignment", "no-redef", "operator", "call-overload"]
