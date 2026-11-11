@@ -91,3 +91,20 @@ def test_safetensors_big_endian_conversion():
         for k, v in tensors.items():
             np.testing.assert_allclose(loaded[k], v)
             assert loaded[k].dtype.byteorder in ("<", "=", "|")
+
+
+def test_safetensors_disjoint_offsets_validation():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        file_path = os.path.join(tmpdir, "overlap.safetensors")
+        header = {
+            "a": {"dtype": "F32", "shape": [2], "data_offsets": [0, 8]},
+            "b": {"dtype": "F32", "shape": [2], "data_offsets": [4, 12]},
+        }
+        h_bytes = json.dumps(header).encode("utf-8")
+        with open(file_path, "wb") as f:
+            f.write(struct.pack("<Q", len(h_bytes)))
+            f.write(h_bytes)
+            f.write(b"\x00" * 16)
+
+        with pytest.raises(ValueError, match="Overlapping tensor offsets"):
+            load_safetensors(file_path)
