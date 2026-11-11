@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 from parallax.linear_attention import LinearAttention, elu_feature_map
 from parallax.tensor import Tensor
 
