@@ -5,7 +5,7 @@ Implements magnitude-based unstructured pruning and NVIDIA Sparse Tensor Core
 compliant 2:4 structured sparsity patterns from first principles using NumPy.
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
 from parallax.models.gpt import ParallaxLM
@@ -89,8 +89,9 @@ def calculate_model_sparsity(model: Module) -> Dict[str, float]:
 def apply_pruning_masks(model: Module) -> None:
     """Re-applies stored pruning masks to parameters (e.g. after optimizer steps)."""
     for param in model.parameters():
-        if hasattr(param, "mask") and param.mask is not None:
-            param.data = param.data * param.mask
+        mask = getattr(param, "mask", None)
+        if mask is not None:
+            param.data = param.data * mask
 
 
 def create_pruning_step_hook(model: Module):
@@ -130,15 +131,16 @@ def prune_model(
                 else:
                     raise ValueError(f"Unknown pruning method: {method}")
                 layer.weight.data = pruned_w
-                layer.weight.mask = mask
+                setattr(layer.weight, "mask", mask)
                 model_masks[f"block.{i}.attn.{name}"] = mask
                 pruned_layers_count += 1
 
         # MLP projection layers
         if "mlp" in targets:
             mlp_layers = []
-            if hasattr(block.mlp, "experts"):
-                for exp_idx, exp in enumerate(block.mlp.experts):
+            mlp: Any = block.mlp
+            if hasattr(mlp, "experts"):
+                for exp_idx, exp in enumerate(mlp.experts):
                     if hasattr(exp, "w_gate"):
                         mlp_layers.extend([
                             (f"expert.{exp_idx}.w_gate", exp.w_gate),
@@ -150,16 +152,16 @@ def prune_model(
                             (f"expert.{exp_idx}.fc1", exp.fc1),
                             (f"expert.{exp_idx}.fc2", exp.fc2),
                         ])
-            elif hasattr(block.mlp, "w_gate"):
+            elif hasattr(mlp, "w_gate"):
                 mlp_layers.extend([
-                    ("w_gate", block.mlp.w_gate),
-                    ("w_up", block.mlp.w_up),
-                    ("w_down", block.mlp.w_down),
+                    ("w_gate", mlp.w_gate),
+                    ("w_up", mlp.w_up),
+                    ("w_down", mlp.w_down),
                 ])
-            elif hasattr(block.mlp, "fc1"):
+            elif hasattr(mlp, "fc1"):
                 mlp_layers.extend([
-                    ("fc1", block.mlp.fc1),
-                    ("fc2", block.mlp.fc2),
+                    ("fc1", mlp.fc1),
+                    ("fc2", mlp.fc2),
                 ])
 
             for name, layer in mlp_layers:
@@ -170,11 +172,11 @@ def prune_model(
                 else:
                     raise ValueError(f"Unknown pruning method: {method}")
                 layer.weight.data = pruned_w
-                layer.weight.mask = mask
+                setattr(layer.weight, "mask", mask)
                 model_masks[f"block.{i}.mlp.{name}"] = mask
                 pruned_layers_count += 1
 
     stats = calculate_model_sparsity(model)
     stats["pruned_layers_count"] = float(pruned_layers_count)
-    model.pruning_masks = model_masks
+    setattr(model, "pruning_masks", model_masks)
     return stats
