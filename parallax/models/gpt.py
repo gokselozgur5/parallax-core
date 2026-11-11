@@ -134,6 +134,7 @@ class TransformerBlock(Module):
         self.use_swiglu = use_swiglu
         self.num_experts = num_experts
 
+        self.mlp: Module
         if num_experts is not None and num_experts > 1:
             from parallax.moe import SparseMoE
             self.mlp = SparseMoE(
