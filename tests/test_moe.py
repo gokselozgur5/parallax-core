@@ -125,3 +125,15 @@ def test_sparse_moe_custom_hidden_dim_propagation():
     assert model.blocks[0].mlp.experts[0].w_gate.weight.shape == (48, 16)
 
 
+def test_sparse_moe_invalid_params():
+    with pytest.raises(ValueError, match="num_experts must be >= 1"):
+        SparseMoE(embed_dim=8, num_experts=0, top_k=1)
+
+    with pytest.raises(ValueError, match="top_k must be between 1 and"):
+        SparseMoE(embed_dim=8, num_experts=4, top_k=0)
+
+    with pytest.raises(ValueError, match="top_k must be between 1 and 4"):
+        SparseMoE(embed_dim=8, num_experts=4, top_k=5)
+
+
+
