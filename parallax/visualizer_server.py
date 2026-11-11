@@ -7,6 +7,7 @@ Provides the `/api/visualize_step` endpoint and helper APIs.
 
 import http.server
 import json
+import math
 import os
 import socketserver
 import sys
