@@ -153,6 +153,21 @@ mod tests {
             assert_eq!(res, STATUS_INVALID_DIMENSION);
             let res = parallax_softmax_f32(out.as_mut_ptr(), 2, 2, 2);
             assert_eq!(res, STATUS_INVALID_DIMENSION);
+
+            // Null and alignment checks
+            assert_eq!(parallax_gemm_f32(2, 2, 2, 1.0, std::ptr::null(), 4, buf.as_ptr(), 4, 0.0, out.as_mut_ptr(), 4), STATUS_NULL_POINTER);
+            assert_eq!(parallax_softmax_f32(std::ptr::null_mut(), 4, 2, 2), STATUS_NULL_POINTER);
+            let raw: [u8; 16] = [0; 16];
+            let unaligned = raw.as_ptr().wrapping_add(1) as *const f32;
+            let unaligned_mut = raw.as_ptr().wrapping_add(1) as *mut f32;
+            assert_eq!(parallax_gemm_f32(2, 2, 2, 1.0, unaligned, 4, buf.as_ptr(), 4, 0.0, out.as_mut_ptr(), 4), STATUS_UNALIGNED_POINTER);
+            assert_eq!(parallax_softmax_f32(unaligned_mut, 4, 2, 2), STATUS_UNALIGNED_POINTER);
+
+            // Aliasing checks
+            let mut shared = vec![1.0f32; 8];
+            let s_ptr = shared.as_mut_ptr();
+            assert_eq!(parallax_gemm_f32(2, 2, 2, 1.0, s_ptr, 4, buf.as_ptr(), 4, 0.0, s_ptr, 4), STATUS_ALIASING_POINTER);
+            assert_eq!(parallax_gemm_f32(2, 2, 2, 1.0, s_ptr, 4, buf.as_ptr(), 4, 0.0, s_ptr.add(2), 4), STATUS_ALIASING_POINTER);
         }
     }
 }
