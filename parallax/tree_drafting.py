@@ -16,8 +16,11 @@ def build_tree_attention_mask(parent_indices: List[int]) -> np.ndarray:
     n = len(parent_indices)
     mask = np.zeros((n, n), dtype=int)
     for i in range(n):
-        curr = i
+        curr, visited = i, set()
         while curr != -1:
+            if curr < -1 or curr >= n or curr in visited:
+                raise ValueError(f"Cycle or invalid parent detected at node {curr}")
+            visited.add(curr)
             mask[i, curr] = 1
             curr = parent_indices[curr]
     return mask
@@ -42,6 +45,8 @@ def verify_tree_candidates(
         The longest verified token sequence (or [correction_token] if root is rejected).
     """
     n = len(draft_tokens)
+    if n != len(parent_indices):
+        raise ValueError(f"Mismatch between draft tokens ({n}) and parent indices ({len(parent_indices)})")
     if n == 0:
         return []
 
@@ -66,9 +71,12 @@ def verify_tree_candidates(
     # Find deepest valid branch
     best_path: List[int] = []
     for node in valid_nodes:
-        path = []
+        path, visited = [], set()
         curr = node
         while curr != -1 and curr in valid_nodes:
+            if curr in visited:
+                raise ValueError(f"Cycle detected in valid nodes at {curr}")
+            visited.add(curr)
             path.append(draft_tokens[curr])
             curr = parent_indices[curr]
         if len(path) > len(best_path):
