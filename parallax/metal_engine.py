@@ -13,7 +13,8 @@ import sys
 import threading
 import ctypes
 from ctypes import util
-from typing import Optional
+from typing import Optional, ContextManager
+from contextlib import contextmanager
 import numpy as np
 
 # Global cached Metal state
@@ -121,6 +122,14 @@ def _release_buffers(*buffers: Optional[ctypes.c_void_p]) -> None:
     for buf in buffers:
         if buf:
             _objc_send(None, buf, "release")
+
+
+@contextmanager
+def _managed_buffers(*buffers: Optional[ctypes.c_void_p]):
+    try:
+        yield
+    finally:
+        _release_buffers(*buffers)
 
 
 def _cf_string(s: str) -> ctypes.c_void_p:
