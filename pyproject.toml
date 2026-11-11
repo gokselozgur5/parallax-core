@@ -55,7 +55,6 @@ follow_imports = "silent"
 module = [
     "parallax.paged_attention",
     "parallax.metal_engine",
-    "parallax.grouped_gemm",
     "parallax.c_engine",
     "parallax.models.qwen2",
     "parallax.models.llama",

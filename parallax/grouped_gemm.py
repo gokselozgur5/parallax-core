@@ -16,8 +16,8 @@ class GroupedGEMMDispatcher:
         expert_assignments: List[int],
     ) -> Tuple[List[np.ndarray], List[List[int]]]:
         """Group tokens by their assigned expert ID into contiguous batches."""
-        expert_batches = [[] for _ in range(self.num_experts)]
-        expert_orig_indices = [[] for _ in range(self.num_experts)]
+        expert_batches: List[List[np.ndarray]] = [[] for _ in range(self.num_experts)]
+        expert_orig_indices: List[List[int]] = [[] for _ in range(self.num_experts)]
 
         for idx, (token, exp_id) in enumerate(zip(tokens, expert_assignments)):
             expert_batches[exp_id].append(token)
