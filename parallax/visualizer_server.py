@@ -274,7 +274,14 @@ class VisualizerHandler(http.server.BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
-        content_length = int(self.headers.get("Content-Length", 0))
+        raw_cl = self.headers.get("Content-Length")
+        try:
+            content_length = int(raw_cl) if raw_cl is not None else 0
+            if content_length < 0:
+                raise ValueError("Negative Content-Length")
+        except (ValueError, TypeError):
+            self.send_json({"error": "Invalid Content-Length header"}, 400)
+            return
 
         if content_length > MAX_REQUEST_BODY_BYTES:
             self.send_json({"error": "Request body too large"}, 413)
@@ -283,18 +290,27 @@ class VisualizerHandler(http.server.BaseHTTPRequestHandler):
         body = self.rfile.read(content_length) if content_length > 0 else b"{}"
         try:
             req = json.loads(body.decode("utf-8")) if body else {}
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, UnicodeDecodeError):
             self.send_json({"error": "Invalid JSON"}, 400)
             return
 
-        if parsed.path == "/api/visualize_step":
-            self.handle_visualize_step(req)
-        elif parsed.path == "/api/reset":
-            self.send_json({"status": "ok", "message": "State reset ready"})
-        else:
-            self.send_response(404)
-            self.end_headers()
-            self.wfile.write(b"404 Not Found")
+        if not isinstance(req, dict):
+            self.send_json({"error": "Request body must be a JSON object"}, 400)
+            return
+
+        try:
+            if parsed.path == "/api/visualize_step":
+                self.handle_visualize_step(req)
+            elif parsed.path == "/api/reset":
+                self.send_json({"status": "ok", "message": "State reset ready"})
+            else:
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(b"404 Not Found")
+        except (ValueError, TypeError, KeyError) as e:
+            self.send_json({"error": f"Invalid request parameters: {e}"}, 400)
+        except Exception as e:
+            self.send_json({"error": f"Internal server error: {e}"}, 500)
 
     def handle_visualize_step(self, req: Dict[str, Any]) -> None:
         prompt = req.get("prompt", "parallax")
