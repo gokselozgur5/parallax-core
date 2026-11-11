@@ -48,7 +48,8 @@ def validate_tree_topology(
                 raise ValueError(f"Cycle detected in tree topology involving node {curr}")
             if state[curr] == 2:
                 break
-            state[curr], _ = 1, path.append(curr)
+            state[curr] = 1
+            path.append(curr)
             curr = int(parents[curr])
         for node in path:
             state[node] = 2
@@ -147,7 +148,7 @@ def prune_tree_topology(
     if len(allowed_nodes) > max_nodes:
         # Sort allowed nodes by score descending
         sorted_by_score = sorted(list(allowed_nodes), key=lambda x: scores_arr[x], reverse=True)
-        retained = set()
+        retained: set[int] = set()
         for cand in sorted_by_score:
             if len(retained) >= max_nodes:
                 break
