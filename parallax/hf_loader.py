@@ -248,8 +248,8 @@ def load_hf_weights_into_model(
     missing_keys = [k for k in expected_keys if k not in hf_tensors]
     unexpected_keys = [k for k in hf_tensors if k not in expected_keys]
 
-    model._missing_keys = missing_keys
-    model._unexpected_keys = unexpected_keys
+    setattr(model, "_missing_keys", missing_keys)
+    setattr(model, "_unexpected_keys", unexpected_keys)
 
     if strict and (missing_keys or unexpected_keys):
         raise RuntimeError(
@@ -357,9 +357,10 @@ def load_hf_pretrained(
     for wf in weight_files:
         tensors.update(load_safetensors(wf, cast_float64=True))
     p_config = hf_config_to_parallax(hf_config, hf_tensors=tensors)
-    if isinstance(p_config, Qwen2Config) or (isinstance(hf_config.get("model_type"), str) and hf_config.get("model_type", "").startswith("qwen2")):
+    model: ParallaxLM
+    if isinstance(p_config, Qwen2Config):
         model = Qwen2ForCausalLM(p_config)
-    elif isinstance(p_config, LlamaConfig) or hf_config.get("model_type") == "llama":
+    elif isinstance(p_config, LlamaConfig):
         model = LlamaForCausalLM(p_config)
     else:
         model = ParallaxLM(p_config)
@@ -483,14 +484,15 @@ def save_hf_pretrained(
         if block.attn.out_proj.bias is not None:
             tensors[f"{prefix}.self_attn.o_proj.bias"] = block.attn.out_proj.bias.data.astype(np.float32)
 
-        if hasattr(block.mlp, "w_gate"):
-            tensors[f"{prefix}.mlp.gate_proj.weight"] = block.mlp.w_gate.weight.data.astype(np.float32)
-            tensors[f"{prefix}.mlp.up_proj.weight"] = block.mlp.w_up.weight.data.astype(np.float32)
-            tensors[f"{prefix}.mlp.down_proj.weight"] = block.mlp.w_down.weight.data.astype(np.float32)
-        elif hasattr(block.mlp, "fc1"):
-            tensors[f"{prefix}.mlp.gate_proj.weight"] = block.mlp.fc1.weight.data.astype(np.float32)
-            tensors[f"{prefix}.mlp.up_proj.weight"] = block.mlp.fc1.weight.data.astype(np.float32)
-            tensors[f"{prefix}.mlp.down_proj.weight"] = block.mlp.fc2.weight.data.astype(np.float32)
+        mlp: Any = block.mlp
+        if hasattr(mlp, "w_gate"):
+            tensors[f"{prefix}.mlp.gate_proj.weight"] = mlp.w_gate.weight.data.astype(np.float32)
+            tensors[f"{prefix}.mlp.up_proj.weight"] = mlp.w_up.weight.data.astype(np.float32)
+            tensors[f"{prefix}.mlp.down_proj.weight"] = mlp.w_down.weight.data.astype(np.float32)
+        elif hasattr(mlp, "fc1"):
+            tensors[f"{prefix}.mlp.gate_proj.weight"] = mlp.fc1.weight.data.astype(np.float32)
+            tensors[f"{prefix}.mlp.up_proj.weight"] = mlp.fc1.weight.data.astype(np.float32)
+            tensors[f"{prefix}.mlp.down_proj.weight"] = mlp.fc2.weight.data.astype(np.float32)
 
     save_safetensors(os.path.join(output_dir, "model.safetensors"), tensors)
 

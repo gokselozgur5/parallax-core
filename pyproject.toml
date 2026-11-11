@@ -54,7 +54,6 @@ follow_imports = "silent"
 [[tool.mypy.overrides]]
 module = [
     "parallax.metal_engine",
-    "parallax.hf_loader",
     "parallax.quant",
     "parallax.checkpoint",
     "parallax.gguf_loader",
