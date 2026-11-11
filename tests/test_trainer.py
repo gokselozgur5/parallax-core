@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
+from parallax.lora import apply_lora_to_model
 from parallax.optim import AdamW, CosineAnnealingWithWarmup
 from parallax.trainer import Trainer, TrainerConfig
 
@@ -68,3 +69,33 @@ def test_trainer_gradient_accumulation_and_loss_decrease():
     initial_loss = history[0]["loss"]
     final_loss = history[-1]["loss"]
     assert final_loss < initial_loss * 0.5
+
+
+def test_trainer_sets_model_training_mode_with_lora():
+    config = ParallaxLMConfig(
+        vocab_size=8,
+        embed_dim=16,
+        num_heads=2,
+        num_layers=1,
+        max_seq_len=8,
+    )
+    model = ParallaxLM(config)
+    lora_layers = apply_lora_to_model(model, target_modules=("q_proj",), r=2, lora_dropout=0.5)
+    model.eval()
+    assert model.training is False
+    assert all(not l.training for l in lora_layers)
+
+    opt = AdamW(model.parameters(), lr=0.01)
+    train_cfg = TrainerConfig(max_steps=2, grad_accum_steps=1, eval_interval=1, eval_steps=1)
+    train_gen = dummy_data_loader(batch_size=2, seq_len=4)
+    val_gen = dummy_data_loader(batch_size=2, seq_len=4)
+    trainer = Trainer(model=model, optimizer=opt, config=train_cfg, train_loader=train_gen, val_loader=val_gen)
+
+    trainer.train()
+    assert model.training is True
+    assert all(l.training for l in lora_layers)
+
+    trainer.evaluate()
+    assert model.training is False
+    assert all(not l.training for l in lora_layers)
+
