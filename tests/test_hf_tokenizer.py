@@ -206,3 +206,28 @@ def test_hf_tokenizer_unicode_categories_pattern():
     assert "Hello" in matches
 
 
+def test_hf_tokenizer_unsupported_pattern_fallback(monkeypatch):
+    import warnings, builtins, pytest
+    from parallax.hf_tokenizer import _PRETOKENIZER_REGEX, _translate_hf_regex
+
+    with pytest.raises(ValueError, match="Unsupported regex construct"):
+        _translate_hf_regex(r"[[:alpha:]]+")
+    with pytest.raises(ValueError, match="Unsupported regex construct"):
+        _translate_hf_regex(r"[a&&b]")
+    with pytest.raises(ValueError, match="Unsupported Unicode property"):
+        _translate_hf_regex(r"\p{NoSuchCategory}")
+
+    orig_import = builtins.__import__
+    def mock_import(name, *a, **kw):
+        if name == "regex": raise ImportError
+        return orig_import(name, *a, **kw)
+    monkeypatch.setattr(builtins, "__import__", mock_import)
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        tok = HFTokenizer(vocab={"a": 0}, split_pattern=r"\p{NoSuchCategory}")
+        assert len(w) == 1
+        assert "Unsupported pre-tokenizer pattern" in str(w[0].message)
+    assert tok.pretokenizer_regex == _PRETOKENIZER_REGEX
+
+
