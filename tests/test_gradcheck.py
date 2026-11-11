@@ -1,9 +1,7 @@
 import numpy as np
-import pytest
-from parallax.engine import Value
 from parallax.attention import CausalSelfAttention
-from parallax.gradcheck import check_gradient, check_tensor_gradient, compute_numerical_gradient
-from parallax.models.gpt import SwiGLU, tensor_silu
+from parallax.gradcheck import check_gradient, check_tensor_gradient
+from parallax.models.gpt import SwiGLU
 from parallax.nn import LayerNorm, Linear, RMSNorm
 from parallax.tensor import Tensor
 
