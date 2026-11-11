@@ -2,11 +2,6 @@
 Regression tests for CLI inference and incremental UTF-8 streaming decoding.
 """
 
-import codecs
-import io
-import sys
-from unittest.mock import patch
-import pytest
 
 from parallax.generator import CharTokenizer
 from parallax.tokenizer import BPETokenizer, IncrementalTokenDecoder
