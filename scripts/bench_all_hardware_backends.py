@@ -151,7 +151,11 @@ def get_rust_lib() -> Optional[ctypes.CDLL]:
         lib.parallax_version.argtypes = []
         lib.parallax_version.restype = ctypes.c_uint32
         ver = lib.parallax_version()
-        if ver != 1:
+        if ver != 2:
+            warnings.warn(
+                f"Rust library ABI version mismatch (got {ver}, expected 2). "
+                "Please rebuild with: cargo build --manifest-path crates/parallax-rs/Cargo.toml --release"
+            )
             _RUST_CDLL = None
             return None
         lib.parallax_gemm_f32.argtypes = [
