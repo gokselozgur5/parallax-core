@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 
 from parallax.generator import generate, generate_stream
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
