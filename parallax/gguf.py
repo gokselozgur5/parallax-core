@@ -91,15 +91,11 @@ class GGUFFile:
 
 
 def _read_string(f: BinaryIO) -> str:
-    len_bytes = f.read(8)
-    if len(len_bytes) < 8:
-        raise ValueError("Unexpected EOF reading GGUF string length")
+    len_bytes = _read_exact(f, 8, "string length")
     str_len = struct.unpack("<Q", len_bytes)[0]
     if str_len > MAX_GGUF_STRING_LEN:
         raise ValueError(f"GGUF string length {str_len} exceeds maximum allowed limit {MAX_GGUF_STRING_LEN}")
-    raw = f.read(str_len)
-    if len(raw) < str_len:
-        raise ValueError("Unexpected EOF reading GGUF string payload")
+    raw = _read_exact(f, str_len, "string payload")
     return raw.decode("utf-8", errors="replace")
 
 
