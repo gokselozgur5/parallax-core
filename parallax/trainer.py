@@ -66,7 +66,7 @@ class Trainer:
             x, y = next(self.train_loader if self.val_loader is None else self.val_loader)
             logits = self.model(x)
             loss = cross_entropy_loss(logits, y, label_smoothing=0.0)
-            val_losses.append(loss.data)
+            val_losses.append(float(loss.data))
 
         return float(np.mean(val_losses))
 
@@ -97,7 +97,7 @@ class Trainer:
                 # Scale loss by 1 / grad_accum_steps for accumulation
                 scaled_loss = loss * (1.0 / cfg.grad_accum_steps)
                 scaled_loss.backward()
-                micro_loss_sum += loss.data
+                micro_loss_sum += float(loss.data)
 
             step_loss = micro_loss_sum / cfg.grad_accum_steps
 
