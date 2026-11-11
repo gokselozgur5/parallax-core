@@ -42,10 +42,14 @@ def _find_candidate_in_dir(d: Path, candidate_names: list[str]) -> Optional[Path
 def _find_or_build_library() -> Optional[ctypes.CDLL]:
     global _C_LIB, _LIB_LOAD_ATTEMPTED
     if _LIB_LOAD_ATTEMPTED:
+        if _C_LIB is None and os.environ.get("PARALLAX_REQUIRE_C_ENGINE") == "1":
+            raise RuntimeError(f"PARALLAX_REQUIRE_C_ENGINE=1 but C-engine failed: {_LOAD_ERROR_REASON}")
         return _C_LIB
 
     with _INIT_LOCK:
         if _LIB_LOAD_ATTEMPTED:
+            if _C_LIB is None and os.environ.get("PARALLAX_REQUIRE_C_ENGINE") == "1":
+                raise RuntimeError(f"PARALLAX_REQUIRE_C_ENGINE=1 but C-engine failed: {_LOAD_ERROR_REASON}")
             return _C_LIB
         return _find_or_build_library_unlocked()
 
