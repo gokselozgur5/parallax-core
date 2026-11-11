@@ -259,4 +259,37 @@ def test_linear4bit_nonzero_bias_preservation():
     np.testing.assert_allclose(out.data, expected, atol=1e-6)
 
 
+def test_linear4bit_cache_invalidation_and_float16_small_range():
+    """Verify cache invalidation on weight assignment and float16 small-range NMSE (#445)."""
+    # 1. Cache invalidation on assignment
+    l4 = Linear4Bit(64, 32, cache_dequantized=True)
+    x = Tensor(np.random.randn(2, 64))
+    out1 = l4(x)
+    assert l4._cached_weight is not None
+
+    # Replace packed_weight
+    new_packed = np.random.randint(0, 16, size=l4.packed_weight.shape, dtype=np.uint8)
+    l4.packed_weight = new_packed
+    assert l4._cached_weight is None
+    out2 = l4(x)
+    assert not np.allclose(out1.data, out2.data)
+
+    # 2. Float16 small non-zero range group NMSE
+    np.random.seed(42)
+    w_f16 = (np.random.randn(4, 32) * 3e-6).astype(np.float16)
+    packed_s, scales_s, zeros_s = quantize_int4_groupwise(w_f16, group_size=32)
+    w_recon = dequantize_int4_groupwise(packed_s, scales_s, zeros_s, group_size=32)
+    w_f64 = w_f16.astype(np.float64)
+    nmse = np.mean((w_f64 - w_recon) ** 2) / np.var(w_f64)
+    assert nmse < 0.02, f"NMSE {nmse} too high for small-range float16 groups"
+
+    # 3. Footprint includes cache when populated
+    footprint_uncached = l4.memory_footprint()
+    assert footprint_uncached["cached_bytes"] == 0
+    _ = l4(x)  # populate cache
+    footprint_cached = l4.memory_footprint()
+    assert footprint_cached["cached_bytes"] == l4._cached_weight.nbytes
+    assert footprint_cached["total_quant_bytes"] > footprint_uncached["total_quant_bytes"]
+
+
 
