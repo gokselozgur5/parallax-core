@@ -165,3 +165,34 @@ def test_metal_engine_int32_bounds():
     weight = np.ones(4, dtype=np.float32)
     with pytest.raises(ValueError, match="INT32_MAX"):
         metal_rmsnorm(MockArray(), weight)
+
+
+def test_metal_buffers_released_on_exception():
+    if not is_metal_available() or sys.platform != "darwin":
+        pytest.skip("Metal not available on this platform")
+
+    import ctypes
+    from parallax.metal_engine import _OBJC, _DEVICE
+
+    objc_msgSend = ctypes.cast(_OBJC.objc_msgSend, ctypes.c_void_p).value
+    sel = _OBJC.sel_registerName(b"currentAllocatedSize")
+    query_alloc = ctypes.CFUNCTYPE(ctypes.c_size_t, ctypes.c_void_p, ctypes.c_void_p)(objc_msgSend)
+
+    x = np.random.randn(64, 64).astype(np.float32)
+    w = np.random.randn(64).astype(np.float32)
+
+    # Warmup
+    metal_rmsnorm(x, w)
+    alloc_before = query_alloc(_DEVICE, sel)
+
+    for _ in range(100):
+        with pytest.raises(TypeError):
+            metal_rmsnorm(x, w, eps="invalid_eps")  # type: ignore[arg-type]
+
+    alloc_after = query_alloc(_DEVICE, sel)
+    assert alloc_after <= alloc_before, f"Leaked {alloc_after - alloc_before} bytes after failing calls"
+
+    # Following valid call must return
+    res = metal_rmsnorm(x, w)
+    assert res.shape == (64, 64)
+
