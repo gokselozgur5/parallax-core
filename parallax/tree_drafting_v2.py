@@ -387,3 +387,29 @@ class TreeSpeculativeGenerator:
         self.max_sequence_length = max_sequence_length
         self.max_candidate_paths = max_candidate_paths
         self.max_successors_per_node = max_successors_per_node
+
+    def validate_configuration(
+        self,
+        draft_tokens: Union[List[int], np.ndarray],
+        parent_indices: Union[List[int], np.ndarray],
+        current_sequence_length: int = 0,
+    ) -> None:
+        """Validate token length, sequence limits, graph cycles, and successors."""
+        tokens, parents = np.asarray(draft_tokens, dtype=np.int64), np.asarray(parent_indices, dtype=np.int64)
+        n = len(tokens)
+        if n != len(parents):
+            raise ValueError(f"Length mismatch: {n} tokens vs {len(parents)} parents")
+        if n > self.max_draft_tokens:
+            raise ValueError(f"Draft token length {n} exceeds max_draft_tokens {self.max_draft_tokens}")
+        if current_sequence_length + n > self.max_sequence_length:
+            raise ValueError(f"Sequence length {current_sequence_length + n} exceeds {self.max_sequence_length}")
+        validate_tree_topology(parents, max_nodes=self.max_draft_tokens)
+        if n > 0:
+            counts: Dict[int, int] = {}
+            for p in parents:
+                counts[p] = counts.get(p, 0) + 1
+                if p != -1 and counts[p] > self.max_successors_per_node:
+                    raise ValueError(f"Parent {p} exceeds max successors {self.max_successors_per_node}")
+            leaves = sum(1 for i in range(n) if i not in set(parents))
+            if leaves > self.max_candidate_paths:
+                raise ValueError(f"Candidate paths {leaves} exceeds limit {self.max_candidate_paths}")
