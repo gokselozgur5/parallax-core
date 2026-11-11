@@ -2,9 +2,7 @@
 Unit tests for Trainer with gradient accumulation and evaluation (M14).
 """
 
-import itertools
 import numpy as np
-import pytest
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.lora import apply_lora_to_model
