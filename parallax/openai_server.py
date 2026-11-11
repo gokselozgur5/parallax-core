@@ -195,12 +195,15 @@ def create_handler(state: OpenAIServerState):
                         finish_reason = "length" if max_tokens == 0 else "stop"
                         last_tok = None
                         stream_decoder = IncrementalTokenDecoder(state.tokenizer)
+                        eos_id = getattr(req, "eos_token_id", None)
                         if max_tokens > 0:
-                            while req.status != RequestStatus.FINISHED:
+                            while req.status not in (RequestStatus.FINISHED, RequestStatus.FAILED):
                                 step_outputs = state.engine.step()
                                 for r_id, tok in step_outputs:
                                     if r_id == req_id:
                                         last_tok = tok
+                                        if eos_id is not None and tok == eos_id:
+                                            continue
                                         piece = stream_decoder.decode_token(tok)
                                         chunk_payload = {
                                             "id": req_id,
@@ -216,6 +219,13 @@ def create_handler(state: OpenAIServerState):
                                             ],
                                         }
                                         self._send_sse_chunk(chunk_payload)
+
+                            state.engine.pop_completed_request(req_id, clear_kv=True)
+
+                            if req.status == RequestStatus.FAILED:
+                                err_msg = req.error or "Inference step failed"
+                                self._send_sse_chunk({"error": {"message": err_msg, "type": "server_error"}})
+                                return
 
                             remaining = stream_decoder.finish()
                             if remaining:
@@ -234,11 +244,12 @@ def create_handler(state: OpenAIServerState):
                                 }
                                 self._send_sse_chunk(chunk_payload)
 
-                            eos_id = getattr(req, "eos_token_id", None)
                             if eos_id is not None and last_tok == eos_id:
                                 finish_reason = "stop"
                             else:
                                 finish_reason = "length"
+                        else:
+                            state.engine.pop_completed_request(req_id, clear_kv=True)
 
                         # Send final chunk with finish_reason
                         stop_payload = {
@@ -261,13 +272,23 @@ def create_handler(state: OpenAIServerState):
 
                     # Non-streaming execution
                     if max_tokens > 0:
-                        while req.status != RequestStatus.FINISHED:
+                        while req.status not in (RequestStatus.FINISHED, RequestStatus.FAILED):
                             state.engine.step()
 
-                    # Convert generated tokens back to text
-                    gen_text = decode_tokens(req.generated_tokens) if req.generated_tokens else ""
+                    state.engine.pop_completed_request(req_id, clear_kv=True)
 
+                    if req.status == RequestStatus.FAILED:
+                        err_msg = req.error or "Inference step failed"
+                        self._send_json(500, {"error": {"message": err_msg, "type": "server_error"}})
+                        return
+
+                    # Convert generated tokens back to text
+                    tokens_to_decode = req.generated_tokens
                     eos_id = getattr(req, "eos_token_id", None)
+                    if eos_id is not None and tokens_to_decode and tokens_to_decode[-1] == eos_id:
+                        tokens_to_decode = tokens_to_decode[:-1]
+                    gen_text = decode_tokens(tokens_to_decode) if tokens_to_decode else ""
+
                     if max_tokens == 0:
                         finish_reason = "length"
                     elif eos_id is not None and req.generated_tokens and req.generated_tokens[-1] == eos_id:
