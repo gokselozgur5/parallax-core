@@ -112,10 +112,15 @@ class MultiHeadLatentAttention:
             q_pos = np.arange(T)[:, None] + past_len
             k_pos = np.arange(S)[None, :]
             causal_mask = k_pos <= q_pos
-            scores = np.where(causal_mask[None, None, :, :], scores, -1e9)
+            scores = np.where(causal_mask[None, None, :, :], scores, -np.inf)
 
-        exp_s = np.exp(scores - np.max(scores, axis=-1, keepdims=True))
-        weights = exp_s / np.sum(exp_s, axis=-1, keepdims=True)
+        max_scores = np.max(scores, axis=-1, keepdims=True)
+        all_masked = np.isneginf(max_scores)
+        safe_max = np.where(all_masked, 0.0, max_scores)
+        exp_s = np.exp(scores - safe_max)
+        exp_s = np.where(all_masked, 0.0, exp_s)
+        sum_exp = np.sum(exp_s, axis=-1, keepdims=True)
+        weights = exp_s / np.where(sum_exp == 0.0, 1.0, sum_exp)
         context = np.matmul(weights, v_c).swapaxes(1, 2).reshape(B, T, self.num_heads * self.head_dim)
         out = np.matmul(context, self.w_o)
 
