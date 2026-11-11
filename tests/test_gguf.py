@@ -156,3 +156,27 @@ def test_gguf_bool_and_int64_array_serialization():
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+
+def test_gguf_nested_array_depth_limit():
+    # Build a synthetic GGUF file with deeply nested arrays exceeding depth limit
+    with tempfile.NamedTemporaryFile(suffix=".gguf", delete=False) as f:
+        tmp_path = f.name
+        f.write(GGUF_MAGIC)
+        f.write(struct.pack("<IQQ", 3, 0, 1))  # 0 tensors, 1 metadata kv
+        key = "nested".encode("utf-8")
+        f.write(struct.pack("<Q", len(key)))
+        f.write(key)
+        f.write(struct.pack("<I", 9))  # GGUF_TYPE_ARRAY
+        # Nest 20 levels deep (MAX_GGUF_ARRAY_DEPTH is 16)
+        for _ in range(20):
+            f.write(struct.pack("<IQ", 9, 1))  # GGUF_TYPE_ARRAY, count 1
+        f.write(struct.pack("<IQ", 5, 1))  # GGUF_TYPE_INT32, count 1
+        f.write(struct.pack("<i", 42))
+
+    try:
+        with pytest.raises(ValueError, match="GGUF array nesting depth exceeds maximum limit"):
+            load_gguf(tmp_path)
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
