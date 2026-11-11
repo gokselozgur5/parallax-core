@@ -203,7 +203,7 @@ def load_gguf(file_path: str, cast_float64: bool = True) -> GGUFFile:
     with open(file_path, "rb") as f:
         magic = _read_exact(f, 4, "magic header")
         if magic != GGUF_MAGIC:
-            raise ValueError(f"Invalid GGUF magic header: expected {GGUF_MAGIC}, got {magic}")
+            raise ValueError(f"Invalid GGUF magic header: expected {GGUF_MAGIC!r}, got {magic!r}")
 
         version = struct.unpack("<I", _read_exact(f, 4, "version"))[0]
         if version not in (2, 3):
