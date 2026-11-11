@@ -580,6 +580,8 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         chosen_text = req.get("chosen", "parallax builds clarity and depth")
         rejected_text = req.get("rejected", "parallax creates confusion and noise")
         beta = float(req.get("beta", 0.1))
+        if not math.isfinite(beta) or beta <= 0.0:
+            raise ValueError("beta must be a finite positive number")
         steps = int(req.get("steps", 3))
         steps = max(1, min(steps, MAX_STEPS))
 
