@@ -11,6 +11,7 @@ import pytest
 
 from parallax.c_engine import (
     c_gemm,
+    c_rmsnorm,
     c_softmax,
     is_c_engine_available,
     _find_or_build_library,
@@ -179,7 +180,6 @@ def test_concurrent_initialization_c_and_metal(monkeypatch):
 
 
 def test_c_engine_diagnostic_reporting_and_require_flag(monkeypatch):
-    import os
     import parallax.c_engine as ce
 
     # Force library load failure
@@ -371,3 +371,16 @@ def test_c_engine_build_timeout_and_cache_directory(monkeypatch):
         reason = ce.get_c_engine_load_error()
         assert reason is not None
         assert "timed out" in reason.lower()
+
+
+def test_c_rmsnorm_fallback_narrow_integer_precision():
+    """Verify c_rmsnorm fallback does not overflow on narrow integer types (issue #474)."""
+    x_int = np.array([[100, 200], [-100, -200]], dtype=np.int16)
+    weight = np.array([1.0, 1.0], dtype=np.float32)
+    with patch("parallax.c_engine._find_or_build_library", return_value=None):
+        out = c_rmsnorm(x_int, weight)
+        ref_x = x_int.astype(np.float32)
+        ref_rms = np.sqrt(np.mean(ref_x ** 2, axis=-1, keepdims=True) + 1e-6)
+        expected = (ref_x / ref_rms) * weight
+        assert not np.isnan(out).any()
+        np.testing.assert_allclose(out, expected, rtol=1e-5, atol=1e-5)
