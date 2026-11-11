@@ -180,3 +180,22 @@ def test_gguf_nested_array_depth_limit():
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+
+def test_gguf_truncated_header_exact_reads():
+    with tempfile.NamedTemporaryFile(suffix=".gguf", delete=False) as f:
+        tmp_path = f.name
+        f.write(GGUF_MAGIC)
+        f.write(struct.pack("<IQQ", 3, 0, 1))
+        key = "short".encode("utf-8")
+        f.write(struct.pack("<Q", len(key)))
+        f.write(key)
+        f.write(struct.pack("<I", 4))  # uint32 type (needs 4 bytes)
+        f.write(b"\x01\x02")  # only 2 bytes provided
+
+    try:
+        with pytest.raises(ValueError, match="Unexpected EOF reading GGUF uint32"):
+            load_gguf(tmp_path)
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
