@@ -1,5 +1,3 @@
-import numpy as np
-import pytest
 from parallax.batching import ContinuousBatchEngine, RequestStatus, SequenceRequest
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 
