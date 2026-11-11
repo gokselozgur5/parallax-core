@@ -176,6 +176,15 @@ def speculative_generate(
     """
     if gamma < 1:
         raise ValueError("gamma must be >= 1")
+    if not prompt_tokens:
+        raise ValueError("prompt_tokens must not be empty")
+
+    was_target_training = getattr(target_model, "training", False)
+    was_draft_training = getattr(draft_model, "training", False)
+    if hasattr(target_model, "eval"):
+        target_model.eval()
+    if hasattr(draft_model, "eval"):
+        draft_model.eval()
 
     tokens = list(prompt_tokens)
     total_generated = 0
@@ -184,102 +193,106 @@ def speculative_generate(
     target_forward_passes = 0
     start_time = time.perf_counter()
 
-    max_seq_len = min(target_model.config.max_seq_len, draft_model.config.max_seq_len)
-
-    while total_generated < max_new_tokens:
-        spec_budget = min(gamma, max_new_tokens - total_generated)
-        if spec_budget <= 0:
-            break
-
-        # 1. Draft step: Propose `spec_budget` tokens autoregressively using the draft model
-        draft_tokens: List[int] = []
-        draft_prob_dists: List[np.ndarray] = []
-        curr_draft_seq = list(tokens)
-        hit_eos_in_draft = False
-
-        for _ in range(spec_budget):
-            idx_d = np.array([curr_draft_seq[-draft_model.config.max_seq_len:]], dtype=np.int64)
-            with no_grad():
-                d_logits = draft_model(idx_d).data[0, -1, :]
-            # Compute draft probability distribution for candidate
-            d_p = _compute_token_probs(d_logits, temperature=temperature, top_k=top_k, top_p=top_p)
-            next_t = sample_next_token(d_logits, temperature=temperature, top_k=top_k, top_p=top_p)
-            draft_tokens.append(next_t)
-            draft_prob_dists.append(d_p)
-            curr_draft_seq.append(next_t)
-            if eos_token_id is not None and next_t == eos_token_id:
-                hit_eos_in_draft = True
+    try:
+        while total_generated < max_new_tokens:
+            spec_budget = min(gamma, max_new_tokens - total_generated)
+            if spec_budget <= 0:
                 break
 
-        total_proposed += len(draft_tokens)
+            # 1. Draft step: Propose `spec_budget` tokens autoregressively using the draft model
+            draft_tokens: List[int] = []
+            draft_prob_dists: List[np.ndarray] = []
+            curr_draft_seq = list(tokens)
+            hit_eos_in_draft = False
 
-        # 2. Target verification:
-        if len(tokens) + len(draft_tokens) > target_model.config.max_seq_len:
-            n_acc, fwd, total_generated, stopped_early = _verify_loop(
-                target_model,
-                tokens,
-                draft_tokens,
-                draft_prob_dists,
-                hit_eos_in_draft,
-                max_new_tokens,
-                total_generated,
-                temperature,
-                top_k,
-                top_p,
-                eos_token_id,
-            )
-            total_accepted += n_acc
-            target_forward_passes += fwd
+            for _ in range(spec_budget):
+                idx_d = np.array([curr_draft_seq[-draft_model.config.max_seq_len:]], dtype=np.int64)
+                with no_grad():
+                    d_logits = draft_model(idx_d).data[0, -1, :]
+                # Compute draft probability distribution for candidate
+                d_p = _compute_token_probs(d_logits, temperature=temperature, top_k=top_k, top_p=top_p)
+                next_t = sample_next_token(d_logits, temperature=temperature, top_k=top_k, top_p=top_p)
+                draft_tokens.append(next_t)
+                draft_prob_dists.append(d_p)
+                curr_draft_seq.append(next_t)
+                if eos_token_id is not None and next_t == eos_token_id:
+                    hit_eos_in_draft = True
+                    break
+
+            total_proposed += len(draft_tokens)
+
+            # 2. Target verification:
+            if len(tokens) + len(draft_tokens) > target_model.config.max_seq_len:
+                n_acc, fwd, total_generated, stopped_early = _verify_loop(
+                    target_model,
+                    tokens,
+                    draft_tokens,
+                    draft_prob_dists,
+                    hit_eos_in_draft,
+                    max_new_tokens,
+                    total_generated,
+                    temperature,
+                    top_k,
+                    top_p,
+                    eos_token_id,
+                )
+                total_accepted += n_acc
+                target_forward_passes += fwd
+                if stopped_early:
+                    break
+                continue
+
+            # Parallel Target verification: evaluate prompt + all drafted tokens in ONE forward pass
+            eval_seq = tokens + draft_tokens
+            idx_target = np.array([eval_seq[-target_model.config.max_seq_len:]], dtype=np.int64)
+            with no_grad():
+                target_logits = target_model(idx_target).data[0]
+            target_forward_passes += 1
+
+            # 3. Acceptance / Rejection loop
+            # Positions to evaluate:
+            # Prompt end corresponds to index (current_len - 1) in eval_seq
+            # logits at that index predict candidate 0
+            n_accepted = 0
+            offset = len(eval_seq) - len(draft_tokens) - 1
+            stopped_early = False
+            all_accepted = True
+
+            for i, cand in enumerate(draft_tokens):
+                pos_logits = target_logits[offset + i]
+                is_acc, chosen = _verify_candidate(
+                    pos_logits, cand, draft_prob_dists[i], temperature, top_k, top_p
+                )
+                tokens.append(chosen)
+                total_generated += 1
+                if is_acc:
+                    n_accepted += 1
+                else:
+                    all_accepted = False
+                if (eos_token_id is not None and chosen == eos_token_id) or total_generated >= max_new_tokens:
+                    stopped_early = True
+                    break
+                if not is_acc:
+                    break
+            else:
+                # All gamma tokens were accepted! Sample one bonus token from target's final distribution
+                if not hit_eos_in_draft and all_accepted and not stopped_early:
+                    if total_generated < max_new_tokens and len(tokens) < target_model.config.max_seq_len:
+                        bonus_logits = target_logits[-1]
+                        bonus_token = sample_next_token(bonus_logits, temperature=temperature, top_k=top_k, top_p=top_p)
+                        tokens.append(bonus_token)
+                        total_generated += 1
+                        if eos_token_id is not None and bonus_token == eos_token_id:
+                            stopped_early = True
+
+            total_accepted += n_accepted
             if stopped_early:
                 break
-            continue
-
-        # Parallel Target verification: evaluate prompt + all drafted tokens in ONE forward pass
-        eval_seq = tokens + draft_tokens
-        idx_target = np.array([eval_seq[-target_model.config.max_seq_len:]], dtype=np.int64)
-        with no_grad():
-            target_logits = target_model(idx_target).data[0]
-        target_forward_passes += 1
-
-        # 3. Acceptance / Rejection loop
-        # Positions to evaluate:
-        # Prompt end corresponds to index (current_len - 1) in eval_seq
-        # logits at that index predict candidate 0
-        n_accepted = 0
-        offset = len(eval_seq) - len(draft_tokens) - 1
-        stopped_early = False
-        all_accepted = True
-
-        for i, cand in enumerate(draft_tokens):
-            pos_logits = target_logits[offset + i]
-            is_acc, chosen = _verify_candidate(
-                pos_logits, cand, draft_prob_dists[i], temperature, top_k, top_p
-            )
-            tokens.append(chosen)
-            total_generated += 1
-            if is_acc:
-                n_accepted += 1
-            else:
-                all_accepted = False
-            if (eos_token_id is not None and chosen == eos_token_id) or total_generated >= max_new_tokens:
-                stopped_early = True
-                break
-            if not is_acc:
-                break
-        else:
-            # All gamma tokens were accepted! Sample one bonus token from target's final distribution
-            if not hit_eos_in_draft and all_accepted and not stopped_early:
-                if total_generated < max_new_tokens and len(tokens) < max_seq_len:
-                    bonus_logits = target_logits[-1]
-                    bonus_token = sample_next_token(bonus_logits, temperature=temperature, top_k=top_k, top_p=top_p)
-                    tokens.append(bonus_token)
-                    total_generated += 1
-                    if eos_token_id is not None and bonus_token == eos_token_id:
-                        stopped_early = True
-
-        total_accepted += n_accepted
-        if stopped_early:
-            break
+    finally:
+        if was_target_training and hasattr(target_model, "train"):
+            target_model.train()
+        if was_draft_training and hasattr(draft_model, "train"):
+            draft_model.train()
 
     elapsed_time = time.perf_counter() - start_time
     acceptance_rate = (total_accepted / total_proposed) if total_proposed > 0 else 0.0
