@@ -229,3 +229,47 @@ def test_qwen2_default_qkv_bias_and_sharded_safetensors():
         bad_tensors = {"model.embed_tokens.weight": np.zeros((V + 1, D), dtype=np.float64)}
         with pytest.raises(ValueError, match="Shape mismatch"):
             load_hf_weights_into_model(model, bad_tensors, strict=False)
+
+
+def test_load_hf_tied_with_lm_head_present():
+    np.random.seed(42)
+    V, D, H, L, I = 20, 8, 2, 1, 16
+    with tempfile.TemporaryDirectory() as tmpdir:
+        hf_cfg = {
+            "model_type": "qwen2",
+            "hidden_size": D,
+            "num_attention_heads": H,
+            "num_hidden_layers": L,
+            "vocab_size": V,
+            "intermediate_size": I,
+            "tie_word_embeddings": True,
+            "attention_bias": True,
+        }
+        with open(os.path.join(tmpdir, "config.json"), "w", encoding="utf-8") as f:
+            json.dump(hf_cfg, f)
+
+        embed_w = np.random.randn(V, D).astype(np.float32)
+        tensors = {
+            "model.embed_tokens.weight": embed_w,
+            "model.norm.weight": np.ones((D,), dtype=np.float32),
+            "lm_head.weight": embed_w.copy(),
+            "model.layers.0.input_layernorm.weight": np.ones((D,), dtype=np.float32),
+            "model.layers.0.post_attention_layernorm.weight": np.ones((D,), dtype=np.float32),
+            "model.layers.0.self_attn.q_proj.weight": np.random.randn(D, D).astype(np.float32),
+            "model.layers.0.self_attn.q_proj.bias": np.zeros((D,), dtype=np.float32),
+            "model.layers.0.self_attn.k_proj.weight": np.random.randn(D, D).astype(np.float32),
+            "model.layers.0.self_attn.k_proj.bias": np.zeros((D,), dtype=np.float32),
+            "model.layers.0.self_attn.v_proj.weight": np.random.randn(D, D).astype(np.float32),
+            "model.layers.0.self_attn.v_proj.bias": np.zeros((D,), dtype=np.float32),
+            "model.layers.0.self_attn.o_proj.weight": np.random.randn(D, D).astype(np.float32),
+            "model.layers.0.mlp.gate_proj.weight": np.random.randn(I, D).astype(np.float32),
+            "model.layers.0.mlp.up_proj.weight": np.random.randn(I, D).astype(np.float32),
+            "model.layers.0.mlp.down_proj.weight": np.random.randn(D, I).astype(np.float32),
+        }
+        save_safetensors(os.path.join(tmpdir, "model.safetensors"), tensors)
+
+        # strict=True should pass even if lm_head.weight is present and tie_weights=True
+        model = load_hf_pretrained(tmpdir, strict=True)
+        assert model.config.tie_weights is True
+        assert model.lm_head.weight is model.token_embeddings.weight
+
