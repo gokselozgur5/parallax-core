@@ -12,7 +12,7 @@ Covers issues:
 import numpy as np
 import pytest
 
-from parallax.ipo import IPOConfig, compute_ipo_loss
+from parallax.ipo import compute_ipo_loss
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.ppo import ppo_policy_step
 from parallax.rl import RewardModel, bradley_terry_reward_loss, compute_policy_gradient_step
@@ -23,7 +23,6 @@ from parallax.tensor import Tensor
 def test_ipo_loss_formula_and_gradient_paper():
     # Issue #265: Verify loss = (h_w - h_l - 1/(2*tau))^2
     tau = 0.25
-    margin = 1.0 / (2.0 * tau)  # 2.0
     h_w = 3.0
     h_l = 0.5
     # diff = (3.0 - 0.5) - 2.0 = 0.5
