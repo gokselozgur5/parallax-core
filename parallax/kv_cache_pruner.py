@@ -231,13 +231,11 @@ class KVCachePruner:
         pruned_v = np.take(v_cache, keep_indices, axis=2)
 
         # Update accumulated attention scores for this layer to match new indices
-        if (
-            len(self._accumulated_scores) > layer_idx
-            and self._accumulated_scores[layer_idx] is not None
-        ):
+        if len(self._accumulated_scores) > layer_idx:
             acc = self._accumulated_scores[layer_idx]
-            valid_indices = keep_indices[keep_indices < acc.shape[-1]]
-            self._accumulated_scores[layer_idx] = np.take(acc, valid_indices, axis=-1)
+            if acc is not None:
+                valid_indices = keep_indices[keep_indices < acc.shape[-1]]
+                self._accumulated_scores[layer_idx] = np.take(acc, valid_indices, axis=-1)
 
         if update_metrics:
             evicted_count = seq_len - len(keep_indices)
