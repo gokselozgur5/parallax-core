@@ -3,7 +3,6 @@ Unit tests for Kahneman-Tversky Optimization (KTO) (M29).
 """
 
 import numpy as np
-import pytest
 from parallax.kto import (
     compute_kto_implicit_rewards,
     kto_loss,
