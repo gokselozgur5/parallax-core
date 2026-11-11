@@ -284,3 +284,32 @@ def test_hf_tokenizer_load_split_pattern_encode_reference_ids():
         tok = load_hf_tokenizer(tmp_dir)
         # Because Qwen pattern splits each digit individually, '12' and '123' merges never form across chunks
         assert tok.encode("123") == [ord("1"), ord("2"), ord("3")]
+
+
+def test_hf_tokenizer_vocab_size_with_added_tokens():
+    """Verify vocab_size reflects added_tokens."""
+    vocab = {"a": 0, "b": 1}
+    added = {"<special>": 2}
+    tok = HFTokenizer(vocab=vocab, added_tokens=added)
+    assert tok.vocab_size == 3
+    assert tok.vocab["<special>"] == 2
+
+
+def test_hf_tokenizer_normalizer_preserves_added_tokens():
+    """Verify normalizer only applies to non-special parts."""
+    from parallax.hf_tokenizer import _BYTE_TO_UNICODE
+    vocab = {u: b for b, u in _BYTE_TO_UNICODE.items()}
+    vocab["Ã©"] = 300
+    added = {"<reserved_special>": 301}
+    # NFC normalizer turns e + \u0301 into é (which is bytes C3 A9 -> Ã© in byte-to-unicode)
+    tok = HFTokenizer(vocab=vocab, added_tokens=added, normalizer="NFC", merges=["Ã ©"])
+    encoded = tok.encode("<reserved_special>e\u0301")
+    assert encoded[0] == 301
+    assert encoded[1] == 300
+
+
+def test_hf_tokenizer_merges_rstrip():
+    """Verify rstrip on merge lines avoids breaking space tokens."""
+    merges = ["Ġ a\n", "Ġ a\r\n"]
+    tok = HFTokenizer(vocab={"Ġ": 0, "a": 1, "Ġa": 2}, merges=merges)
+    assert ("Ġ", "a") in tok.merges
