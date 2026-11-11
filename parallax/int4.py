@@ -199,6 +199,11 @@ class Linear4Bit(Module):
         """Invalidates cached dequantized weights."""
         self._cached_weight = None
 
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name in ("packed_weight", "scales", "zeros"):
+            self.__dict__["_cached_weight"] = None
+        super().__setattr__(name, value)
+
     @classmethod
     def from_linear(
         cls,
