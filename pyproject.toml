@@ -40,7 +40,7 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["F", "E9", "B"]
-ignore = ["B007", "B023", "B905", "F541", "F841"]
+ignore = ["B007", "B023", "B905", "F541"]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
@@ -53,28 +53,9 @@ follow_imports = "silent"
 
 [[tool.mypy.overrides]]
 module = [
-    "parallax.yarn",
-    "parallax.xlora",
     "parallax.tree_drafting_v2",
-    "parallax.tree_drafting",
-    "parallax.top_a",
-    "parallax.streaming",
-    "parallax.soft_capping",
-    "parallax.sliding_recompute",
-    "parallax.simpo",
-    "parallax.self_speculative",
-    "parallax.ring_attention",
     "parallax.qgalore",
-    "parallax.prompt_lookup",
-    "parallax.ppo",
-    "parallax.paged_flash_decoding",
     "parallax.paged_attention",
-    "parallax.orpo",
-    "parallax.ntk_rope",
-    "parallax.muon",
-    "parallax.multistream",
-    "parallax.mod",
-    "parallax.min_p",
     "parallax.metal_engine",
     "parallax.kv_cache_pruner",
     "parallax.grouped_gemm",
@@ -87,7 +68,6 @@ module = [
     "parallax.trainer",
     "parallax.gguf_exporter",
     "parallax.hf_loader",
-    "parallax.tensor",
     "parallax.lora",
     "parallax.bitnet",
     "parallax.attention",
@@ -101,4 +81,6 @@ module = [
 ]
 ignore_errors = true
 
-
+[[tool.mypy.overrides]]
+module = "parallax.tensor"
+disable_error_code = ["assignment", "no-redef", "operator"]
