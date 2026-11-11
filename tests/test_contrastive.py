@@ -3,7 +3,6 @@ Unit tests for Contrastive Search decoding primitives.
 """
 
 import numpy as np
-import pytest
 from parallax.contrastive import (
     compute_max_cosine_similarity,
     generate_contrastive,
