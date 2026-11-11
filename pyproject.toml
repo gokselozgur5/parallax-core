@@ -58,7 +58,6 @@ module = [
     "parallax.models.qwen2",
     "parallax.models.llama",
     "parallax.models.bit_transformer",
-    "parallax.gguf_exporter",
     "parallax.hf_loader",
     "parallax.quant",
     "parallax.prune",
