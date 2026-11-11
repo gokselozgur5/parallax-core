@@ -31,6 +31,14 @@ GGUF_DEFAULT_ALIGNMENT = 32
 MAX_GGUF_HEADER_SIZE: int = 100 * 1024 * 1024  # 100MB limit for header/metadata to prevent DoS
 MAX_GGUF_STRING_LEN: int = 64 * 1024 * 1024  # 64MB limit for any single string
 MAX_GGUF_ARRAY_LEN: int = 10_000_000  # 10M elements limit for array metadata
+MAX_GGUF_ARRAY_DEPTH: int = 16  # Maximum recursion depth for nested arrays
+
+
+def _read_exact(f: BinaryIO, n: int, desc: str = "payload") -> bytes:
+    raw = f.read(n)
+    if len(raw) < n:
+        raise ValueError(f"Unexpected EOF reading GGUF {desc} (expected {n} bytes, got {len(raw)})")
+    return raw
 
 # GGUF Metadata Value Types
 GGUF_TYPE_UINT8 = 0
