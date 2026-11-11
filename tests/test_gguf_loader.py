@@ -124,3 +124,54 @@ def test_load_gguf_pretrained_end_to_end():
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+
+def test_load_gguf_qwen2_qkv_bias_strict_no_attn_output_bias():
+    vocab_size = 64
+    embed_dim = 16
+    num_heads = 2
+    num_layers = 1
+    intermediate_size = 32
+
+    metadata = {
+        "general.architecture": "qwen2",
+        "qwen2.embedding_length": embed_dim,
+        "qwen2.block_count": num_layers,
+        "qwen2.feed_forward_length": intermediate_size,
+        "qwen2.attention.head_count": num_heads,
+        "qwen2.attention.head_count_kv": num_heads,
+        "qwen2.attention.layer_norm_rms_epsilon": 1e-6,
+        "qwen2.rope.freq_base": 10000.0,
+        "qwen2.context_length": 64,
+        "tokenizer.ggml.tokens": [f"tok_{i}" for i in range(vocab_size)],
+    }
+
+    tensors = {
+        "token_embd.weight": np.random.randn(vocab_size, embed_dim).astype(np.float32),
+        "output_norm.weight": np.ones((embed_dim,), dtype=np.float32),
+        "blk.0.attn_norm.weight": np.ones((embed_dim,), dtype=np.float32),
+        "blk.0.ffn_norm.weight": np.ones((embed_dim,), dtype=np.float32),
+        "blk.0.attn_q.weight": np.random.randn(embed_dim, embed_dim).astype(np.float32),
+        "blk.0.attn_q.bias": np.zeros((embed_dim,), dtype=np.float32),
+        "blk.0.attn_k.weight": np.random.randn(embed_dim, embed_dim).astype(np.float32),
+        "blk.0.attn_k.bias": np.zeros((embed_dim,), dtype=np.float32),
+        "blk.0.attn_v.weight": np.random.randn(embed_dim, embed_dim).astype(np.float32),
+        "blk.0.attn_v.bias": np.zeros((embed_dim,), dtype=np.float32),
+        "blk.0.attn_output.weight": np.random.randn(embed_dim, embed_dim).astype(np.float32),
+        # Note: blk.0.attn_output.bias is absent, exactly like real Qwen2 GGUF checkpoints!
+        "blk.0.ffn_gate.weight": np.random.randn(intermediate_size, embed_dim).astype(np.float32),
+        "blk.0.ffn_up.weight": np.random.randn(intermediate_size, embed_dim).astype(np.float32),
+        "blk.0.ffn_down.weight": np.random.randn(embed_dim, intermediate_size).astype(np.float32),
+    }
+
+    with tempfile.NamedTemporaryFile(suffix=".gguf", delete=False) as f:
+        tmp_path = f.name
+    try:
+        save_gguf(tmp_path, metadata=metadata, tensors=tensors, version=3)
+        model = load_gguf_pretrained(tmp_path, strict=True)
+        assert model.config.qkv_bias is True
+        assert model.blocks[0].attn.out_proj.bias is None
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
