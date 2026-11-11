@@ -2,11 +2,8 @@
 Unit tests for Performance Benchmarking and Profiling Suite (M9).
 """
 
-import numpy as np
-import pytest
 
 from parallax.bench import (
-    BenchmarkResult,
     benchmark_inference,
     count_parameters,
     estimate_flops_per_token,
