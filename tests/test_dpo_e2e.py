@@ -3,7 +3,6 @@ End-to-end tests for Direct Preference Optimization (DPO) alignment loop.
 """
 
 import numpy as np
-import pytest
 
 from parallax.generator import CharTokenizer
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
