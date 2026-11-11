@@ -10,7 +10,9 @@ import os
 import re
 import sys
 import unicodedata
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
+
+NormalizerForm = Literal["NFC", "NFD", "NFKC", "NFKD"]
 
 
 def _bytes_to_unicode() -> Tuple[Dict[int, str], Dict[str, int]]:
@@ -155,8 +157,10 @@ class HFTokenizer:
         pad_token: Optional[str] = None,
         unk_token: Optional[str] = None,
         split_pattern: Optional[str] = None,
+        normalizer: Optional[NormalizerForm] = None,
     ):
         self.vocab = dict(vocab)
+        self.normalizer: Optional[NormalizerForm] = normalizer
         self.id_to_token: Dict[int, str] = {v: k for k, v in self.vocab.items()}
         self.vocab_size = len(self.vocab)
         self.pretokenizer_regex = (
@@ -220,9 +224,12 @@ class HFTokenizer:
         if not text:
             return []
 
+        if self.normalizer:
+            text = unicodedata.normalize(self.normalizer, text)
+
         # If full string matches special/added token directly
-        if text in self.vocab:
-            return [self.vocab[text]]
+        if text in self.added_tokens:
+            return [self.added_tokens[text]]
 
         # Escape added special tokens for regex split
         if self.added_tokens:
@@ -320,6 +327,18 @@ def load_hf_tokenizer(tokenizer_file_or_dir: str) -> HFTokenizer:
     merges = model_data.get("merges", [])
     split_pattern = _extract_split_pattern(data)
 
+    normalizer: Optional[NormalizerForm] = None
+    norm_spec = data.get("normalizer")
+    if isinstance(norm_spec, dict):
+        ntype = norm_spec.get("type")
+        if ntype in ("NFC", "NFD", "NFKC", "NFKD"):
+            normalizer = ntype
+        elif ntype == "Sequence":
+            for sub in norm_spec.get("normalizers", []):
+                if isinstance(sub, dict) and sub.get("type") in ("NFC", "NFD", "NFKC", "NFKD"):
+                    normalizer = sub["type"]
+                    break
+
     added_tokens_dict: Dict[str, int] = {}
     for item in data.get("added_tokens", []):
         content = item.get("content")
@@ -360,4 +379,5 @@ def load_hf_tokenizer(tokenizer_file_or_dir: str) -> HFTokenizer:
         pad_token=pad_token,
         unk_token=unk_token,
         split_pattern=split_pattern,
+        normalizer=normalizer,
     )
