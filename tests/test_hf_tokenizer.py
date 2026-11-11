@@ -256,3 +256,31 @@ def test_hf_tokenizer_unsupported_sequence_fallback(tmp_path):
 
 
 
+
+def test_hf_tokenizer_load_split_pattern_encode_reference_ids():
+    """Verify load_hf_tokenizer extracts Split pattern from tokenizer.json and encodes reference IDs (closes #437)."""
+    qwen_pattern = r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"
+    from parallax.hf_tokenizer import _BYTE_TO_UNICODE
+    vocab = {u: b for b, u in _BYTE_TO_UNICODE.items()}
+    vocab["12"] = 1000
+    vocab["123"] = 1001
+    merges = ["1 2", "12 3"]
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tok_data = {
+            "version": "1.0",
+            "model": {"type": "BPE", "vocab": vocab, "merges": merges},
+            "pre_tokenizer": {
+                "type": "Sequence",
+                "pretokenizers": [
+                    {"type": "Split", "pattern": {"Regex": qwen_pattern}, "behavior": "Isolated", "invert": False},
+                    {"type": "ByteLevel", "add_prefix_space": False, "trim_offsets": True, "use_regex": False},
+                ],
+            },
+        }
+        with open(os.path.join(tmp_dir, "tokenizer.json"), "w", encoding="utf-8") as f:
+            json.dump(tok_data, f)
+
+        tok = load_hf_tokenizer(tmp_dir)
+        # Because Qwen pattern splits each digit individually, '12' and '123' merges never form across chunks
+        assert tok.encode("123") == [ord("1"), ord("2"), ord("3")]
