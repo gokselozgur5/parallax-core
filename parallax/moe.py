@@ -39,9 +39,13 @@ class SparseMoE(Module):
         hidden_dim: Optional[int] = None,
     ):
         super().__init__()
+        if num_experts <= 0:
+            raise ValueError(f"num_experts must be >= 1, got {num_experts}")
+        if top_k <= 0 or top_k > num_experts:
+            raise ValueError(f"top_k must be between 1 and {num_experts}, got {top_k}")
         self.embed_dim = embed_dim
         self.num_experts = num_experts
-        self.top_k = min(top_k, num_experts)
+        self.top_k = top_k
         self.aux_loss_coef = aux_loss_coef
 
         # Router / Gating linear projection: [embed_dim -> num_experts]
