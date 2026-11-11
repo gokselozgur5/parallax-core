@@ -192,3 +192,17 @@ def test_hf_tokenizer_single_non_ascii_and_normalizer():
     decomposed = unicodedata.normalize("NFD", "ç")
     assert tok.encode(decomposed) == tok.encode("ç")
 
+
+def test_hf_tokenizer_unicode_categories_pattern():
+    from parallax.hf_tokenizer import _BYTE_TO_UNICODE
+
+    pat = r"[^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+|\p{N}{1,3}|\p{P}+|\P{L}+"
+    vocab = {chr(i): i for i in range(256)}
+    for b, u in _BYTE_TO_UNICODE.items():
+        vocab[u] = len(vocab)
+
+    tok = HFTokenizer(vocab=vocab, split_pattern=pat)
+    matches = [m.group(0) for m in tok.pretokenizer_regex.finditer("Hello world! 123")]
+    assert "Hello" in matches
+
+
