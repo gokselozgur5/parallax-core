@@ -268,14 +268,11 @@ def is_cuda_available() -> bool:
     Designed for unified Parallax JIT acceleration interface.
     """
     try:
-        import torch
+        from parallax.cuda_engine import is_cuda_available as _cuda_avail
 
-        return bool(torch.cuda.is_available())
-    except ImportError:
-        pass
-
-    cuda_lib = util.find_library("cuda") or util.find_library("cudart")
-    return cuda_lib is not None
+        return _cuda_avail()
+    except Exception:
+        return False
 
 
 def metal_gemm(A: np.ndarray, B: np.ndarray) -> np.ndarray:
