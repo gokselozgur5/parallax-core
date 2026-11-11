@@ -1,7 +1,6 @@
 import os
 import tempfile
 import numpy as np
-import pytest
 from parallax.checkpoint import load_checkpoint, save_checkpoint
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig, TransformerBlock
 from parallax.tensor import Tensor
