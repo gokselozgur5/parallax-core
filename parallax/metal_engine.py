@@ -126,6 +126,22 @@ def _release_buffers(*buffers: Optional[ctypes.c_void_p]) -> None:
 
 
 @contextmanager
+def _autorelease_pool():
+    """Wrap execution in NSAutoreleasePool push/pop for background thread safety."""
+    global _OBJC
+    if _OBJC is None:
+        yield
+        return
+    _OBJC.objc_autoreleasePoolPush.restype = ctypes.c_void_p
+    _OBJC.objc_autoreleasePoolPop.argtypes = [ctypes.c_void_p]
+    pool = _OBJC.objc_autoreleasePoolPush()
+    try:
+        yield
+    finally:
+        _OBJC.objc_autoreleasePoolPop(pool)
+
+
+@contextmanager
 def _managed_buffers(*buffers: Optional[ctypes.c_void_p]):
     try:
         yield
