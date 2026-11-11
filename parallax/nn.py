@@ -124,6 +124,9 @@ class RMSNorm(Module):
 
         out = Tensor(out_data, (x, self.weight), "RMSNorm")
 
+        if not out.requires_grad:
+            return out
+
         def _backward() -> None:
             if out.grad is None:
                 return
@@ -163,6 +166,9 @@ class LayerNorm(Module):
         out_data = x_hat * self.weight.data + self.bias.data
 
         out = Tensor(out_data, (x, self.weight, self.bias), "LayerNorm")
+
+        if not out.requires_grad:
+            return out
 
         def _backward() -> None:
             if out.grad is None:
