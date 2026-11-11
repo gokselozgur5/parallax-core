@@ -153,9 +153,13 @@ $T$ uzunluğundaki bağlam $K$ parçaya bölünür:
 
 $$K = \min\left(K_{\max}, \max\left(1, \left\lfloor \frac{T}{\text{chunk\_size}} \right\rfloor\right)\right)$$
 
-Her bir $k$ bloğu kendi yerel maksimumunu ($m_k$), pay toplamını ($V_k$) ve paydasını ($l_k$) hesaplar. Global birleştirme şu şekilde tamamlanır:
+Her bir $k$ bloğu yerel maksimum $m_k$, normalizasyon paydası $l_k$ ve normalize yerel çıktı $O_k$ (veya pay toplamı $V_k = l_k O_k$) üretir:
 
-$$m = \max_k m_k, \quad l = \sum_{k} l_k \exp(m_k - m), \quad O = \sum_{k} \frac{l_k \exp(m_k - m)}{l} O_k$$
+$$m_k = \max_{j} S_k[j], \quad l_k = \sum_{j} \exp(S_k[j] - m_k), \quad O_k = \sum_{j} \frac{\exp(S_k[j] - m_k)}{l_k} V_k[j]$$
+
+Global birleştirme, $l_k$ ölçekleme çarpanını koruyarak tam LogSumExp indirgemesiyle gerçekleştirilir:
+
+$$m = \max_k m_k, \quad l = \sum_{k} l_k \exp(m_k - m), \quad O = \sum_{k} \frac{l_k \exp(m_k - m)}{l} O_k = \frac{1}{l} \sum_{k} \exp(m_k - m) V_k$$
 
 Bu sayede $T=4096$'da aşırı split oluşumu engellenir ve **$2.64x$ hızlanma** sağlanır.
 
@@ -250,7 +254,7 @@ flowchart TD
 
 ## 6. Değişmez Mühendislik İlkeleri (Non-Negotiables)
 
-1. **Harici ML Bağımlılığı Yasağı:** PyTorch, TensorFlow, JAX veya ONNX Runtime asla projeye dahil edilmeyecek. Matematik çıplak kalacak.
+1. **Harici ML Bağımlılığı Yasağı (Çekirdek):** Çekirdek model, autograd ve katmanlarda PyTorch, TensorFlow, JAX veya ONNX Runtime asla zorunlu kılınmayacak; matematik çıplak kalacak (yalnızca opsiyonel CUDA çalıştırma köprüleri harici kütüphaneleri dinamik import edebilir).
 2. **Kanıt Temelli Doğruluk:** Eklenen her yeni matematiksel mekanizma mutlaka analitik formül ve iki yönlü sonlu farklar testiyle ($\epsilon=10^{-5}$) doğrulanacak.
 3. **Mikro-Atomik Adımlar:** Commitler <30-50 satır sınırını koruyacak, temiz ve izlenebilir rebase-merge omurgası tavizsiz işletilecek.
 4. **Çoklu Backend Tutarlılığı:** C-Engine, Rust, Apple Metal JIT ve NumPy sonuçları birbirleriyle bit düzeyine yakın uyum içinde olacak (hata toleransı $< 10^{-4}$).
