@@ -3,7 +3,7 @@ Unit and numerical tests for YaRN context window extension (M25).
 """
 
 import numpy as np
-import pytest
+
 from parallax.attention import apply_rope
 from parallax.yarn import apply_yarn_rope, yarn_find_correction_dim, yarn_linear_ramp_mask
 
@@ -41,7 +41,6 @@ def test_yarn_frequency_interpolation_direction():
     half_dim = 64
     base = 10000.0
     max_pos = 2048
-    s = 4.0
     low = yarn_find_correction_dim(32.0, half_dim, base, max_pos)
     high = yarn_find_correction_dim(1.0, half_dim, base, max_pos)
     ramp = yarn_linear_ramp_mask(low, high, half_dim)
