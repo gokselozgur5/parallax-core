@@ -10,9 +10,8 @@ Covers:
 """
 
 import numpy as np
-import pytest
 
-from parallax.bench import BenchmarkResult, benchmark_inference
+from parallax.bench import benchmark_inference
 from parallax.engine import Value
 from parallax.flash_attn import (
     flash_attention_backward,
