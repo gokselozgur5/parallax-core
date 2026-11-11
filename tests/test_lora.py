@@ -166,3 +166,22 @@ def test_lora_generate_stream_sets_eval_mode_on_nested_model():
     out1 = model(tokens_in).data
     out2 = model(tokens_in).data
     np.testing.assert_allclose(out1, out2)
+
+
+def test_apply_lora_to_tuple_and_dict_containers():
+    from parallax.nn import Linear, Module
+
+    class ContainerModel(Module):
+        def __init__(self):
+            super().__init__()
+            self.tup = (Linear(8, 8), Linear(8, 4))
+            self.mapping = {"proj_a": Linear(4, 4), "other": Linear(4, 2)}
+
+    model = ContainerModel()
+    applied = apply_lora_to_model(model, target_modules=("0", "proj_a"), r=2)
+    assert len(applied) == 2
+    assert isinstance(model.tup[0], LoRALinear)
+    assert isinstance(model.mapping["proj_a"], LoRALinear)
+    assert not isinstance(model.tup[1], LoRALinear)
+    assert not isinstance(model.mapping["other"], LoRALinear)
+
