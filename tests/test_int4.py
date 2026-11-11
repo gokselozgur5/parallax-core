@@ -284,6 +284,7 @@ def test_linear4bit_cache_invalidation_and_float16_small_range():
     assert nmse < 0.02, f"NMSE {nmse} too high for small-range float16 groups"
 
     # 3. Footprint includes cache when populated
+    l4.invalidate_cache()
     footprint_uncached = l4.memory_footprint()
     assert footprint_uncached["cached_bytes"] == 0
     _ = l4(x)  # populate cache
