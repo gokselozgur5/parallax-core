@@ -2,7 +2,6 @@ import os
 import struct
 import tempfile
 import numpy as np
-import pytest
 
 from parallax.gguf import GGML_TYPE_Q4_0, GGML_TYPE_Q8_0, GGUF_MAGIC, load_gguf
 from parallax.gguf_loader import load_gguf_pretrained
