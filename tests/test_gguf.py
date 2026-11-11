@@ -6,11 +6,8 @@ import pytest
 
 from parallax.gguf import (
     GGML_TYPE_BF16,
-    GGML_TYPE_F16,
     GGML_TYPE_F32,
-    GGUF_DEFAULT_ALIGNMENT,
     GGUF_MAGIC,
-    GGUFFile,
     load_gguf,
     save_gguf,
 )
