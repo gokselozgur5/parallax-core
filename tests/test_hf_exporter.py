@@ -113,3 +113,31 @@ def test_bidirectional_gguf_to_hf_bridge():
         logits_final = model_from_hf(idx).data
 
         np.testing.assert_allclose(logits_final, logits_orig, atol=1e-5, rtol=1e-5)
+
+
+def test_hf_save_and_load_tokenizer_split_pattern_roundtrip():
+    from parallax.hf_tokenizer import _BYTE_TO_UNICODE
+
+    qwen_pat = r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"
+    vocab = {chr(i): i for i in range(256)}
+    for b, u in _BYTE_TO_UNICODE.items():
+        vocab[u] = len(vocab)
+
+    tok_orig = HFTokenizer(vocab=vocab, split_pattern=qwen_pat)
+    cfg = ParallaxLMConfig(
+        vocab_size=len(vocab), embed_dim=16, num_heads=2, num_kv_heads=2,
+        num_layers=1, max_seq_len=32, intermediate_size=16, use_swiglu=True,
+    )
+    model = ParallaxLM(cfg)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        save_hf_pretrained(model, tmp_dir, tokenizer=tok_orig)
+        _, tok_loaded = load_hf_pretrained(tmp_dir, return_tokenizer=True)
+
+        assert tok_loaded is not None
+        assert tok_loaded.split_pattern == qwen_pat
+
+        test_sentences = ["12345", "çok güzel", "naïve café"]
+        for s in test_sentences:
+            assert tok_loaded.encode(s) == tok_orig.encode(s)
+
