@@ -160,3 +160,22 @@ def test_parallax_to_gguf_roundtrip_swiglu():
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+
+def test_export_to_gguf_v3_dynamic_architecture_prefix():
+    """Verify export_to_gguf_v3 writes metadata with specified architecture prefix."""
+    np.random.seed(42)
+    cfg = ParallaxLMConfig(vocab_size=16, embed_dim=8, num_layers=1, num_heads=2)
+    model = ParallaxLM(cfg)
+    with tempfile.NamedTemporaryFile(suffix=".gguf", delete=False) as f:
+        tmp_path = f.name
+    try:
+        export_to_gguf_v3(model, tmp_path, architecture="qwen2")
+        gguf = load_gguf(tmp_path)
+        assert gguf.metadata.get("general.architecture") == "qwen2"
+        assert gguf.metadata.get("qwen2.embedding_length") == 8
+        assert gguf.metadata.get("qwen2.block_count") == 1
+        assert "llama.embedding_length" not in gguf.metadata
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
