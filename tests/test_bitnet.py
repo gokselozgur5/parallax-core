@@ -101,7 +101,8 @@ def test_bitlinear_forward_against_independent_reference():
 def test_bitlinear_forward_gamma_scaling_sensitivity():
     """Verify forward pass scales proportionally with gamma; kills gamma-dropped fault."""
     layer = BitLinear(in_features=4, out_features=2, bias=False)
-    x = Tensor(np.array([[[1.0, 2.0, -1.0, -2.0]]]))
+    layer.weight.data = np.array([[0.5, -0.5, 0.5, -0.5], [0.2, 0.8, -0.1, 0.4]])
+    x = Tensor(np.array([[[1.0, 2.0, 3.0, 4.0]]]))
     out1 = layer(x).data.copy()
 
     # Scale weights by 5.0: w_ternary remains identical, gamma increases by 5.0x
