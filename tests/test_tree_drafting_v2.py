@@ -7,9 +7,11 @@ from parallax.tree_drafting import verify_tree_candidates as verify_v1
 from parallax.tree_drafting_v2 import (
     TreeDraftNodeV2,
     TreeDraftTopology,
+    TreeSpeculativeGenerator,
     build_vectorized_tree_attention_mask,
     generate_dynamic_eagle_tree,
     prune_tree_topology,
+    validate_tree_topology,
     verify_tree_candidates_v2,
 )
 
@@ -165,3 +167,17 @@ def test_empty_inputs():
     res, stats = verify_tree_candidates_v2([], [], np.zeros((0, 10)), return_acceptance_stats=True)
     assert res == []
     assert stats["acceptance_rate"] == 0.0
+
+
+def test_validate_tree_topology_cycles_and_bounds():
+    validate_tree_topology([-1, 0, 1])
+    gen = TreeSpeculativeGenerator(max_draft_tokens=64)
+    assert gen.max_draft_tokens == 64
+    with pytest.raises(ValueError, match="Cycle detected"):
+        validate_tree_topology([0])
+    with pytest.raises(ValueError, match="Cycle detected"):
+        validate_tree_topology([1, 0])
+    with pytest.raises(ValueError, match="out of bounds"):
+        validate_tree_topology([-1, 5])
+    with pytest.raises(ValueError, match="exceeds max_nodes"):
+        validate_tree_topology([-1, 0, 1], max_nodes=2)
