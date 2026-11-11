@@ -282,6 +282,27 @@ def test_export_bitmamba_f32_roundtrip():
             os.remove(tmp_path)
 
 
+@pytest.mark.parametrize("layers", [1, 2, 3])
+def test_export_bitmamba_block_norms_and_param_parity(layers):
+    """Verify BitMamba export includes per-block norms and matches parameter count."""
+    cfg = BitMambaConfig(vocab_size=64, d_model=32, num_layers=layers, d_state=8, d_conv=4, expand=2)
+    model = BitMambaLM(cfg)
+    with tempfile.NamedTemporaryFile(suffix=".gguf", delete=False) as f:
+        tmp_path = f.name
+    try:
+        export_to_gguf_v3(model, tmp_path, quantization="f32")
+        gguf = load_gguf(tmp_path)
+        assert gguf.metadata.get("general.version") == "2"
+        for i in range(layers):
+            norm_k = f"blk.{i}.attn_norm.weight"
+            assert norm_k in gguf.tensors
+            np.testing.assert_allclose(gguf.tensors[norm_k], model.norms[i].weight.data, atol=1e-6)
+        assert sum(t.size for t in gguf.tensors.values()) == sum(p.data.size for p in model.parameters())
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
 def test_export_bitmamba_q8_0_roundtrip():
     """Verify BitMambaLM exported as Q8_0 quantizes projections with divisible shapes."""
     np.random.seed(42)
