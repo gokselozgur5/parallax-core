@@ -49,7 +49,7 @@ void c_softmax_f32(const float *input, float *output, int rows, int cols) {
         }
 
         // Step 3: Normalize
-        double inv_sum = (sum > 0.0) ? (1.0 / sum) : 0.0;
+        double inv_sum = 1.0 / sum;
         for (c = 0; c < cols; ++c) {
             out_row[c] = (float)((double)out_row[c] * inv_sum);
         }
