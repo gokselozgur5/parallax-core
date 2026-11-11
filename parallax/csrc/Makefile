@@ -13,13 +13,18 @@ else
 endif
 
 ifeq ($(UNAME_M),arm64)
-    ARCH_FLAGS := -march=armv8-a+simd
+    ARCH_FLAGS ?= -march=armv8-a+simd
 else ifeq ($(UNAME_M),aarch64)
-    ARCH_FLAGS := -march=armv8-a+simd
+    ARCH_FLAGS ?= -march=armv8-a+simd
 else ifeq ($(UNAME_M),x86_64)
-    ARCH_FLAGS := -mavx2 -mfma
+    HAS_AVX2 := $(shell if [ "$$(uname -s)" = "Darwin" ]; then sysctl -n hw.optional.avx2_0 2>/dev/null || echo 0; else grep -c "avx2" /proc/cpuinfo 2>/dev/null || echo 0; fi)
+    ifneq ($(HAS_AVX2),0)
+        ARCH_FLAGS ?= -mavx2 -mfma
+    else
+        ARCH_FLAGS ?=
+    endif
 else
-    ARCH_FLAGS :=
+    ARCH_FLAGS ?=
 endif
 
 TARGET := libparallax_c.$(SHARED_EXT)
