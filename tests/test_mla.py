@@ -59,3 +59,35 @@ def test_mla_positional_dependence() -> None:
     assert not np.allclose(out_orig[-1], out_perm[-1], atol=1e-5)
     diff = np.max(np.abs(out_orig[-1] - out_perm[-1]))
     assert diff > 1e-3
+
+
+from parallax.mla import MLAModule
+from parallax.tensor import Tensor
+
+
+def test_mla_module_autograd_forward_and_backward():
+    np.random.seed(42)
+    seq_len, embed_dim, latent_dim = 4, 16, 8
+    num_heads = 2
+    mla = MLAModule(embed_dim=embed_dim, num_heads=num_heads, latent_dim=latent_dim, rope_dim=4)
+    x = Tensor(np.random.randn(1, seq_len, embed_dim).astype(np.float32), requires_grad=True)
+
+    out = mla(x, causal=True)
+    assert out.data.shape == (1, seq_len, embed_dim)
+    assert np.all(np.isfinite(out.data))
+
+    loss = out.sum()
+    loss.backward()
+
+    assert x.grad is not None
+    assert x.grad.shape == (1, seq_len, embed_dim)
+    assert np.all(np.isfinite(x.grad))
+    assert mla.w_o.grad is not None
+    assert mla.w_qc.grad is not None
+
+
+def test_mla_infinite_mask_safe_softmax():
+    mla = MLAModule(embed_dim=16, num_heads=2, latent_dim=8, rope_dim=4)
+    x = Tensor(np.random.randn(2, 16).astype(np.float32))
+    out = mla(x, causal=True)
+    assert np.all(np.isfinite(out.data))
