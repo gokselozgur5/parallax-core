@@ -25,17 +25,13 @@ def select_split_k(seq_len: int, min_chunk_size: int = 64, max_splits: int = 8) 
     Returns:
         Chosen integer partition count (power of two or clamped integer >= 1).
     """
-    if seq_len <= 0:
+    if seq_len <= 0 or min_chunk_size <= 0:
         return 1
 
-    if seq_len < min_chunk_size:
-        return 1
-    elif seq_len < min_chunk_size * 2:
-        splits = 2
-    elif seq_len < min_chunk_size * 4:
-        splits = 4
-    else:
-        splits = 8
+    max_possible = max(1, seq_len // min_chunk_size)
+    splits = 1
+    while splits * 2 <= max_possible and splits * 2 <= max_splits:
+        splits *= 2
 
     return min(splits, max_splits)
 
