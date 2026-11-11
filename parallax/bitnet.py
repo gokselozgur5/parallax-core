@@ -39,10 +39,9 @@ class BitLinear(Module):
         weight_data = np.random.uniform(-limit, limit, (out_features, in_features))
         self.weight = Parameter(weight_data, label="BitLinear.weight")
 
-        if bias:
-            self.bias = Parameter(np.zeros(out_features), label="BitLinear.bias")
-        else:
-            self.bias = None
+        self.bias: Parameter | None = (
+            Parameter(np.zeros(out_features), label="BitLinear.bias") if bias else None
+        )
 
     def forward(self, x: Tensor) -> Tensor:
         """Forward pass: quantizes W to {-1, 0, 1} and x to INT8, simulating ternary linear projection in float64."""
