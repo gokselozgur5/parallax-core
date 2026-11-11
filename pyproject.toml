@@ -53,7 +53,6 @@ follow_imports = "silent"
 
 [[tool.mypy.overrides]]
 module = [
-    "parallax.paged_attention",
     "parallax.metal_engine",
     "parallax.models.bit_transformer",
     "parallax.hf_loader",
