@@ -1,3 +1,4 @@
+import ctypes
 import os
 import shutil
 import subprocess
@@ -58,6 +59,25 @@ def test_c_gemm_zero_inner_dimension():
         result_fallback = c_gemm(A, B)
         assert result_fallback.shape == (3, 4)
         np.testing.assert_array_equal(result_fallback, np.zeros((3, 4), dtype=np.float32))
+
+
+def test_c_gemm_negative_k_returns_immediately():
+    # Issue #469: c_gemm_f32 with K < 0 must return without modifying C
+    lib = _find_or_build_library()
+    if lib is None:
+        pytest.skip("C engine native library not available")
+
+    A = np.ones((2, 2), dtype=np.float32)
+    B = np.ones((2, 2), dtype=np.float32)
+    C = np.full((2, 2), 42.0, dtype=np.float32)
+
+    a_ptr = A.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+    b_ptr = B.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+    c_ptr = C.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+
+    lib.c_gemm_f32(a_ptr, b_ptr, c_ptr, 2, 2, -1)
+    # C should remain completely untouched (still 42.0)
+    np.testing.assert_array_equal(C, np.full((2, 2), 42.0, dtype=np.float32))
 
 def test_c_gemm_invalid_shapes():
     A = np.ones((5, 10), dtype=np.float32)
