@@ -82,13 +82,18 @@ def _find_or_build_library_unlocked() -> Optional[ctypes.CDLL]:
 
     # If not found, attempt compilation
     if lib_path is None and (csrc_dir / "Makefile").is_file():
+        cache_base = _get_build_cache_dir()
+        tmp_build_dir = Path(tempfile.mkdtemp(prefix="build_", dir=cache_base))
         try:
-            cache_subdir.mkdir(parents=True, exist_ok=True)
-            for src_file in csrc_dir.glob("*"):
-                if src_file.is_file():
-                    shutil.copy2(src_file, cache_subdir / src_file.name)
-            subprocess.run(["make", "-C", str(cache_subdir)], check=True, capture_output=True, timeout=15)
-            lib_path = _find_candidate_in_dir(cache_subdir, candidate_names)
+            for sf in src_files:
+                shutil.copyfile(sf, tmp_build_dir / sf.name)
+            subprocess.run(["make", "-C", str(tmp_build_dir)], check=True, capture_output=True, timeout=15)
+            built_lib = _find_candidate_in_dir(tmp_build_dir, candidate_names)
+            if built_lib:
+                cache_subdir.mkdir(parents=True, exist_ok=True)
+                target_lib = cache_subdir / built_lib.name
+                os.replace(built_lib, target_lib)
+                lib_path = target_lib
         except subprocess.TimeoutExpired as e:
             _LOAD_ERROR_REASON = f"Build timed out after 15 seconds: {e}"
         except subprocess.CalledProcessError as e:
@@ -96,6 +101,8 @@ def _find_or_build_library_unlocked() -> Optional[ctypes.CDLL]:
             _LOAD_ERROR_REASON = f"Compilation failed: {err_msg}"
         except Exception as e:
             _LOAD_ERROR_REASON = f"Build error: {e}"
+        finally:
+            shutil.rmtree(tmp_build_dir, ignore_errors=True)
 
     if lib_path is None and _LOAD_ERROR_REASON is None:
         _LOAD_ERROR_REASON = "Shared library not found and no compilation candidate succeeded"
