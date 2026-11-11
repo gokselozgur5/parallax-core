@@ -48,6 +48,27 @@ MUTATION_SPECS: List[Dict[str, object]] = [
         "test": "tests/test_generator.py",
         "description": "Invert temperature scaling in generator",
     },
+    {
+        "file": "parallax/attention.py",
+        "target": "scores = (q_heads @ np.swapaxes(k_heads_expanded, -1, -2)) * self.scale",
+        "mutant": "scores = (q_heads @ np.swapaxes(k_heads_expanded, -1, -2)) * 0.0",
+        "test": "tests/test_attention.py",
+        "description": "Zero attention dot-product scores",
+    },
+    {
+        "file": "parallax/quant.py",
+        "target": "return w_int8, scale",
+        "mutant": "return w_int8, 0.0",
+        "test": "tests/test_quant.py",
+        "description": "Zero INT8 quantization scale factor",
+    },
+    {
+        "file": "parallax/gguf.py",
+        "target": "if magic != GGUF_MAGIC:",
+        "mutant": "if magic == GGUF_MAGIC:",
+        "test": "tests/test_gguf.py",
+        "description": "Invert GGUF magic header validation guard",
+    },
 ]
 
 
