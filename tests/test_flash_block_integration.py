@@ -1,6 +1,5 @@
 import copy
 import numpy as np
-import pytest
 
 from parallax.generator import generate
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
