@@ -3,7 +3,6 @@ Unit tests for Weight Tying and Nucleus (Top-P) Sampling (M12).
 """
 
 import numpy as np
-import pytest
 
 from parallax.generator import sample_next_token
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
