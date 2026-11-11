@@ -337,4 +337,21 @@ def test_bit_transformer_eos_stopping_cached_and_uncached(monkeypatch):
     assert model.generate([1, 2], max_new_tokens=10, eos_token_id=eos_token, use_cache=True) == [1, 2, eos_token]
 
 
+def test_bit_transformer_ternary_ratio_tied_vs_untied():
+    # Untied
+    cfg_untied = BitTransformerConfig(vocab_size=32, embed_dim=16, num_heads=2, num_layers=1, intermediate_size=32, tie_weights=False)
+    m_untied = BitTransformerLM(cfg_untied)
+    r_untied = m_untied.ternary_ratio()
+    assert 0.0 < r_untied <= 1.0
+
+    # Tied
+    cfg_tied = BitTransformerConfig(vocab_size=32, embed_dim=16, num_heads=2, num_layers=1, intermediate_size=32, tie_weights=True)
+    m_tied = BitTransformerLM(cfg_tied)
+    r_tied = m_tied.ternary_ratio()
+    assert 0.0 < r_tied <= 1.0
+    # Tied weights share token_embeddings.weight and lm_head.weight, deduplicating them in denominator and numerator
+    assert r_tied != r_untied
+
+
+
 
