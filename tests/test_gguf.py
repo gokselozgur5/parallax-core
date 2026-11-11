@@ -199,3 +199,40 @@ def test_gguf_truncated_header_exact_reads():
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+
+def test_gguf_overlapping_tensor_intervals_rejected():
+    with tempfile.NamedTemporaryFile(suffix=".gguf", delete=False) as f:
+        tmp_path = f.name
+        # 2 tensors, 0 metadata
+        f.write(GGUF_MAGIC)
+        f.write(struct.pack("<IQQ", 3, 2, 0))
+
+        # Tensor 1: name "t1", 1 dim, len 4, float32 (16 bytes), offset 0
+        name1 = "t1".encode("utf-8")
+        f.write(struct.pack("<Q", len(name1)))
+        f.write(name1)
+        f.write(struct.pack("<I", 1))
+        f.write(struct.pack("<Q", 4))
+        f.write(struct.pack("<IQ", GGML_TYPE_F32, 0))
+
+        # Tensor 2: name "t2", 1 dim, len 4, float32 (16 bytes), offset 8 (overlaps with t1)
+        name2 = "t2".encode("utf-8")
+        f.write(struct.pack("<Q", len(name2)))
+        f.write(name2)
+        f.write(struct.pack("<I", 1))
+        f.write(struct.pack("<Q", 4))
+        f.write(struct.pack("<IQ", GGML_TYPE_F32, 8))
+
+        # Pad header to 32 bytes
+        pad = (32 - (f.tell() % 32)) % 32
+        f.write(b"\x00" * pad)
+        # Write 32 bytes of tensor payload
+        f.write(b"\x00" * 32)
+
+    try:
+        with pytest.raises(ValueError, match="Overlapping tensor byte intervals"):
+            load_gguf(tmp_path)
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
