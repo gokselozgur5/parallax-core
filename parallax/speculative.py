@@ -171,7 +171,8 @@ def speculative_generate(
     Returns:
         generated_tokens: Complete token sequence including prompt.
         stats: Dictionary containing acceptance_rate, total_accepted, target_forward_passes,
-               effective speedup factor, accepted_tokens_per_step, and wall-clock elapsed_time_sec.
+               target_pass_ratio (tokens per target pass), accepted_tokens_per_step,
+               and wall-clock elapsed_time_sec.
     """
     if gamma < 1:
         raise ValueError("gamma must be >= 1")
@@ -290,7 +291,6 @@ def speculative_generate(
         "total_proposed": total_proposed,
         "target_forward_passes": target_forward_passes,
         "target_pass_ratio": target_pass_ratio,
-        "speedup_factor": target_pass_ratio,
         "accepted_tokens_per_step": accepted_per_step,
         "elapsed_time_sec": round(elapsed_time, 5),
     }
