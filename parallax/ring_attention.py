@@ -31,8 +31,12 @@ def ring_flash_update(
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Merge partial block attention outputs via online softmax rescaling."""
     new_m = np.maximum(acc_m, block_m)
-    alpha = np.where(np.isneginf(acc_m), 0.0, np.exp(acc_m - new_m))
-    beta = np.exp(block_m - new_m)
+    both_neginf = np.isneginf(new_m)
+    safe_new_m = np.where(both_neginf, 0.0, new_m)
+    safe_acc_m = np.where(np.isneginf(acc_m), 0.0, acc_m)
+    safe_block_m = np.where(np.isneginf(block_m), 0.0, block_m)
+    alpha = np.where(np.isneginf(acc_m), 0.0, np.exp(safe_acc_m - safe_new_m))
+    beta = np.where(np.isneginf(block_m), 0.0, np.exp(safe_block_m - safe_new_m))
     new_l = acc_l * alpha + block_l * beta
     new_o = (acc_o * (acc_l * alpha)[..., None] + block_o * (block_l * beta)[..., None]) / np.maximum(new_l[..., None], 1e-12)
     return new_o, new_m, new_l
@@ -85,9 +89,12 @@ def ring_attention_forward(
             if causal and i == j:
                 qi_idx = np.arange(q_start, q_end)[:, None]
                 kj_idx = np.arange(k_start, k_end)[None, :]
-                scores = np.where(qi_idx >= kj_idx, scores, -1e9)
+                scores = np.where(qi_idx >= kj_idx, scores, -np.inf)
             block_m = np.max(scores, axis=-1)
-            exp_s = np.exp(scores - block_m[:, None])
+            all_masked = np.isneginf(block_m)
+            safe_block_m = np.where(all_masked, 0.0, block_m)
+            exp_s = np.exp(scores - safe_block_m[:, None])
+            exp_s = np.where(all_masked[:, None], 0.0, exp_s)
             block_l = np.sum(exp_s, axis=-1)
             block_o = np.matmul(exp_s, vj) / np.maximum(block_l[:, None], 1e-12)
             acc_o, acc_m, acc_l = ring_flash_update(
