@@ -23,8 +23,7 @@ import platform
 import subprocess
 import sys
 import time
-from typing import Any, Dict, List, Optional, Tuple
-import warnings
+from typing import Any, Dict, List, Tuple
 import numpy as np
 
 # Ensure parallax is importable from repository root
@@ -33,6 +32,11 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from parallax.c_engine import c_gemm, c_rmsnorm, is_c_engine_available
+from parallax.rust_engine import (
+    find_rust_lib,
+    get_rust_lib,
+    rust_gemm,
+)
 from parallax.metal_engine import is_metal_available, metal_gemm, metal_rmsnorm
 from parallax.int4 import Linear4Bit
 from parallax.flash_decoding import flash_decode_attention
@@ -114,97 +118,7 @@ def get_system_hardware_info() -> Dict[str, str]:
     return info
 
 
-def find_rust_lib() -> Optional[str]:
-    """Locate the compiled libparallax_rs library if available."""
-    crate_target = os.path.join(REPO_ROOT, "crates", "parallax-rs", "target")
-    system = platform.system()
-    if system == "Darwin":
-        lib_name = "libparallax_rs.dylib"
-    elif system == "Windows":
-        lib_name = "parallax_rs.dll"
-    else:
-        lib_name = "libparallax_rs.so"
-
-    for mode in ["release", "debug"]:
-        candidate = os.path.join(crate_target, mode, lib_name)
-        if os.path.isfile(candidate):
-            return candidate
-    return None
-
-
-_RUST_CDLL: Optional[ctypes.CDLL] = None
-_RUST_LOAD_ATTEMPTED = False
-
-
-def get_rust_lib() -> Optional[ctypes.CDLL]:
-    """Load and configure the Rust C-ABI CDLL."""
-    global _RUST_CDLL, _RUST_LOAD_ATTEMPTED
-    if _RUST_LOAD_ATTEMPTED:
-        return _RUST_CDLL
-    _RUST_LOAD_ATTEMPTED = True
-
-    lib_path = find_rust_lib()
-    if lib_path is None:
-        return None
-
-    try:
-        lib = ctypes.CDLL(lib_path)
-        lib.parallax_version.argtypes = []
-        lib.parallax_version.restype = ctypes.c_uint32
-        ver = lib.parallax_version()
-        if ver != 2:
-            warnings.warn(
-                f"Rust library ABI version mismatch (got {ver}, expected 2). "
-                "Please rebuild with: cargo build --manifest-path crates/parallax-rs/Cargo.toml --release",
-                stacklevel=2,
-            )
-            _RUST_CDLL = None
-            return None
-        lib.parallax_gemm_f32.argtypes = [
-            ctypes.c_size_t,
-            ctypes.c_size_t,
-            ctypes.c_size_t,
-            ctypes.c_float,
-            ctypes.POINTER(ctypes.c_float),
-            ctypes.c_size_t,
-            ctypes.POINTER(ctypes.c_float),
-            ctypes.c_size_t,
-            ctypes.c_float,
-            ctypes.POINTER(ctypes.c_float),
-            ctypes.c_size_t,
-        ]
-        lib.parallax_gemm_f32.restype = ctypes.c_int32
-        _RUST_CDLL = lib
-    except Exception:
-        _RUST_CDLL = None
-
-    return _RUST_CDLL
-
-
-def rust_gemm(A: np.ndarray, B: np.ndarray) -> np.ndarray:
-    """Compute GEMM using the Rust C-ABI bridge."""
-    lib = get_rust_lib()
-    if lib is None:
-        raise RuntimeError("Rust engine not available")
-    m, k = A.shape
-    k2, n = B.shape
-    if k != k2:
-        raise ValueError(f"Shape mismatch: {A.shape} and {B.shape}")
-
-    A_c = np.ascontiguousarray(A, dtype=np.float32)
-    B_c = np.ascontiguousarray(B, dtype=np.float32)
-    C = np.zeros((m, n), dtype=np.float32)
-
-    a_ptr = A_c.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
-    b_ptr = B_c.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
-    c_ptr = C.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
-
-    status = lib.parallax_gemm_f32(
-        m, n, k, 1.0, a_ptr, A_c.size, b_ptr, B_c.size, 0.0, c_ptr, C.size
-    )
-    if status != 0:
-        raise RuntimeError(f"Rust GEMM returned non-zero status: {status}")
-    return C
+# Rust engine primitives imported from parallax.rust_engine
 
 
 # =====================================================================
