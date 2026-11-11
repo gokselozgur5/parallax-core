@@ -3,7 +3,6 @@ import pytest
 
 from parallax.flash_decoding_v2 import (
     select_split_k,
-    flash_decode_split_kernel,
     reduce_split_k_online,
     flash_decode_split_k_v2,
     flash_decode_split_k_paged,
