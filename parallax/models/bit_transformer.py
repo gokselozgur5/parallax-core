@@ -207,33 +207,38 @@ class BitTransformerLM(Module):
 
     def ternary_ratio(self) -> float:
         """Calculates the exact ratio of ternary parameters (BitLinear layers) across the model."""
+        seen_ternary_ids = set()
+        seen_total_ids = set()
         ternary_params = 0
         total_params = 0
 
+        def add_param(p, is_ternary: bool = False) -> None:
+            nonlocal ternary_params, total_params
+            pid = id(p)
+            if pid not in seen_total_ids:
+                seen_total_ids.add(pid)
+                total_params += p.data.size
+            if is_ternary and pid not in seen_ternary_ids:
+                seen_ternary_ids.add(pid)
+                ternary_params += p.data.size
+
         # Modules with BitLinear weights
         for block in self.blocks:
-            # BitAttention projections: q_proj, k_proj, v_proj, out_proj
             for proj in [block.attn.q_proj, block.attn.k_proj, block.attn.v_proj, block.attn.out_proj]:
-                ternary_params += proj.weight.data.size
-                total_params += proj.weight.data.size
+                add_param(proj.weight, is_ternary=True)
                 if proj.bias is not None:
-                    total_params += proj.bias.data.size
-            # BitSwiGLU projections: w_gate, w_up, w_down
+                    add_param(proj.bias, is_ternary=False)
             for proj in [block.mlp.w_gate, block.mlp.w_up, block.mlp.w_down]:
-                ternary_params += proj.weight.data.size
-                total_params += proj.weight.data.size
+                add_param(proj.weight, is_ternary=True)
                 if proj.bias is not None:
-                    total_params += proj.bias.data.size
+                    add_param(proj.bias, is_ternary=False)
 
-            # Norm scales
-            total_params += block.attn_norm.weight.data.size
-            total_params += block.mlp_norm.weight.data.size
+            add_param(block.attn_norm.weight, is_ternary=False)
+            add_param(block.mlp_norm.weight, is_ternary=False)
 
-        # Embedding & final norm & lm_head
-        total_params += self.token_embeddings.weight.data.size
-        total_params += self.final_norm.weight.data.size
-        ternary_params += self.lm_head.weight.data.size
-        total_params += self.lm_head.weight.data.size
+        add_param(self.token_embeddings.weight, is_ternary=False)
+        add_param(self.final_norm.weight, is_ternary=False)
+        add_param(self.lm_head.weight, is_ternary=True)
 
         return float(ternary_params / total_params) if total_params > 0 else 0.0
 
