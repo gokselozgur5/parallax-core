@@ -139,3 +139,49 @@ def test_speculative_and_contrastive_run_under_no_grad() -> None:
     assert len(observed_grad_states) > 0
     assert all(state is False for state in observed_grad_states)
 
+
+def test_speculative_empty_prompt_and_training_mode_restoration() -> None:
+    cfg = ParallaxLMConfig(vocab_size=8, embed_dim=8, num_heads=2, num_layers=1, max_seq_len=12)
+    target = ParallaxLM(cfg)
+    draft = ParallaxLM(cfg)
+
+    # Empty prompt guard
+    with pytest.raises(ValueError, match="prompt_tokens must not be empty"):
+        speculative_generate(target, draft, prompt_tokens=[], max_new_tokens=4)
+
+    # Training mode restoration
+    target.train(True)
+    draft.train(True)
+    assert target.training is True
+    assert draft.training is True
+
+    speculative_generate(target, draft, prompt_tokens=[1, 2], max_new_tokens=2, gamma=2)
+
+    assert target.training is True
+    assert draft.training is True
+
+
+def test_speculative_bonus_token_when_draft_hits_max_seq_len() -> None:
+    import copy
+
+    np.random.seed(42)
+    cfg_target = ParallaxLMConfig(vocab_size=8, embed_dim=8, num_heads=2, num_layers=1, max_seq_len=8)
+    target = ParallaxLM(cfg_target)
+    draft = copy.deepcopy(target)
+    draft.config = ParallaxLMConfig(vocab_size=8, embed_dim=8, num_heads=2, num_layers=1, max_seq_len=4)
+
+    # Start with 3 tokens; gamma=1 makes draft proposal reach 4 tokens (draft max_seq_len).
+    # Target max_seq_len is 8, so target bonus token should be generated (total 5 tokens).
+    tokens, stats = speculative_generate(
+        target,
+        draft,
+        prompt_tokens=[1, 2, 3],
+        max_new_tokens=2,
+        gamma=1,
+        temperature=0.0,
+    )
+    assert len(tokens) == 5
+    assert stats["total_accepted"] == 1
+    assert stats["target_pass_ratio"] == 2.0  # 2 tokens generated in 1 target pass!
+
+
