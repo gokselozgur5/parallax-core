@@ -108,7 +108,7 @@ def sample_next_token(
     return int(np.random.choice(len(probs), p=probs))
 
 
-def generate_stream(
+def _generate_stream_tokens(
     model: ParallaxLM,
     prompt_tokens: List[int],
     max_new_tokens: int = 20,
@@ -119,12 +119,6 @@ def generate_stream(
     eos_token_id: Optional[int] = None,
     rolling_cache: Optional[RollingKVCache] = None,
 ) -> Iterator[int]:
-    """Yields newly generated token IDs one by one."""
-    if max_new_tokens < 0:
-        raise ValueError(f"max_new_tokens must be non-negative, got {max_new_tokens}")
-    if max_new_tokens == 0:
-        return
-    model.eval()
     tokens = list(prompt_tokens)
     max_seq_len = model.config.max_seq_len
 
@@ -207,6 +201,35 @@ def generate_stream(
         yield next_token
         if eos_token_id is not None and next_token == eos_token_id:
             break
+
+
+def generate_stream(
+    model: ParallaxLM,
+    prompt_tokens: List[int],
+    max_new_tokens: int = 20,
+    temperature: float = 0.8,
+    top_k: Optional[int] = 10,
+    top_p: Optional[float] = None,
+    use_cache: bool = True,
+    eos_token_id: Optional[int] = None,
+    rolling_cache: Optional[RollingKVCache] = None,
+) -> Iterator[int]:
+    """Yields newly generated token IDs one by one."""
+    if max_new_tokens < 0:
+        raise ValueError(f"max_new_tokens must be non-negative, got {max_new_tokens}")
+    if max_new_tokens == 0:
+        return
+    was_training = getattr(model, "training", False)
+    if hasattr(model, "eval"):
+        model.eval()
+    try:
+        yield from _generate_stream_tokens(
+            model, prompt_tokens, max_new_tokens, temperature,
+            top_k, top_p, use_cache, eos_token_id, rolling_cache,
+        )
+    finally:
+        if was_training and hasattr(model, "train"):
+            model.train()
 
 
 def generate(
