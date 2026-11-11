@@ -238,3 +238,103 @@ def test_openai_server_invalid_payload_schemas(running_server):
     with pytest.raises(urllib.error.HTTPError) as exc5:
         urllib.request.urlopen(req5)
     assert exc5.value.code == 400
+
+
+def test_openai_server_failed_request_non_streaming():
+    config = ParallaxLMConfig(
+        vocab_size=128,
+        embed_dim=16,
+        num_layers=1,
+        num_heads=2,
+        max_seq_len=64,
+        use_swiglu=False,
+    )
+    model = ParallaxLM(config)
+
+    # Monkeypatch model forward to raise an exception during generation
+    def broken_forward(*args, **kwargs):
+        raise RuntimeError("Simulated GPU forward fault")
+
+    model.forward = broken_forward  # type: ignore[method-assign]
+
+    state = OpenAIServerState(model=model, model_name="fail-model")
+    handler = create_handler(state)
+
+    server = HTTPServer(("127.0.0.1", 0), handler)
+    port = server.server_port
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+
+    try:
+        url = f"http://127.0.0.1:{port}/v1/chat/completions"
+        payload = json.dumps({
+            "model": "fail-model",
+            "messages": [{"role": "user", "content": "hello"}],
+            "max_tokens": 5,
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with pytest.raises(urllib.error.HTTPError) as exc:
+            urllib.request.urlopen(req)
+        assert exc.value.code == 500
+        err_body = json.loads(exc.value.read().decode("utf-8"))
+        assert "Simulated GPU forward fault" in err_body["error"]["message"]
+        # Ensure completed_requests cache was evicted
+        assert len(state.engine.completed_requests) == 0
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_openai_server_failed_request_streaming():
+    config = ParallaxLMConfig(
+        vocab_size=128,
+        embed_dim=16,
+        num_layers=1,
+        num_heads=2,
+        max_seq_len=64,
+        use_swiglu=False,
+    )
+    model = ParallaxLM(config)
+
+    def broken_forward(*args, **kwargs):
+        raise RuntimeError("Simulated stream fault")
+
+    model.forward = broken_forward  # type: ignore[method-assign]
+
+    state = OpenAIServerState(model=model, model_name="fail-stream-model")
+    handler = create_handler(state)
+
+    server = HTTPServer(("127.0.0.1", 0), handler)
+    port = server.server_port
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
+
+    try:
+        url = f"http://127.0.0.1:{port}/v1/chat/completions"
+        payload = json.dumps({
+            "model": "fail-stream-model",
+            "messages": [{"role": "user", "content": "hello"}],
+            "max_tokens": 5,
+            "stream": True,
+        }).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req) as resp:
+            assert resp.status == 200
+            content = resp.read().decode("utf-8")
+            assert "Simulated stream fault" in content
+            assert "[DONE]" not in content
+        # Ensure completed_requests cache was evicted
+        assert len(state.engine.completed_requests) == 0
+    finally:
+        server.shutdown()
+        server.server_close()
