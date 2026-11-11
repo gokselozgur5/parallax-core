@@ -73,7 +73,7 @@ pub unsafe extern "C" fn parallax_softmax_f32(
 /// C-ABI export for version check / smoke test.
 #[no_mangle]
 pub extern "C" fn parallax_version() -> u32 {
-    1
+    2
 }
 
 #[cfg(test)]
@@ -82,7 +82,7 @@ mod tests {
 
     #[test]
     fn test_c_abi_version() {
-        assert_eq!(parallax_version(), 1);
+        assert_eq!(parallax_version(), 2);
     }
 
     #[test]
