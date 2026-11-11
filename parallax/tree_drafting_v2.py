@@ -192,7 +192,6 @@ def generate_dynamic_eagle_tree(
         if not current_layer:
             break
 
-    n = len(nodes)
     tokens = np.array([node.token_id for node in nodes], dtype=np.int64)
     parents = np.array([node.parent_idx for node in nodes], dtype=np.int64)
     depths = np.array([node.depth for node in nodes], dtype=np.int64)

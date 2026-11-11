@@ -50,7 +50,6 @@ def chunked_prefill_attention(
         Output representations for chunk tokens, shape (chunk_len, d).
     """
     chunk_len, d = q_chunk.shape
-    total_len = k_all.shape[0]
     scale = 1.0 / np.sqrt(d)
 
     # Raw attention logits: (chunk_len, total_len)

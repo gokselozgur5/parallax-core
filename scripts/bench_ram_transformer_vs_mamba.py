@@ -168,9 +168,6 @@ def run_benchmark():
     d_conv = 4
     expand = 2
     vocab_size = 256
-    d_inner = int(expand * d_model)
-    # State per layer in bytes: d_inner * (d_state + d_conv - 1) * 8 bytes
-    mamba_state_kb = (num_layers * d_inner * (d_state + d_conv - 1) * 8) / 1024.0
 
     print("==================================================================")
     print("PARALLAX ANTI-RAM BENCHMARK: TRANSFORMER KV-CACHE vs MAMBA (S6)")

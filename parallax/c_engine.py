@@ -281,7 +281,6 @@ def c_rmsnorm(x: np.ndarray, weight: np.ndarray, eps: float = 1e-6) -> np.ndarra
 
     orig_dtype = x.dtype
     if orig_dtype == np.float64 or weight.dtype == np.float64:
-        use_f64 = True
         x_c = np.ascontiguousarray(x, dtype=np.float64).reshape(rows, cols)
         w_c = np.ascontiguousarray(weight, dtype=np.float64)
         out = np.empty((rows, cols), dtype=np.float64)
