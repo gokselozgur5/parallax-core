@@ -88,3 +88,19 @@ def test_generate_preserves_model_training_mode():
     assert model.training is False
 
 
+def test_generate_handles_model_without_eval_or_train():
+    from parallax.tensor import Tensor
+
+    class DummyLM:
+        class config:
+            max_seq_len = 16
+
+        def __call__(self, idx, kv_caches=None):
+            return Tensor(np.zeros((1, idx.shape[1], 16)))
+
+    dummy = DummyLM()
+    out = generate(dummy, [1, 2], max_new_tokens=2, use_cache=False)
+    assert len(out) == 4
+
+
+
