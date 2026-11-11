@@ -316,3 +316,36 @@ def test_bit_attention_dq_inverse_rope_effect(monkeypatch):
     assert np.max(np.abs(true_q_grad - attn_f.q_proj.weight.grad)) > 0.5
 
 
+def test_bit_attention_dq_dk_dv_central_difference_reference():
+    """Verify dQ, dK, and dV gradients match central difference reference through biases."""
+    from parallax.nn import Module
+
+    class Identity(Module):
+        def forward(self, x):
+            return x
+
+    np.random.seed(42)
+    B, T, C, num_heads = 2, 4, 16, 2
+    attn = BitAttention(embed_dim=C, num_heads=num_heads, use_rope=True, qkv_bias=True, rope_theta=100.0)
+    attn.out_proj = Identity()
+    x = Tensor(np.random.randn(B, T, C), requires_grad=False)
+
+    def eval_loss():
+        return float(np.sum(attn(x).data ** 2))
+
+    (attn(x) * attn(x)).sum().backward()
+
+    eps = 1e-6
+    for proj in [attn.q_proj, attn.k_proj, attn.v_proj]:
+        fd = np.zeros_like(proj.bias.data)
+        for i in range(len(proj.bias.data)):
+            orig = proj.bias.data[i]
+            proj.bias.data[i] = orig + eps
+            lp = eval_loss()
+            proj.bias.data[i] = orig - eps
+            lm = eval_loss()
+            proj.bias.data[i] = orig
+            fd[i] = (lp - lm) / (2 * eps)
+        np.testing.assert_allclose(proj.bias.grad, fd, rtol=1e-4, atol=1e-4)
+
+
