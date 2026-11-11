@@ -1,5 +1,4 @@
 import math
-import pytest
 from parallax.engine import Value
 
 
