@@ -57,7 +57,8 @@ def test_speculative_decoding_greedy_lossless_equivalence():
     # Greedy speculative decoding MUST output mathematically identical tokens as standard target model
     assert spec_tokens == standard_tokens
     assert stats["target_forward_passes"] <= max_new_tokens
-    assert stats["speedup_factor"] >= 1.0
+    assert stats["target_pass_ratio"] >= 1.0
+    assert "speedup_factor" not in stats
 
 
 def test_speculative_decoding_identical_model_perfect_acceptance():
@@ -82,7 +83,8 @@ def test_speculative_decoding_identical_model_perfect_acceptance():
     )
     # Perfect match on identical models
     assert stats["acceptance_rate"] == 1.0
-    assert stats["speedup_factor"] > 1.0
+    assert stats["target_pass_ratio"] > 1.0
+    assert "speedup_factor" not in stats
 
 def test_speculative_decoding_stochastic_ratio_acceptance() -> None:
     np.random.seed(42)
