@@ -413,3 +413,32 @@ class TreeSpeculativeGenerator:
             leaves = sum(1 for i in range(n) if i not in set(parents))
             if leaves > self.max_candidate_paths:
                 raise ValueError(f"Candidate paths {leaves} exceeds limit {self.max_candidate_paths}")
+
+    def verify(
+        self,
+        draft_tokens: Union[List[int], np.ndarray],
+        parent_indices: Union[List[int], np.ndarray],
+        target_logits: np.ndarray,
+        context_logits: Optional[np.ndarray] = None,
+        return_acceptance_stats: bool = False,
+        current_sequence_length: int = 0,
+    ) -> Union[List[int], Tuple[List[int], Dict[str, float]]]:
+        """Validate topology and verify candidates against target logits."""
+        self.validate_configuration(draft_tokens, parent_indices, current_sequence_length)
+        return verify_tree_candidates_v2(
+            draft_tokens, parent_indices, target_logits,
+            context_logits=context_logits,
+            return_acceptance_stats=return_acceptance_stats,
+            max_draft_tokens=self.max_draft_tokens,
+            max_candidate_paths=self.max_candidate_paths,
+        )
+
+    def generate(
+        self, root_token_id: int, depth: int = 4, top_k_per_node: int = 2, predict_fn=None
+    ) -> TreeDraftTopology:
+        """Generate speculative tree enforcing node and successor bounds."""
+        if top_k_per_node > self.max_successors_per_node:
+            raise ValueError(f"top_k_per_node {top_k_per_node} exceeds {self.max_successors_per_node}")
+        topo = generate_dynamic_eagle_tree(root_token_id, depth=depth, top_k_per_node=top_k_per_node, predict_fn=predict_fn)
+        self.validate_configuration(topo.tokens, topo.parent_indices)
+        return topo
