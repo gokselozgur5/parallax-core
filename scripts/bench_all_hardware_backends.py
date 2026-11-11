@@ -483,8 +483,8 @@ def bench_memory_scaling(
 
     # Recurrent state size per Mamba / BitMamba layer:
     # 1. SSM hidden state h: [B, d_inner, d_state]
-    # 2. Conv1D buffer: [B, d_inner, d_conv - 1]
-    mamba_state_per_layer = batch_size * d_inner * (d_state + d_conv - 1) * dtype_bytes
+    # 2. Conv1D buffer: [B, d_inner, d_conv]
+    mamba_state_per_layer = batch_size * d_inner * (d_state + d_conv) * dtype_bytes
     total_mamba_state_bytes = num_layers * mamba_state_per_layer
 
     # BitMamba state size (same structural state dimension, with int8/packed states)
@@ -705,6 +705,9 @@ def generate_markdown_report(
     scaling_results: List[Dict[str, Any]],
     int4_stats: Dict[str, Any],
     flash_results: List[Dict[str, Any]],
+    quick: bool = False,
+    repeats: int = 5,
+    warmup: int = 2,
 ) -> str:
     """Generate comprehensive GitHub-flavored Markdown report."""
     md = []
@@ -728,6 +731,8 @@ def generate_markdown_report(
     md.append(f"- **C-Engine Native Library:** `{hw_info['c_engine_available']}`")
     md.append(f"- **Rust Engine C-ABI:** `{hw_info['rust_engine_available']}`")
     md.append(f"- **Python Version:** `{hw_info['python_version']}`")
+    mode_str = "Quick Benchmark (--quick)" if quick else "Full Benchmark"
+    md.append(f"- **Benchmark Mode:** `{mode_str}` (warmup={warmup}, repeats={repeats}, median reported)")
     md.append("")
 
     # GEMM Table
@@ -775,7 +780,9 @@ def generate_markdown_report(
     md.append("")
 
     # Architecture Weight Memory Table
-    md.append("## 3. Architecture Weight Memory & INT4 Quantization")
+    md.append("## 3. Architecture Weight Memory & INT4 Quantization (Theoretical Estimates)")
+    md.append("")
+    md.append("> *Note: Parameter counts and weight footprints in this section are theoretical analytical estimates based on architectural layer formulas, assuming packed 1.58-bit ternary representations (0.25 bytes/param) for BitLinear and INT4 affine nibble packing.*")
     md.append("")
     md.append("| Model Architecture | Parameters | Weight Storage Footprint | Effective Precision | Compression vs FP32 Baseline |")
     md.append("| :--- | :--- | :--- | :--- | :--- |")
@@ -792,7 +799,9 @@ def generate_markdown_report(
     md.append("")
 
     # Context RAM Scaling Table
-    md.append("## 4. Context State RAM Scaling: Transformer KV vs Mamba vs BitMamba")
+    md.append("## 4. Context State RAM Scaling: Transformer KV vs Mamba vs BitMamba (Theoretical Estimates)")
+    md.append("")
+    md.append("> *Note: Context memory values in this section are theoretical estimates derived from tensor dimension formulas (FP32, 4 bytes/elem). See `docs/benchmarks/anti_ram_report.md` for empirical model array byte measurements.*")
     md.append("")
     md.append("| Sequence Length ($T$) | Transformer KV Cache ($O(T)$) | Mamba Recurrent State ($O(1)$) | BitMamba State ($O(1)$) | KV Memory Explosion Factor |")
     md.append("| :--- | :--- | :--- | :--- | :--- |")
@@ -844,12 +853,12 @@ def generate_markdown_report(
         else:
             md.append(f"   - Apple Metal GPU JIT achieves peak throughput of {peak_metal_gemm:.2f}x relative to CPU BLAS baselines.")
     md.append("")
-    md.append("2. **Anti-RAM Proof: $O(1)$ State Space Scaling:**")
+    md.append("2. **Anti-RAM Proof: $O(1)$ State Space Scaling (Analytical Estimates):**")
     first_r = scaling_results[0]
     last_r = scaling_results[-1]
     md.append(f"   - At $T={first_r['T']}$, Transformer KV-cache occupies {format_bytes(first_r['tf_kv_bytes'])} vs Mamba's {format_bytes(first_r['mamba_state_bytes'])}.")
     md.append(f"   - At $T={last_r['T']}$, Transformer KV-cache expands to {format_bytes(last_r['tf_kv_bytes'])} (**{last_r['ratio_kv_to_mamba']:.1f}x higher**), while Mamba and BitMamba retain an invariant {format_bytes(last_r['mamba_state_bytes'])} state buffer.")
-    md.append(f"   - Combined with BitMamba's 1.58-bit ternary weights (achieving a {bm_comp:.2f}x weight compression factor), state space models demonstrate constant context memory without exponential RAM growth.")
+    md.append(f"   - Combined with BitMamba's theoretical 1.58-bit ternary weights (achieving a {bm_comp:.2f}x weight compression factor), state space models demonstrate constant context memory without exponential RAM growth.")
     md.append("")
     md.append("3. **FlashDecoding-v2 Dynamic Split-K Efficiency:**")
     last_f = flash_results[-1]
@@ -899,19 +908,21 @@ def main() -> None:
         seq_lengths = [128, 512, 1024, 2048]
         flash_seq_lengths = [256, 512, 1024, 2048]
         repeats = 3
+        warmup = 2
     else:
         gemm_sizes = [256, 512, 1024]
         rmsnorm_shapes = [(512, 512), (1024, 1024), (1024, 2048)]
         seq_lengths = [128, 512, 1024, 2048, 4096, 8192]
         flash_seq_lengths = [256, 512, 1024, 2048, 4096]
-        repeats = 5
+        repeats = 7
+        warmup = 3
 
     # 1. Compute benchmarks
     print(f"-> Benchmarking GEMM across hardware backends...")
-    gemm_results = bench_gemm(gemm_sizes, repeats=repeats)
+    gemm_results = bench_gemm(gemm_sizes, repeats=repeats, warmup=warmup)
 
     print(f"-> Benchmarking RMSNorm across hardware backends...")
-    rmsnorm_results = bench_rmsnorm(rmsnorm_shapes, repeats=repeats)
+    rmsnorm_results = bench_rmsnorm(rmsnorm_shapes, repeats=repeats, warmup=warmup)
 
     # 2. Architecture weights & INT4
     print(f"-> Evaluating architecture parameter footprint and INT4 compression...")
@@ -928,7 +939,7 @@ def main() -> None:
 
     # 4. FlashDecoding v1 vs v2
     print(f"-> Benchmarking FlashDecoding v1 vs v2 Split-K...")
-    flash_results = bench_flash_decoding(flash_seq_lengths, d=64, repeats=repeats)
+    flash_results = bench_flash_decoding(flash_seq_lengths, d=64, repeats=repeats, warmup=warmup)
 
     # 5. Terminal Display
     print_terminal_report(
@@ -950,6 +961,9 @@ def main() -> None:
         scaling_results,
         int4_stats,
         flash_results,
+        quick=args.quick,
+        repeats=repeats,
+        warmup=warmup,
     )
     save_markdown_report(report_md, args.report_out)
     print(f"{Colors.BOLD}{Colors.GREEN}[DONE] Hardware Matrix Report successfully generated:{Colors.RESET} {args.report_out}\n")

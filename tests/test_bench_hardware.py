@@ -11,7 +11,6 @@ Verifies:
 
 import os
 import tempfile
-import numpy as np
 import pytest
 
 from scripts.bench_all_hardware_backends import (
@@ -24,7 +23,6 @@ from scripts.bench_all_hardware_backends import (
     get_system_hardware_info,
     generate_markdown_report,
     save_markdown_report,
-    format_bytes,
 )
 from parallax.c_engine import is_c_engine_available
 from parallax.metal_engine import is_metal_available
