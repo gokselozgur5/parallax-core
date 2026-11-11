@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.prune import (
