@@ -141,3 +141,28 @@ def test_hf_save_and_load_tokenizer_split_pattern_roundtrip():
         for s in test_sentences:
             assert tok_loaded.encode(s) == tok_orig.encode(s)
 
+
+def test_hf_save_sliding_window_and_normalizer():
+    from parallax.hf_tokenizer import _BYTE_TO_UNICODE
+
+    vocab = {chr(i): i for i in range(256)}
+    for b, u in _BYTE_TO_UNICODE.items():
+        vocab[u] = len(vocab)
+
+    tok_orig = HFTokenizer(vocab=vocab, normalizer="NFC")
+    cfg = ParallaxLMConfig(
+        vocab_size=len(vocab), embed_dim=16, num_heads=2, num_kv_heads=2,
+        num_layers=1, max_seq_len=32, intermediate_size=16, use_swiglu=True,
+        sliding_window=2048,
+    )
+    model = ParallaxLM(cfg)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        save_hf_pretrained(model, tmp_dir, tokenizer=tok_orig)
+        model_loaded, tok_loaded = load_hf_pretrained(tmp_dir, return_tokenizer=True)
+
+        assert model_loaded.config.sliding_window == 2048
+        assert tok_loaded is not None
+        assert tok_loaded.normalizer == "NFC"
+
+
