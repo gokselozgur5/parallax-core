@@ -6,7 +6,7 @@ Zero-dependency implementation using NumPy and Parallax primitives.
 """
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 
@@ -34,7 +34,7 @@ class LlamaConfig(ParallaxLMConfig):
     @classmethod
     def llama_3_8b(cls, **kwargs) -> "LlamaConfig":
         """Returns standard configuration for Meta-Llama-3-8B."""
-        cfg_dict = {
+        cfg_dict: Dict[str, Any] = {
             "vocab_size": 128256,
             "embed_dim": 4096,
             "num_heads": 32,
@@ -56,7 +56,7 @@ class LlamaConfig(ParallaxLMConfig):
     @classmethod
     def llama_2_7b(cls, **kwargs) -> "LlamaConfig":
         """Returns standard configuration for Llama-2-7B."""
-        cfg_dict = {
+        cfg_dict: Dict[str, Any] = {
             "vocab_size": 32000,
             "embed_dim": 4096,
             "num_heads": 32,
