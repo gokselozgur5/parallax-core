@@ -231,6 +231,7 @@ def test_export_bitmamba_f32_roundtrip():
             "token_embd.weight",
             "output_norm.weight",
             "output.weight",
+            "blk.0.attn_norm.weight",
             "blk.0.ssm_in.weight",
             "blk.0.ssm_conv1d.weight",
             "blk.0.ssm_conv1d.bias",
@@ -240,6 +241,7 @@ def test_export_bitmamba_f32_roundtrip():
             "blk.0.ssm_a",
             "blk.0.ssm_d",
             "blk.0.ssm_out.weight",
+            "blk.1.attn_norm.weight",
             "blk.1.ssm_in.weight",
             "blk.1.ssm_out.weight",
         ]
@@ -260,6 +262,11 @@ def test_export_bitmamba_f32_roundtrip():
         np.testing.assert_allclose(
             gguf_file.tensors["token_embd.weight"],
             model.token_embeddings.weight.data,
+            atol=1e-6,
+        )
+        np.testing.assert_allclose(
+            gguf_file.tensors["blk.0.attn_norm.weight"],
+            model.norms[0].weight.data,
             atol=1e-6,
         )
         np.testing.assert_allclose(
