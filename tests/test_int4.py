@@ -156,6 +156,31 @@ def test_linear4bit_forward():
     assert call_count == 1
 
 
+def test_linear4bit_no_grad_backward_closure_retention():
+    """Verify backward closure is not attached under no_grad (#432)."""
+    l4 = Linear4Bit(64, 32)
+    x_no_req = Tensor(np.random.randn(2, 64), requires_grad=False)
+    x_req = Tensor(np.random.randn(2, 64), requires_grad=True)
+
+    # 1. requires_grad=False input produces output with no closure and no graph edge
+    out_no_req = l4(x_no_req)
+    assert out_no_req._backward.__name__ == "<lambda>"
+    assert len(out_no_req._prev) == 0
+
+    # 2. Under no_grad(), even requires_grad=True input produces output with no closure
+    from parallax.tensor import no_grad
+
+    with no_grad():
+        out_nograd = l4(x_req)
+        assert out_nograd._backward.__name__ == "<lambda>"
+        assert len(out_nograd._prev) == 0
+
+    # 3. Normal forward with requires_grad=True attaches backward closure
+    out_grad = l4(x_req)
+    assert out_grad._backward.__name__ == "_backward"
+    assert x_req in out_grad._prev
+
+
 def test_linear4bit_gradient_propagation():
     """Verify gradients propagate through Linear4Bit to upstream layers."""
     np.random.seed(42)
