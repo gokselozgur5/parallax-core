@@ -420,6 +420,8 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         w_val = float(req.get("w", 2.0))
         x_val = float(req.get("x", 3.0))
         b_val = float(req.get("b", -1.0))
+        if not (math.isfinite(w_val) and math.isfinite(x_val) and math.isfinite(b_val)):
+            raise ValueError("DAG parameters must be finite real numbers")
 
         if expr_type == "neuron":
             w = Value(w_val, label="w")
