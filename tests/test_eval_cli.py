@@ -1,5 +1,3 @@
-import os
-import pytest
 from parallax.gguf_loader import save_parallax_to_gguf
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from scripts.eval_model import eval_model_on_text
