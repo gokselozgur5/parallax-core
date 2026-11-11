@@ -273,4 +273,17 @@ def test_bitmamba_selective_scan_independent_recurrence_reference():
     np.testing.assert_allclose(h, h_ref, atol=1e-6)
 
 
+def test_bitmamba_docstrings_accurate():
+    """Verify bitmamba module and model docstrings do not make unsupported performance claims."""
+    import parallax.bitmamba as bm
+
+    mod_doc = (bm.__doc__ or "").lower()
+    lm_doc = (bm.BitMambaLM.__doc__ or "").lower()
+
+    for claim in ["zero-ram", "sub-2-bit", "ternary additions"]:
+        assert claim not in mod_doc, f"Module docstring contains unbacked claim: {claim}"
+        assert claim not in lm_doc, f"BitMambaLM docstring contains unbacked claim: {claim}"
+
+
+
 
