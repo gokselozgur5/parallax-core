@@ -53,7 +53,6 @@ follow_imports = "silent"
 
 [[tool.mypy.overrides]]
 module = [
-    "parallax.tree_drafting_v2",
     "parallax.paged_attention",
     "parallax.metal_engine",
     "parallax.kv_cache_pruner",
