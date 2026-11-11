@@ -103,12 +103,13 @@ def quantize_int4_groupwise(
     w_min = np.min(w_grouped, axis=2, keepdims=True)
     w_max = np.max(w_grouped, axis=2, keepdims=True)
 
+    rng = w_max - w_min
     floor = (
         np.finfo(weight.dtype).tiny
         if np.issubdtype(weight.dtype, np.floating)
         else 1e-8
     )
-    denom = np.maximum(w_max - w_min, floor)
+    denom = np.where(rng == 0, floor, rng)
     scales = denom / 15.0
     zeros = w_min
 
