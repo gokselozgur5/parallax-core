@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import sys
 import threading
+import numbers
 import ctypes
 from ctypes import util
 from typing import Optional
@@ -397,8 +398,8 @@ def metal_rmsnorm(
     if rows > _INT32_MAX or cols > _INT32_MAX or (rows * cols) > _INT32_MAX:
         raise ValueError(f"Dimensions exceed INT32_MAX: rows={rows}, cols={cols}")
 
-    if not isinstance(eps, (int, float)):
-        raise TypeError(f"eps must be a float or int, got {type(eps).__name__}")
+    if not isinstance(eps, (numbers.Real, np.floating)) or isinstance(eps, bool):
+        raise TypeError(f"eps must be a float or real scalar, got {type(eps).__name__}")
     u_eps = ctypes.c_float(float(eps))
     u_cols = ctypes.c_uint32(cols)
 
