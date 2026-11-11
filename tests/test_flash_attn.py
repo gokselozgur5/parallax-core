@@ -3,7 +3,6 @@ Unit tests for online softmax update primitive.
 """
 
 import numpy as np
-import pytest
 from parallax.flash_attn import (
     flash_attention_backward,
     flash_attention_forward,
