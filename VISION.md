@@ -52,7 +52,7 @@ flowchart TD
 
 ---
 
-## 2. Mimari Envanter (570 Testle Mühürlenmiş 10 Temel Sütun)
+## 2. Mimari Envanter (700+ Testle Mühürlenmiş 10 Temel Sütun)
 
 1. **Hesaplama & Otomatik Türev Grafiği (Autograd Engine):**
    - Skaler (`Value`) ve çok boyutlu tensör (`Tensor`) seviyesinde sıfırdan ters yayılım (backward pass).
@@ -95,7 +95,7 @@ flowchart TD
 
 8. **Optimizasyon & Adaptasyon:**
    - **Muon Optimizer:** Newton-Schulz matris polar ayrışımıyla modern matris optimizasyonu.
-   - **Q-GaLore:** Düşük rank'li gradyan projeksiyonu ve 1.58-bit gradyan güncellemesi.
+   - **Q-GaLore:** Düşük rank'li gradyan projeksiyonu ve INT8 simetrik gradyan kuantizasyonu (optimizer RAM tasarrufu).
    - **MoE & Expert Choice Routing (ECR):** Token'ların uzman seçmesi yerine uzmanların token seçtiği dengeli yönlendirme.
    - **LoRA, DoRA, X-LoRA:** Ağırlık ayrıştırmalı ve kapılı adaptörler.
 
@@ -106,7 +106,7 @@ flowchart TD
 10. **Açık Kaynak Dağıtım & Gözlemlenebilirlik (Parallax Studio):**
     - Zero-dependency GGUF v2/v3 okuyucu ve ihracatçısı (`parallax/gguf.py`, `gguf_exporter.py`).
     - SafeTensors ayrıştırıcı (`parallax/safetensors.py`).
-    - Parallax Studio (`demo/studio_server.py`) ve Eagle-2 Görselleştirici (`demo/visualizer_server.py`).
+    - Parallax Studio (`demo/studio_server.py`) ve Eagle-2 Görselleştirici (`parallax/visualizer_server.py`).
 
 ---
 
