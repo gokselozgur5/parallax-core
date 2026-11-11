@@ -6,15 +6,13 @@ import json
 import os
 import tempfile
 import numpy as np
-import pytest
 
 from parallax.models.llama import LlamaConfig, LlamaForCausalLM
 from parallax.hf_loader import (
     hf_config_to_parallax,
     load_hf_pretrained,
-    load_hf_weights_into_model,
 )
-from parallax.safetensors import save_safetensors, load_safetensors
+from parallax.safetensors import save_safetensors
 
 
 def test_llama3_8b_default_config():
