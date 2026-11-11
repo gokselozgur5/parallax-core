@@ -9,9 +9,8 @@ from parallax.gguf import (
     GGML_TYPE_F32,
     GGUF_MAGIC,
     load_gguf,
-    save_gguf,
 )
-from parallax.safetensors import load_safetensors, save_safetensors
+from parallax.safetensors import load_safetensors
 
 
 class BigramDummyModel:
