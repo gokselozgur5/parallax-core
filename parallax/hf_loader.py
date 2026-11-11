@@ -248,8 +248,8 @@ def load_hf_weights_into_model(
     missing_keys = [k for k in expected_keys if k not in hf_tensors]
     unexpected_keys = [k for k in hf_tensors if k not in expected_keys]
 
-    setattr(model, "_missing_keys", missing_keys)
-    setattr(model, "_unexpected_keys", unexpected_keys)
+    object.__setattr__(model, "_missing_keys", missing_keys)
+    object.__setattr__(model, "_unexpected_keys", unexpected_keys)
 
     if strict and (missing_keys or unexpected_keys):
         raise RuntimeError(

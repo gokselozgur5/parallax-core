@@ -14,7 +14,7 @@ import threading
 import numbers
 import ctypes
 from ctypes import util
-from typing import Optional
+from typing import Any, Optional
 from contextlib import contextmanager
 import numpy as np
 
@@ -98,7 +98,7 @@ def _objc_send(ret_type, target, sel_name: str | bytes, *args):
     sel_bytes = sel_name.encode("utf-8") if isinstance(sel_name, str) else sel_name
     sel = _OBJC.sel_registerName(sel_bytes)
 
-    argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    argtypes: list[Any] = [ctypes.c_void_p, ctypes.c_void_p]
     for arg in args:
         if isinstance(arg, int):
             argtypes.append(ctypes.c_ulonglong)
@@ -114,7 +114,8 @@ def _objc_send(ret_type, target, sel_name: str | bytes, *args):
             argtypes.append(ctypes.c_void_p)
 
     func_type = ctypes.CFUNCTYPE(ret_type, *argtypes)
-    fn = func_type(ctypes.cast(_OBJC.objc_msgSend, ctypes.c_void_p).value)
+    msg_send = int(ctypes.cast(_OBJC.objc_msgSend, ctypes.c_void_p).value or 0)
+    fn = func_type(msg_send)
     return fn(target, sel, *args)
 
 
@@ -284,13 +285,12 @@ def is_metal_available() -> bool:
 
 def get_metal_device_name() -> Optional[str]:
     """Return the name of the active Metal device or None if unavailable."""
-    if not is_metal_available():
+    if not is_metal_available() or _OBJC is None:
         return None
     try:
         nsstr = _objc_send(ctypes.c_void_p, _DEVICE, "name")
-        utf8_fn = ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_void_p, ctypes.c_void_p)(
-            ctypes.cast(_OBJC.objc_msgSend, ctypes.c_void_p).value
-        )
+        msg_send = int(ctypes.cast(_OBJC.objc_msgSend, ctypes.c_void_p).value or 0)
+        utf8_fn = ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_void_p, ctypes.c_void_p)(msg_send)
         c_str = utf8_fn(nsstr, _OBJC.sel_registerName(b"UTF8String"))
         return c_str.decode("utf-8") if c_str else "Apple Metal GPU"
     except Exception:
@@ -332,7 +332,7 @@ def metal_gemm(A: np.ndarray, B: np.ndarray) -> np.ndarray:
     if M > _INT32_MAX or N > _INT32_MAX or K > _INT32_MAX or (M * K) > _INT32_MAX or (K * N) > _INT32_MAX or (M * N) > _INT32_MAX:
         raise ValueError(f"Matrix dimensions exceed INT32_MAX: ({M}, {K}) @ ({K2}, {N})")
 
-    if M == 0 or N == 0 or K == 0 or A.dtype != np.float32 or B.dtype != np.float32 or not is_metal_available():
+    if M == 0 or N == 0 or K == 0 or A.dtype != np.float32 or B.dtype != np.float32 or not is_metal_available() or _OBJC is None:
         return np.matmul(A, B)
 
     A_c = np.ascontiguousarray(A, dtype=np.float32)
@@ -387,9 +387,10 @@ def metal_gemm(A: np.ndarray, B: np.ndarray) -> np.ndarray:
         tg_h = min(M, 16)
         threadgroup_size = MTLSize(tg_w, tg_h, 1)
 
+        msg_send = int(ctypes.cast(_OBJC.objc_msgSend, ctypes.c_void_p).value or 0)
         dispatch_fn = ctypes.CFUNCTYPE(
             None, ctypes.c_void_p, ctypes.c_void_p, MTLSize, MTLSize
-        )(ctypes.cast(_OBJC.objc_msgSend, ctypes.c_void_p).value)
+        )(msg_send)
         dispatch_fn(
             encoder,
             _OBJC.sel_registerName(b"dispatchThreads:threadsPerThreadgroup:"),
@@ -450,7 +451,7 @@ def metal_rmsnorm(
     u_eps = ctypes.c_float(float(eps))
     u_cols = ctypes.c_uint32(cols)
 
-    if not is_metal_available() or x.dtype != np.float32 or weight.dtype != np.float32:
+    if not is_metal_available() or _OBJC is None or x.dtype != np.float32 or weight.dtype != np.float32:
         variance = np.mean(x**2, axis=-1, keepdims=True)
         return (x / np.sqrt(variance + eps)) * weight
 
@@ -499,9 +500,10 @@ def metal_rmsnorm(
         grid_size = MTLSize(rows, 1, 1)
         tg_size = MTLSize(min(rows, 32), 1, 1)
 
+        msg_send = int(ctypes.cast(_OBJC.objc_msgSend, ctypes.c_void_p).value or 0)
         dispatch_fn = ctypes.CFUNCTYPE(
             None, ctypes.c_void_p, ctypes.c_void_p, MTLSize, MTLSize
-        )(ctypes.cast(_OBJC.objc_msgSend, ctypes.c_void_p).value)
+        )(msg_send)
         dispatch_fn(
             encoder,
             _OBJC.sel_registerName(b"dispatchThreads:threadsPerThreadgroup:"),
