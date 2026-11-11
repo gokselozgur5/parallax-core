@@ -28,8 +28,15 @@ from parallax.tensor import no_grad
 
 HOST = "127.0.0.1"
 PORT = 8088
-STATIC_DIR = os.path.join(REPO_ROOT, "demo")
-HTML_FILE = os.path.join(STATIC_DIR, "visualizer.html")
+def _resolve_html_path() -> str:
+    packaged = os.path.join(os.path.dirname(__file__), "webui", "visualizer.html")
+    if os.path.exists(packaged):
+        return packaged
+    demo_fallback = os.path.join(REPO_ROOT, "demo", "visualizer.html")
+    return demo_fallback
+
+
+HTML_FILE = _resolve_html_path()
 MAX_REQUEST_BODY_BYTES = 5 * 1024 * 1024  # 5 MB
 
 CORPUS = "parallax creates clarity from multiple perspectives. parallax builds depth and understanding."
