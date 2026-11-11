@@ -217,7 +217,7 @@ class CausalSelfAttention(Module):
 
         if not attn_out.requires_grad:
             proj_out = self.out_proj(attn_out)
-            if kv_cache is not None:
+            if updated_kv_cache is not None:
                 return proj_out, updated_kv_cache
             return proj_out
 
@@ -311,6 +311,6 @@ class CausalSelfAttention(Module):
 
         # 8. Final projection layer
         proj_out = self.out_proj(attn_out)
-        if kv_cache is not None:
+        if updated_kv_cache is not None:
             return proj_out, updated_kv_cache
         return proj_out

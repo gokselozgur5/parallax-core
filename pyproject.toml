@@ -67,7 +67,6 @@ module = [
     "parallax.gguf_exporter",
     "parallax.hf_loader",
     "parallax.lora",
-    "parallax.attention",
     "parallax.quant",
     "parallax.prune",
     "parallax.checkpoint",
