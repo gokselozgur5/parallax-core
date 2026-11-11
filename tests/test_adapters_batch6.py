@@ -8,7 +8,6 @@ Unit tests for adapter batch 6 fixes:
 """
 
 import numpy as np
-import pytest
 
 from parallax.dora import DoRALinear
 from parallax.lora import LoRALinear, apply_lora_to_model
