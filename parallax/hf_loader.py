@@ -216,7 +216,7 @@ def load_hf_weights_into_model(
         "model.embed_tokens.weight",
         "model.norm.weight",
     ]
-    if not model.config.tie_weights:
+    if not model.config.tie_weights or "lm_head.weight" in hf_tensors:
         expected_keys.append("lm_head.weight")
 
     for i in range(model.config.num_layers):
@@ -426,6 +426,8 @@ def save_hf_pretrained(
         "tie_word_embeddings": bool(cfg.tie_weights),
         "torch_dtype": "float32",
     }
+    if cfg.sliding_window is not None:
+        hf_config["sliding_window"] = int(cfg.sliding_window)
     with open(os.path.join(output_dir, "config.json"), "w", encoding="utf-8") as f:
         json.dump(hf_config, f, indent=2)
 
@@ -480,8 +482,6 @@ def save_hf_pretrained(
 
         if block.attn.out_proj.bias is not None:
             tensors[f"{prefix}.self_attn.o_proj.bias"] = block.attn.out_proj.bias.data.astype(np.float32)
-        elif cfg.qkv_bias:
-            tensors[f"{prefix}.self_attn.o_proj.bias"] = np.zeros(block.attn.out_proj.out_features, dtype=np.float32)
 
         if hasattr(block.mlp, "w_gate"):
             tensors[f"{prefix}.mlp.gate_proj.weight"] = block.mlp.w_gate.weight.data.astype(np.float32)
@@ -529,6 +529,10 @@ def save_hf_pretrained(
                 tok_data["pre_tokenizer"] = {
                     "type": "Split",
                     "pattern": {"Regex": tokenizer.split_pattern},
+                }
+            if getattr(tokenizer, "normalizer", None):
+                tok_data["normalizer"] = {
+                    "type": tokenizer.normalizer,
                 }
             with open(os.path.join(output_dir, "tokenizer.json"), "w", encoding="utf-8") as f:
                 json.dump(tok_data, f, indent=2)
