@@ -281,10 +281,14 @@ def c_rmsnorm(x: np.ndarray, weight: np.ndarray, eps: float = 1e-6) -> np.ndarra
 
     lib = _find_or_build_library()
     if lib is None or np.issubdtype(x.dtype, np.integer) or np.issubdtype(weight.dtype, np.integer):
-        float_dtype = np.float64 if (x.dtype == np.float64 or weight.dtype == np.float64) else np.float32
-        x_float = x.astype(float_dtype, copy=False)
-        rms = np.sqrt(np.mean(x_float ** 2, axis=-1, keepdims=True) + eps)
-        return (x_float / rms) * weight
+        if x.dtype == np.float64 or weight.dtype == np.float64:
+            x_f64 = x.astype(np.float64, copy=False)
+            rms = np.sqrt(np.mean(x_f64 ** 2, axis=-1, keepdims=True) + eps)
+            return (x_f64 / rms) * weight
+        else:
+            x_f32 = x.astype(np.float32, copy=False)
+            rms = np.sqrt(np.mean(x_f32 ** 2, axis=-1, keepdims=True) + eps)
+            return (x_f32 / rms) * weight
 
     orig_dtype = x.dtype
     if orig_dtype == np.float64 or weight.dtype == np.float64:
@@ -297,12 +301,12 @@ def c_rmsnorm(x: np.ndarray, weight: np.ndarray, eps: float = 1e-6) -> np.ndarra
         lib.c_rmsnorm_f64(x_ptr, w_ptr, out_ptr, rows, cols, ctypes.c_double(eps))
         return out.reshape(orig_shape)
     else:
-        x_c = np.ascontiguousarray(x, dtype=np.float32).reshape(rows, cols)
-        w_c = np.ascontiguousarray(weight, dtype=np.float32)
-        out = np.empty((rows, cols), dtype=np.float32)
-        x_ptr = x_c.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
-        w_ptr = w_c.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
-        out_ptr = out.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
-        lib.c_rmsnorm_f32(x_ptr, w_ptr, out_ptr, rows, cols, ctypes.c_float(eps))
-        return out.reshape(orig_shape)
+        x_c32 = np.ascontiguousarray(x, dtype=np.float32).reshape(rows, cols)
+        w_c32 = np.ascontiguousarray(weight, dtype=np.float32)
+        out32 = np.empty((rows, cols), dtype=np.float32)
+        x_ptr32 = x_c32.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+        w_ptr32 = w_c32.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+        out_ptr32 = out32.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+        lib.c_rmsnorm_f32(x_ptr32, w_ptr32, out_ptr32, rows, cols, ctypes.c_float(eps))
+        return out32.reshape(orig_shape)
 
