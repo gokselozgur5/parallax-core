@@ -276,8 +276,10 @@ def c_rmsnorm(x: np.ndarray, weight: np.ndarray, eps: float = 1e-6) -> np.ndarra
 
     lib = _find_or_build_library()
     if lib is None or np.issubdtype(x.dtype, np.integer) or np.issubdtype(weight.dtype, np.integer):
-        rms = np.sqrt(np.mean(x ** 2, axis=-1, keepdims=True) + eps)
-        return (x / rms) * weight
+        float_dtype = np.float64 if (x.dtype == np.float64 or weight.dtype == np.float64) else np.float32
+        x_float = x.astype(float_dtype, copy=False)
+        rms = np.sqrt(np.mean(x_float ** 2, axis=-1, keepdims=True) + eps)
+        return (x_float / rms) * weight
 
     orig_dtype = x.dtype
     if orig_dtype == np.float64 or weight.dtype == np.float64:
