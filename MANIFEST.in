@@ -1,3 +1,4 @@
 include README.md
 include LICENSE
 recursive-include parallax/csrc Makefile *.c *.h
+recursive-include parallax/webui *.html
