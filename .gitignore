@@ -43,3 +43,7 @@ htmlcov/
 **/target/
 Cargo.lock
 
+# Workspace artifacts & downloads
+models/
+uv.lock
+
