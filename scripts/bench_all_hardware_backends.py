@@ -83,7 +83,6 @@ def get_system_hardware_info() -> Dict[str, str]:
         try:
             from parallax.metal_engine import _DEVICE, _objc_send, _init_metal
             _init_metal()
-            from parallax.metal_engine import _DEVICE
             if _DEVICE:
                 name_ptr = _objc_send(ctypes.c_void_p, _DEVICE, "name")
                 utf8_ptr = _objc_send(ctypes.c_char_p, name_ptr, "UTF8String")

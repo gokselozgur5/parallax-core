@@ -10,7 +10,7 @@ import os
 import re
 import sys
 import unicodedata
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 
 def _bytes_to_unicode() -> Tuple[Dict[int, str], Dict[str, int]]:
@@ -36,17 +36,18 @@ _BYTE_TO_UNICODE, _UNICODE_TO_BYTE = _bytes_to_unicode()
 
 
 def _build_class_pattern(cat_prefix: str) -> str:
-    ranges = []
-    start = prev = None
+    ranges: List[Tuple[int, int]] = []
+    start: Optional[int] = None
+    prev: Optional[int] = None
     for cp in range(sys.maxunicode + 1):
         if unicodedata.category(chr(cp)).startswith(cat_prefix):
             if start is None:
                 start = cp
             prev = cp
-        elif start is not None:
+        elif start is not None and prev is not None:
             ranges.append((start, prev))
             start = prev = None
-    if start is not None:
+    if start is not None and prev is not None:
         ranges.append((start, prev))
 
     def _esc(cp: int) -> str:

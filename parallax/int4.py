@@ -8,7 +8,7 @@ Implements:
   with on-the-fly or cached dequantization in the forward pass.
 """
 
-from typing import Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 import numpy as np
 
 from parallax.nn import Linear, Module
@@ -264,7 +264,7 @@ class Linear4Bit(Module):
         out._backward = _backward
         return out
 
-    def memory_footprint(self, baseline_dtype: np.dtype = np.float32) -> Dict[str, Union[int, float, str]]:
+    def memory_footprint(self, baseline_dtype: Any = np.float32) -> Dict[str, Union[int, float, str]]:
         """Returns memory breakdown in bytes and compression stats against a stated baseline dtype."""
         packed_bytes = self.packed_weight.nbytes
         scale_bytes = self.scales.nbytes
