@@ -9,7 +9,7 @@ Integration contract:
     subclass parallax.nn.Module or register Parameters in the autograd DAG.
 """
 
-from typing import Tuple
+from typing import Optional, Tuple
 import numpy as np
 
 
@@ -105,3 +105,105 @@ class DoRALinear:
             dx = dx.squeeze(0)
 
         return grad_m, grad_A, grad_B, dx
+
+
+from parallax.nn import Linear, Module, Parameter
+from parallax.tensor import Tensor, _accumulate_grad
+
+
+class DoRAModule(Module):
+    """Autograd-integrated Module adapter for DoRA fine-tuning."""
+
+    def __init__(
+        self,
+        base_layer: Linear,
+        rank: int = 4,
+        alpha: float = 8.0,
+    ):
+        super().__init__()
+        self.base_layer = base_layer
+        self.in_features = base_layer.in_features
+        self.out_features = base_layer.out_features
+        self.rank = rank
+        self.scaling = alpha / rank if rank > 0 else 1.0
+
+        # Freeze base parameters
+        self.base_layer.weight.requires_grad = False
+        self.base_layer.weight.grad = None
+        if self.base_layer.bias is not None:
+            self.base_layer.bias.requires_grad = False
+            self.base_layer.bias.grad = None
+
+        # Base direction matrix V
+        v_data = self.base_layer.weight.data.copy().astype(np.float32)
+        # Learnable magnitude vector m = ||V||_col
+        m_data = np.linalg.norm(v_data, axis=1).astype(np.float32)
+
+        self.m = Parameter(m_data, label=f"DoRA_m_{self.out_features}")
+        self.base_V = v_data
+
+        self.lora_A: Optional[Parameter] = None
+        self.lora_B: Optional[Parameter] = None
+        if rank > 0:
+            limit_a = 1.0 / np.sqrt(self.in_features)
+            a_data = np.random.normal(0.0, limit_a, (rank, self.in_features)).astype(np.float32)
+            b_data = np.zeros((self.out_features, rank), dtype=np.float32)
+            self.lora_A = Parameter(a_data, label=f"DoRA_A_{self.in_features}x{rank}")
+            self.lora_B = Parameter(b_data, label=f"DoRA_B_{rank}x{self.out_features}")
+
+    def forward(self, x: Tensor) -> Tensor:
+        if self.rank == 0 or self.lora_A is None or self.lora_B is None:
+            return self.base_layer(x)
+
+        x_data = x.data
+        was_1d = (x_data.ndim == 1)
+        x_in = x_data if not was_1d else x_data[np.newaxis, :]
+
+        delta_V = self.scaling * np.dot(self.lora_B.data, self.lora_A.data)
+        V_total = self.base_V + delta_V
+        norms = np.linalg.norm(V_total, axis=1, keepdims=True) + 1e-8
+        V_norm = V_total / norms
+        m_col = self.m.data[:, np.newaxis]
+        W_eff = m_col * V_norm
+
+        out_data = np.dot(x_in, W_eff.T)
+        if self.base_layer.bias is not None:
+            out_data += self.base_layer.bias.data
+        if was_1d:
+            out_data = out_data.squeeze(0)
+
+        out = Tensor(out_data, (x, self.m, self.lora_A, self.lora_B), "DoRAModule")
+        if not out.requires_grad:
+            return out
+
+        def _backward() -> None:
+            if out.grad is None:
+                return
+            grad_y = out.grad if not was_1d else out.grad[np.newaxis, :]
+            grad_y_2d = grad_y.reshape(-1, self.out_features)
+            x_in_2d = x_in.reshape(-1, self.in_features)
+
+            grad_W_eff = np.dot(grad_y_2d.T, x_in_2d)
+
+            if self.m.requires_grad:
+                grad_m = np.sum(grad_W_eff * V_norm, axis=1)
+                _accumulate_grad(self.m, grad_m)
+
+            proj = np.sum(grad_W_eff * V_total, axis=1, keepdims=True) / (norms**2)
+            grad_V = (m_col / norms) * (grad_W_eff - proj * V_total)
+
+            if self.lora_B is not None and self.lora_A is not None:
+                if self.lora_B.requires_grad:
+                    grad_B = self.scaling * np.dot(grad_V, self.lora_A.data.T)
+                    _accumulate_grad(self.lora_B, grad_B)
+
+                if self.lora_A.requires_grad:
+                    grad_A = self.scaling * np.dot(self.lora_B.data.T, grad_V)
+                    _accumulate_grad(self.lora_A, grad_A)
+
+            if x.requires_grad:
+                dx = np.dot(grad_y_2d, W_eff)
+                _accumulate_grad(x, dx.reshape(x_data.shape))
+
+        out._backward = _backward
+        return out
