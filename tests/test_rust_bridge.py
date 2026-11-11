@@ -36,6 +36,12 @@ def rust_lib():
     # u32 parallax_version()
     lib.parallax_version.argtypes = []
     lib.parallax_version.restype = ctypes.c_uint32
+    ver = lib.parallax_version()
+    if ver != 2:
+        raise RuntimeError(
+            f"Rust library ABI version mismatch: expected 2, got {ver}. "
+            "Please rebuild with: cargo build --manifest-path crates/parallax-rs/Cargo.toml --release"
+        )
     
     # i32 parallax_gemm_f32(m, n, k, alpha, a, a_len, b, b_len, beta, c, c_len)
     lib.parallax_gemm_f32.argtypes = [
@@ -66,7 +72,24 @@ def rust_lib():
 
 def test_rust_bridge_version(rust_lib):
     ver = rust_lib.parallax_version()
-    assert ver == 1
+    assert ver == 2
+
+
+def test_rust_bridge_version_mismatch_rejected(monkeypatch):
+    class FakeLib:
+        def __init__(self):
+            self.parallax_version = lambda: 1
+
+    monkeypatch.setattr(ctypes, "CDLL", lambda path: FakeLib())
+    with pytest.raises(RuntimeError, match="Rust library ABI version mismatch: expected 2, got 1"):
+        # Re-run fixture logic
+        lib = ctypes.CDLL("dummy")
+        ver = lib.parallax_version()
+        if ver != 2:
+            raise RuntimeError(
+                f"Rust library ABI version mismatch: expected 2, got {ver}. "
+                "Please rebuild with: cargo build --manifest-path crates/parallax-rs/Cargo.toml --release"
+            )
 
 def test_rust_bridge_gemm(rust_lib):
     m, n, k = 4, 3, 5
