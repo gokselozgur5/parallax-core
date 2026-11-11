@@ -209,12 +209,33 @@ class VisualizerHandler(http.server.BaseHTTPRequestHandler):
     def log_message(self, format: str, *args: Any) -> None:
         pass
 
+    def _get_allowed_origin(self) -> Optional[str]:
+        origin = self.headers.get("Origin")
+        if not origin:
+            return None
+        try:
+            parsed = urllib.parse.urlsplit(origin)
+            h = (parsed.hostname or "").lower()
+            if h in ("localhost", "127.0.0.1", "::1"):
+                return origin
+            host_header = self.headers.get("Host", "")
+            if host_header:
+                server_host = host_header.split(":")[0].lower()
+                if h == server_host:
+                    return origin
+        except Exception:
+            return None
+        return None
+
     def send_json(self, data: Any, status: int = 200) -> None:
-        body = json.dumps(data).encode("utf-8")
+        body = json.dumps(data, allow_nan=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
+        allowed_origin = self._get_allowed_origin()
+        if allowed_origin:
+            self.send_header("Access-Control-Allow-Origin", allowed_origin)
+            self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
@@ -222,7 +243,10 @@ class VisualizerHandler(http.server.BaseHTTPRequestHandler):
 
     def do_OPTIONS(self) -> None:
         self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        allowed_origin = self._get_allowed_origin()
+        if allowed_origin:
+            self.send_header("Access-Control-Allow-Origin", allowed_origin)
+            self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
