@@ -243,7 +243,7 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         return None
 
     def send_json(self, data: Dict[str, Any], status: int = 200):
-        body = json.dumps(data).encode("utf-8")
+        body = json.dumps(data, allow_nan=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
