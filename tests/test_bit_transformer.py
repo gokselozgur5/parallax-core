@@ -331,5 +331,10 @@ def test_bit_transformer_eos_stopping_cached_and_uncached(monkeypatch):
     call_idx[0] = 0
     assert model.generate([1, 2], max_new_tokens=10, eos_token_id=eos_token, use_cache=True) == [1, 2, 3, 5, eos_token]
 
+    # Verify first generated token halting immediately when eos in cached mode
+    monkeypatch.setattr(gen, "sample_next_token", lambda logits, **kwargs: eos_token)
+    assert list(model.generate_stream([1, 2], max_new_tokens=10, eos_token_id=eos_token, use_cache=True)) == [eos_token]
+    assert model.generate([1, 2], max_new_tokens=10, eos_token_id=eos_token, use_cache=True) == [1, 2, eos_token]
+
 
 
