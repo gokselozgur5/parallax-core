@@ -274,3 +274,33 @@ def test_makefile_builds_with_default_cc():
         env = {"PATH": str(bin_dir), "HOME": os.environ.get("HOME", "")}
         res = subprocess.run(["make", "-C", str(src_dir)], env=env, capture_output=True, text=True)
         assert res.returncode == 0, f"Makefile build failed with cc: {res.stderr}"
+
+
+def test_rebuild_on_source_change_without_stale_cache():
+    with tempfile.TemporaryDirectory() as td:
+        fake_repo = Path(td) / "repo"
+        repo_root = Path(__file__).parent.parent
+        csrc_src = repo_root / "parallax" / "csrc"
+        c_engine_src = repo_root / "parallax" / "c_engine.py"
+
+        (fake_repo / "parallax" / "csrc").mkdir(parents=True)
+        (fake_repo / "parallax" / "__init__.py").write_text("")
+        shutil.copy2(c_engine_src, fake_repo / "parallax" / "c_engine.py")
+        for f in csrc_src.glob("*"):
+            if f.is_file():
+                shutil.copy2(f, fake_repo / "parallax" / "csrc" / f.name)
+
+        cache_base = Path(td) / "cache"
+        env = {**os.environ, "XDG_CACHE_HOME": str(cache_base), "PYTHONPATH": str(fake_repo)}
+
+        cmd1 = "import parallax.c_engine as ce; assert ce.is_c_engine_available()"
+        res1 = subprocess.run(["python3", "-c", cmd1], env=env, cwd=str(fake_repo), capture_output=True, text=True)
+        assert res1.returncode == 0, f"Initial build failed: {res1.stderr}"
+
+        # Corrupt a source file
+        softmax_c = fake_repo / "parallax" / "csrc" / "softmax.c"
+        softmax_c.write_text("SYNTAX ERROR IN C FILE\n" + softmax_c.read_text())
+
+        cmd2 = "import parallax.c_engine as ce; assert not ce.is_c_engine_available()"
+        res2 = subprocess.run(["python3", "-c", cmd2], env=env, cwd=str(fake_repo), capture_output=True, text=True)
+        assert res2.returncode == 0, f"Expected broken build to fail but passed: {res2.stderr}"
