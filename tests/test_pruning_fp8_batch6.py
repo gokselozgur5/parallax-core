@@ -1,12 +1,10 @@
 import numpy as np
 import pytest
 
-from parallax.fp8 import FP8Format, dequantize_fp8, fp8_gemm, quantize_fp8
+from parallax.fp8 import dequantize_fp8, quantize_fp8
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.optim import AdamW
 from parallax.prune import (
-    apply_pruning_masks,
-    calculate_model_sparsity,
     create_pruning_step_hook,
     prune_2_to_4_structured,
     prune_model,
