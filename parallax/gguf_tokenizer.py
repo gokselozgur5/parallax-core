@@ -45,10 +45,10 @@ class GGUFTokenizer:
     ):
         self.raw_tokens = tokens
         self.vocab_size = len(tokens)
-        self.bos_token_id = bos_token_id
-        self.eos_token_id = eos_token_id
-        self.pad_token_id = pad_token_id
-        self.unk_token_id = unk_token_id
+        self.bos_token_id = bos_token_id if (bos_token_id is not None and 0 <= bos_token_id < self.vocab_size) else None
+        self.eos_token_id = eos_token_id if (eos_token_id is not None and 0 <= eos_token_id < self.vocab_size) else None
+        self.pad_token_id = pad_token_id if (pad_token_id is not None and 0 <= pad_token_id < self.vocab_size) else None
+        self.unk_token_id = unk_token_id if (unk_token_id is not None and 0 <= unk_token_id < self.vocab_size) else None
         self.model_type = model_type
 
         # Mapping: token_id -> raw bytes
@@ -180,45 +180,6 @@ class GGUFTokenizer:
                 elif self.unk_token_id is not None:
                     token_ids.append(self.unk_token_id)
                 i += 1
-
-        # Apply rank-ordered BPE merges iteratively if merge table exists
-        if self.merge_ranks and len(token_ids) >= 2:
-            while len(token_ids) >= 2:
-                best_pair = None
-                best_rank = float("inf")
-                best_str_pair = None
-                for idx in range(len(token_ids) - 1):
-                    t0 = self.raw_tokens[token_ids[idx]]
-                    t1 = self.raw_tokens[token_ids[idx + 1]]
-                    if (t0, t1) in self.merge_ranks:
-                        rank = self.merge_ranks[(t0, t1)]
-                        if rank < best_rank:
-                            best_rank = rank
-                            best_pair = (token_ids[idx], token_ids[idx + 1])
-                            best_str_pair = (t0, t1)
-
-                if best_pair is None or best_str_pair is None:
-                    break
-
-                merged_str = best_str_pair[0] + best_str_pair[1]
-                merged_id = self.token_to_id.get(merged_str)
-                if merged_id is None:
-                    break
-
-                new_ids: List[int] = []
-                idx = 0
-                while idx < len(token_ids):
-                    if (
-                        idx < len(token_ids) - 1
-                        and token_ids[idx] == best_pair[0]
-                        and token_ids[idx + 1] == best_pair[1]
-                    ):
-                        new_ids.append(merged_id)
-                        idx += 2
-                    else:
-                        new_ids.append(token_ids[idx])
-                        idx += 1
-                token_ids = new_ids
 
         return token_ids
 
