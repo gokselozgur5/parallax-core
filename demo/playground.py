@@ -8,7 +8,6 @@ causal attention dynamics, RoPE rotations, and autoregressive generation.
 
 import os
 import sys
-import time
 
 # Ensure repository root is on sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -22,8 +21,7 @@ from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.loss import cross_entropy_loss
 from parallax.optim import AdamW
 from parallax.generator import CharTokenizer, generate
-from parallax.viz import format_attention_heatmap, to_mermaid
-from parallax.tokenizer import BPETokenizer
+from parallax.viz import format_attention_heatmap
 from parallax.bench import count_parameters, estimate_flops_per_token, benchmark_inference, format_benchmark_table
 
 
