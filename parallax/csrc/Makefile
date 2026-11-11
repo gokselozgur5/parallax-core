@@ -1,6 +1,3 @@
-ifeq ($(origin CC),default)
-    CC := clang
-endif
 override CFLAGS += -O3 -fPIC -Wall -Wextra
 
 # Target shared library name based on OS
