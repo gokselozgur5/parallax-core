@@ -221,3 +221,22 @@ def test_load_gguf_pretrained_with_q8_weights():
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+
+def test_gguf_quantize_extreme_magnitude_no_nan_overflow():
+    """Verify high-magnitude float32 blocks quantize/dequantize without NaN."""
+    # Values that exceed 127 * 65504 (Q8_0) and 7 * 65504 (Q4_0)
+    extreme_val = 1e7
+    arr = np.full((1, 32), extreme_val, dtype=np.float32)
+
+    # Q8_0 check
+    q8_bytes = quantize_q8_0(arr)
+    deq8 = dequantize_q8_0(q8_bytes, arr.shape)
+    assert not np.isnan(deq8).any()
+    assert not np.isinf(deq8).any()
+
+    # Q4_0 check
+    q4_bytes = quantize_q4_0(arr)
+    deq4 = dequantize_q4_0(q4_bytes, arr.shape)
+    assert not np.isnan(deq4).any()
+    assert not np.isinf(deq4).any()
