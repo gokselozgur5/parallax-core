@@ -158,7 +158,8 @@ def apply_lora_to_model(
                 new_items = []
                 tuple_changed = False
                 for idx, item in enumerate(child):
-                    if isinstance(item, Linear) and any(t in attr_name for t in target_modules):
+                    item_key = f"{attr_name}.{idx}"
+                    if isinstance(item, Linear) and (any(t in attr_name for t in target_modules) or any(t in str(idx) for t in target_modules) or any(t in item_key for t in target_modules)):
                         lora_layer = LoRALinear(item, r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
                         new_items.append(lora_layer)
                         lora_layers.append(lora_layer)
