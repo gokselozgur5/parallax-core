@@ -101,8 +101,6 @@ def _collect_gpt_tensors(model: ParallaxLM) -> Tuple[Dict[str, Any], Dict[str, n
 
         if block.attn.out_proj.bias is not None:
             tensors[f"blk.{i}.attn_output.bias"] = block.attn.out_proj.bias.data.astype(np.float32)
-        elif cfg.qkv_bias:
-            tensors[f"blk.{i}.attn_output.bias"] = np.zeros(block.attn.out_proj.out_features, dtype=np.float32)
 
         if hasattr(block.mlp, "w_gate"):
             tensors[f"blk.{i}.ffn_gate.weight"] = block.mlp.w_gate.weight.data.astype(np.float32)
