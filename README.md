@@ -4,7 +4,7 @@
 [![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 [![Python: 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Zero External ML Dependencies](https://img.shields.io/badge/dependencies-pure%20math%20%2B%20numpy-success.svg)](#architecture)
-[![Unit Tests](https://img.shields.io/badge/tests-570%20passing-brightgreen.svg)](#test-suite--gradient-checks)
+[![Unit Tests](https://img.shields.io/badge/tests-700%2B%20passing-brightgreen.svg)](#test-suite--gradient-checks)
 [![Acceleration](https://img.shields.io/badge/acceleration-C%20%7C%20Rust%20%7C%20Metal%20JIT-orange.svg)](#hardware-acceleration-matrix)
 
 A transparent, zero-dependency, production-grade Autograd engine, modern state-space/transformer architectures, and bare-metal compute acceleration kernels implemented strictly from first principles. Built to demystify backpropagation, gradient flow, attention dynamics, state-space recurrence, and causal language modeling through atomic mathematical operations and verifiable analytical gradient checks.
@@ -47,7 +47,7 @@ flowchart TD
 
 ## Architectural Philosophy & Core Tenets
 
-1. **Zero External ML Frameworks:** Strictly no `torch`, `jax`, `tensorflow`, or `onnxruntime`. Pure mathematical execution, explicit memory flow, and clean NumPy tensor primitives.
+1. **Zero External ML Framework Core:** Strictly no `torch`, `jax`, `tensorflow`, or `onnxruntime` in the core engine, layers, or autograd (optional runtime bridges exist in `cuda_engine.py` for CUDA execution). Pure mathematical execution, explicit memory flow, and clean NumPy tensor primitives.
 2. **First-Principles Computation Graph (DAG):** Explicit tracking of inputs, operations, parent lineages, and backward gradient closures via reverse topological traversal.
 3. **Double-Check Mathematical Verification:** Every continuous operation is paired with an exact analytical gradient and verified against a 2-sided finite-difference numerical gradient (The Parallax Acid Test).
 4. **Bare-Metal Acceleration (Jessy Parity):** Zero-overhead C-ABI bindings to C (`libparallax_c`), Rust (`libparallax_rs`), and Apple Silicon Metal GPU JIT shaders without breaking pure NumPy fallback.
