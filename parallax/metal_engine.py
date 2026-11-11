@@ -133,6 +133,17 @@ def _managed_buffers(*buffers: Optional[ctypes.c_void_p]):
         _release_buffers(*buffers)
 
 
+def _cf_release(*handles: Optional[ctypes.c_void_p]) -> None:
+    """Release CoreFoundation objects created with retain count +1."""
+    global _CF
+    if _CF is None:
+        return
+    _CF.CFRelease.argtypes = [ctypes.c_void_p]
+    for h in handles:
+        if h:
+            _CF.CFRelease(h)
+
+
 def _cf_string(s: str) -> ctypes.c_void_p:
     """Create NSString / CFStringRef from Python string."""
     global _CF
