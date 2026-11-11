@@ -188,3 +188,45 @@ def test_rust_bridge_softmax_nan_and_inf(rust_lib):
     assert rust_lib.parallax_softmax_f32(ptr, data.size, 2, 3) == 0
     assert np.isnan(data[0]).all()
     np.testing.assert_allclose(data[1], [0.26894143, 0.0, 0.7310586], rtol=1e-5, atol=1e-5)
+
+
+from parallax.rust_engine import (
+    find_rust_lib as engine_find_rust_lib,
+    is_rust_engine_available,
+    rust_gemm,
+    rust_softmax,
+)
+
+
+def test_rust_engine_wrapper_availability_and_gemm():
+    assert engine_find_rust_lib() is not None
+    assert is_rust_engine_available() is True
+
+    m, n, k = 4, 3, 5
+    a = np.random.randn(m, k).astype(np.float32)
+    b = np.random.randn(k, n).astype(np.float32)
+    c = rust_gemm(a, b, alpha=2.0)
+    expected = 2.0 * (a @ b)
+    np.testing.assert_allclose(c, expected, rtol=1e-5, atol=1e-5)
+
+
+def test_rust_engine_wrapper_softmax():
+    x = np.random.randn(3, 4).astype(np.float32)
+    out = rust_softmax(x)
+    expected = np.exp(x - np.max(x, axis=-1, keepdims=True))
+    expected = expected / np.sum(expected, axis=-1, keepdims=True)
+    np.testing.assert_allclose(out, expected, rtol=1e-5, atol=1e-5)
+
+
+def test_rust_engine_wrapper_fallback_on_missing(monkeypatch):
+    import parallax.rust_engine as re
+    monkeypatch.setattr(re, "get_rust_lib", lambda: None)
+    a = np.random.randn(2, 3).astype(np.float32)
+    b = np.random.randn(3, 2).astype(np.float32)
+    out = re.rust_gemm(a, b)
+    np.testing.assert_allclose(out, a @ b, rtol=1e-5, atol=1e-5)
+
+    x = np.array([[-np.inf, -np.inf], [1.0, -np.inf]], dtype=np.float32)
+    sm = re.rust_softmax(x)
+    assert np.all(sm[0] == 0.0)
+    assert np.allclose(sm[1], [1.0, 0.0])
