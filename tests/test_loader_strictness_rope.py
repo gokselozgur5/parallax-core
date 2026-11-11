@@ -11,7 +11,6 @@ from parallax.hf_loader import (
 )
 from parallax.gguf_loader import (
     load_gguf_weights_into_model,
-    load_gguf_pretrained,
     save_parallax_to_gguf,
 )
 
