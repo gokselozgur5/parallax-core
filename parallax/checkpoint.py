@@ -138,6 +138,9 @@ def save_checkpoint(
     Returns the exact normalized file path of the saved checkpoint.
     """
     state_dict = get_model_state_dict(model)
+    for k, v in state_dict.items():
+        if not isinstance(v, np.ndarray) or not np.issubdtype(v.dtype, np.number):
+            raise ValueError(f"Invalid state_dict entry '{k}': expected numeric ndarray")
     config_dict = asdict(model.config)
     config_json = json.dumps(config_dict)
 
