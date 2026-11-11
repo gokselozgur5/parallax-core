@@ -245,6 +245,8 @@ def verify_tree_candidates_v2(
     target_logits: np.ndarray,
     context_logits: Optional[np.ndarray] = None,
     return_acceptance_stats: bool = False,
+    max_draft_tokens: int = 512,
+    max_candidate_paths: int = 1024,
 ) -> Union[List[int], Tuple[List[int], Dict[str, float]]]:
     """Vectorized verification of speculative tree candidates selecting longest accepted path.
     
@@ -279,11 +281,20 @@ def verify_tree_candidates_v2(
     tokens = np.asarray(draft_tokens, dtype=np.int64)
     parents = np.asarray(parent_indices, dtype=np.int64)
     n = len(tokens)
-
+    if n != len(parents):
+        raise ValueError(f"Length mismatch: {n} tokens vs {len(parents)} parents")
+    if n > max_draft_tokens:
+        raise ValueError(f"Draft token length {n} exceeds max_draft_tokens {max_draft_tokens}")
     if n == 0:
         if return_acceptance_stats:
             return [], {"acceptance_rate": 0.0, "accepted_count": 0, "total_nodes": 0}
         return []
+    if target_logits.shape[0] != n:
+        raise ValueError(f"target_logits shape {target_logits.shape} mismatch with {n} tokens")
+    validate_tree_topology(parents, max_nodes=max_draft_tokens)
+    leaves = sum(1 for i in range(n) if i not in set(parents))
+    if leaves > max_candidate_paths:
+        raise ValueError(f"Candidate paths {leaves} exceeds limit {max_candidate_paths}")
 
     target_preds = np.argmax(target_logits, axis=-1)
     context_choice = int(np.argmax(context_logits)) if context_logits is not None else None
