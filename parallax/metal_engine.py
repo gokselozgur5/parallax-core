@@ -13,7 +13,7 @@ import sys
 import threading
 import ctypes
 from ctypes import util
-from typing import Optional, ContextManager
+from typing import Optional
 from contextlib import contextmanager
 import numpy as np
 
@@ -400,6 +400,11 @@ def metal_rmsnorm(
     if rows > _INT32_MAX or cols > _INT32_MAX or (rows * cols) > _INT32_MAX:
         raise ValueError(f"Dimensions exceed INT32_MAX: rows={rows}, cols={cols}")
 
+    if not isinstance(eps, (int, float)):
+        raise TypeError(f"eps must be a float or int, got {type(eps).__name__}")
+    u_eps = ctypes.c_float(float(eps))
+    u_cols = ctypes.c_uint32(cols)
+
     if not is_metal_available() or x.dtype != np.float32 or weight.dtype != np.float32:
         variance = np.mean(x**2, axis=-1, keepdims=True)
         return (x / np.sqrt(variance + eps)) * weight
@@ -427,40 +432,39 @@ def metal_rmsnorm(
         ctypes.c_void_p, _DEVICE, "newBufferWithLength:options:", x_c.nbytes, 0
     )
 
-    cmd_buf = _objc_send(ctypes.c_void_p, _COMMAND_QUEUE, "commandBuffer")
-    encoder = _objc_send(ctypes.c_void_p, cmd_buf, "computeCommandEncoder")
+    with _managed_buffers(buf_x, buf_w, buf_out):
+        cmd_buf = _objc_send(ctypes.c_void_p, _COMMAND_QUEUE, "commandBuffer")
+        encoder = _objc_send(ctypes.c_void_p, cmd_buf, "computeCommandEncoder")
 
-    _objc_send(None, encoder, "setComputePipelineState:", _PSO_RMSNORM)
-    _objc_send(None, encoder, "setBuffer:offset:atIndex:", buf_x, 0, 0)
-    _objc_send(None, encoder, "setBuffer:offset:atIndex:", buf_w, 0, 1)
-    _objc_send(None, encoder, "setBuffer:offset:atIndex:", buf_out, 0, 2)
+        _objc_send(None, encoder, "setComputePipelineState:", _PSO_RMSNORM)
+        _objc_send(None, encoder, "setBuffer:offset:atIndex:", buf_x, 0, 0)
+        _objc_send(None, encoder, "setBuffer:offset:atIndex:", buf_w, 0, 1)
+        _objc_send(None, encoder, "setBuffer:offset:atIndex:", buf_out, 0, 2)
 
-    u_cols = ctypes.c_uint32(cols)
-    u_eps = ctypes.c_float(eps)
-    _objc_send(None, encoder, "setBytes:length:atIndex:", ctypes.byref(u_cols), 4, 3)
-    _objc_send(None, encoder, "setBytes:length:atIndex:", ctypes.byref(u_eps), 4, 4)
+        _objc_send(None, encoder, "setBytes:length:atIndex:", ctypes.byref(u_cols), 4, 3)
+        _objc_send(None, encoder, "setBytes:length:atIndex:", ctypes.byref(u_eps), 4, 4)
 
-    grid_size = MTLSize(rows, 1, 1)
-    tg_size = MTLSize(min(rows, 32), 1, 1)
+        grid_size = MTLSize(rows, 1, 1)
+        tg_size = MTLSize(min(rows, 32), 1, 1)
 
-    dispatch_fn = ctypes.CFUNCTYPE(
-        None, ctypes.c_void_p, ctypes.c_void_p, MTLSize, MTLSize
-    )(ctypes.cast(_OBJC.objc_msgSend, ctypes.c_void_p).value)
-    dispatch_fn(
-        encoder,
-        _OBJC.sel_registerName(b"dispatchThreads:threadsPerThreadgroup:"),
-        grid_size,
-        tg_size,
-    )
+        dispatch_fn = ctypes.CFUNCTYPE(
+            None, ctypes.c_void_p, ctypes.c_void_p, MTLSize, MTLSize
+        )(ctypes.cast(_OBJC.objc_msgSend, ctypes.c_void_p).value)
+        dispatch_fn(
+            encoder,
+            _OBJC.sel_registerName(b"dispatchThreads:threadsPerThreadgroup:"),
+            grid_size,
+            tg_size,
+        )
 
-    _objc_send(None, encoder, "endEncoding")
-    _objc_send(None, cmd_buf, "commit")
-    _objc_send(None, cmd_buf, "waitUntilCompleted")
+        _objc_send(None, encoder, "endEncoding")
+        _objc_send(None, cmd_buf, "commit")
+        _objc_send(None, cmd_buf, "waitUntilCompleted")
 
-    contents_ptr = _objc_send(ctypes.c_void_p, buf_out, "contents")
-    res = np.ctypeslib.as_array(
-        ctypes.cast(contents_ptr, ctypes.POINTER(ctypes.c_float)),
-        shape=(rows, cols),
-    ).copy()
-    _release_buffers(buf_x, buf_w, buf_out)
-    return res.reshape(orig_shape)
+        contents_ptr = _objc_send(ctypes.c_void_p, buf_out, "contents")
+        res = np.ctypeslib.as_array(
+            ctypes.cast(contents_ptr, ctypes.POINTER(ctypes.c_float)),
+            shape=(rows, cols),
+        ).copy()
+        return res.reshape(orig_shape)
+
