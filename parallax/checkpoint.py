@@ -189,38 +189,40 @@ def load_checkpoint(
         target_path = f"{target_path}.npz"
 
     archive = np.load(target_path, allow_pickle=False)
+    try:
+        config_json = str(archive["__config_json__"])
+        step = int(archive["__step__"])
+        config_dict = json.loads(config_json)
+        config = ParallaxLMConfig(**config_dict)
 
-    config_json = str(archive["__config_json__"])
-    step = int(archive["__step__"])
-    config_dict = json.loads(config_json)
-    config = ParallaxLMConfig(**config_dict)
+        model = ParallaxLM(config)
+        state_dict = {
+            k: archive[k].copy()
+            for k in archive.files
+            if not k.startswith("__")
+        }
+        load_model_state_dict(model, state_dict)
 
-    model = ParallaxLM(config)
-    state_dict = {
-        k: archive[k]
-        for k in archive.files
-        if not k.startswith("__")
-    }
-    load_model_state_dict(model, state_dict)
+        if optimizer is not None:
+            optimizer.params = model.parameters()
+            if "__opt_step_count__" in archive:
+                optimizer.step_count = int(archive["__opt_step_count__"])
+                optimizer.lr = float(archive["__opt_lr__"])
+                num_params = len(optimizer.params)
+                # Re-initialize m and v buffers if lengths mismatch
+                if len(optimizer.m) != num_params:
+                    optimizer.m = [np.zeros_like(p.data) for p in optimizer.params]
+                if len(optimizer.v) != num_params:
+                    optimizer.v = [np.zeros_like(p.data) for p in optimizer.params]
 
-    if optimizer is not None:
-        optimizer.params = model.parameters()
-        if "__opt_step_count__" in archive:
-            optimizer.step_count = int(archive["__opt_step_count__"])
-            optimizer.lr = float(archive["__opt_lr__"])
-            num_params = len(optimizer.params)
-            # Re-initialize m and v buffers if lengths mismatch
-            if len(optimizer.m) != num_params:
-                optimizer.m = [np.zeros_like(p.data) for p in optimizer.params]
-            if len(optimizer.v) != num_params:
-                optimizer.v = [np.zeros_like(p.data) for p in optimizer.params]
-
-            for i in range(num_params):
-                m_key = f"__opt_m_{i}__"
-                v_key = f"__opt_v_{i}__"
-                if m_key in archive:
-                    optimizer.m[i] = archive[m_key].copy()
-                if v_key in archive:
-                    optimizer.v[i] = archive[v_key].copy()
+                for i in range(num_params):
+                    m_key = f"__opt_m_{i}__"
+                    v_key = f"__opt_v_{i}__"
+                    if m_key in archive:
+                        optimizer.m[i] = archive[m_key].copy()
+                    if v_key in archive:
+                        optimizer.v[i] = archive[v_key].copy()
+    finally:
+        archive.close()
 
     return model, step
