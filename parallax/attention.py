@@ -180,7 +180,8 @@ class CausalSelfAttention(Module):
             k_heads_expanded = k_heads
             v_heads_expanded = v_heads
 
-        if self.use_flash_attn and past_len == 0 and self.sliding_window is None:
+        use_flash_path = self.use_flash_attn and past_len == 0 and self.sliding_window is None
+        if use_flash_path:
             out_heads, lse = flash_attention_forward(
                 q_heads,
                 k_heads_expanded,
@@ -227,7 +228,7 @@ class CausalSelfAttention(Module):
             # Reshape dout into heads: [B, num_heads, T, head_dim]
             dout_heads = np.transpose(dout.reshape(B, T, self.num_heads, self.head_dim), (0, 2, 1, 3))
 
-            if self.use_flash_attn and past_len == 0:
+            if use_flash_path:
                 dq_heads, dk_heads_expanded, dv_expanded = flash_attention_backward(
                     dout_heads,
                     out_heads,
@@ -251,7 +252,7 @@ class CausalSelfAttention(Module):
 
             dv = np.transpose(dv_heads, (0, 2, 1, 3)).reshape(B, T, self.kv_dim)
 
-            if not (self.use_flash_attn and past_len == 0):
+            if not use_flash_path:
                 # dL/dAttn = dL/dOut @ V_expanded^T
                 d_attn = dout_heads @ np.swapaxes(v_heads_expanded, -1, -2)
 
@@ -273,7 +274,7 @@ class CausalSelfAttention(Module):
                 )
             dq = np.transpose(dq_heads, (0, 2, 1, 3)).reshape(B, T, C)
 
-            if not (self.use_flash_attn and past_len == 0):
+            if not use_flash_path:
                 # dL/dK_expanded = d_scores^T @ Q
                 dk_expanded = np.swapaxes(d_scores, -1, -2) @ q_heads
             else:
