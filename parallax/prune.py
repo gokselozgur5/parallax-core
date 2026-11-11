@@ -131,7 +131,7 @@ def prune_model(
                 else:
                     raise ValueError(f"Unknown pruning method: {method}")
                 layer.weight.data = pruned_w
-                setattr(layer.weight, "mask", mask)
+                object.__setattr__(layer.weight, "mask", mask)
                 model_masks[f"block.{i}.attn.{name}"] = mask
                 pruned_layers_count += 1
 
@@ -172,11 +172,11 @@ def prune_model(
                 else:
                     raise ValueError(f"Unknown pruning method: {method}")
                 layer.weight.data = pruned_w
-                setattr(layer.weight, "mask", mask)
+                object.__setattr__(layer.weight, "mask", mask)
                 model_masks[f"block.{i}.mlp.{name}"] = mask
                 pruned_layers_count += 1
 
     stats = calculate_model_sparsity(model)
     stats["pruned_layers_count"] = float(pruned_layers_count)
-    setattr(model, "pruning_masks", model_masks)
+    object.__setattr__(model, "pruning_masks", model_masks)
     return stats
