@@ -169,14 +169,25 @@ def _write_metadata_value(f: BinaryIO, val: Any) -> None:
         f.write(struct.pack("<I", GGUF_TYPE_ARRAY))
         if not val:
             f.write(struct.pack("<IQ", GGUF_TYPE_STRING, 0))
+        elif isinstance(val[0], bool):
+            f.write(struct.pack("<IQ", GGUF_TYPE_BOOL, len(val)))
+            for item in val:
+                f.write(struct.pack("<B", 1 if item else 0))
+        elif isinstance(val[0], int):
+            # Check if all ints fit within signed 32-bit range
+            fits_i32 = all(-2147483648 <= item <= 2147483647 for item in val)
+            if fits_i32:
+                f.write(struct.pack("<IQ", GGUF_TYPE_INT32, len(val)))
+                for item in val:
+                    f.write(struct.pack("<i", item))
+            else:
+                f.write(struct.pack("<IQ", GGUF_TYPE_INT64, len(val)))
+                for item in val:
+                    f.write(struct.pack("<q", item))
         elif isinstance(val[0], str):
             f.write(struct.pack("<IQ", GGUF_TYPE_STRING, len(val)))
             for s in val:
                 _write_string(f, s)
-        elif isinstance(val[0], int):
-            f.write(struct.pack("<IQ", GGUF_TYPE_INT32, len(val)))
-            for item in val:
-                f.write(struct.pack("<i", item))
         elif isinstance(val[0], float):
             f.write(struct.pack("<IQ", GGUF_TYPE_FLOAT32, len(val)))
             for item in val:
