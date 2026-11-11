@@ -33,6 +33,21 @@ def test_quantize_activations_int8_range():
     assert np.all(scale > 0.0)
 
 
+def test_quantize_activations_int8_tiny_and_zero_inputs():
+    """Verify tiny inputs retain quantization range and all-zero input does not div-by-zero."""
+    x_tiny = np.array([[[1e-10, -2e-10]]])
+    x_quant, scale = quantize_activations_int8(x_tiny)
+    assert np.max(np.abs(x_quant)) > 0.0
+    assert np.all(np.isfinite(scale))
+    assert np.all(scale > 0.0)
+
+    x_zero = np.zeros((1, 2, 4))
+    x_quant_z, scale_z = quantize_activations_int8(x_zero)
+    assert np.all(x_quant_z == 0.0)
+    assert np.all(np.isfinite(scale_z))
+    assert np.all(scale_z > 0.0)
+
+
 def test_bitlinear_forward_and_ste_backward():
     B, T, in_f, out_f = 2, 4, 16, 8
     layer = BitLinear(in_features=in_f, out_features=out_f, bias=True)
