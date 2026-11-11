@@ -3,7 +3,6 @@ Unit tests for Q4_0 scaling with signed extreme (Issue #297).
 """
 
 import numpy as np
-import pytest
 
 from parallax.gguf_quant import (
     QK4_0,
@@ -60,17 +59,17 @@ def test_quantized_linear_cache():
 
     assert qlin._cached_weight is None
     x1 = Tensor(np.random.randn(2, 4, 16))
-    out1 = qlin(x1)
+    _ = qlin(x1)
     assert qlin._cached_weight is not None
     cached_ref = qlin._cached_weight
 
     x2 = Tensor(np.random.randn(2, 4, 16))
-    out2 = qlin(x2)
+    _ = qlin(x2)
     assert qlin._cached_weight is cached_ref
 
     qlin.invalidate_cache()
     assert qlin._cached_weight is None
-    out3 = qlin(x2)
+    _ = qlin(x2)
     assert qlin._cached_weight is not None
 
 
