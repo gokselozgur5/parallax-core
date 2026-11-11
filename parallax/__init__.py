@@ -94,6 +94,8 @@ __all__ = [
     "apply_pruning_masks",
     "create_pruning_step_hook",
     "RollingKVCache",
+    "KVCachePruner",
+    "PruningMetrics",
     "LinearAttention",
     "elu_feature_map",
     "BitMambaBlock",
