@@ -321,6 +321,7 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
 
     def handle_load_checkpoint(self, req: Dict[str, Any]):
         global CURRENT_MODEL, CURRENT_CONFIG, CURRENT_TOKENIZER, CURRENT_TOKENS, CURRENT_DATASET, IS_QUANTIZED, REWARD_MODEL, REWARD_OPTIM, DEMO_OPTIM, UNQUANTIZED_MODEL
+        global DEMO_MODEL, DEMO_CONFIG, TOKENIZER, tokens_arr
         dataset = req.get("dataset", "shakespeare")
 
         if dataset == "shakespeare":
@@ -356,7 +357,7 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         self.send_json({"status": "ok", "dataset": "parallax", "step": 40})
 
     def handle_toggle_quant(self, req: Dict[str, Any]):
-        global CURRENT_MODEL, IS_QUANTIZED, DEMO_OPTIM, UNQUANTIZED_MODEL
+        global CURRENT_MODEL, IS_QUANTIZED, DEMO_OPTIM, UNQUANTIZED_MODEL, DEMO_MODEL
         enable_quant = bool(req.get("quantize", True))
 
         if enable_quant and not IS_QUANTIZED:
@@ -444,7 +445,7 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         })
 
     def handle_train_step(self, req: Dict[str, Any]):
-        global CURRENT_MODEL, DEMO_OPTIM, IS_QUANTIZED, UNQUANTIZED_MODEL
+        global CURRENT_MODEL, DEMO_OPTIM, IS_QUANTIZED, UNQUANTIZED_MODEL, seq_l
         num_steps = int(req.get("steps", 5))
         num_steps = max(1, min(num_steps, MAX_STEPS))
         lr = float(req.get("lr", 0.04))
