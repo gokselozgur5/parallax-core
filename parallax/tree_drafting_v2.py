@@ -367,3 +367,23 @@ def verify_tree_candidates_v2(
         return accepted_path, stats
 
     return accepted_path
+
+
+class TreeSpeculativeGenerator:
+    """Speculative tree generator and verification coordinator."""
+
+    def __init__(
+        self,
+        max_draft_tokens: int = 64,
+        max_sequence_length: int = 2048,
+        max_candidate_paths: int = 128,
+        max_successors_per_node: int = 16,
+    ) -> None:
+        if max_draft_tokens <= 0 or max_sequence_length <= 0:
+            raise ValueError("Token bounds must be positive")
+        if max_candidate_paths <= 0 or max_successors_per_node <= 0:
+            raise ValueError("Candidate and successor bounds must be positive")
+        self.max_draft_tokens = max_draft_tokens
+        self.max_sequence_length = max_sequence_length
+        self.max_candidate_paths = max_candidate_paths
+        self.max_successors_per_node = max_successors_per_node
