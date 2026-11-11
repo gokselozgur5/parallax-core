@@ -197,3 +197,23 @@ def test_verify_tree_candidates_v2_bounds_and_mismatch():
         verify_tree_candidates_v2([1, 2, 3], [-1, -1, -1], np.zeros((3, 10)), max_candidate_paths=2)
     with pytest.raises(ValueError, match="Cycle detected"):
         verify_tree_candidates_v2([10, 20], [1, 0], np.zeros((2, 50)))
+
+
+def test_tree_speculative_generator_guards_and_lifecycle():
+    with pytest.raises(ValueError, match="positive"):
+        TreeSpeculativeGenerator(max_draft_tokens=0)
+    gen = TreeSpeculativeGenerator(
+        max_draft_tokens=8, max_sequence_length=32, max_candidate_paths=4, max_successors_per_node=2
+    )
+    with pytest.raises(ValueError, match="Length mismatch"):
+        gen.validate_configuration([1], [0, 1])
+    with pytest.raises(ValueError, match="exceeds max_draft_tokens"):
+        gen.validate_configuration(list(range(10)), [-1] + list(range(9)))
+    with pytest.raises(ValueError, match="exceeds"):
+        gen.validate_configuration([1, 2], [-1, 0], current_sequence_length=31)
+    with pytest.raises(ValueError, match="exceeds max successors"):
+        gen.validate_configuration([1, 2, 3, 4], [-1, 0, 0, 0])
+    topo = gen.generate(root_token_id=1, depth=2, top_k_per_node=2)
+    assert len(topo.tokens) == 7
+    with pytest.raises(ValueError, match="exceeds"):
+        gen.generate(root_token_id=1, depth=2, top_k_per_node=3)
