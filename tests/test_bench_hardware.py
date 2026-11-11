@@ -259,3 +259,28 @@ def test_markdown_report_synthetic_conclusions_consistency():
     assert "reaching up to 2.00x relative throughput." in report
 
 
+
+
+def test_markdown_report_unavailable_backend_omits_throughput_claims():
+    """Verify backends with no measurements do not emit throughput claims (closes #422)."""
+    hw_info = {"os": "Linux", "arch": "x86_64", "processor": "x86_64", "python_version": "3.11", "c_engine_available": "Unavailable", "metal_device": "Unavailable", "rust_engine_available": "Unavailable"}
+    gemm_results = [{"size": (64, 64), "numpy": {"ms": 0.1, "gflops": 1.0}}]
+    rmsnorm_results = [{"shape": (64, 64), "numpy": {"ms": 0.1, "gflops": 1.0}}]
+    weights_summary = calculate_architecture_weights(vocab_size=256, d_model=64, num_layers=2)
+    scaling_results = bench_memory_scaling([128, 256], batch_size=1, d_model=64, num_layers=2)
+    int4_stats = bench_int4_layer(128, 128, group_size=32)
+    flash_results = bench_flash_decoding([128], d=32, repeats=1, warmup=1)
+
+    report_str = generate_markdown_report(
+        hw_info=hw_info,
+        gemm_results=gemm_results,
+        rmsnorm_results=rmsnorm_results,
+        weights_summary=weights_summary,
+        scaling_results=scaling_results,
+        int4_stats=int4_stats,
+        flash_results=flash_results,
+    )
+
+    assert "Apple Metal GPU JIT achieves" not in report_str
+    assert "C-Engine demonstrates speedups" not in report_str
+    assert "C-Engine executes" not in report_str
