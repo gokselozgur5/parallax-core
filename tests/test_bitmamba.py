@@ -314,3 +314,61 @@ def test_bitmamba_lm_sequential_state_reference():
 
 
 
+
+
+def test_bitmamba_multilayer_central_difference_gradient_check():
+    """Verify multi-layer BitMambaLM analytical gradients against central differences (closes #435)."""
+    from parallax.nn import Linear
+
+    def make_plain_lm(config):
+        lm = BitMambaLM(config)
+        for block in lm.blocks:
+            for name in ['in_proj', 'x_proj', 'dt_proj', 'out_proj']:
+                bl = getattr(block, name)
+                pl = Linear(bl.in_features, bl.out_features, bias=bl.bias is not None)
+                pl.weight.data = bl.weight.data.copy()
+                if pl.bias is not None:
+                    pl.bias.data = bl.bias.data.copy()
+                setattr(block, name, pl)
+        head = lm.lm_head
+        pl = Linear(head.in_features, head.out_features, bias=head.bias is not None)
+        pl.weight.data = head.weight.data.copy()
+        lm.lm_head = pl
+        return lm
+
+    for num_layers in [2, 3]:
+        np.random.seed(42)
+        cfg = BitMambaConfig(vocab_size=16, d_model=8, num_layers=num_layers, d_state=4, d_conv=3, expand=2)
+        lm = make_plain_lm(cfg)
+        tokens = np.array([[1, 2, 3]])
+        loss = lm(tokens).sum()
+        loss.backward()
+
+        eps = 1e-6
+        # Check token embedding gradient
+        orig = lm.token_embeddings.weight.data[1, 0]
+        lm.token_embeddings.weight.data[1, 0] = orig + eps
+        l_pos = lm(tokens).sum().data
+        lm.token_embeddings.weight.data[1, 0] = orig - eps
+        l_neg = lm(tokens).sum().data
+        lm.token_embeddings.weight.data[1, 0] = orig
+        fd_emb = (l_pos - l_neg) / (2 * eps)
+        an_emb = lm.token_embeddings.weight.grad[1, 0]
+        np.testing.assert_allclose(an_emb, fd_emb, rtol=1e-3, atol=1e-3)
+
+        # Check block parameters across all layers
+        for b_idx, block in enumerate(lm.blocks):
+            for p_name in ['in_proj', 'conv_weight', 'conv_bias', 'x_proj', 'dt_proj', 'A_log', 'D', 'out_proj']:
+                param = getattr(block, p_name)
+                if isinstance(param, Linear):
+                    param = param.weight
+                idx = (0,) * param.data.ndim
+                orig = param.data[idx]
+                param.data[idx] = orig + eps
+                l_pos = lm(tokens).sum().data
+                param.data[idx] = orig - eps
+                l_neg = lm(tokens).sum().data
+                param.data[idx] = orig
+                fd = (l_pos - l_neg) / (2 * eps)
+                an = param.grad[idx]
+                np.testing.assert_allclose(an, fd, rtol=1e-3, atol=1e-3, err_msg=f'L={num_layers}, b={b_idx}, p={p_name}')
