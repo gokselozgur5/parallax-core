@@ -58,6 +58,9 @@ class Trainer:
         if self.val_loader is None:
             return 0.0
 
+        if hasattr(self.model, "eval"):
+            self.model.eval()
+
         val_losses: List[float] = []
         for _ in range(self.config.eval_steps):
             x, y = next(self.train_loader if self.val_loader is None else self.val_loader)
@@ -72,6 +75,9 @@ class Trainer:
         cfg = self.config
         model = self.model
         opt = self.optimizer
+
+        if hasattr(model, "train"):
+            model.train()
 
         opt.zero_grad()
         accum_loss = 0.0
@@ -122,6 +128,8 @@ class Trainer:
             # Evaluation check
             if self.val_loader is not None and step % cfg.eval_interval == 0:
                 val_loss = self.evaluate()
+                if hasattr(model, "train"):
+                    model.train()
                 metrics["val_loss"] = val_loss
                 metrics["val_ppl"] = perplexity_from_loss(val_loss)
 
