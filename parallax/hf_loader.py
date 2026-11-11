@@ -525,5 +525,10 @@ def save_hf_pretrained(
                     "merges": merges_list,
                 },
             }
+            if getattr(tokenizer, "split_pattern", None):
+                tok_data["pre_tokenizer"] = {
+                    "type": "Split",
+                    "pattern": {"Regex": tokenizer.split_pattern},
+                }
             with open(os.path.join(output_dir, "tokenizer.json"), "w", encoding="utf-8") as f:
                 json.dump(tok_data, f, indent=2)
