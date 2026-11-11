@@ -477,9 +477,16 @@ def metal_rmsnorm(
         ctypes.c_void_p, _DEVICE, "newBufferWithLength:options:", x_c.nbytes, 0
     )
 
-    with _managed_buffers(buf_x, buf_w, buf_out):
+    with _managed_buffers(buf_x, buf_w, buf_out), _autorelease_pool():
+        if not buf_x or not buf_w or not buf_out:
+            raise RuntimeError("Failed to allocate Metal buffers for RMSNorm")
+
         cmd_buf = _objc_send(ctypes.c_void_p, _COMMAND_QUEUE, "commandBuffer")
+        if not cmd_buf:
+            raise RuntimeError("Failed to create Metal command buffer")
         encoder = _objc_send(ctypes.c_void_p, cmd_buf, "computeCommandEncoder")
+        if not encoder:
+            raise RuntimeError("Failed to create Metal compute command encoder")
 
         _objc_send(None, encoder, "setComputePipelineState:", _PSO_RMSNORM)
         _objc_send(None, encoder, "setBuffer:offset:atIndex:", buf_x, 0, 0)
@@ -506,7 +513,13 @@ def metal_rmsnorm(
         _objc_send(None, cmd_buf, "commit")
         _objc_send(None, cmd_buf, "waitUntilCompleted")
 
+        status = _objc_send(ctypes.c_ulonglong, cmd_buf, "status")
+        if status != 4:
+            raise RuntimeError(f"Metal command buffer execution failed with status {status}")
+
         contents_ptr = _objc_send(ctypes.c_void_p, buf_out, "contents")
+        if not contents_ptr:
+            raise RuntimeError("Failed to retrieve Metal buffer contents pointer")
         res = np.ctypeslib.as_array(
             ctypes.cast(contents_ptr, ctypes.POINTER(ctypes.c_float)),
             shape=(rows, cols),
