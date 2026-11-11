@@ -5,7 +5,7 @@ Unit tests for KVCachePruner (StreamingLLM attention sinks + local window + H2O 
 import numpy as np
 import pytest
 
-from parallax.kv_cache_pruner import KVCachePruner, PruningMetrics
+from parallax.kv_cache_pruner import KVCachePruner
 
 
 def test_pruner_initialization_and_budget():
