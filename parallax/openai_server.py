@@ -94,10 +94,35 @@ def create_handler(state: OpenAIServerState):
                         return
 
                     body = self.rfile.read(content_length)
-                    data = json.loads(body.decode("utf-8"))
+                    try:
+                        data = json.loads(body.decode("utf-8"))
+                    except Exception:
+                        self._send_json(400, {"error": {"message": "Invalid JSON body", "type": "invalid_request_error"}})
+                        return
+                    if not isinstance(data, dict):
+                        self._send_json(400, {"error": {"message": "JSON body must be an object", "type": "invalid_request_error"}})
+                        return
 
-                    messages = data.get("messages", [])
-                    max_tokens = int(data.get("max_tokens", 32))
+                    raw_messages = data.get("messages", [])
+                    if not isinstance(raw_messages, list):
+                        self._send_json(400, {"error": {"message": "'messages' must be a list", "type": "invalid_request_error"}})
+                        return
+
+                    messages: List[Dict[str, Any]] = []
+                    for m in raw_messages:
+                        if not isinstance(m, dict):
+                            self._send_json(400, {"error": {"message": "Message entry must be an object", "type": "invalid_request_error"}})
+                            return
+                        messages.append(m)
+
+                    try:
+                        max_tokens = int(data.get("max_tokens", 32))
+                    except (ValueError, TypeError):
+                        self._send_json(400, {"error": {"message": "max_tokens must be an integer", "type": "invalid_request_error"}})
+                        return
+                    if max_tokens < 0:
+                        self._send_json(400, {"error": {"message": "max_tokens must be non-negative", "type": "invalid_request_error"}})
+                        return
                     if state.max_tokens_limit is not None:
                         max_tokens = min(max_tokens, state.max_tokens_limit)
                     raw_temp = data.get("temperature", 0.0)
@@ -119,6 +144,11 @@ def create_handler(state: OpenAIServerState):
                         prompt_tokens = [ord(c) % state.model.config.vocab_size for c in prompt_text]
                     if not prompt_tokens:
                         prompt_tokens = [0]
+
+                    max_context = getattr(state.model.config, "max_seq_len", None)
+                    if max_context is not None and len(prompt_tokens) > max_context:
+                        self._send_json(400, {"error": {"message": f"Prompt length ({len(prompt_tokens)} tokens) exceeds max model context ({max_context})", "type": "invalid_request_error"}})
+                        return
 
                     eos_token_id = None
                     if state.tokenizer is not None and getattr(state.tokenizer, "eos_token_id", None) is not None:
