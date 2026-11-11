@@ -3,7 +3,7 @@ import pytest
 
 from parallax.contrastive_decoding import ContrastiveDecoder
 from parallax.flash_loss import flash_cross_entropy_forward
-from parallax.generator import sample_multinomial, sample_next_token
+from parallax.generator import sample_multinomial
 from parallax.loss import cross_entropy_loss
 from parallax.paged_attention import BlockAllocator, SequenceManager
 from parallax.tensor import Tensor
