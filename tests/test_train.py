@@ -1,6 +1,5 @@
 import numpy as np
-import pytest
-from parallax.generator import CharTokenizer, generate, sample_next_token
+from parallax.generator import CharTokenizer, generate
 from parallax.loss import cross_entropy_loss
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.optim import AdamW
