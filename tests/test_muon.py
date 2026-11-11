@@ -37,3 +37,54 @@ def test_muon_step_decreases_linear_loss():
 
     final_loss = float(np.sum((np.dot(W, x) - y) ** 2))
     assert final_loss < initial_loss
+
+
+from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
+from parallax.muon import MuonOptimizer
+from parallax.qgalore import QGaLoreAdamW
+from parallax.trainer import Trainer, TrainerConfig
+from parallax.tensor import Tensor
+
+
+def test_muon_optimizer_with_trainer():
+    cfg = ParallaxLMConfig(vocab_size=32, embed_dim=16, num_heads=2, num_layers=1, max_seq_len=8)
+    model = ParallaxLM(cfg)
+    optimizer = MuonOptimizer(model.parameters(), lr=0.01)
+
+    def synthetic_data():
+        while True:
+            x = np.random.randint(0, 32, (2, 8))
+            y = np.random.randint(0, 32, (2, 8))
+            yield x, y
+
+    trainer_cfg = TrainerConfig(max_steps=2, grad_accum_steps=1)
+    trainer = Trainer(
+        model=model,
+        optimizer=optimizer,  # type: ignore[arg-type]
+        config=trainer_cfg,
+        train_loader=synthetic_data(),
+    )
+    history = trainer.train()
+    assert len(history) == 2
+
+
+def test_qgalore_adamw_with_trainer():
+    cfg = ParallaxLMConfig(vocab_size=32, embed_dim=16, num_heads=2, num_layers=1, max_seq_len=8)
+    model = ParallaxLM(cfg)
+    optimizer = QGaLoreAdamW(model.parameters(), lr=0.01, rank=4, update_interval=2)
+
+    def synthetic_data():
+        while True:
+            x = np.random.randint(0, 32, (2, 8))
+            y = np.random.randint(0, 32, (2, 8))
+            yield x, y
+
+    trainer_cfg = TrainerConfig(max_steps=2, grad_accum_steps=1)
+    trainer = Trainer(
+        model=model,
+        optimizer=optimizer,  # type: ignore[arg-type]
+        config=trainer_cfg,
+        train_loader=synthetic_data(),
+    )
+    history = trainer.train()
+    assert len(history) == 2
