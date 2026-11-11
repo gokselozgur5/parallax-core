@@ -181,3 +181,19 @@ def test_validate_tree_topology_cycles_and_bounds():
         validate_tree_topology([-1, 5])
     with pytest.raises(ValueError, match="exceeds max_nodes"):
         validate_tree_topology([-1, 0, 1], max_nodes=2)
+
+
+def test_verify_tree_candidates_v2_bounds_and_mismatch():
+    tokens = [10, 20, 30]
+    parents = [-1, 0, 1]
+    logits = np.zeros((3, 50))
+    with pytest.raises(ValueError, match="Length mismatch"):
+        verify_tree_candidates_v2([10], parents, logits)
+    with pytest.raises(ValueError, match="exceeds max_draft_tokens"):
+        verify_tree_candidates_v2(tokens, parents, logits, max_draft_tokens=2)
+    with pytest.raises(ValueError, match="mismatch with"):
+        verify_tree_candidates_v2(tokens, parents, np.zeros((2, 50)))
+    with pytest.raises(ValueError, match="exceeds limit"):
+        verify_tree_candidates_v2([1, 2, 3], [-1, -1, -1], np.zeros((3, 10)), max_candidate_paths=2)
+    with pytest.raises(ValueError, match="Cycle detected"):
+        verify_tree_candidates_v2([10, 20], [1, 0], np.zeros((2, 50)))
