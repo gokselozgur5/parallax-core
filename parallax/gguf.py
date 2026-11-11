@@ -270,8 +270,8 @@ def load_gguf(file_path: str, cast_float64: bool = True) -> GGUFFile:
         padding = (alignment - (header_end % alignment)) % alignment
         data_base_offset = header_end + padding
 
-        # Extract tensors
-        tensors: Dict[str, np.ndarray] = {}
+        # Validate tensor intervals and ensure non-overlapping byte ranges
+        intervals: List[Tuple[int, int, str]] = []
         for name, info in tensor_infos.items():
             if any(d < 0 for d in info.shape):
                 raise ValueError(f"Negative dimension in shape {info.shape} for tensor '{name}'")
@@ -297,10 +297,38 @@ def load_gguf(file_path: str, cast_float64: bool = True) -> GGUFFile:
             if tensor_start_offset < 0 or byte_size < 0 or tensor_start_offset + byte_size > total_file_size:
                 raise ValueError("Invalid tensor offset/length: exceeds file bounds")
 
+            if byte_size > 0:
+                intervals.append((tensor_start_offset, tensor_start_offset + byte_size, name))
+
+        # Check for overlapping non-empty tensor intervals
+        intervals.sort(key=lambda x: x[0])
+        for idx in range(len(intervals) - 1):
+            cur_start, cur_end, cur_name = intervals[idx]
+            next_start, _, next_name = intervals[idx + 1]
+            if cur_end > next_start:
+                raise ValueError(
+                    f"Overlapping tensor byte intervals detected between '{cur_name}' "
+                    f"and '{next_name}' (DoS protection)"
+                )
+
+        # Extract tensors
+        tensors: Dict[str, np.ndarray] = {}
+        for name, info in tensor_infos.items():
+            num_elements = math.prod(info.shape) if info.shape else 1
+            if info.ggml_type == GGML_TYPE_F32:
+                byte_size = num_elements * 4
+            elif info.ggml_type == GGML_TYPE_F16 or info.ggml_type == GGML_TYPE_BF16:
+                byte_size = num_elements * 2
+            elif info.ggml_type == GGML_TYPE_Q8_0:
+                n_blocks = (num_elements + QK8_0 - 1) // QK8_0
+                byte_size = n_blocks * BLOCK_BYTES_Q8_0
+            elif info.ggml_type == GGML_TYPE_Q4_0:
+                n_blocks = (num_elements + QK4_0 - 1) // QK4_0
+                byte_size = n_blocks * BLOCK_BYTES_Q4_0
+
+            tensor_start_offset = data_base_offset + info.offset
             f.seek(tensor_start_offset)
-            raw_bytes = f.read(byte_size)
-            if len(raw_bytes) < byte_size:
-                raise ValueError("Invalid tensor offset/length: exceeds file bounds")
+            raw_bytes = _read_exact(f, byte_size, f"tensor data for '{name}'")
 
             if info.ggml_type == GGML_TYPE_F32:
                 arr = np.frombuffer(raw_bytes, dtype="<f4").reshape(info.shape).copy()
