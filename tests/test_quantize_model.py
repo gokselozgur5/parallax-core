@@ -1,6 +1,3 @@
-import os
-import numpy as np
-import pytest
 from parallax.gguf import GGML_TYPE_Q8_0, GGML_TYPE_Q4_0, load_gguf
 from parallax.gguf_loader import save_parallax_to_gguf
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
