@@ -47,8 +47,10 @@ def quantize_q8_0(arr: np.ndarray) -> bytes:
 
     # Compute max absolute value per block
     max_abs = np.max(np.abs(blocks), axis=1, keepdims=True)
-    # Scale factor delta = max_abs / 127.0
-    deltas = (max_abs / 127.0).astype("<f2")
+    # Scale factor delta = max_abs / 127.0 clamped to FP16 max to prevent inf overflow
+    fp16_max = np.finfo(np.float16).max
+    clamped_scale = np.clip(max_abs / 127.0, 0.0, fp16_max)
+    deltas = clamped_scale.astype("<f2")
     # Avoid division by zero
     scale = np.where(deltas.astype(np.float32) == 0.0, 1.0, deltas.astype(np.float32))
 
@@ -103,7 +105,10 @@ def quantize_q4_0(arr: np.ndarray) -> bytes:
     max_abs_idx = np.argmax(abs_blocks, axis=1, keepdims=True)
     amax = np.take_along_axis(blocks, max_abs_idx, axis=1)
 
-    deltas = np.where(amax < 0.0, amax / -8.0, amax / 7.0).astype("<f2")
+    raw_scale = np.where(amax < 0.0, amax / -8.0, amax / 7.0)
+    fp16_max = np.finfo(np.float16).max
+    clamped_scale = np.clip(raw_scale, 0.0, fp16_max)
+    deltas = clamped_scale.astype("<f2")
     scale = np.where(deltas.astype(np.float32) == 0.0, 1.0, deltas.astype(np.float32))
 
     # Quantize: x / scale + 8
