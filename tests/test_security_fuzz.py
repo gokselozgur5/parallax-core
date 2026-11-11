@@ -10,21 +10,16 @@ Ensures graceful rejection via ValueError without crashing or segfaulting.
 """
 
 import json
-import math
 import os
 import struct
 import tempfile
-import numpy as np
 import pytest
 
-from parallax.safetensors import load_safetensors, MAX_HEADER_SIZE
+from parallax.safetensors import load_safetensors
 from parallax.gguf import (
     load_gguf,
     GGUF_MAGIC,
     GGML_TYPE_F32,
-    MAX_GGUF_HEADER_SIZE,
-    MAX_GGUF_STRING_LEN,
-    MAX_GGUF_ARRAY_LEN,
 )
 
 
