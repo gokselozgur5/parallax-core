@@ -106,13 +106,19 @@ def test_c_rmsnorm_invalid_weight_shape():
 
 
 def test_c_rmsnorm_fallback_when_unavailable():
-    np.random.seed(123)
-    x = np.random.randn(4, 16).astype(np.float32)
-    weight = np.random.randn(16).astype(np.float32)
+    import math
+
+    x = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    weight = np.array([0.5, 2.0], dtype=np.float32)
     eps = 1e-6
 
-    rms = np.sqrt(np.mean(x ** 2, axis=-1, keepdims=True) + eps)
-    expected = (x / rms) * weight
+    # Independent reference calculation using math.sqrt and explicit float loops
+    expected = np.zeros_like(x)
+    for r in range(x.shape[0]):
+        row_sq_mean = sum(float(x[r, c]) ** 2 for c in range(x.shape[1])) / x.shape[1]
+        rms = math.sqrt(row_sq_mean + eps)
+        for c in range(x.shape[1]):
+            expected[r, c] = (float(x[r, c]) / rms) * float(weight[c])
 
     with patch("parallax.c_engine._find_or_build_library", return_value=None):
         actual = c_rmsnorm(x, weight, eps=eps)
