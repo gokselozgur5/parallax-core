@@ -180,6 +180,14 @@ def test_c_softmax_large_logits_and_special_values():
     np.testing.assert_allclose(res_special[1], 1.0 / 3.0, rtol=1e-5, atol=1e-5)
 
 
+def test_c_softmax_nan_and_inf_rows():
+    if not is_c_engine_available():
+        pytest.skip("C engine native library not available")
+    X = np.array([[1.0, np.nan, 3.0], [1.0, np.inf, 3.0], [-np.inf, -np.inf, -np.inf]], dtype=np.float32)
+    res = c_softmax(X)
+    assert np.isnan(res).all()
+
+
 def test_c_engine_unsupported_dtypes():
     with pytest.raises(TypeError):
         c_gemm(np.array([[1 + 1j]]), np.array([[1 + 1j]]))
