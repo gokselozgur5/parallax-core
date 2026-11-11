@@ -114,6 +114,9 @@ class Tensor:
         other = other if isinstance(other, Tensor) else Tensor(other, requires_grad=False)
         out = Tensor(self.data + other.data, (self, other), "+")
 
+        if not out.requires_grad:
+            return out
+
         def _backward() -> None:
             if out.grad is None:
                 return
@@ -139,6 +142,9 @@ class Tensor:
         other = other if isinstance(other, Tensor) else Tensor(other, requires_grad=False)
         out = Tensor(self.data * other.data, (self, other), "*")
 
+        if not out.requires_grad:
+            return out
+
         def _backward() -> None:
             if out.grad is None:
                 return
@@ -157,6 +163,9 @@ class Tensor:
         if not isinstance(other, Tensor):
             raise TypeError("Matmul requires another Tensor")
         out = Tensor(self.data @ other.data, (self, other), "@")
+
+        if not out.requires_grad:
+            return out
 
         def _backward() -> None:
             if out.grad is None:
@@ -198,6 +207,9 @@ class Tensor:
         norm_axes = tuple(ax % self.ndim for ax in axes)
         out = Tensor(np.transpose(self.data, norm_axes), (self,), "transpose")
 
+        if not out.requires_grad:
+            return out
+
         def _backward() -> None:
             if out.grad is None:
                 return
@@ -218,6 +230,9 @@ class Tensor:
             norm_axis = None
         out_data = self.data.sum(axis=norm_axis, keepdims=keepdims)
         out = Tensor(out_data, (self,), "sum")
+
+        if not out.requires_grad:
+            return out
 
         def _backward() -> None:
             if out.grad is None:
@@ -252,6 +267,9 @@ class Tensor:
 
     def relu(self) -> "Tensor":
         out = Tensor(np.maximum(self.data, 0.0), (self,), "relu")
+
+        if not out.requires_grad:
+            return out
 
         def _backward() -> None:
             if out.grad is None:
