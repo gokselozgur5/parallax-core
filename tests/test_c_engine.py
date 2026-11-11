@@ -219,3 +219,20 @@ def test_c_engine_int32_bounds():
 
     with pytest.raises(ValueError, match="INT32_MAX"):
         c_softmax(MockSoftmaxArray())
+
+
+def test_require_c_engine_raises_consistently_when_unavailable(monkeypatch):
+    """Verify PARALLAX_REQUIRE_C_ENGINE=1 raises on repeated calls when C-engine is missing."""
+    import parallax.c_engine as ce
+
+    monkeypatch.setenv("PARALLAX_REQUIRE_C_ENGINE", "1")
+    monkeypatch.setattr(ce, "_C_LIB", None)
+    monkeypatch.setattr(ce, "_LIB_LOAD_ATTEMPTED", True)
+    monkeypatch.setattr(ce, "_LOAD_ERROR_REASON", "Library not found")
+
+    with pytest.raises(RuntimeError, match="PARALLAX_REQUIRE_C_ENGINE=1"):
+        ce._find_or_build_library()
+
+    with pytest.raises(RuntimeError, match="PARALLAX_REQUIRE_C_ENGINE=1"):
+        ce._find_or_build_library()
+
