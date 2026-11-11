@@ -175,3 +175,20 @@ def test_hf_tokenizer_pretokenizer_qwen_and_llama3_patterns():
     na_matches = [m.group(0) for m in tok_qwen.pretokenizer_regex.finditer("naïve café")]
     assert na_matches == ["naïve", " café"]
 
+
+def test_hf_tokenizer_single_non_ascii_and_normalizer():
+    from parallax.hf_tokenizer import _BYTE_TO_UNICODE
+    vocab = {u: b for b, u in _BYTE_TO_UNICODE.items()}
+    c_bytes = "ç".encode("utf-8")
+    c_bpe_str = "".join(_BYTE_TO_UNICODE[b] for b in c_bytes)
+    vocab[c_bpe_str] = len(vocab)
+    merges = [f"{_BYTE_TO_UNICODE[c_bytes[0]]} {_BYTE_TO_UNICODE[c_bytes[1]]}"]
+
+    tok = HFTokenizer(vocab=vocab, merges=merges, normalizer="NFC")
+    encoded = tok.encode("ç")
+    assert tok.decode(encoded) == "ç"
+
+    import unicodedata
+    decomposed = unicodedata.normalize("NFD", "ç")
+    assert tok.encode(decomposed) == tok.encode("ç")
+
