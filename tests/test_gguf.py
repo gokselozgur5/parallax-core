@@ -136,3 +136,23 @@ def test_gguf_invalid_magic_and_version():
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+
+def test_gguf_bool_and_int64_array_serialization():
+    metadata = {
+        "flags": [True, False, True],
+        "wide_ints": [2**40, -(2**40)],
+        "normal_ints": [1, 2, 3],
+    }
+    with tempfile.NamedTemporaryFile(suffix=".gguf", delete=False) as f:
+        tmp_path = f.name
+
+    try:
+        save_gguf(tmp_path, metadata=metadata, tensors={})
+        loaded = load_gguf(tmp_path)
+        assert loaded.metadata["flags"] == [True, False, True]
+        assert loaded.metadata["wide_ints"] == [2**40, -(2**40)]
+        assert loaded.metadata["normal_ints"] == [1, 2, 3]
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
