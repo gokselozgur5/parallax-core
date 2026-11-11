@@ -56,7 +56,6 @@ module = [
     "parallax.metal_engine",
     "parallax.quant",
     "parallax.checkpoint",
-    "parallax.gguf_loader",
 ]
 ignore_errors = true
 
