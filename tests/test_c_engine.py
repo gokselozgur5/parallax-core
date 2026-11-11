@@ -127,14 +127,29 @@ def test_c_fallback_when_c_engine_unavailable():
         np.testing.assert_allclose(res_sm, expected_sm, rtol=1e-5, atol=1e-5)
 
 
-def test_concurrent_initialization_c_and_metal():
+def test_concurrent_initialization_c_and_metal(monkeypatch):
+    import threading
     import concurrent.futures
     import parallax.c_engine as ce
     import parallax.metal_engine as me
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-        c_futures = [executor.submit(ce.is_c_engine_available) for _ in range(8)]
-        metal_futures = [executor.submit(me.is_metal_available) for _ in range(8)]
+    # Reset load state so initialization actually happens under concurrency
+    monkeypatch.setattr(ce, "_LIB_LOAD_ATTEMPTED", False)
+    monkeypatch.setattr(me, "_METAL_INITIALIZED", False)
+
+    barrier = threading.Barrier(16)
+
+    def init_c():
+        barrier.wait()
+        return ce.is_c_engine_available()
+
+    def init_metal():
+        barrier.wait()
+        return me.is_metal_available()
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+        c_futures = [executor.submit(init_c) for _ in range(8)]
+        metal_futures = [executor.submit(init_metal) for _ in range(8)]
 
         c_results = [f.result() for f in c_futures]
         metal_results = [f.result() for f in metal_futures]
@@ -306,3 +321,33 @@ def test_rebuild_on_source_change_without_stale_cache():
         cmd2 = "import parallax.c_engine as ce; assert not ce.is_c_engine_available()"
         res2 = subprocess.run(["python3", "-c", cmd2], env=env, cwd=str(fake_repo), capture_output=True, text=True)
         assert res2.returncode == 0, f"Expected broken build to fail but passed: {res2.stderr}"
+def test_c_engine_build_timeout_and_cache_directory(monkeypatch):
+    """Verify build into user cache directory and timeout error handling (closes #437)."""
+    import subprocess
+    import tempfile
+    from pathlib import Path
+    import parallax.c_engine as ce
+
+    with tempfile.TemporaryDirectory() as tmp_cache:
+        monkeypatch.setattr(ce, "_C_LIB", None)
+        monkeypatch.setattr(ce, "_LIB_LOAD_ATTEMPTED", False)
+        monkeypatch.setattr(ce, "_LOAD_ERROR_REASON", None)
+        monkeypatch.setattr(ce, "_get_build_cache_dir", lambda: Path(tmp_cache))
+
+        orig_run = subprocess.run
+
+        def mock_run(cmd, *args, **kwargs):
+            if "make" in cmd:
+                timeout = kwargs.get("timeout")
+                assert timeout is not None, "make called without timeout"
+                assert timeout == 15
+                raise subprocess.TimeoutExpired(cmd, timeout)
+            return orig_run(cmd, *args, **kwargs)
+
+        monkeypatch.setattr(subprocess, "run", mock_run)
+
+        lib = ce._find_or_build_library_unlocked()
+        assert lib is None
+        reason = ce.get_c_engine_load_error()
+        assert reason is not None
+        assert "timed out" in reason.lower()
