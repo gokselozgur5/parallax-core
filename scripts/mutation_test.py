@@ -45,7 +45,7 @@ MUTATION_SPECS: List[Dict[str, object]] = [
         "file": "parallax/generator.py",
         "target": "scaled_logits = logits.copy() / temperature",
         "mutant": "scaled_logits = logits.copy() * temperature",
-        "test": "tests/test_kto.py",
+        "test": "tests/test_generator.py",
         "description": "Invert temperature scaling in generator",
     },
 ]
