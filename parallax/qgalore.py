@@ -84,3 +84,78 @@ class QGaLoreProjector:
             return np.dot(dequant, self.V_T)
         assert self.U is not None
         return np.dot(self.U, dequant)
+
+
+from typing import List, Dict
+from parallax.nn import Parameter
+
+
+class QGaLoreAdamW:
+    """Trainer-compatible AdamW optimizer using Q-GaLore projection for 2D weight matrices.
+
+    Maintains INT8 low-rank project memory savings while plugging directly into ParallaxLM / Trainer.
+    """
+
+    def __init__(
+        self,
+        parameters: List[Parameter],
+        lr: float = 1e-3,
+        betas: Tuple[float, float] = (0.9, 0.999),
+        eps: float = 1e-8,
+        weight_decay: float = 0.01,
+        rank: int = 16,
+        update_interval: int = 100,
+    ):
+        self.params = parameters
+        self.lr = lr
+        self.beta1, self.beta2 = betas
+        self.eps = eps
+        self.weight_decay = weight_decay
+        self.rank = rank
+        self.update_interval = update_interval
+        self.step_count = 0
+
+        self.projectors: Dict[int, QGaLoreProjector] = {}
+        for p in self.params:
+            if p.data.ndim == 2:
+                self.projectors[id(p)] = QGaLoreProjector(rank=self.rank, update_interval=self.update_interval)
+
+        self.m: List[np.ndarray] = [np.zeros_like(p.data) for p in self.params]
+        self.v: List[np.ndarray] = [np.zeros_like(p.data) for p in self.params]
+
+    def zero_grad(self) -> None:
+        for p in self.params:
+            p.zero_grad()
+
+    def step(self) -> None:
+        self.step_count += 1
+        lr_t = self.lr
+        bias_corr1 = 1.0 - (self.beta1**self.step_count)
+        bias_corr2 = 1.0 - (self.beta2**self.step_count)
+
+        for i, p in enumerate(self.params):
+            if not p.requires_grad or p.grad is None:
+                continue
+
+            grad = p.grad
+            pid = id(p)
+
+            # Apply Q-GaLore projection for 2D weight matrices
+            if pid in self.projectors:
+                proj = self.projectors[pid]
+                q_sub, scale = proj.project_and_quantize(grad)
+                effective_grad = proj.deproject(q_sub, scale)
+            else:
+                effective_grad = grad
+
+            if self.weight_decay > 0.0 and p.data.ndim >= 2:
+                p.data -= lr_t * self.weight_decay * p.data
+
+            self.m[i] = self.beta1 * self.m[i] + (1.0 - self.beta1) * effective_grad
+            self.v[i] = self.beta2 * self.v[i] + (1.0 - self.beta2) * (effective_grad**2)
+
+            m_hat = self.m[i] / bias_corr1
+            v_hat = self.v[i] / bias_corr2
+
+            step_update = lr_t * m_hat / (np.sqrt(v_hat) + self.eps)
+            p.data -= step_update
