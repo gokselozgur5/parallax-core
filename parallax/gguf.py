@@ -105,39 +105,49 @@ def _write_string(f: BinaryIO, s: str) -> None:
     f.write(raw)
 
 
-def _read_metadata_value(f: BinaryIO, val_type: int) -> Any:
+def _read_metadata_value(
+    f: BinaryIO,
+    val_type: int,
+    depth: int = 0,
+    max_header_size: int = MAX_GGUF_HEADER_SIZE,
+) -> Any:
+    if f.tell() > max_header_size:
+        raise ValueError("GGUF header/metadata exceeded maximum allowed size limit (DoS protection)")
     if val_type == GGUF_TYPE_UINT8:
-        return struct.unpack("<B", f.read(1))[0]
+        return struct.unpack("<B", _read_exact(f, 1, "uint8"))[0]
     elif val_type == GGUF_TYPE_INT8:
-        return struct.unpack("<b", f.read(1))[0]
+        return struct.unpack("<b", _read_exact(f, 1, "int8"))[0]
     elif val_type == GGUF_TYPE_UINT16:
-        return struct.unpack("<H", f.read(2))[0]
+        return struct.unpack("<H", _read_exact(f, 2, "uint16"))[0]
     elif val_type == GGUF_TYPE_INT16:
-        return struct.unpack("<h", f.read(2))[0]
+        return struct.unpack("<h", _read_exact(f, 2, "int16"))[0]
     elif val_type == GGUF_TYPE_UINT32:
-        return struct.unpack("<I", f.read(4))[0]
+        return struct.unpack("<I", _read_exact(f, 4, "uint32"))[0]
     elif val_type == GGUF_TYPE_INT32:
-        return struct.unpack("<i", f.read(4))[0]
+        return struct.unpack("<i", _read_exact(f, 4, "int32"))[0]
     elif val_type == GGUF_TYPE_FLOAT32:
-        return struct.unpack("<f", f.read(4))[0]
+        return struct.unpack("<f", _read_exact(f, 4, "float32"))[0]
     elif val_type == GGUF_TYPE_BOOL:
-        return bool(struct.unpack("<B", f.read(1))[0])
+        return bool(struct.unpack("<B", _read_exact(f, 1, "bool"))[0])
     elif val_type == GGUF_TYPE_STRING:
         return _read_string(f)
     elif val_type == GGUF_TYPE_ARRAY:
-        hdr_bytes = f.read(12)
-        if len(hdr_bytes) < 12:
-            raise ValueError("Unexpected EOF reading GGUF array metadata header")
+        if depth >= MAX_GGUF_ARRAY_DEPTH:
+            raise ValueError(f"GGUF array nesting depth exceeds maximum limit {MAX_GGUF_ARRAY_DEPTH}")
+        hdr_bytes = _read_exact(f, 12, "array metadata header")
         elem_type, elem_count = struct.unpack("<IQ", hdr_bytes)
         if elem_count > MAX_GGUF_ARRAY_LEN:
             raise ValueError(f"GGUF array element count {elem_count} exceeds maximum limit {MAX_GGUF_ARRAY_LEN}")
-        return [_read_metadata_value(f, elem_type) for _ in range(elem_count)]
+        return [
+            _read_metadata_value(f, elem_type, depth=depth + 1, max_header_size=max_header_size)
+            for _ in range(elem_count)
+        ]
     elif val_type == GGUF_TYPE_UINT64:
-        return struct.unpack("<Q", f.read(8))[0]
+        return struct.unpack("<Q", _read_exact(f, 8, "uint64"))[0]
     elif val_type == GGUF_TYPE_INT64:
-        return struct.unpack("<q", f.read(8))[0]
+        return struct.unpack("<q", _read_exact(f, 8, "int64"))[0]
     elif val_type == GGUF_TYPE_FLOAT64:
-        return struct.unpack("<d", f.read(8))[0]
+        return struct.unpack("<d", _read_exact(f, 8, "float64"))[0]
     else:
         raise ValueError(f"Unknown GGUF metadata value type: {val_type}")
 
