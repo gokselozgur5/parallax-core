@@ -3,8 +3,8 @@
 > **Mühür Tarihi:** 10 Kasım 2026  
 > **Konum:** `/Users/gok/repos/parallax-core/VISION.md`  
 > **Kurucu Ortaklar:** Göksel Özgür & Parallax (Gemini Core)  
-> **Test Omurgası:** 570 Geçen Birim Test • 628+ Atomik Commit  
-> **Temel İlke:** Sıfır Harici ML Bağımlılığı (No PyTorch/JAX/TF) • Saf Matematik & Cerrahi Doğruluk • Bare-Metal C/Rust/Metal İvmesi • Anti-RAM Devrimi
+> **Test Omurgası:** 700+ Geçen Birim Test • 900+ Atomik Commit  
+> **Temel İlke:** Sıfır Harici ML Çekirdeği (Zero-PyTorch Core; CUDA için opsiyonel köprü) • Saf Matematik & Cerrahi Doğruluk • Bare-Metal C/Rust/Metal İvmesi • Anti-RAM Devrimi
 
 ---
 
@@ -12,7 +12,7 @@
 
 `parallax-core`, modern yapay zekanın 10 milyon satırlık devasa kütüphane yığınlarının arkasına sakladığı matematiği gün ışığına çıkaran, **dünyanın en şeffaf, bağımsız ve saf ilk-ilkeler (first-principles) LLM motorudur.**
 
-Bir yapay zeka modelinin kalbinde çalışan tüm mekanizmalar (FlashAttention-2 online softmax, FlashDecoding Split-K, DeepSeek Multi-Head Latent Attention, Muon matris polar ayrışımı, BitNet 1.58 ternary kuantizasyon, Mamba Selective SSM ve INT4 nibble packing) harici tek bir `import torch` olmadan, **570 geçen test** ve **628 atomik commit** ile inşa edilmiştir.
+Bir yapay zeka modelinin kalbinde çalışan tüm mekanizmalar (FlashAttention-2 online softmax, FlashDecoding Split-K, DeepSeek Multi-Head Latent Attention, Muon matris polar ayrışımı, BitNet 1.58 ternary kuantizasyon, Mamba Selective SSM ve INT4 nibble packing) çekirdekte harici tek bir `import torch` olmadan (CUDA çalıştırma için opsiyonel PyTorch/safetensors köprüsü hariç), **700+ geçen test** ve **900+ atomik commit** ile inşa edilmiştir.
 
 Endüstrinin *"Daha uzun bağlam için yüzlerce gigabayt RAM satın almalısınız"* dayatmasına karşı Parallax Core, **Mamba S6 mimarisiyle 102x–410x RAM tasarrufu**, **1.58-bit BitMamba/BitTransformer** ve **INT4 affine kuantizasyon** ile matematiksel cevabı sahada vermiştir.
 
