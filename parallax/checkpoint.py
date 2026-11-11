@@ -74,6 +74,20 @@ def get_model_state_dict(model: ParallaxLM) -> Dict[str, np.ndarray]:
 
 def load_model_state_dict(model: ParallaxLM, state_dict: Dict[str, np.ndarray]) -> None:
     """Loads a named state dictionary into a ParallaxLM instance in-place."""
+    curr_state = get_model_state_dict(model)
+    for k, expected_arr in curr_state.items():
+        if k not in state_dict:
+            raise KeyError(f"Missing parameter '{k}' in state_dict")
+        loaded_arr = state_dict[k]
+        if not isinstance(loaded_arr, np.ndarray):
+            raise TypeError(f"Parameter '{k}' must be a numpy ndarray")
+        if not np.issubdtype(loaded_arr.dtype, np.number):
+            raise TypeError(f"Parameter '{k}' must have numeric dtype, got {loaded_arr.dtype}")
+        if loaded_arr.shape != expected_arr.shape:
+            raise ValueError(
+                f"Shape mismatch for parameter '{k}': expected {expected_arr.shape}, got {loaded_arr.shape}"
+            )
+
     model.token_embeddings.weight.data = state_dict["token_embeddings.weight"].copy()
     model.final_norm.weight.data = state_dict["final_norm.weight"].copy()
 
