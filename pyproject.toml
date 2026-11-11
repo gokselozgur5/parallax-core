@@ -67,7 +67,6 @@ module = [
     "parallax.gguf_exporter",
     "parallax.hf_loader",
     "parallax.lora",
-    "parallax.bitnet",
     "parallax.attention",
     "parallax.bit_attention",
     "parallax.quant",
