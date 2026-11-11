@@ -1,4 +1,3 @@
-import pytest
 from parallax.engine import Value
 from parallax.gradcheck import check_gradient
 
