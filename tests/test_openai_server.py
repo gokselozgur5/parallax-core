@@ -81,7 +81,7 @@ def test_openai_server_request_body_size_and_content_length(running_server):
     )
     try:
         urllib.request.urlopen(req)
-        assert False, "Should fail on negative Content-Length"
+        raise AssertionError("Should fail on negative Content-Length")
     except urllib.error.HTTPError as e:
         assert e.code == 400
 
@@ -93,7 +93,7 @@ def test_openai_server_request_body_size_and_content_length(running_server):
     )
     try:
         urllib.request.urlopen(huge_len_req)
-        assert False, "Should fail on oversized request"
+        raise AssertionError("Should fail on oversized request")
     except urllib.error.HTTPError as e:
         assert e.code == 413
 
