@@ -7,7 +7,7 @@ weights W_0 and injects trainable rank decomposition matrices:
 where A ~ N(0, sigma^2) and B = 0, so initially delta_W = 0.
 """
 
-from typing import List, Tuple
+from typing import Any, List, Optional, Tuple
 import numpy as np
 
 from parallax.nn import Linear, Module, Parameter
@@ -44,6 +44,8 @@ class LoRALinear(Module):
             self.base_layer.bias.requires_grad = False
             self.base_layer.bias.grad = None
 
+        self.lora_A: Optional[Parameter]
+        self.lora_B: Optional[Parameter]
         if r > 0:
             # A initialized with Gaussian N(0, 1/r), B initialized to 0
             limit_a = 1.0 / np.sqrt(self.in_features)
@@ -71,7 +73,7 @@ class LoRALinear(Module):
         # Base forward pass
         base_out = self.base_layer(x)
 
-        if self.r == 0 or self.merged:
+        if self.r == 0 or self.merged or self.lora_A is None or self.lora_B is None:
             return base_out
 
         # LoRA path: x: [..., in_features]
@@ -91,7 +93,7 @@ class LoRALinear(Module):
 
     def merge_weights(self) -> None:
         """Merges delta_W = (alpha / r) * (B @ A) directly into base_layer.weight."""
-        if self.r > 0 and not self.merged:
+        if self.r > 0 and not self.merged and self.lora_A is not None and self.lora_B is not None:
             # B: [out_features, r], A: [r, in_features] -> delta_W: [out_features, in_features]
             delta_w = self.scaling * (self.lora_B.data @ self.lora_A.data)
             self.base_layer.weight.data += delta_w
@@ -99,7 +101,7 @@ class LoRALinear(Module):
 
     def unmerge_weights(self) -> None:
         """Removes delta_W from base_layer.weight."""
-        if self.r > 0 and self.merged:
+        if self.r > 0 and self.merged and self.lora_A is not None and self.lora_B is not None:
             delta_w = self.scaling * (self.lora_B.data @ self.lora_A.data)
             self.base_layer.weight.data -= delta_w
             self.merged = False
@@ -110,7 +112,7 @@ class LoRALinear(Module):
 
     def merge_and_unload(self) -> Linear:
         """Merges LoRA weights into base layer and returns the base layer."""
-        if self.r > 0 and not self.merged:
+        if self.r > 0 and not self.merged and self.lora_A is not None and self.lora_B is not None:
             # Add (lora_B.weight @ lora_A.weight) * scaling into base_layer.weight.data
             b_w = self.lora_B.weight if hasattr(self.lora_B, "weight") else self.lora_B
             a_w = self.lora_A.weight if hasattr(self.lora_A, "weight") else self.lora_A
@@ -155,7 +157,7 @@ def apply_lora_to_model(
             elif isinstance(child, Module):
                 recursive_apply(child)
             elif isinstance(child, (list, tuple)):
-                new_items = []
+                new_items: List[Any] = []
                 tuple_changed = False
                 for idx, item in enumerate(child):
                     item_key = f"{attr_name}.{idx}"
