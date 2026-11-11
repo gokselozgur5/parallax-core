@@ -3,7 +3,6 @@ import tempfile
 import numpy as np
 import pytest
 
-from parallax.gguf import save_gguf
 from parallax.gguf_loader import (
     gguf_metadata_to_parallax,
     load_gguf_pretrained,
