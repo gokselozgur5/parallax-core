@@ -120,6 +120,10 @@ def generate_stream(
     rolling_cache: Optional[RollingKVCache] = None,
 ) -> Iterator[int]:
     """Yields newly generated token IDs one by one."""
+    if max_new_tokens < 0:
+        raise ValueError(f"max_new_tokens must be non-negative, got {max_new_tokens}")
+    if max_new_tokens == 0:
+        return
     model.eval()
     tokens = list(prompt_tokens)
     max_seq_len = model.config.max_seq_len
@@ -228,6 +232,10 @@ def generate(
         use_cache: If True, uses incremental O(1) step KV caching instead of full O(N^2) recomputation.
         eos_token_id: Optional end-of-sequence token ID to terminate generation early.
     """
+    if max_new_tokens < 0:
+        raise ValueError(f"max_new_tokens must be non-negative, got {max_new_tokens}")
+    if max_new_tokens == 0:
+        return list(prompt_tokens)
     tokens = list(prompt_tokens)
     for token in generate_stream(
         model=model,
