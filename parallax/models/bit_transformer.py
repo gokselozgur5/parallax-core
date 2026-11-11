@@ -8,7 +8,7 @@ in float64 while supporting straight-through estimator (STE) gradient propagatio
 """
 
 from dataclasses import dataclass
-from typing import Iterator, List, Optional, Tuple, Union
+from typing import Iterator, List, Optional, Tuple, Union, cast
 import numpy as np
 
 from parallax.bit_attention import BitAttention
@@ -293,7 +293,7 @@ class BitTransformerLM(Module):
                 context = tokens[-max_seq_len:]
                 idx = np.array([context], dtype=np.int64)
                 with no_grad():
-                    logits = self.forward(idx)
+                    logits = cast(Tensor, self.forward(idx))
                 next_token_logits = logits.data[0, -1, :]
                 next_token = sample_next_token(
                     next_token_logits,
@@ -329,7 +329,8 @@ class BitTransformerLM(Module):
         ]
 
         with no_grad():
-            logits, kv_caches = self.forward(idx, kv_caches=kv_caches)
+            fwd_out = cast(Tuple[Tensor, List[Tuple[np.ndarray, np.ndarray]]], self.forward(idx, kv_caches=kv_caches))
+            logits, kv_caches = fwd_out
 
         next_token_logits = logits.data[0, -1, :]
         next_token = sample_next_token(
@@ -356,12 +357,14 @@ class BitTransformerLM(Module):
                     for _ in range(self.config.num_layers)
                 ]
                 with no_grad():
-                    logits, kv_caches = self.forward(idx, kv_caches=kv_caches)
+                    fwd_out = cast(Tuple[Tensor, List[Tuple[np.ndarray, np.ndarray]]], self.forward(idx, kv_caches=kv_caches))
+                    logits, kv_caches = fwd_out
             else:
                 context.append(next_token)
                 idx_next = np.array([[next_token]], dtype=np.int64)
                 with no_grad():
-                    logits, kv_caches = self.forward(idx_next, kv_caches=kv_caches)
+                    fwd_out = cast(Tuple[Tensor, List[Tuple[np.ndarray, np.ndarray]]], self.forward(idx_next, kv_caches=kv_caches))
+                    logits, kv_caches = fwd_out
 
             next_token_logits = logits.data[0, -1, :]
             next_token = sample_next_token(
