@@ -24,6 +24,7 @@ import subprocess
 import sys
 import time
 from typing import Any, Dict, List, Optional, Tuple
+import warnings
 import numpy as np
 
 # Ensure parallax is importable from repository root
@@ -154,7 +155,8 @@ def get_rust_lib() -> Optional[ctypes.CDLL]:
         if ver != 2:
             warnings.warn(
                 f"Rust library ABI version mismatch (got {ver}, expected 2). "
-                "Please rebuild with: cargo build --manifest-path crates/parallax-rs/Cargo.toml --release"
+                "Please rebuild with: cargo build --manifest-path crates/parallax-rs/Cargo.toml --release",
+                stacklevel=2,
             )
             _RUST_CDLL = None
             return None
