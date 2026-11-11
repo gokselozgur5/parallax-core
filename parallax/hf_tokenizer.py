@@ -84,6 +84,12 @@ def _build_class_pattern(cat_prefix: str, invert: bool = False) -> str:
     return "".join(parts)
 
 
+_UNICODE_CATEGORIES = {
+    "L", "M", "N", "P", "S", "Z", "C", "Lu", "Ll", "Lt", "Lm", "Lo", "Mn",
+    "Mc", "Me", "Nd", "Nl", "No", "Pc", "Pd", "Ps", "Pe", "Pi", "Pf", "Po",
+    "Sm", "Sc", "Sk", "So", "Zs", "Zl", "Zp", "Cc", "Cf", "Cs", "Co", "Cn",
+}
+
 _L_CLASS_PAT = _build_class_pattern("L")
 _N_CLASS_PAT = _build_class_pattern("N")
 
