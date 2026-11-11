@@ -163,6 +163,7 @@ class HFTokenizer:
         self.normalizer: Optional[NormalizerForm] = normalizer
         self.id_to_token: Dict[int, str] = {v: k for k, v in self.vocab.items()}
         self.vocab_size = len(self.vocab)
+        self.split_pattern: Optional[str] = split_pattern
         self.pretokenizer_regex = (
             re.compile(_translate_hf_regex(split_pattern))
             if split_pattern
