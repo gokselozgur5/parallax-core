@@ -68,7 +68,6 @@ module = [
     "parallax.hf_loader",
     "parallax.lora",
     "parallax.attention",
-    "parallax.bit_attention",
     "parallax.quant",
     "parallax.prune",
     "parallax.checkpoint",
