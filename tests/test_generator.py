@@ -40,3 +40,12 @@ def test_generate_stream_preserves_caller_grad_state_uncached():
         assert is_grad_enabled() is True
 
     assert is_grad_enabled() is True
+
+
+def test_sample_next_token_temperature_scaling():
+    from parallax.generator import sample_next_token
+
+    logits = np.array([1.0, 2.0, 5.0])
+    np.random.seed(42)
+    samples = [sample_next_token(logits, temperature=0.05, top_k=None, top_p=None) for _ in range(50)]
+    assert all(s == 2 for s in samples)
