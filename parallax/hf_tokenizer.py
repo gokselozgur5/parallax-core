@@ -90,34 +90,58 @@ _UNICODE_CATEGORIES = {
     "Sm", "Sc", "Sk", "So", "Zs", "Zl", "Zp", "Cc", "Cf", "Cs", "Co", "Cn",
 }
 
-_L_CLASS_PAT = _build_class_pattern("L")
-_N_CLASS_PAT = _build_class_pattern("N")
+
 
 
 def _translate_hf_regex(pattern: str) -> str:
-    r"""Translates HuggingFace Rust regex pattern (with \p{L}/\p{N}) to Python re."""
-    out = []
-    in_bracket = False
+    """Translates HuggingFace Rust regex pattern to Python re compatible pattern.
+
+    Supports: \\p{Category}, \\P{Category}, \\p{^Category} for all general Unicode
+    categories (L, M, N, P, S, Z, C and subcategories).
+    Rejects: POSIX classes [[:...:]] and intersection '&&'.
+    """
+    out: List[str] = []
+    in_bracket = 0
     i = 0
     while i < len(pattern):
+        if pattern[i : i + 3] == "[[:":
+            raise ValueError(f"Unsupported regex construct: POSIX class '{pattern[i:i+8]}'")
+        if in_bracket > 0 and pattern[i : i + 2] == "&&":
+            raise ValueError("Unsupported regex construct: character class intersection '&&'")
+
         if pattern[i] == "\\" and i + 1 < len(pattern):
-            if pattern[i : i + 5] == r"\p{L}":
-                out.append(_L_CLASS_PAT if in_bracket else f"[{_L_CLASS_PAT}]")
-                i += 5
-                continue
-            if pattern[i : i + 5] == r"\p{N}":
-                out.append(_N_CLASS_PAT if in_bracket else f"[{_N_CLASS_PAT}]")
-                i += 5
-                continue
+            nxt = pattern[i + 1]
+            if nxt in ("p", "P") and i + 2 < len(pattern):
+                if pattern[i + 2] == "{":
+                    end = pattern.find("}", i + 3)
+                    if end == -1:
+                        raise ValueError(f"Unclosed Unicode property escape: {pattern[i:]}")
+                    is_inv = (nxt == "P")
+                    prop = pattern[i + 3 : end]
+                    if prop.startswith("^"):
+                        is_inv = not is_inv
+                        prop = prop[1:]
+                    if prop not in _UNICODE_CATEGORIES:
+                        raise ValueError(f"Unsupported Unicode property: '\\{nxt}{{{pattern[i+3:end]}}}'")
+                    cls_pat = _build_class_pattern(prop, invert=is_inv)
+                    out.append(cls_pat if in_bracket > 0 else f"[{cls_pat}]")
+                    i = end + 1
+                    continue
+                if pattern[i + 2] in _UNICODE_CATEGORIES:
+                    cls_pat = _build_class_pattern(pattern[i + 2], invert=(nxt == "P"))
+                    out.append(cls_pat if in_bracket > 0 else f"[{cls_pat}]")
+                    i += 3
+                    continue
             out.append(pattern[i : i + 2])
             i += 2
             continue
+
         if pattern[i] == "[":
-            in_bracket = True
+            in_bracket += 1
             out.append("[")
             i += 1
         elif pattern[i] == "]":
-            in_bracket = False
+            in_bracket = max(0, in_bracket - 1)
             out.append("]")
             i += 1
         else:
