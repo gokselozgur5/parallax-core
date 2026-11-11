@@ -5,7 +5,9 @@ Parallax C-Engine: High-performance C implementations for GEMM and Softmax with 
 from __future__ import annotations
 
 import ctypes
+import hashlib
 import os
+import platform
 import shutil
 import subprocess
 import threading
@@ -62,25 +64,30 @@ def _find_or_build_library_unlocked() -> Optional[ctypes.CDLL]:
     exts = [".dylib", ".so", ".dll"]
     candidate_names = [f"libparallax_c{ext}" for ext in exts]
     
+    # Hash sources and platform for cache key
+    hasher = hashlib.sha256(f"{platform.system()}-{platform.machine()}".encode())
+    src_files = [f for f in sorted(csrc_dir.iterdir()) if f.is_file() and (f.suffix in (".c", ".h", ".mk") or f.name == "Makefile")]
+    for sf in src_files:
+        hasher.update(sf.name.encode())
+        hasher.update(sf.read_bytes())
+    cache_subdir = _get_build_cache_dir() / hasher.hexdigest()[:16]
+
     lib_path = _find_candidate_in_dir(csrc_dir, candidate_names)
-    cache_dir = None
+    if lib_path and src_files and lib_path.stat().st_mtime < max(f.stat().st_mtime for f in src_files):
+        lib_path = None
+
     if lib_path is None:
-        try:
-            cache_dir = _get_build_cache_dir()
-            lib_path = _find_candidate_in_dir(cache_dir, candidate_names)
-        except Exception:
-            pass
+        lib_path = _find_candidate_in_dir(cache_subdir, candidate_names)
 
     # If not found, attempt compilation
     if lib_path is None and (csrc_dir / "Makefile").is_file():
         try:
-            if cache_dir is None:
-                cache_dir = _get_build_cache_dir()
+            cache_subdir.mkdir(parents=True, exist_ok=True)
             for src_file in csrc_dir.glob("*"):
                 if src_file.is_file():
-                    shutil.copy2(src_file, cache_dir / src_file.name)
-            subprocess.run(["make", "-C", str(cache_dir)], check=True, capture_output=True, timeout=15)
-            lib_path = _find_candidate_in_dir(cache_dir, candidate_names)
+                    shutil.copy2(src_file, cache_subdir / src_file.name)
+            subprocess.run(["make", "-C", str(cache_subdir)], check=True, capture_output=True, timeout=15)
+            lib_path = _find_candidate_in_dir(cache_subdir, candidate_names)
         except subprocess.TimeoutExpired as e:
             _LOAD_ERROR_REASON = f"Build timed out after 15 seconds: {e}"
         except subprocess.CalledProcessError as e:
