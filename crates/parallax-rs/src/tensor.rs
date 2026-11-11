@@ -62,6 +62,7 @@ pub fn softmax_2d(data: &mut [f32], rows: usize, cols: usize) -> Result<(), &'st
 /// A: M x K (row-major)
 /// B: K x N (row-major)
 /// C: M x N (row-major)
+#[allow(clippy::too_many_arguments)]
 pub fn gemm_f32(
     m: usize,
     n: usize,
