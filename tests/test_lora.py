@@ -3,7 +3,6 @@ Unit and gradient verification tests for LoRA (Low-Rank Adaptation) (M20).
 """
 
 import numpy as np
-import pytest
 
 from parallax.lora import LoRALinear, apply_lora_to_model
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
@@ -77,7 +76,6 @@ def test_apply_lora_to_parallax_lm():
         max_seq_len=8,
     )
     model = ParallaxLM(cfg)
-    total_params_before = len(model.parameters())
 
     lora_layers = apply_lora_to_model(model, target_modules=("q_proj", "v_proj"), r=2, lora_alpha=4.0)
     assert len(lora_layers) == 4  # 2 layers * (q_proj + v_proj)
@@ -89,7 +87,6 @@ def test_apply_lora_to_parallax_lm():
 
     # Run quick forward and training step
     x = np.array([[1, 2, 3, 4]])
-    y = np.array([[2, 3, 4, 5]])
     optimizer = AdamW(trainable_params, lr=0.01)
 
     logits = model(x)
