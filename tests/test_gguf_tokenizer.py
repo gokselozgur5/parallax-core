@@ -131,3 +131,22 @@ def test_gguf_tokenizer_from_gguf_file_and_model_inference():
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+
+def test_gguf_tokenizer_out_of_bounds_special_token_ids():
+    """Verify special token IDs >= vocab_size or < 0 are set to None."""
+    tokens = ["<unk>", "<s>", "</s>", "a", "b"]
+    tok = GGUFTokenizer(
+        tokens=tokens,
+        bos_token_id=999,
+        eos_token_id=-1,
+        pad_token_id=10,
+        unk_token_id=100,
+    )
+    assert tok.bos_token_id is None
+    assert tok.eos_token_id is None
+    assert tok.pad_token_id is None
+    assert tok.unk_token_id is None
+    # Encoding with unk=None does not raise IndexError
+    encoded = tok.encode("z")
+    assert isinstance(encoded, list)
