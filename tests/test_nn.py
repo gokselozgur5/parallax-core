@@ -94,3 +94,47 @@ def test_module_train_eval_mode():
     out4 = lora(x).data
     assert not np.allclose(out3, out4)
 
+
+def test_no_grad_skips_backward_closure_in_layers():
+    norm = RMSNorm(dim=4)
+    ln = LayerNorm(dim=4)
+    x = Tensor(np.random.randn(2, 4), requires_grad=True)
+
+    with no_grad():
+        out_rms = norm(x)
+        out_ln = ln(x)
+
+    assert out_rms.requires_grad is False
+    assert out_rms._backward.__closure__ is None
+    assert out_ln.requires_grad is False
+    assert out_ln._backward.__closure__ is None
+
+
+def test_container_submodules_parameters_and_train():
+    from parallax.nn import Module
+
+    class ContainerModel(Module):
+        def __init__(self):
+            super().__init__()
+            self.tup = (Linear(4, 4), Linear(4, 2))
+            self.mapping = {"head": Linear(2, 1), "extra": Parameter(np.zeros((1,)))}
+
+    model = ContainerModel()
+    params = model.parameters()
+    # 2 linears in tup (4 params) + 1 linear in mapping (2 params) + 1 Parameter = 7 params
+    assert len(params) == 7
+
+    named = dict(model.named_parameters())
+    assert "tup.0.weight" in named
+    assert "tup.1.bias" in named
+    assert "mapping.head.weight" in named
+    assert "mapping.extra" in named
+
+    model.eval()
+    assert model.tup[0].training is False
+    assert model.mapping["head"].training is False
+    model.train()
+    assert model.tup[0].training is True
+    assert model.mapping["head"].training is True
+
+
