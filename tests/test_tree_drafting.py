@@ -36,3 +36,13 @@ def test_verify_tree_candidates_selection() -> None:
         draft_tokens, parent_indices, target_logits
     )
     assert accepted_path == [10, 20, 40]
+
+
+def test_tree_drafting_v1_cycles_and_bounds() -> None:
+    import pytest
+    with pytest.raises(ValueError, match="Cycle or invalid parent"):
+        build_tree_attention_mask([0])
+    with pytest.raises(ValueError, match="Cycle or invalid parent"):
+        build_tree_attention_mask([1, 0])
+    with pytest.raises(ValueError, match="Mismatch"):
+        verify_tree_candidates([10], [-1, 0], np.zeros((1, 10)))
