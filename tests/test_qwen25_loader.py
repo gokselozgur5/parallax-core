@@ -6,7 +6,6 @@ import json
 import os
 import tempfile
 import numpy as np
-import pytest
 
 from parallax.models.qwen2 import (
     Qwen2Config,
@@ -16,7 +15,6 @@ from parallax.models.qwen2 import (
 from parallax.hf_loader import (
     hf_config_to_parallax,
     load_hf_pretrained,
-    load_hf_weights_into_model,
 )
 from parallax.safetensors import save_safetensors
 
