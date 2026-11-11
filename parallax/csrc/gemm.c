@@ -18,33 +18,35 @@
  * C: M x N (row-major)
  */
 void c_gemm_f32(const float *A, const float *B, float *C, int M, int N, int K) {
-    if (!A || !B || !C || M <= 0 || N <= 0) return;
-    if (K <= 0) {
-        for (int i = 0; i < M * N; ++i) {
+    if (!A || !B || !C || M <= 0 || N <= 0 || K < 0) return;
+    const size_t Ms = (size_t)M;
+    const size_t Ns = (size_t)N;
+    const size_t Ks = (size_t)K;
+    if (K == 0) {
+        const size_t total = Ms * Ns;
+        for (size_t i = 0; i < total; ++i) {
             C[i] = 0.0f;
         }
         return;
     }
 
-    const size_t Ks = (size_t)K;
-    const size_t Ns = (size_t)N;
-    for (int i = 0; i < M; ++i) {
-        const float *a_row = A + (size_t)i * Ks;
-        float *c_row = C + (size_t)i * Ns;
+    for (size_t i = 0; i < Ms; ++i) {
+        const float *a_row = A + i * Ks;
+        float *c_row = C + i * Ns;
 
         // Initialize row of C with 0
-        for (int j = 0; j < N; ++j) {
+        for (size_t j = 0; j < Ns; ++j) {
             c_row[j] = 0.0f;
         }
 
-        for (int k = 0; k < K; ++k) {
+        for (size_t k = 0; k < Ks; ++k) {
             float a_val = a_row[k];
-            const float *b_row = B + (size_t)k * Ns;
-            int j = 0;
+            const float *b_row = B + k * Ns;
+            size_t j = 0;
 
 #if defined(USE_NEON)
             float32x4_t a_vec = vdupq_n_f32(a_val);
-            for (; j + 15 < N; j += 16) {
+            for (; Ns - j >= 16; j += 16) {
                 float32x4_t c0 = vld1q_f32(c_row + j);
                 float32x4_t c1 = vld1q_f32(c_row + j + 4);
                 float32x4_t c2 = vld1q_f32(c_row + j + 8);
@@ -65,7 +67,7 @@ void c_gemm_f32(const float *A, const float *B, float *C, int M, int N, int K) {
                 vst1q_f32(c_row + j + 8, c2);
                 vst1q_f32(c_row + j + 12, c3);
             }
-            for (; j + 3 < N; j += 4) {
+            for (; Ns - j >= 4; j += 4) {
                 float32x4_t c0 = vld1q_f32(c_row + j);
                 float32x4_t b0 = vld1q_f32(b_row + j);
                 c0 = vmlaq_f32(c0, a_vec, b0);
@@ -73,7 +75,7 @@ void c_gemm_f32(const float *A, const float *B, float *C, int M, int N, int K) {
             }
 #elif defined(USE_AVX)
             __m256 a_vec = _mm256_set1_ps(a_val);
-            for (; j + 7 < N; j += 8) {
+            for (; Ns - j >= 8; j += 8) {
                 __m256 c0 = _mm256_loadu_ps(c_row + j);
                 __m256 b0 = _mm256_loadu_ps(b_row + j);
                 c0 = _mm256_fmadd_ps(a_vec, b0, c0);
@@ -82,13 +84,13 @@ void c_gemm_f32(const float *A, const float *B, float *C, int M, int N, int K) {
 #endif
 
             // Remainder / scalar loop unrolling
-            for (; j + 3 < N; j += 4) {
+            for (; Ns - j >= 4; j += 4) {
                 c_row[j]     += a_val * b_row[j];
                 c_row[j + 1] += a_val * b_row[j + 1];
                 c_row[j + 2] += a_val * b_row[j + 2];
                 c_row[j + 3] += a_val * b_row[j + 3];
             }
-            for (; j < N; ++j) {
+            for (; j < Ns; ++j) {
                 c_row[j] += a_val * b_row[j];
             }
         }
