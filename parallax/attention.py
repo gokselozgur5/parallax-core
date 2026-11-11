@@ -215,6 +215,12 @@ class CausalSelfAttention(Module):
 
         attn_out = Tensor(merged, (q, k, v), "CausalSelfAttention")
 
+        if not attn_out.requires_grad:
+            proj_out = self.out_proj(attn_out)
+            if kv_cache is not None:
+                return proj_out, updated_kv_cache
+            return proj_out
+
         def _backward() -> None:
             # Analytical backpropagation through attention mechanism
             if kv_cache is not None:
