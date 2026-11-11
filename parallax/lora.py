@@ -154,9 +154,31 @@ def apply_lora_to_model(
                 lora_layers.append(lora_layer)
             elif isinstance(child, Module):
                 recursive_apply(child)
-            elif isinstance(child, list):
+            elif isinstance(child, (list, tuple)):
+                new_items = []
+                tuple_changed = False
                 for idx, item in enumerate(child):
-                    if isinstance(item, Module):
+                    if isinstance(item, Linear) and any(t in attr_name for t in target_modules):
+                        lora_layer = LoRALinear(item, r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
+                        new_items.append(lora_layer)
+                        lora_layers.append(lora_layer)
+                        tuple_changed = True
+                    elif isinstance(item, Module):
+                        recursive_apply(item)
+                        new_items.append(item)
+                    else:
+                        new_items.append(item)
+                if isinstance(child, list):
+                    child[:] = new_items
+                elif tuple_changed:
+                    setattr(module, attr_name, tuple(new_items))
+            elif isinstance(child, dict):
+                for key, item in list(child.items()):
+                    if isinstance(item, Linear) and (any(t in attr_name for t in target_modules) or any(t in key for t in target_modules)):
+                        lora_layer = LoRALinear(item, r=r, lora_alpha=lora_alpha, lora_dropout=lora_dropout)
+                        child[key] = lora_layer
+                        lora_layers.append(lora_layer)
+                    elif isinstance(item, Module):
                         recursive_apply(item)
 
     recursive_apply(model)
