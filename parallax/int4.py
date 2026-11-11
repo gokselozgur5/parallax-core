@@ -279,7 +279,8 @@ class Linear4Bit(Module):
         scale_bytes = self.scales.nbytes
         zero_bytes = self.zeros.nbytes
         bias_bytes = self.bias_data.nbytes if self.bias_data is not None else 0
-        total_quant_bytes = packed_bytes + scale_bytes + zero_bytes + bias_bytes
+        cached_bytes = self._cached_weight.nbytes if self._cached_weight is not None else 0
+        total_quant_bytes = packed_bytes + scale_bytes + zero_bytes + bias_bytes + cached_bytes
 
         itemsize = np.dtype(baseline_dtype).itemsize
         weight_elements = self.out_features * self.in_features
@@ -296,6 +297,7 @@ class Linear4Bit(Module):
             "scale_bytes": scale_bytes,
             "zero_bytes": zero_bytes,
             "bias_bytes": bias_bytes,
+            "cached_bytes": cached_bytes,
             "total_quant_bytes": total_quant_bytes,
             "baseline_bytes": baseline_bytes,
             "baseline_float32_bytes": baseline_bytes,
