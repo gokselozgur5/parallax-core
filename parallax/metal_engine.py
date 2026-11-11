@@ -359,9 +359,16 @@ def metal_gemm(A: np.ndarray, B: np.ndarray) -> np.ndarray:
         ctypes.c_void_p, _DEVICE, "newBufferWithLength:options:", out_bytes, 0
     )
 
-    with _managed_buffers(buf_A, buf_B, buf_C):
+    with _managed_buffers(buf_A, buf_B, buf_C), _autorelease_pool():
+        if not buf_A or not buf_B or not buf_C:
+            raise RuntimeError("Failed to allocate Metal buffers for GEMM")
+
         cmd_buf = _objc_send(ctypes.c_void_p, _COMMAND_QUEUE, "commandBuffer")
+        if not cmd_buf:
+            raise RuntimeError("Failed to create Metal command buffer")
         encoder = _objc_send(ctypes.c_void_p, cmd_buf, "computeCommandEncoder")
+        if not encoder:
+            raise RuntimeError("Failed to create Metal compute command encoder")
 
         _objc_send(None, encoder, "setComputePipelineState:", _PSO_GEMM)
         _objc_send(None, encoder, "setBuffer:offset:atIndex:", buf_A, 0, 0)
@@ -394,7 +401,13 @@ def metal_gemm(A: np.ndarray, B: np.ndarray) -> np.ndarray:
         _objc_send(None, cmd_buf, "commit")
         _objc_send(None, cmd_buf, "waitUntilCompleted")
 
+        status = _objc_send(ctypes.c_ulonglong, cmd_buf, "status")
+        if status != 4:
+            raise RuntimeError(f"Metal command buffer execution failed with status {status}")
+
         contents_ptr = _objc_send(ctypes.c_void_p, buf_C, "contents")
+        if not contents_ptr:
+            raise RuntimeError("Failed to retrieve Metal buffer contents pointer")
         return np.ctypeslib.as_array(
             ctypes.cast(contents_ptr, ctypes.POINTER(ctypes.c_float)), shape=(M, N)
         ).copy()
