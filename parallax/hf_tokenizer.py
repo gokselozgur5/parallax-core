@@ -5,11 +5,13 @@ Implements byte-level BPE decoding and encoding directly from standard HuggingFa
 `tokenizer.json` configuration files without requiring `tokenizers` or `transformers`.
 """
 
+import functools
 import json
 import os
 import re
 import sys
 import unicodedata
+import warnings
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
 NormalizerForm = Literal["NFC", "NFD", "NFKC", "NFKD"]
@@ -37,12 +39,16 @@ def _bytes_to_unicode() -> Tuple[Dict[int, str], Dict[str, int]]:
 _BYTE_TO_UNICODE, _UNICODE_TO_BYTE = _bytes_to_unicode()
 
 
-def _build_class_pattern(cat_prefix: str) -> str:
+@functools.lru_cache(maxsize=128)
+def _build_class_pattern(cat_prefix: str, invert: bool = False) -> str:
     ranges: List[Tuple[int, int]] = []
     start: Optional[int] = None
     prev: Optional[int] = None
     for cp in range(sys.maxunicode + 1):
-        if unicodedata.category(chr(cp)).startswith(cat_prefix):
+        match = unicodedata.category(chr(cp)).startswith(cat_prefix)
+        if invert:
+            match = not match
+        if match:
             if start is None:
                 start = cp
             prev = cp
