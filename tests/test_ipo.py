@@ -12,8 +12,7 @@ from parallax.ipo import compute_ipo_loss
 
 def test_ipo_loss_zero_when_margin_satisfied() -> None:
     tau = 0.5
-    target_margin = 1.0 / (2.0 * tau)  # 1.0
-    # Let (h_w - h_l) == target_margin
+    # Let (h_w - h_l) == target_margin: 1.0 / (2.0 * tau) == 1.0
     # (1.0 - 0.0) == 1.0
     pi_w = np.array([1.0])
     pi_l = np.array([0.0])
