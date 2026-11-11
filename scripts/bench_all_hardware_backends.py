@@ -690,8 +690,8 @@ def _extract_report_metrics(
     max_fd_spd = max(r["speedup"] for r in flash_results) if flash_results else 1.0
     return {
         "max_err": max_err,
-        "peak_c_rms": max(c_rms) if c_rms else 1.0,
-        "peak_metal_gemm": max(metal_gemm) if metal_gemm else 1.0,
+        "peak_c_rms": max(c_rms) if c_rms else None,
+        "peak_metal_gemm": max(metal_gemm) if metal_gemm else None,
         "bitmamba_weight_comp": bm_comp,
         "max_fd_speedup": max_fd_spd,
     }
@@ -833,14 +833,16 @@ def generate_markdown_report(
 
     md.append("1. **Hardware Compute Parity:**")
     md.append(f"   - All active hardware compute paths achieve numerical alignment with max relative discrepancy of `{max_err:.2e}` across GEMM and RMSNorm kernels.")
-    if peak_c_rms > 1.0:
-        md.append(f"   - C-Engine demonstrates speedups up to {peak_c_rms:.2f}x for CPU-bound RMSNorm operations.")
-    else:
-        md.append(f"   - C-Engine executes CPU-bound RMSNorm operations at peak relative throughput of {peak_c_rms:.2f}x compared to NumPy BLAS.")
-    if peak_metal_gemm > 1.0:
-        md.append(f"   - Apple Metal GPU JIT achieves speedups up to {peak_metal_gemm:.2f}x over CPU baselines in matrix operations.")
-    else:
-        md.append(f"   - Apple Metal GPU JIT achieves peak throughput of {peak_metal_gemm:.2f}x relative to CPU BLAS baselines.")
+    if peak_c_rms is not None:
+        if peak_c_rms > 1.0:
+            md.append(f"   - C-Engine demonstrates speedups up to {peak_c_rms:.2f}x for CPU-bound RMSNorm operations.")
+        else:
+            md.append(f"   - C-Engine executes CPU-bound RMSNorm operations at peak relative throughput of {peak_c_rms:.2f}x compared to NumPy BLAS.")
+    if peak_metal_gemm is not None:
+        if peak_metal_gemm > 1.0:
+            md.append(f"   - Apple Metal GPU JIT achieves speedups up to {peak_metal_gemm:.2f}x over CPU baselines in matrix operations.")
+        else:
+            md.append(f"   - Apple Metal GPU JIT achieves peak throughput of {peak_metal_gemm:.2f}x relative to CPU BLAS baselines.")
     md.append("")
     md.append("2. **Anti-RAM Proof: $O(1)$ State Space Scaling:**")
     first_r = scaling_results[0]
