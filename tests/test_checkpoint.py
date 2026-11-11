@@ -102,3 +102,21 @@ def test_checkpoint_roundtrip_sparse_moe():
         assert restored_model.config.top_k_experts == 2
         logits_after = restored_model(idx).data
         assert np.allclose(logits_before, logits_after, atol=1e-7)
+
+
+def test_checkpoint_shape_and_dtype_validation():
+    config = ParallaxLMConfig(vocab_size=16, embed_dim=8, num_heads=2, num_layers=1, max_seq_len=8)
+    model = ParallaxLM(config)
+    state_dict = get_model_state_dict(model)
+
+    bad_shape_dict = dict(state_dict, **{"final_norm.weight": np.ones((16,))})
+    with pytest.raises(ValueError, match="Shape mismatch"):
+        load_model_state_dict(model, bad_shape_dict)
+
+    bad_dtype_dict = dict(state_dict, **{"final_norm.weight": np.array(["a"] * 8)})
+    with pytest.raises(TypeError, match="must have numeric dtype"):
+        load_model_state_dict(model, bad_dtype_dict)
+
+    bad_type_dict = dict(state_dict, **{"final_norm.weight": [1.0] * 8})
+    with pytest.raises(TypeError, match="must be a numpy ndarray"):
+        load_model_state_dict(model, bad_type_dict)
