@@ -217,3 +217,17 @@ def test_tree_speculative_generator_guards_and_lifecycle():
     assert len(topo.tokens) == 7
     with pytest.raises(ValueError, match="exceeds"):
         gen.generate(root_token_id=1, depth=2, top_k_per_node=3)
+
+
+def test_tree_speculative_generator_verify_integration():
+    gen = TreeSpeculativeGenerator(max_draft_tokens=16, max_sequence_length=128)
+    draft_tokens = [10, 20, 30]
+    parents = [-1, 0, 1]
+    logits = np.zeros((3, 50))
+    logits[0, 20] = 5.0
+    logits[1, 30] = 5.0
+    accepted, stats = gen.verify(
+        draft_tokens, parents, logits, return_acceptance_stats=True
+    )
+    assert accepted == [10, 20, 30]
+    assert stats["accepted_count"] == 3
