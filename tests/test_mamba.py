@@ -3,7 +3,6 @@ Unit tests for Selective State Space Model (Mamba/S6) (M28).
 """
 
 import numpy as np
-import pytest
 from parallax.gradcheck import check_tensor_gradient
 from parallax.mamba import (
     MambaBlock,
