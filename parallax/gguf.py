@@ -201,36 +201,36 @@ def _write_metadata_value(f: BinaryIO, val: Any) -> None:
 def load_gguf(file_path: str, cast_float64: bool = True) -> GGUFFile:
     """Parses a GGUF binary file into a GGUFFile container."""
     with open(file_path, "rb") as f:
-        magic = f.read(4)
+        magic = _read_exact(f, 4, "magic header")
         if magic != GGUF_MAGIC:
             raise ValueError(f"Invalid GGUF magic header: expected {GGUF_MAGIC}, got {magic}")
 
-        version = struct.unpack("<I", f.read(4))[0]
+        version = struct.unpack("<I", _read_exact(f, 4, "version"))[0]
         if version not in (2, 3):
             raise ValueError(f"Unsupported GGUF version: {version} (expected v2 or v3)")
 
-        hdr_info = f.read(16)
-        if len(hdr_info) < 16:
-            raise ValueError("Truncated GGUF file header: unable to read tensor and metadata counts")
+        hdr_info = _read_exact(f, 16, "header counts")
         tensor_count, metadata_kv_count = struct.unpack("<QQ", hdr_info)
         if tensor_count > 1_000_000 or metadata_kv_count > 1_000_000:
-            raise ValueError(f"Excessive GGUF counts (tensor_count={tensor_count}, metadata_kv_count={metadata_kv_count}) exceeds DoS threshold")
+            raise ValueError(
+                f"Excessive GGUF counts (tensor_count={tensor_count}, metadata_kv_count={metadata_kv_count}) "
+                "exceeds DoS threshold"
+            )
 
         f.seek(0, os.SEEK_END)
         total_file_size = f.tell()
+        effective_max_header = min(MAX_GGUF_HEADER_SIZE, total_file_size)
         f.seek(24)  # 4 magic + 4 version + 8 tensor_count + 8 metadata_kv_count
 
         # Parse key-value metadata
         metadata: Dict[str, Any] = {}
         for _ in range(metadata_kv_count):
-            if f.tell() > MAX_GGUF_HEADER_SIZE or f.tell() > total_file_size:
+            if f.tell() > effective_max_header:
                 raise ValueError("GGUF header/metadata exceeded maximum allowed size limit (DoS protection)")
             key = _read_string(f)
-            type_bytes = f.read(4)
-            if len(type_bytes) < 4:
-                raise ValueError("Unexpected EOF reading GGUF metadata value type")
+            type_bytes = _read_exact(f, 4, "metadata value type")
             val_type = struct.unpack("<I", type_bytes)[0]
-            val = _read_metadata_value(f, val_type)
+            val = _read_metadata_value(f, val_type, max_header_size=effective_max_header)
             metadata[key] = val
 
         alignment = int(metadata.get("general.alignment", GGUF_DEFAULT_ALIGNMENT))
