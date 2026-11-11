@@ -187,17 +187,75 @@ def test_markdown_report_generation_and_saving():
 
 
 def test_markdown_report_synthetic_conclusions_consistency():
-    """Verify generated conclusions follow from synthetic table inputs."""
-    hw = {"os": "macOS", "arch": "arm64", "processor": "CPU", "python_version": "3.11", "c_engine_available": "Yes", "metal_device": "GPU", "rust_engine_available": "Yes"}
-    gemm = [{"size": (256, 256, 256), "flops": 1.0, "numpy": {"ms": 1.0, "gflops": 10.0, "diff": 0.0}, "metal": {"ms": 0.5, "gflops": 20.0, "diff": 2.5e-5, "speedup": 2.0}, "c_engine": {"ms": 0.8, "gflops": 12.5, "diff": 1.0e-5, "speedup": 1.25}}]
-    rms = [{"shape": (256, 256), "flops": 1.0, "numpy": {"ms": 1.0, "gflops": 5.0, "diff": 0.0}, "c_engine": {"ms": 0.4, "gflops": 12.5, "diff": 3.0e-6, "speedup": 2.5}}]
-    weights = {"transformer_fp32": {"params": 100, "bytes": 400}, "transformer_int4": {"params": 100, "bytes": 100}, "mamba_fp32": {"params": 100, "bytes": 400}, "bitmamba": {"params": 100, "bytes": 100}}
-    scaling = [{"T": 128, "tf_kv_bytes": 131072, "mamba_state_bytes": 19456, "bitmamba_state_bytes": 19456, "ratio_kv_to_mamba": 6.74}, {"T": 256, "tf_kv_bytes": 262144, "mamba_state_bytes": 19456, "bitmamba_state_bytes": 19456, "ratio_kv_to_mamba": 13.47}]
-    flash = [{"seq_len": 128, "d": 32, "v1_ms": 1.0, "v2_ms": 0.5, "v1_splits": 2, "v2_splits": 1, "speedup": 2.0, "reduction_pct": 50.0, "diff": 1e-12}]
-    int4 = {"packed_bytes": 100, "scale_bytes": 10, "zero_bytes": 10, "total_compression_ratio": 4.0, "weight_compression_ratio": 8.0}
+    """Verify generated conclusions and table rows follow directly from synthetic inputs."""
+    hw = {
+        "os": "macOS",
+        "arch": "arm64",
+        "processor": "CPU",
+        "python_version": "3.11",
+        "c_engine_available": "Yes",
+        "metal_device": "GPU",
+        "rust_engine_available": "Yes",
+    }
+    gemm = [{
+        "size": (256, 256, 256),
+        "flops": 1.0,
+        "numpy": {"ms": 1.0, "gflops": 10.0, "diff": 0.0},
+        "metal": {"ms": 0.5, "gflops": 20.0, "diff": 2.5e-5, "speedup": 2.0},
+        "c_engine": {"ms": 0.8, "gflops": 12.5, "diff": 1.0e-5, "speedup": 1.25},
+    }]
+    rms = [{
+        "shape": (256, 256),
+        "flops": 1.0,
+        "numpy": {"ms": 1.0, "gflops": 5.0, "diff": 0.0},
+        "c_engine": {"ms": 0.4, "gflops": 12.5, "diff": 3.0e-6, "speedup": 2.5},
+    }]
+    weights = {
+        "transformer_fp32": {"params": 100, "bytes": 400},
+        "transformer_int4": {"params": 100, "bytes": 100},
+        "mamba_fp32": {"params": 100, "bytes": 400},
+        "bitmamba": {"params": 100, "bytes": 100},
+    }
+    scaling = [
+        {"T": 128, "tf_kv_bytes": 131072, "mamba_state_bytes": 19456, "bitmamba_state_bytes": 19456, "ratio_kv_to_mamba": 6.74},
+        {"T": 256, "tf_kv_bytes": 262144, "mamba_state_bytes": 19456, "bitmamba_state_bytes": 19456, "ratio_kv_to_mamba": 13.47},
+    ]
+    flash = [{
+        "seq_len": 128,
+        "d": 32,
+        "v1_ms": 1.0,
+        "v2_ms": 0.5,
+        "v1_splits": 2,
+        "v2_splits": 1,
+        "speedup": 2.0,
+        "reduction_pct": 50.0,
+        "diff": 1e-12,
+    }]
+    int4 = {
+        "packed_bytes": 100,
+        "scale_bytes": 10,
+        "zero_bytes": 10,
+        "total_compression_ratio": 4.0,
+        "weight_compression_ratio": 8.0,
+    }
     report = generate_markdown_report(hw, gemm, rms, weights, scaling, int4, flash)
-    assert "2.50e-05" in report
-    assert "2.50x" in report
-    assert "4.00x weight compression factor" in report
+
+    # 1. Assert exact table cells built from synthetic inputs
+    expected_gemm_row = "| **256 x 256** | 1.00 ms | 10.00 | 0.80 ms | **1.25x** | N/A | N/A | 0.50 ms | **2.00x** | `2.50e-05` |"
+    assert expected_gemm_row in report
+
+    expected_rms_row = "| **256 x 256** | 1.000 ms | 5.00 | 0.400 ms | **2.50x** | N/A | N/A | `3.00e-06` |"
+    assert expected_rms_row in report
+
+    expected_flash_row = "| **128** | 32 | 1.000 ms | 0.500 ms | 2 splits $\\to$ **1 splits** | **2.00x** (+50.0%) | `1.00e-12` |"
+    assert expected_flash_row in report
+
+    # 2. Assert specific conclusion sentences built from synthetic metrics
+    assert "All active hardware compute paths achieve numerical alignment with max relative discrepancy of `2.50e-05` across GEMM and RMSNorm kernels." in report
+    assert "C-Engine demonstrates speedups up to 2.50x for CPU-bound RMSNorm operations." in report
+    assert "Apple Metal GPU JIT achieves speedups up to 2.00x over CPU baselines in matrix operations." in report
+    assert "Transformer KV-cache expands to 256.00 KB (**13.5x higher**)" in report
+    assert "achieving a 4.00x weight compression factor" in report
+    assert "reaching up to 2.00x relative throughput." in report
 
 
