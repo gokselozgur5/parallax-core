@@ -120,3 +120,24 @@ def test_checkpoint_shape_and_dtype_validation():
     bad_type_dict = dict(state_dict, **{"final_norm.weight": [1.0] * 8})
     with pytest.raises(TypeError, match="must be a numpy ndarray"):
         load_model_state_dict(model, bad_type_dict)
+
+
+def test_checkpoint_missing_parameter_and_archive_validation():
+    config = ParallaxLMConfig(vocab_size=16, embed_dim=8, num_heads=2, num_layers=1, max_seq_len=8)
+    model = ParallaxLM(config)
+    incomplete_dict = {k: v for k, v in get_model_state_dict(model).items() if k != "final_norm.weight"}
+    with pytest.raises(KeyError, match="Missing parameter"):
+        load_model_state_dict(model, incomplete_dict)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # 1. Missing __config_json__
+        p1 = os.path.join(tmpdir, "missing_cfg.npz")
+        np.savez(p1, __step__=np.array(1))
+        with pytest.raises(KeyError, match="__config_json__"):
+            load_checkpoint(p1)
+
+        # 2. Empty state_dict
+        p2 = os.path.join(tmpdir, "empty_sd.npz")
+        np.savez(p2, __config_json__=np.array("{}"), __step__=np.array(1))
+        with pytest.raises(ValueError, match="empty model state_dict"):
+            load_checkpoint(p2)
