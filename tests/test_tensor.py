@@ -226,5 +226,25 @@ def test_lazy_grad_allocation_and_unused_param():
     assert w1.grad is None
 
 
+def test_no_grad_skips_backward_closure_cells():
+    x = Tensor(np.random.randn(2, 2), requires_grad=True)
+    y = Tensor(np.random.randn(2, 2), requires_grad=True)
+
+    with no_grad():
+        out_add = x + y
+        out_mul = x * y
+        out_matmul = x @ y
+        out_transpose = x.transpose()
+        out_sum = x.sum()
+        out_relu = x.relu()
+
+    for out in [out_add, out_mul, out_matmul, out_transpose, out_sum, out_relu]:
+        assert out.requires_grad is False
+        assert out._prev == set()
+        # Default lambda has no closure freevars/cells referencing operands
+        assert out._backward.__closure__ is None
+
+
+
 
 
