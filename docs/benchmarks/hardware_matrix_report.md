@@ -16,17 +16,17 @@ This report profiles the full computational and memory spectrum of Parallax-Core
 - **Host Processor:** `Apple M2`
 - **Metal GPU Acceleration:** `Apple M2`
 - **C-Engine Native Library:** `Yes (libparallax_c)`
-- **Rust Engine C-ABI:** `No`
-- **Python Version:** `3.13.13`
+- **Rust Engine C-ABI:** `Yes (libparallax_rs.dylib)`
+- **Python Version:** `3.14.8`
 - **Benchmark Mode:** `Full Benchmark` (warmup=3, repeats=7, median reported)
 
 ## 1. Hardware GEMM Compute Benchmark (FP32)
 
 | Matrix Dimension ($M=N=K$) | NumPy CPU Latency (ms) | NumPy GFLOPS | C-Engine Latency (ms) | C-Engine Speedup | Rust Latency (ms) | Rust Speedup | Metal GPU Latency (ms) | Metal GPU Speedup | Numerical Max Error |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **256 x 256** | 0.03 ms | 1052.68 | 1.28 ms | **0.02x** | N/A | N/A | 0.59 ms | **0.05x** | `0.00e+00` |
-| **512 x 512** | 0.20 ms | 1344.98 | 10.51 ms | **0.02x** | N/A | N/A | 2.20 ms | **0.09x** | `0.00e+00` |
-| **1024 x 1024** | 1.71 ms | 1256.85 | 81.20 ms | **0.02x** | N/A | N/A | 11.56 ms | **0.15x** | `0.00e+00` |
+| **256 x 256** | 0.03 ms | 1027.16 | 1.22 ms | **0.03x** | 1.59 ms | **0.02x** | 0.94 ms | **0.03x** | `1.91e-05` |
+| **512 x 512** | 0.20 ms | 1369.57 | 9.57 ms | **0.02x** | 11.22 ms | **0.02x** | 2.29 ms | **0.09x** | `3.43e-05` |
+| **1024 x 1024** | 1.74 ms | 1234.22 | 82.45 ms | **0.02x** | 85.69 ms | **0.02x** | 11.50 ms | **0.15x** | `5.34e-05` |
 
 ## 2. Hardware RMSNorm Compute Benchmark (FP32)
 
