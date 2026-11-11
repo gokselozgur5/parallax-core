@@ -255,23 +255,17 @@ def test_makefile_builds_with_default_cc():
     with tempfile.TemporaryDirectory() as tmpdir:
         bin_dir = Path(tmpdir) / "bin"
         bin_dir.mkdir()
-        cc_path = shutil.which("cc")
-        make_path = shutil.which("make")
-        uname_path = shutil.which("uname")
-        if not (cc_path and make_path and uname_path):
-            pytest.skip("Required tools (cc, make, uname) not available")
-        os.symlink(cc_path, bin_dir / "cc")
-        os.symlink(make_path, bin_dir / "make")
-        os.symlink(uname_path, bin_dir / "uname")
-        rm_path = shutil.which("rm")
-        if rm_path:
-            os.symlink(rm_path, bin_dir / "rm")
+        # Mock a failing clang in PATH to ensure Makefile uses cc and does not force clang
+        clang_mock = bin_dir / "clang"
+        clang_mock.write_text("#!/bin/sh\necho 'clang: No such file or directory' >&2\nexit 127\n")
+        clang_mock.chmod(0o755)
 
         src_dir = Path(tmpdir) / "csrc"
         csrc_repo = Path(__file__).parent.parent / "parallax" / "csrc"
         shutil.copytree(csrc_repo, src_dir)
 
-        env = {"PATH": str(bin_dir), "HOME": os.environ.get("HOME", "")}
+        env = dict(os.environ)
+        env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
         res = subprocess.run(["make", "-C", str(src_dir)], env=env, capture_output=True, text=True)
         assert res.returncode == 0, f"Makefile build failed with cc: {res.stderr}"
 
