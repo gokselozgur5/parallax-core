@@ -12,7 +12,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 import numpy as np
 
 from parallax.nn import Linear, Module
-from parallax.tensor import Tensor, _accumulate_grad
+from parallax.tensor import Tensor, _accumulate_grad, is_grad_enabled
 
 
 def pack_int4(arr: np.ndarray) -> np.ndarray:
@@ -251,6 +251,9 @@ class Linear4Bit(Module):
         out_data = x.data @ w_float.T
         if self.bias_data is not None:
             out_data = out_data + self.bias_data
+
+        if not (is_grad_enabled() and x.requires_grad):
+            return Tensor(out_data)
 
         out = Tensor(out_data, (x,), "Linear4Bit")
 
