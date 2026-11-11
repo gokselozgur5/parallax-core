@@ -157,3 +157,28 @@ def test_validation_asserts_replaced_with_exceptions():
     # yarn head dim must be even
     with pytest.raises(ValueError, match="YaRN requires even head dimension"):
         apply_yarn_rope(np.ones((1, 4, 7)))
+
+
+def test_license_metadata_consistency():
+    import pathlib
+    import tomllib
+
+    repo_root = pathlib.Path(__file__).resolve().parent.parent
+    pyproject_path = repo_root / "pyproject.toml"
+    cargo_path = repo_root / "crates" / "parallax-rs" / "Cargo.toml"
+    license_path = repo_root / "LICENSE"
+
+    assert license_path.is_file()
+    with open(pyproject_path, "rb") as f:
+        pyproject_data = tomllib.load(f)
+    with open(cargo_path, "rb") as f:
+        cargo_data = tomllib.load(f)
+
+    pyproject_license = pyproject_data.get("project", {}).get("license", {}).get("text")
+    assert pyproject_license == "Proprietary"
+
+    # Cargo.toml points to the proprietary repo LICENSE file
+    license_file_rel = cargo_data.get("package", {}).get("license-file")
+    assert license_file_rel is not None
+    cargo_license_path = (cargo_path.parent / license_file_rel).resolve()
+    assert cargo_license_path == license_path.resolve()
