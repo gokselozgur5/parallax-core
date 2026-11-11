@@ -3,7 +3,6 @@ Unit tests for Key-Value (KV) cache autoregressive inference.
 """
 
 import numpy as np
-import pytest
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.generator import generate
