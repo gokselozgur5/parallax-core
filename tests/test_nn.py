@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 from parallax.nn import LayerNorm, Linear, Parameter, RMSNorm
 from parallax.tensor import Tensor, no_grad
 
