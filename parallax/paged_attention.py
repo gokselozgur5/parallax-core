@@ -17,7 +17,7 @@ class BlockAllocator:
         self.block_size = block_size
         self.head_dim = head_dim
         # Free list tracking available block IDs
-        self.free_blocks = list(range(num_blocks))
+        self.free_blocks: List[int] = list(range(num_blocks))
         # Physical key and value storage: (num_blocks, block_size, head_dim)
         self.k_cache = np.zeros((num_blocks, block_size, head_dim), dtype=np.float32)
         self.v_cache = np.zeros((num_blocks, block_size, head_dim), dtype=np.float32)
@@ -36,7 +36,7 @@ class BlockAllocator:
             raise ValueError(f"Block {block_id} is already free")
         self.free_blocks.append(block_id)
 
-    def free_blocks(self, block_ids: List[int]):
+    def free_blocks_batch(self, block_ids: List[int]):
         """Return multiple block IDs back to the free list."""
         for block_id in block_ids:
             self.free_block(block_id)
