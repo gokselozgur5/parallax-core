@@ -49,15 +49,21 @@ class QGaLoreProjector:
     ) -> Tuple[np.ndarray, float]:
         """Project gradient into low-rank subspace and apply INT8 quantization.
 
-        P = U.T @ grad
+        When M >= N, applies right-sided projection: P = grad @ V_T.T (shape M x rank).
+        When M < N, applies left-sided projection: P = U.T @ grad (shape rank x N).
         Returns quantized integer array and scaling factor.
         """
-        if self.U is None or (self.step_count % self.update_interval == 0):
+        if self.U is None or self.V_T is None or (self.step_count % self.update_interval == 0):
             self.update_basis(grad)
         self.step_count += 1
 
-        # Project to low-rank subspace: shape (rank, N)
-        proj = np.dot(self.U.T, grad)
+        M, N = grad.shape[0], grad.shape[1]
+        if M >= N:
+            assert self.V_T is not None
+            proj = np.dot(grad, self.V_T.T)
+        else:
+            assert self.U is not None
+            proj = np.dot(self.U.T, grad)
 
         # Per-tensor symmetric INT8 quantization
         abs_max = float(np.max(np.abs(proj))) + 1e-8
@@ -69,4 +75,12 @@ class QGaLoreProjector:
     def deproject(self, quantized: np.ndarray, scale: float) -> np.ndarray:
         """Dequantize subspace and reconstruct low-rank gradient approximation."""
         dequant = quantized.astype(np.float32) * scale
+        if dequant.shape[1] == self.effective_rank and self.V_T is not None and dequant.shape[0] != self.effective_rank:
+            return np.dot(dequant, self.V_T)
+        if self.U is not None and dequant.shape[0] == self.effective_rank and (self.V_T is None or dequant.shape[1] != self.effective_rank):
+            return np.dot(self.U, dequant)
+        # In square case where M == N and M == effective_rank or both match:
+        if self.V_T is not None and dequant.shape[1] == self.V_T.shape[0]:
+            return np.dot(dequant, self.V_T)
+        assert self.U is not None
         return np.dot(self.U, dequant)

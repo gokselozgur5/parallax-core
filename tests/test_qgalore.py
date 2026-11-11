@@ -23,7 +23,7 @@ def test_qgalore_quantization_and_reconstruction():
 
     q_subspace, scale = proj.project_and_quantize(grad)
 
-    assert q_subspace.shape == (rank, N)
+    assert q_subspace.shape == (M, rank)
     assert q_subspace.dtype == np.int8
     assert np.all(q_subspace >= -128) and np.all(q_subspace <= 127)
 
