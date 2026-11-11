@@ -3,7 +3,6 @@ Unit tests for computation graph export and attention heatmaps (M8).
 """
 
 import numpy as np
-import pytest
 
 from parallax.engine import Value
 from parallax.tensor import Tensor
@@ -87,7 +86,7 @@ def test_causal_self_attention_records_weights():
     seq_len = 4
     mha = CausalSelfAttention(embed_dim=embed_dim, num_heads=num_heads)
     x = Tensor(np.random.randn(1, seq_len, embed_dim))
-    out = mha(x)
+    _ = mha(x)
 
     assert hasattr(mha, "last_attn_weights")
     assert mha.last_attn_weights is not None
