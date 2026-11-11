@@ -72,6 +72,11 @@ def simpo_step(
     Returns:
         Tuple of (loss, grad_logits_w, grad_logits_l).
     """
+    if len(targets_w) == 0:
+        raise ValueError("targets_w cannot be empty")
+    if len(targets_l) == 0:
+        raise ValueError("targets_l cannot be empty")
+
     def get_token_log_probs(logits, targets):
         m = np.max(logits, axis=-1, keepdims=True)
         logsumexp = m + np.log(np.sum(np.exp(logits - m), axis=-1, keepdims=True))
