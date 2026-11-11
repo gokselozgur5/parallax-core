@@ -19,6 +19,8 @@ try:
     _CUDA_AVAILABLE = torch.cuda.is_available()
 except ImportError:
     _CUDA_AVAILABLE = False
+    torch = None  # type: ignore[assignment]
+    F = None  # type: ignore[assignment]
 
 
 def is_cuda_available() -> bool:
@@ -109,8 +111,16 @@ class Qwen2CUDAModel:
         normed = x * torch.rsqrt(var + self.rms_norm_eps).to(self.dtype)
         return normed * weight
 
-    @torch.inference_mode()
     def forward_step(
+        self,
+        token_ids: torch.Tensor,
+        start_pos: int,
+        kv_cache: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = None,
+    ) -> Tuple[torch.Tensor, List[Tuple[torch.Tensor, torch.Tensor]]]:
+        with torch.inference_mode():
+            return self._forward_step_impl(token_ids, start_pos, kv_cache)
+
+    def _forward_step_impl(
         self,
         token_ids: torch.Tensor,
         start_pos: int,
@@ -196,8 +206,28 @@ class Qwen2CUDAModel:
         logits = F.linear(last_x, lm_w).squeeze(1)  # (batch, vocab_size)
         return logits, new_kv_cache
 
-    @torch.inference_mode()
     def generate_stream(
+        self,
+        prompt_tokens: List[int],
+        max_new_tokens: int = 512,
+        temperature: float = 0.7,
+        top_p: float = 0.85,
+        top_k: int = 50,
+        repetition_penalty: float = 1.15,
+        eos_token_ids: Optional[List[int]] = None,
+    ) -> Generator[int, None, None]:
+        with torch.inference_mode():
+            yield from self._generate_stream_impl(
+                prompt_tokens,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                top_k=top_k,
+                repetition_penalty=repetition_penalty,
+                eos_token_ids=eos_token_ids,
+            )
+
+    def _generate_stream_impl(
         self,
         prompt_tokens: List[int],
         max_new_tokens: int = 512,
