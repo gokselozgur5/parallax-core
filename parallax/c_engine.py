@@ -10,6 +10,7 @@ import os
 import platform
 import shutil
 import subprocess
+import tempfile
 import threading
 import logging
 from pathlib import Path
