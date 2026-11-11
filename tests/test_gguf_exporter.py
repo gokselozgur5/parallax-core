@@ -179,3 +179,21 @@ def test_export_to_gguf_v3_dynamic_architecture_prefix():
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+
+def test_export_bitmamba_ternary_effective_weights():
+    """Verify export_to_gguf_v3 exports quantized ternary-effective weights for BitLinear."""
+    np.random.seed(42)
+    cfg = BitMambaConfig(vocab_size=32, d_model=16, num_layers=1, d_state=4, d_conv=4, expand=2)
+    model = BitMambaLM(cfg)
+    with tempfile.NamedTemporaryFile(suffix=".gguf", delete=False) as f:
+        tmp_path = f.name
+    try:
+        export_to_gguf_v3(model, tmp_path, quantization="f32")
+        gguf = load_gguf(tmp_path)
+        w_ternary, gamma = quantize_weights_ternary(model.blocks[0].in_proj.weight.data)
+        expected_in_proj = (w_ternary * gamma).astype(np.float32)
+        np.testing.assert_allclose(gguf.tensors["blk.0.ssm_in.weight"], expected_in_proj, atol=1e-6)
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
