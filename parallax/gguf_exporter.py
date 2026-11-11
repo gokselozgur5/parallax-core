@@ -127,6 +127,8 @@ def _collect_bitmamba_tensors(model: BitMambaLM) -> Tuple[Dict[str, Any], Dict[s
     metadata: Dict[str, Any] = {
         "general.architecture": arch,
         "general.name": "BitMambaLM",
+        "general.version": "2",
+        f"{arch}.version": 2,
         f"{arch}.embedding_length": int(cfg.d_model),
         f"{arch}.block_count": int(cfg.num_layers),
         f"{arch}.ssm.d_state": int(cfg.d_state),
@@ -146,6 +148,7 @@ def _collect_bitmamba_tensors(model: BitMambaLM) -> Tuple[Dict[str, Any], Dict[s
 
     for i in range(cfg.num_layers):
         block = model.blocks[i]
+        tensors[f"blk.{i}.attn_norm.weight"] = model.norms[i].weight.data.astype(np.float32)
         tensors[f"blk.{i}.ssm_in.weight"] = block.in_proj.weight.data.astype(np.float32)
         tensors[f"blk.{i}.ssm_conv1d.weight"] = block.conv_weight.data.astype(np.float32)
         tensors[f"blk.{i}.ssm_conv1d.bias"] = block.conv_bias.data.astype(np.float32)
