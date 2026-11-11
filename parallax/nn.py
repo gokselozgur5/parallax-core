@@ -5,7 +5,7 @@ Provides the Module abstraction, Parameter wrappers, and core layers
 including Linear projections, LayerNorm, and RMSNorm.
 """
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 import numpy as np
 from parallax.tensor import Tensor, _accumulate_grad
 
@@ -40,8 +40,16 @@ class Module:
                         params.append(value)
                 elif isinstance(value, Module):
                     collect(value)
-                elif isinstance(value, list):
+                elif isinstance(value, (list, tuple)):
                     for item in value:
+                        if isinstance(item, Module):
+                            collect(item)
+                        elif isinstance(item, Parameter):
+                            if id(item) not in seen_ids:
+                                seen_ids.add(id(item))
+                                params.append(item)
+                elif isinstance(value, dict):
+                    for item in value.values():
                         if isinstance(item, Module):
                             collect(item)
                         elif isinstance(item, Parameter):
@@ -51,6 +59,42 @@ class Module:
 
         collect(self)
         return params
+
+    def named_parameters(self, prefix: str = "", recurse: bool = True) -> List[Tuple[str, Parameter]]:
+        """Returns an iterator over module parameters, yielding both name and parameter."""
+        named_params: List[Tuple[str, Parameter]] = []
+        seen_ids = set()
+
+        def collect(m: Module, pfx: str) -> None:
+            for name, value in m.__dict__.items():
+                full_name = f"{pfx}.{name}" if pfx else name
+                if isinstance(value, Parameter):
+                    if id(value) not in seen_ids:
+                        seen_ids.add(id(value))
+                        named_params.append((full_name, value))
+                elif recurse and isinstance(value, Module):
+                    collect(value, full_name)
+                elif recurse and isinstance(value, (list, tuple)):
+                    for idx, item in enumerate(value):
+                        item_name = f"{full_name}.{idx}"
+                        if isinstance(item, Module):
+                            collect(item, item_name)
+                        elif isinstance(item, Parameter):
+                            if id(item) not in seen_ids:
+                                seen_ids.add(id(item))
+                                named_params.append((item_name, item))
+                elif recurse and isinstance(value, dict):
+                    for key, item in value.items():
+                        item_name = f"{full_name}.{key}"
+                        if isinstance(item, Module):
+                            collect(item, item_name)
+                        elif isinstance(item, Parameter):
+                            if id(item) not in seen_ids:
+                                seen_ids.add(id(item))
+                                named_params.append((item_name, item))
+
+        collect(self, prefix)
+        return named_params
 
     def zero_grad(self) -> None:
         """Resets gradients of all parameters to zero."""
@@ -63,8 +107,12 @@ class Module:
         for child in self.__dict__.values():
             if isinstance(child, Module):
                 child.train(mode)
-            elif isinstance(child, list):
+            elif isinstance(child, (list, tuple)):
                 for item in child:
+                    if isinstance(item, Module):
+                        item.train(mode)
+            elif isinstance(child, dict):
+                for item in child.values():
                     if isinstance(item, Module):
                         item.train(mode)
         return self
