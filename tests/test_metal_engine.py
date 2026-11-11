@@ -249,3 +249,30 @@ def test_metal_rmsnorm_nil_allocation_guard(monkeypatch):
     with pytest.raises(RuntimeError, match="Failed to allocate Metal buffers"):
         me.metal_rmsnorm(x, w)
 
+
+def test_metal_gemm_command_buffer_failure(monkeypatch):
+    if not is_metal_available() or sys.platform != "darwin":
+        pytest.skip("Metal not available on this platform")
+
+    import parallax.metal_engine as me
+
+    real_send = me._objc_send
+
+    def mock_send(ret_type, target, sel_name, *args):
+        if sel_name == "status":
+            return 5  # MTLCommandBufferStatusError
+        return real_send(ret_type, target, sel_name, *args)
+
+    monkeypatch.setattr(me, "_objc_send", mock_send)
+    A = np.ones((4, 4), dtype=np.float32)
+    B = np.ones((4, 4), dtype=np.float32)
+    with pytest.raises(RuntimeError, match="execution failed"):
+        me.metal_gemm(A, B)
+
+
+def test_is_cuda_available_matches_cuda_engine():
+    import parallax.cuda_engine as ce
+    import parallax.metal_engine as me
+
+    assert me.is_cuda_available() == ce.is_cuda_available()
+
