@@ -9,6 +9,7 @@ Supports uncompressed F32/F16 as well as Q8_0 and Q4_0 block quantization.
 from typing import Any, Dict, Optional, Tuple, Union
 import numpy as np
 
+from parallax.bitnet import quantize_weights_ternary
 from parallax.bitmamba import BitMambaLM
 from parallax.gguf import (
     GGML_TYPE_F32,
@@ -136,27 +137,31 @@ def _collect_bitmamba_tensors(model: BitMambaLM) -> Tuple[Dict[str, Any], Dict[s
         f"{arch}.attention.layer_norm_rms_epsilon": float(cfg.rms_norm_eps),
     }
 
+    def _effective_bitlinear_weight(layer: Any) -> np.ndarray:
+        w_ternary, gamma = quantize_weights_ternary(layer.weight.data)
+        return (w_ternary * gamma).astype(np.float32)
+
     tensors: Dict[str, np.ndarray] = {
         "token_embd.weight": model.token_embeddings.weight.data.astype(np.float32),
         "output_norm.weight": model.final_norm.weight.data.astype(np.float32),
     }
 
     if not cfg.tie_weights:
-        tensors["output.weight"] = model.lm_head.weight.data.astype(np.float32)
+        tensors["output.weight"] = _effective_bitlinear_weight(model.lm_head)
 
     for i in range(cfg.num_layers):
         block = model.blocks[i]
         tensors[f"blk.{i}.attn_norm.weight"] = model.norms[i].weight.data.astype(np.float32)
-        tensors[f"blk.{i}.ssm_in.weight"] = block.in_proj.weight.data.astype(np.float32)
+        tensors[f"blk.{i}.ssm_in.weight"] = _effective_bitlinear_weight(block.in_proj)
         tensors[f"blk.{i}.ssm_conv1d.weight"] = block.conv_weight.data.astype(np.float32)
         tensors[f"blk.{i}.ssm_conv1d.bias"] = block.conv_bias.data.astype(np.float32)
-        tensors[f"blk.{i}.ssm_x.weight"] = block.x_proj.weight.data.astype(np.float32)
-        tensors[f"blk.{i}.ssm_dt.weight"] = block.dt_proj.weight.data.astype(np.float32)
+        tensors[f"blk.{i}.ssm_x.weight"] = _effective_bitlinear_weight(block.x_proj)
+        tensors[f"blk.{i}.ssm_dt.weight"] = _effective_bitlinear_weight(block.dt_proj)
         if block.dt_proj.bias is not None:
             tensors[f"blk.{i}.ssm_dt.bias"] = block.dt_proj.bias.data.astype(np.float32)
         tensors[f"blk.{i}.ssm_a"] = block.A_log.data.astype(np.float32)
         tensors[f"blk.{i}.ssm_d"] = block.D.data.astype(np.float32)
-        tensors[f"blk.{i}.ssm_out.weight"] = block.out_proj.weight.data.astype(np.float32)
+        tensors[f"blk.{i}.ssm_out.weight"] = _effective_bitlinear_weight(block.out_proj)
 
     return metadata, tensors
 
