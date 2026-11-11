@@ -165,8 +165,8 @@ def load_gguf_weights_into_model(
     missing_keys = [k for k in expected_keys if k not in gguf_tensors]
     unexpected_keys = [k for k in gguf_tensors if k not in expected_keys]
 
-    model._missing_keys = missing_keys
-    model._unexpected_keys = unexpected_keys
+    setattr(model, "_missing_keys", missing_keys)
+    setattr(model, "_unexpected_keys", unexpected_keys)
 
     if strict and (missing_keys or unexpected_keys):
         raise RuntimeError(
@@ -197,15 +197,16 @@ def load_gguf_weights_into_model(
         _assign_bias(block.attn.out_proj, gguf_tensors, f"blk.{i}.attn_output.bias")
 
         # SwiGLU or standard MLP weights
-        if hasattr(block.mlp, "w_gate") and f"blk.{i}.ffn_gate.weight" in gguf_tensors:
-            _assign_param(block.mlp.w_gate.weight, gguf_tensors, f"blk.{i}.ffn_gate.weight")
-            _assign_param(block.mlp.w_up.weight, gguf_tensors, f"blk.{i}.ffn_up.weight")
-            _assign_param(block.mlp.w_down.weight, gguf_tensors, f"blk.{i}.ffn_down.weight")
-        elif hasattr(block.mlp, "fc1"):
-            _assign_param(block.mlp.fc1.weight, gguf_tensors, f"blk.{i}.ffn_up.weight")
-            _assign_param(block.mlp.fc2.weight, gguf_tensors, f"blk.{i}.ffn_down.weight")
-            _assign_bias(block.mlp.fc1, gguf_tensors, f"blk.{i}.ffn_up.bias")
-            _assign_bias(block.mlp.fc2, gguf_tensors, f"blk.{i}.ffn_down.bias")
+        mlp: Any = block.mlp
+        if hasattr(mlp, "w_gate") and f"blk.{i}.ffn_gate.weight" in gguf_tensors:
+            _assign_param(mlp.w_gate.weight, gguf_tensors, f"blk.{i}.ffn_gate.weight")
+            _assign_param(mlp.w_up.weight, gguf_tensors, f"blk.{i}.ffn_up.weight")
+            _assign_param(mlp.w_down.weight, gguf_tensors, f"blk.{i}.ffn_down.weight")
+        elif hasattr(mlp, "fc1"):
+            _assign_param(mlp.fc1.weight, gguf_tensors, f"blk.{i}.ffn_up.weight")
+            _assign_param(mlp.fc2.weight, gguf_tensors, f"blk.{i}.ffn_down.weight")
+            _assign_bias(mlp.fc1, gguf_tensors, f"blk.{i}.ffn_up.bias")
+            _assign_bias(mlp.fc2, gguf_tensors, f"blk.{i}.ffn_down.bias")
 
     # 3. Final Norm
     _assign_param(model.final_norm.weight, gguf_tensors, "output_norm.weight")
@@ -310,7 +311,7 @@ def save_parallax_to_gguf(
 
 
     # Collect tensor state dictionary
-    tensors: Dict[str, np.ndarray] = {
+    tensors: Dict[str, Union[np.ndarray, bytes]] = {
         "token_embd.weight": model.token_embeddings.weight.data.astype(np.float32),
         "output_norm.weight": model.final_norm.weight.data.astype(np.float32),
     }
@@ -346,16 +347,17 @@ def save_parallax_to_gguf(
         if block.attn.out_proj.bias is not None:
             tensors[f"blk.{i}.attn_output.bias"] = block.attn.out_proj.bias.data.astype(np.float32)
 
-        if hasattr(block.mlp, "w_gate"):
-            tensors[f"blk.{i}.ffn_gate.weight"] = block.mlp.w_gate.weight.data.astype(np.float32)
-            tensors[f"blk.{i}.ffn_up.weight"] = block.mlp.w_up.weight.data.astype(np.float32)
-            tensors[f"blk.{i}.ffn_down.weight"] = block.mlp.w_down.weight.data.astype(np.float32)
-        elif hasattr(block.mlp, "fc1"):
-            tensors[f"blk.{i}.ffn_up.weight"] = block.mlp.fc1.weight.data.astype(np.float32)
-            tensors[f"blk.{i}.ffn_down.weight"] = block.mlp.fc2.weight.data.astype(np.float32)
-            if block.mlp.fc1.bias is not None:
-                tensors[f"blk.{i}.ffn_up.bias"] = block.mlp.fc1.bias.data.astype(np.float32)
-            if block.mlp.fc2.bias is not None:
-                tensors[f"blk.{i}.ffn_down.bias"] = block.mlp.fc2.bias.data.astype(np.float32)
+        mlp: Any = block.mlp
+        if hasattr(mlp, "w_gate"):
+            tensors[f"blk.{i}.ffn_gate.weight"] = mlp.w_gate.weight.data.astype(np.float32)
+            tensors[f"blk.{i}.ffn_up.weight"] = mlp.w_up.weight.data.astype(np.float32)
+            tensors[f"blk.{i}.ffn_down.weight"] = mlp.w_down.weight.data.astype(np.float32)
+        elif hasattr(mlp, "fc1"):
+            tensors[f"blk.{i}.ffn_up.weight"] = mlp.fc1.weight.data.astype(np.float32)
+            tensors[f"blk.{i}.ffn_down.weight"] = mlp.fc2.weight.data.astype(np.float32)
+            if mlp.fc1.bias is not None:
+                tensors[f"blk.{i}.ffn_up.bias"] = mlp.fc1.bias.data.astype(np.float32)
+            if mlp.fc2.bias is not None:
+                tensors[f"blk.{i}.ffn_down.bias"] = mlp.fc2.bias.data.astype(np.float32)
 
     save_gguf(file_path, metadata=metadata, tensors=tensors, version=3)
