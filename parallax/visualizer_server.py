@@ -324,14 +324,16 @@ class VisualizerHandler(http.server.BaseHTTPRequestHandler):
         if not isinstance(generated_tokens, list):
             generated_tokens = []
 
-        result = STATE.step_generation(
-            prompt=prompt,
-            generated_tokens=generated_tokens,
-            use_cache=use_cache,
-            temperature=temperature,
-            top_k=top_k,
-            top_p=top_p,
-        )
+        state = get_visualizer_state()
+        with _STATE_LOCK:
+            result = state.step_generation(
+                prompt=prompt,
+                generated_tokens=generated_tokens,
+                use_cache=use_cache,
+                temperature=temperature,
+                top_k=top_k,
+                top_p=top_p,
+            )
         self.send_json(result)
 
     def serve_file(self, filepath: str, content_type: str) -> None:
