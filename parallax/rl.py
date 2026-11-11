@@ -196,6 +196,7 @@ def compute_sequence_log_probs(
     t_idx = np.arange(T)[None, :]
     selected_log_probs = log_probs[b_idx, t_idx, targets]  # [B, T]
 
+    active_mask: np.ndarray | float
     if mask is not None:
         selected_log_probs = selected_log_probs * mask
         active_mask = mask[:, :, None]

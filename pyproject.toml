@@ -71,7 +71,6 @@ module = [
     "parallax.bitnet",
     "parallax.attention",
     "parallax.bit_attention",
-    "parallax.rl",
     "parallax.quant",
     "parallax.prune",
     "parallax.checkpoint",
