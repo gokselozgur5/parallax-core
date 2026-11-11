@@ -178,3 +178,63 @@ def test_openai_server_invalid_temperature(running_server):
         with pytest.raises(urllib.error.HTTPError) as exc_info:
             urllib.request.urlopen(req)
         assert exc_info.value.code == 400
+
+
+def test_openai_server_invalid_payload_schemas(running_server):
+    url = f"{running_server}/v1/chat/completions"
+
+    # Non-dict JSON root
+    req1 = urllib.request.Request(
+        url,
+        data=json.dumps(["not", "an", "object"]).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with pytest.raises(urllib.error.HTTPError) as exc1:
+        urllib.request.urlopen(req1)
+    assert exc1.value.code == 400
+
+    # Non-list messages
+    req2 = urllib.request.Request(
+        url,
+        data=json.dumps({"messages": "not a list"}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with pytest.raises(urllib.error.HTTPError) as exc2:
+        urllib.request.urlopen(req2)
+    assert exc2.value.code == 400
+
+    # Non-dict message entry
+    req3 = urllib.request.Request(
+        url,
+        data=json.dumps({"messages": ["not a dict"]}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with pytest.raises(urllib.error.HTTPError) as exc3:
+        urllib.request.urlopen(req3)
+    assert exc3.value.code == 400
+
+    # Negative max_tokens
+    req4 = urllib.request.Request(
+        url,
+        data=json.dumps({"messages": [{"role": "user", "content": "hi"}], "max_tokens": -1}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with pytest.raises(urllib.error.HTTPError) as exc4:
+        urllib.request.urlopen(req4)
+    assert exc4.value.code == 400
+
+    # Prompt length exceeding max_seq_len (config.max_seq_len is 64 in fixture)
+    huge_prompt = [{"role": "user", "content": "x" * 200}]
+    req5 = urllib.request.Request(
+        url,
+        data=json.dumps({"messages": huge_prompt}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    with pytest.raises(urllib.error.HTTPError) as exc5:
+        urllib.request.urlopen(req5)
+    assert exc5.value.code == 400
