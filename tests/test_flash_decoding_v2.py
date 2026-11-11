@@ -25,14 +25,24 @@ def test_select_split_k_dynamic():
     min_chunk = 64
     assert select_split_k(0, min_chunk_size=min_chunk) == 1
     assert select_split_k(32, min_chunk_size=min_chunk) == 1
-    assert select_split_k(64, min_chunk_size=min_chunk) == 2
-    assert select_split_k(100, min_chunk_size=min_chunk) == 2
-    assert select_split_k(128, min_chunk_size=min_chunk) == 4
-    assert select_split_k(200, min_chunk_size=min_chunk) == 4
-    assert select_split_k(256, min_chunk_size=min_chunk) == 8
+    assert select_split_k(64, min_chunk_size=min_chunk) == 1
+    assert select_split_k(100, min_chunk_size=min_chunk) == 1
+    assert select_split_k(128, min_chunk_size=min_chunk) == 2
+    assert select_split_k(192, min_chunk_size=min_chunk) == 2
+    assert select_split_k(200, min_chunk_size=min_chunk) == 2
+    assert select_split_k(256, min_chunk_size=min_chunk) == 4
+    assert select_split_k(512, min_chunk_size=min_chunk) == 8
     assert select_split_k(1024, min_chunk_size=min_chunk) == 8
     # Custom max_splits clamp
     assert select_split_k(1024, min_chunk_size=min_chunk, max_splits=4) == 4
+    # Support max_splits > 8 when sequence length permits
+    assert select_split_k(1024, min_chunk_size=min_chunk, max_splits=16) == 16
+    assert select_split_k(2048, min_chunk_size=min_chunk, max_splits=32) == 32
+    # Invariant: split_k * min_chunk_size <= seq_len
+    for s in [1, 50, 64, 127, 128, 192, 255, 256, 500, 1024]:
+        k = select_split_k(s, min_chunk_size=64, max_splits=16)
+        if s >= 64:
+            assert k * 64 <= s
 
 
 def test_reduce_split_k_online_numerical_stability():
