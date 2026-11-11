@@ -2,6 +2,7 @@ import ctypes
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -232,9 +233,24 @@ def test_c_softmax_large_logits_and_special_values():
 def test_c_softmax_nan_and_inf_rows():
     if not is_c_engine_available():
         pytest.skip("C engine native library not available")
-    X = np.array([[1.0, np.nan, 3.0], [1.0, np.inf, 3.0], [-np.inf, -np.inf, -np.inf]], dtype=np.float32)
-    res = c_softmax(X)
-    assert np.isnan(res).all()
+    for cols in (3, 16, 17, 32):
+        X = np.zeros((3, cols), dtype=np.float32)
+        X[0, 0] = 1.0
+        X[0, 1] = np.nan
+        X[0, 2] = 3.0
+        X[1, 0] = 1.0
+        X[1, 1] = np.inf
+        X[1, 2] = 3.0
+        X[2, :] = -np.inf
+        res = c_softmax(X)
+        assert np.isnan(res).all()
+
+        w = np.ones((cols,), dtype=np.float32)
+        x = np.ones((2, cols), dtype=np.float32)
+        x[0, cols // 2] = np.nan
+        x[1, :] = -np.inf
+        res_norm = c_rmsnorm(x, w)
+        assert np.isnan(res_norm).all()
 
 
 def test_c_engine_unsupported_dtypes():
@@ -331,7 +347,7 @@ def test_rebuild_on_source_change_without_stale_cache():
         env = {**os.environ, "XDG_CACHE_HOME": str(cache_base), "PYTHONPATH": str(fake_repo)}
 
         cmd1 = "import parallax.c_engine as ce; assert ce.is_c_engine_available()"
-        res1 = subprocess.run(["python3", "-c", cmd1], env=env, cwd=str(fake_repo), capture_output=True, text=True)
+        res1 = subprocess.run([sys.executable, "-c", cmd1], env=env, cwd=str(fake_repo), capture_output=True, text=True)
         assert res1.returncode == 0, f"Initial build failed: {res1.stderr}"
 
         # Corrupt a source file
@@ -339,7 +355,7 @@ def test_rebuild_on_source_change_without_stale_cache():
         softmax_c.write_text("SYNTAX ERROR IN C FILE\n" + softmax_c.read_text())
 
         cmd2 = "import parallax.c_engine as ce; assert not ce.is_c_engine_available()"
-        res2 = subprocess.run(["python3", "-c", cmd2], env=env, cwd=str(fake_repo), capture_output=True, text=True)
+        res2 = subprocess.run([sys.executable, "-c", cmd2], env=env, cwd=str(fake_repo), capture_output=True, text=True)
         assert res2.returncode == 0, f"Expected broken build to fail but passed: {res2.stderr}"
 def test_c_engine_build_timeout_and_cache_directory(monkeypatch):
     """Verify build into user cache directory and timeout error handling (closes #437)."""
