@@ -75,3 +75,19 @@ def test_safetensors_bf16_bitshift_decoding():
         assert "test_bf16" in loaded
         assert loaded["test_bf16"].dtype == np.float64
         np.testing.assert_allclose(loaded["test_bf16"], orig_f32, rtol=1e-2)
+
+
+def test_safetensors_big_endian_conversion():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        file_path = os.path.join(tmpdir, "be_model.safetensors")
+        tensors = {
+            "w_f32": np.array([1.5, -2.5, 3.75], dtype=">f4"),
+            "w_f64": np.array([[1.0, 2.0], [3.0, 4.0]], dtype=">f8"),
+            "w_i32": np.array([10, -20, 30], dtype=">i4"),
+        }
+        save_safetensors(file_path, tensors)
+
+        loaded = load_safetensors(file_path, cast_float64=False)
+        for k, v in tensors.items():
+            np.testing.assert_allclose(loaded[k], v)
+            assert loaded[k].dtype.byteorder in ("<", "=", "|")
