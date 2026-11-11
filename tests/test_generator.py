@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from parallax.generator import generate_stream
+from parallax.generator import generate, generate_stream
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.tensor import is_grad_enabled
 
@@ -49,3 +49,23 @@ def test_sample_next_token_temperature_scaling():
     np.random.seed(42)
     samples = [sample_next_token(logits, temperature=0.05, top_k=None, top_p=None) for _ in range(50)]
     assert all(s == 2 for s in samples)
+
+
+def test_generate_max_new_tokens_zero_and_negative():
+    model = _create_mini_model()
+    prompt = [1, 2, 3]
+
+    assert generate(model, prompt, max_new_tokens=0, use_cache=True) == prompt
+    assert generate(model, prompt, max_new_tokens=0, use_cache=False) == prompt
+    assert list(generate_stream(model, prompt, max_new_tokens=0, use_cache=True)) == []
+    assert list(generate_stream(model, prompt, max_new_tokens=0, use_cache=False)) == []
+
+    with pytest.raises(ValueError, match="max_new_tokens"):
+        generate(model, prompt, max_new_tokens=-1, use_cache=True)
+    with pytest.raises(ValueError, match="max_new_tokens"):
+        generate(model, prompt, max_new_tokens=-1, use_cache=False)
+    with pytest.raises(ValueError, match="max_new_tokens"):
+        next(generate_stream(model, prompt, max_new_tokens=-1, use_cache=True))
+    with pytest.raises(ValueError, match="max_new_tokens"):
+        next(generate_stream(model, prompt, max_new_tokens=-1, use_cache=False))
+
