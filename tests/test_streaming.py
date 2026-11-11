@@ -3,7 +3,6 @@ Unit tests for StreamingLLM attention sink mask generation.
 """
 
 import numpy as np
-import pytest
 from parallax.streaming import (
     evict_kv_cache_with_sinks,
     generate_sink_window_mask,
