@@ -40,6 +40,11 @@ fn ranges_overlap(p1: usize, len1: usize, p2: usize, len2: usize) -> bool {
 /// - `beta`: Scalar multiplier for C
 /// - `c_ptr`: Pointer to row-major array of size m * n (in/out)
 ///
+/// # Safety
+///
+/// Pointers `a_ptr`, `b_ptr`, and `c_ptr` must be valid, 4-byte aligned, non-null,
+/// and reference at least `a_len`, `b_len`, and `c_len` elements respectively.
+///
 /// Returns:
 /// 0 on success, negative status code on error.
 #[no_mangle]
@@ -79,6 +84,11 @@ pub unsafe extern "C" fn parallax_gemm_f32(
 /// - `rows`: Number of rows
 /// - `cols`: Number of columns (softmax applied per row)
 ///
+/// # Safety
+///
+/// `data_ptr` must be valid, 4-byte aligned, non-null, and reference at least
+/// `data_len` elements.
+///
 /// Returns:
 /// 0 on success, negative status code on error.
 #[no_mangle]
@@ -115,9 +125,9 @@ mod tests {
 
     #[test]
     fn test_c_abi_gemm() {
-        let a = vec![2.0f32, 0.0, 0.0, 2.0];
-        let b = vec![1.0f32, 2.0, 3.0, 4.0];
-        let mut c = vec![0.0f32; 4];
+        let a = [2.0f32, 0.0, 0.0, 2.0];
+        let b = [1.0f32, 2.0, 3.0, 4.0];
+        let mut c = [0.0f32; 4];
 
         unsafe {
             let res = parallax_gemm_f32(
@@ -128,12 +138,12 @@ mod tests {
             assert_eq!(res, STATUS_OK);
         }
 
-        assert_eq!(c, vec![2.0, 4.0, 6.0, 8.0]);
+        assert_eq!(&c[..], &[2.0, 4.0, 6.0, 8.0]);
     }
 
     #[test]
     fn test_c_abi_softmax() {
-        let mut data = vec![0.0f32, 0.0f32];
+        let mut data = [0.0f32, 0.0f32];
         unsafe {
             let res = parallax_softmax_f32(data.as_mut_ptr(), data.len(), 1, 2);
             assert_eq!(res, STATUS_OK);
@@ -144,8 +154,8 @@ mod tests {
 
     #[test]
     fn test_c_abi_validation() {
-        let buf = vec![1.0f32; 4];
-        let mut out = vec![0.0f32; 4];
+        let buf = [1.0f32; 4];
+        let mut out = [0.0f32; 4];
         unsafe {
             let res = parallax_gemm_f32(2, 2, 2, 1.0, buf.as_ptr(), 2, buf.as_ptr(), 4, 0.0, out.as_mut_ptr(), 4);
             assert_eq!(res, STATUS_INVALID_DIMENSION);
