@@ -4,7 +4,6 @@ Unit tests for Loss functions, Label Smoothing, and Perplexity metrics.
 
 import math
 import numpy as np
-import pytest
 
 from parallax.loss import cross_entropy_loss, perplexity_from_loss
 from parallax.tensor import Tensor
