@@ -206,44 +206,51 @@ def _init_metal_unlocked() -> bool:
         # JIT compile MSL kernel source
         err = ctypes.c_void_p()
         src_cf = _cf_string(MSL_KERNELS)
-        library = _objc_send(
-            ctypes.c_void_p,
-            _DEVICE,
-            "newLibraryWithSource:options:error:",
-            src_cf,
-            None,
-            ctypes.byref(err),
-        )
-        if not library:
-            return False
+        library = None
+        fn_rms = None
+        fn_gemm = None
+        rms_name_cf = None
+        gemm_name_cf = None
+        try:
+            library = _objc_send(
+                ctypes.c_void_p,
+                _DEVICE,
+                "newLibraryWithSource:options:error:",
+                src_cf,
+                None,
+                ctypes.byref(err),
+            )
+            if not library:
+                return False
 
-        # Compile RMSNorm pipeline
-        fn_rms = _objc_send(
-            ctypes.c_void_p, library, "newFunctionWithName:", _cf_string("rmsnorm_f32")
-        )
-        if not fn_rms:
-            return False
-        _PSO_RMSNORM = _objc_send(
-            ctypes.c_void_p,
-            _DEVICE,
-            "newComputePipelineStateWithFunction:error:",
-            fn_rms,
-            ctypes.byref(err),
-        )
+            # Compile RMSNorm pipeline
+            rms_name_cf = _cf_string("rmsnorm_f32")
+            fn_rms = _objc_send(ctypes.c_void_p, library, "newFunctionWithName:", rms_name_cf)
+            if not fn_rms:
+                return False
+            _PSO_RMSNORM = _objc_send(
+                ctypes.c_void_p,
+                _DEVICE,
+                "newComputePipelineStateWithFunction:error:",
+                fn_rms,
+                ctypes.byref(err),
+            )
 
-        # Compile GEMM pipeline
-        fn_gemm = _objc_send(
-            ctypes.c_void_p, library, "newFunctionWithName:", _cf_string("gemm_f32")
-        )
-        if not fn_gemm:
-            return False
-        _PSO_GEMM = _objc_send(
-            ctypes.c_void_p,
-            _DEVICE,
-            "newComputePipelineStateWithFunction:error:",
-            fn_gemm,
-            ctypes.byref(err),
-        )
+            # Compile GEMM pipeline
+            gemm_name_cf = _cf_string("gemm_f32")
+            fn_gemm = _objc_send(ctypes.c_void_p, library, "newFunctionWithName:", gemm_name_cf)
+            if not fn_gemm:
+                return False
+            _PSO_GEMM = _objc_send(
+                ctypes.c_void_p,
+                _DEVICE,
+                "newComputePipelineStateWithFunction:error:",
+                fn_gemm,
+                ctypes.byref(err),
+            )
+        finally:
+            _cf_release(src_cf, rms_name_cf, gemm_name_cf)
+            _release_buffers(fn_rms, fn_gemm, library)
 
         _IS_METAL_AVAILABLE = bool(_PSO_RMSNORM and _PSO_GEMM)
         return _IS_METAL_AVAILABLE
