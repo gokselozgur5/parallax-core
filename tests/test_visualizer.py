@@ -6,6 +6,7 @@ import json
 import socketserver
 import threading
 import time
+import urllib.error
 import urllib.request
 import pytest
 
@@ -121,3 +122,32 @@ def test_visualizer_api_visualize_step(visualizer_server_url):
     head0 = attn[0]["heads"][0]
     assert len(head0) == 10  # 10 queries
     assert len(head0[0]) == 10  # 10 keys
+
+
+def test_visualizer_cors_restriction(visualizer_server_url):
+    """Test CORS header on allowed origin and disallowed origin."""
+    req = urllib.request.Request(
+        f"{visualizer_server_url}/api/info",
+        headers={"Origin": "http://localhost:3000"},
+    )
+    with urllib.request.urlopen(req) as resp:
+        assert resp.headers.get("Access-Control-Allow-Origin") == "http://localhost:3000"
+
+    req_disallowed = urllib.request.Request(
+        f"{visualizer_server_url}/api/info",
+        headers={"Origin": "http://evil.attacker.com"},
+    )
+    with urllib.request.urlopen(req_disallowed) as resp:
+        assert resp.headers.get("Access-Control-Allow-Origin") is None
+
+
+def test_visualizer_invalid_content_length_and_nan(visualizer_server_url):
+    """Test rejection of malformed content-length and NaN float inputs."""
+    req = urllib.request.Request(
+        f"{visualizer_server_url}/api/visualize_step",
+        data=b'{"temperature": "nan"}',
+        headers={"Content-Type": "application/json"},
+    )
+    with pytest.raises(urllib.error.HTTPError) as exc_info:
+        urllib.request.urlopen(req)
+    assert exc_info.value.code == 400
