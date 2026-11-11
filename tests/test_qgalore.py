@@ -42,3 +42,22 @@ def test_qgalore_rank_exceeds_dimension():
         proj.update_basis(np.random.randn(8, 12))
     assert proj.effective_rank == 8
     assert proj.U.shape == (8, 8)
+
+
+def test_qgalore_left_projection_when_m_less_than_n():
+    np.random.seed(42)
+    M, N, rank = 16, 32, 4  # M < N -> left-sided projection
+    proj = QGaLoreProjector(rank=rank, update_interval=10)
+
+    A = np.random.randn(M, rank).astype(np.float32)
+    B = np.random.randn(rank, N).astype(np.float32)
+    grad = np.dot(A, B)
+
+    q_subspace, scale = proj.project_and_quantize(grad)
+
+    assert q_subspace.shape == (rank, N)
+    recon = proj.deproject(q_subspace, scale)
+    assert recon.shape == (M, N)
+    rel_error = np.linalg.norm(recon - grad) / np.linalg.norm(grad)
+    assert rel_error < 0.1
+
