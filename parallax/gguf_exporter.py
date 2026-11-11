@@ -105,17 +105,18 @@ def _collect_gpt_tensors(
         if block.attn.out_proj.bias is not None:
             tensors[f"blk.{i}.attn_output.bias"] = block.attn.out_proj.bias.data.astype(np.float32)
 
-        if hasattr(block.mlp, "w_gate"):
-            tensors[f"blk.{i}.ffn_gate.weight"] = block.mlp.w_gate.weight.data.astype(np.float32)
-            tensors[f"blk.{i}.ffn_up.weight"] = block.mlp.w_up.weight.data.astype(np.float32)
-            tensors[f"blk.{i}.ffn_down.weight"] = block.mlp.w_down.weight.data.astype(np.float32)
-        elif hasattr(block.mlp, "fc1"):
-            tensors[f"blk.{i}.ffn_up.weight"] = block.mlp.fc1.weight.data.astype(np.float32)
-            tensors[f"blk.{i}.ffn_down.weight"] = block.mlp.fc2.weight.data.astype(np.float32)
-            if block.mlp.fc1.bias is not None:
-                tensors[f"blk.{i}.ffn_up.bias"] = block.mlp.fc1.bias.data.astype(np.float32)
-            if block.mlp.fc2.bias is not None:
-                tensors[f"blk.{i}.ffn_down.bias"] = block.mlp.fc2.bias.data.astype(np.float32)
+        mlp: Any = block.mlp
+        if hasattr(mlp, "w_gate"):
+            tensors[f"blk.{i}.ffn_gate.weight"] = mlp.w_gate.weight.data.astype(np.float32)
+            tensors[f"blk.{i}.ffn_up.weight"] = mlp.w_up.weight.data.astype(np.float32)
+            tensors[f"blk.{i}.ffn_down.weight"] = mlp.w_down.weight.data.astype(np.float32)
+        elif hasattr(mlp, "fc1"):
+            tensors[f"blk.{i}.ffn_up.weight"] = mlp.fc1.weight.data.astype(np.float32)
+            tensors[f"blk.{i}.ffn_down.weight"] = mlp.fc2.weight.data.astype(np.float32)
+            if mlp.fc1.bias is not None:
+                tensors[f"blk.{i}.ffn_up.bias"] = mlp.fc1.bias.data.astype(np.float32)
+            if mlp.fc2.bias is not None:
+                tensors[f"blk.{i}.ffn_down.bias"] = mlp.fc2.bias.data.astype(np.float32)
 
     return metadata, tensors
 
