@@ -67,6 +67,14 @@ class ContinuousBatchEngine:
         with self.lock:
             return bool(self.waiting_queue or self.running_requests)
 
+    def pop_completed_request(self, request_id: str, clear_kv: bool = True) -> Optional[SequenceRequest]:
+        """Pops a completed or failed request, optionally clearing its KV cache to free memory."""
+        with self.lock:
+            req = self.completed_requests.pop(request_id, None)
+            if req is not None and clear_kv:
+                req.kv_cache = None
+            return req
+
     def step(self) -> List[Tuple[str, int]]:
         """Executes one iteration step across active sequences in the continuous batch.
 
