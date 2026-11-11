@@ -1,7 +1,6 @@
 import os
 import tempfile
 import numpy as np
-import pytest
 
 from parallax.generator import generate
 from parallax.gguf import save_gguf
