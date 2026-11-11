@@ -460,6 +460,8 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         num_steps = int(req.get("steps", 5))
         num_steps = max(1, min(num_steps, MAX_STEPS))
         lr = float(req.get("lr", 0.04))
+        if not math.isfinite(lr) or lr <= 0.0:
+            raise ValueError("lr must be a finite positive number")
         if IS_QUANTIZED and UNQUANTIZED_MODEL is not None:
             CURRENT_MODEL = UNQUANTIZED_MODEL
             UNQUANTIZED_MODEL = None
