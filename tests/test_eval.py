@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 from parallax.eval import compute_cross_entropy_loss, compute_perplexity
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 
