@@ -26,6 +26,34 @@ class TreeDraftTopology:
     node_scores: Optional[np.ndarray] = None
 
 
+def validate_tree_topology(
+    parent_indices: Union[List[int], np.ndarray], max_nodes: Optional[int] = None
+) -> None:
+    """Validate tree topology for bounds, invalid parent indices, and cycles."""
+    parents = np.asarray(parent_indices, dtype=np.int64)
+    n = len(parents)
+    if n == 0:
+        return
+    if max_nodes is not None and n > max_nodes:
+        raise ValueError(f"Tree node count {n} exceeds max_nodes {max_nodes}")
+    if np.any((parents < -1) | (parents >= n)):
+        raise ValueError(f"Parent index out of bounds for tree of size {n}")
+    state = np.zeros(n, dtype=np.int8)
+    for i in range(n):
+        if state[i] != 0:
+            continue
+        curr, path = i, []
+        while curr != -1:
+            if state[curr] == 1:
+                raise ValueError(f"Cycle detected in tree topology involving node {curr}")
+            if state[curr] == 2:
+                break
+            state[curr], _ = 1, path.append(curr)
+            curr = int(parents[curr])
+        for node in path:
+            state[node] = 2
+
+
 def build_vectorized_tree_attention_mask(
     parent_indices: Union[List[int], np.ndarray]
 ) -> Tuple[np.ndarray, np.ndarray]:
