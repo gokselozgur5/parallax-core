@@ -143,6 +143,13 @@ def load_safetensors(
         if not isinstance(header, dict):
             raise ValueError("Malformed safetensors header: root must be a JSON object")
 
+        if "__metadata__" in header:
+            meta = header["__metadata__"]
+            if not isinstance(meta, dict) or not all(
+                isinstance(k, str) and isinstance(v, str) for k, v in meta.items()
+            ):
+                raise ValueError("Invalid safetensors __metadata__: expected dict[str, str]")
+
         data_base_offset = 8 + header_len
 
         tensors: Dict[str, np.ndarray] = {}
