@@ -3,7 +3,6 @@ Regression tests for serve_openai CLI options and model loading.
 """
 
 import json
-import os
 import threading
 import urllib.request
 import pytest
@@ -84,7 +83,6 @@ def test_serve_openai_gguf_loading(tmp_path):
 
 def test_serve_openai_cli_default_host():
     import argparse
-    from scripts.serve_openai import main
 
     # Inspect the parser defaults directly
     parser = argparse.ArgumentParser()
