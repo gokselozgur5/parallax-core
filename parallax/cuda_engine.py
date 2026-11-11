@@ -237,6 +237,17 @@ class Qwen2CUDAModel:
         repetition_penalty: float = 1.15,
         eos_token_ids: Optional[List[int]] = None,
     ) -> Generator[int, None, None]:
+        if not prompt_tokens:
+            raise ValueError("prompt_tokens must not be empty")
+        if any(t < 0 or t >= self.vocab_size for t in prompt_tokens):
+            raise ValueError(f"prompt_tokens contain token ID out of vocab range [0, {self.vocab_size})")
+        if repetition_penalty <= 0.0:
+            raise ValueError(f"repetition_penalty must be positive, got {repetition_penalty}")
+        if max_new_tokens < 0:
+            raise ValueError(f"max_new_tokens must be non-negative, got {max_new_tokens}")
+        if max_new_tokens == 0:
+            return
+
         if eos_token_ids is None:
             eos_token_ids = [151643, 151645]  # <|endoftext|>, <|im_end|>
             
@@ -258,8 +269,8 @@ class Qwen2CUDAModel:
                     else:
                         next_logits[token_id] *= repetition_penalty
                         
-            # Sampling / Greedy
-            if temperature > 0:
+            # Sampling / Greedy (fallback to greedy if temperature is non-positive or tiny)
+            if temperature >= 1e-5:
                 # Top-K
                 if top_k > 0:
                     v, _ = torch.topk(next_logits, min(top_k, next_logits.size(-1)))
