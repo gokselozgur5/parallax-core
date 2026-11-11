@@ -200,11 +200,26 @@ class HFTokenizer:
         self.id_to_token: Dict[int, str] = {v: k for k, v in self.vocab.items()}
         self.vocab_size = len(self.vocab)
         self.split_pattern: Optional[str] = split_pattern
-        self.pretokenizer_regex = (
-            re.compile(_translate_hf_regex(split_pattern))
-            if split_pattern
-            else _PRETOKENIZER_REGEX
-        )
+        self.pretokenizer_regex = _PRETOKENIZER_REGEX
+        if split_pattern:
+            compiled = None
+            try:
+                import regex as _regex  # type: ignore
+                compiled = _regex.compile(split_pattern)
+            except Exception:
+                compiled = None
+            if compiled is None:
+                try:
+                    compiled = re.compile(_translate_hf_regex(split_pattern))
+                except Exception as err:
+                    warnings.warn(
+                        f"Unsupported pre-tokenizer pattern {split_pattern!r} ({err}): "
+                        "falling back to default regex.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+                    compiled = _PRETOKENIZER_REGEX
+            self.pretokenizer_regex = compiled
 
         self.added_tokens = added_tokens or {}
         for tok, tok_id in self.added_tokens.items():
