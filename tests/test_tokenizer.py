@@ -4,7 +4,6 @@ Unit tests for Byte-Pair Encoding (BPE) Tokenizer.
 
 import os
 import tempfile
-import pytest
 
 from parallax.tokenizer import BPETokenizer, get_pair_stats, merge_tokens
 
