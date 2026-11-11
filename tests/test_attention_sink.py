@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 from parallax.attention_sink import RollingKVCache
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.generator import generate_stream
