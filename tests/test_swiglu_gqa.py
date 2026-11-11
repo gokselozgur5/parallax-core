@@ -3,7 +3,6 @@ Unit tests for SwiGLU FFN and Grouped-Query Attention (GQA) (M15).
 """
 
 import numpy as np
-import pytest
 
 from parallax.attention import CausalSelfAttention
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig, SwiGLU, tensor_silu
