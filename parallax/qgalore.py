@@ -11,6 +11,7 @@ Integration contract:
 """
 
 from typing import Tuple, Optional
+import warnings
 import numpy as np
 
 
@@ -19,11 +20,11 @@ class QGaLoreProjector:
 
     def __init__(self, rank: int, update_interval: int = 100):
         self.rank = rank
+        self.effective_rank = rank
         self.update_interval = update_interval
         self.step_count = 0
         self.U: Optional[np.ndarray] = None
         self.V_T: Optional[np.ndarray] = None
-
 
     def update_basis(self, grad: np.ndarray):
         """Recompute low-rank SVD projection basis U from gradient.
@@ -31,6 +32,12 @@ class QGaLoreProjector:
         If rank exceeds min(M, N), effective_rank is clamped to min(M, N).
         """
         max_rank = min(grad.shape[0], grad.shape[1])
+        if self.rank > max_rank:
+            warnings.warn(
+                f"rank ({self.rank}) exceeds min(M, N) ({max_rank}); clamping effective_rank to {max_rank}",
+                UserWarning,
+                stacklevel=2,
+            )
         effective_rank = min(self.rank, max_rank)
         self.effective_rank = effective_rank
         U, _, Vt = np.linalg.svd(grad, full_matrices=False)
