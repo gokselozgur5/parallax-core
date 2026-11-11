@@ -122,12 +122,12 @@ parallax-core/
 │   │   ├── qwen2.py        # Qwen2 & Qwen2.5 architecture loader
 │   │   └── llama.py        # Llama-3 format architecture loader
 │   ├── gguf.py             # Zero-dependency GGUF v2/v3 reader & exporter
-│   └── safetensors.py      # Zero-dependency SafeTensors reader
+│   ├── safetensors.py      # Zero-dependency SafeTensors reader
+│   └── visualizer_server.py# Interactive Eagle-2 & DAG visualizer
 ├── crates/parallax-rs/     # Rust C-ABI engine with SIMD primitives
 └── demo/
     ├── playground.py       # Terminal interactive autograd lab
-    ├── studio_server.py    # Parallax Studio REST & WebSocket inspector
-    └── visualizer_server.py# Interactive Eagle-2 & DAG visualizer
+    └── studio_server.py    # Parallax Studio REST & WebSocket inspector
 ```
 
 ---
@@ -213,7 +213,7 @@ pip install -r requirements.txt
 ```
 
 ### Running Test Suite & Gradient Checks
-All **570 unit tests** pass with zero PyTorch/JAX dependencies:
+All **700+ unit tests** pass with zero PyTorch/JAX dependencies in the core engine:
 ```bash
 pytest tests/ -v
 ```
@@ -236,10 +236,15 @@ python scripts/bench_ram_transformer_vs_mamba.py
 pytest tests/test_bench_hardware.py -s
 ```
 
-### Launch Parallax Studio (Web UI)
+### Launch Parallax Studio & Visualizer (Web UI)
 Launch the interactive LLM microscope at `http://localhost:8080`:
 ```bash
 python demo/studio_server.py
+```
+
+Launch the interactive Eagle-2 tree & DAG visualizer at `http://localhost:8088`:
+```bash
+python parallax/visualizer_server.py
 ```
 
 ---
