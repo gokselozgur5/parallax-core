@@ -21,11 +21,9 @@ from demo.studio_server import (
     HOST,
     MAX_NEW_TOKENS,
     MAX_REQUEST_BODY_BYTES,
-    MAX_STEPS,
     PORT,
     StudioHandler,
     StudioState,
-    run_server,
 )
 
 
@@ -161,17 +159,24 @@ def test_generate_clamps_max_new_tokens(studio_server_batch6):
     assert data["new_tokens"] <= MAX_NEW_TOKENS
 
 
-def test_train_step_clamps_steps(studio_server_batch6):
+def test_train_step_clamps_steps(studio_server_batch6, monkeypatch):
+    import demo.studio_server as ss
+
+    monkeypatch.setattr(ss, "MAX_STEPS", 2)
     req = urllib.request.Request(
         f"{studio_server_batch6}/api/train_step",
         data=json.dumps({"steps": 50000, "lr": 0.01}).encode(),
         headers={"Content-Type": "application/json"},
     )
+    with urllib.request.urlopen(req) as resp:
+        data = json.loads(resp.read().decode())
+    assert len(data["losses"]) == 2
+
     req_zero = urllib.request.Request(
         f"{studio_server_batch6}/api/train_step",
         data=json.dumps({"steps": 0, "lr": 0.01}).encode(),
         headers={"Content-Type": "application/json"},
     )
     with urllib.request.urlopen(req_zero) as resp:
-        data = json.loads(resp.read().decode())
-    assert len(data["losses"]) == 1
+        data_zero = json.loads(resp.read().decode())
+    assert len(data_zero["losses"]) == 1
