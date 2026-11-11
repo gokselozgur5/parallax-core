@@ -1,7 +1,6 @@
 import os
 import tempfile
 import numpy as np
-import pytest
 
 from parallax.gguf_loader import load_gguf_pretrained, save_parallax_to_gguf
 from parallax.hf_loader import load_hf_pretrained, save_hf_pretrained
