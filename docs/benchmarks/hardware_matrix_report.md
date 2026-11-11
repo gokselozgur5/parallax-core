@@ -70,17 +70,17 @@ This report profiles the full computational and memory spectrum of Parallax-Core
 
 | Sequence Length ($T$) | Head Dim ($d$) | FlashDecoding v1 (ms) | FlashDecoding v2 (ms) | Split Allocation (v1 vs v2) | Latency Gain / Speedup | Error Parity |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **256** | 64 | 0.041 ms | 0.067 ms | 4 splits $\to$ **8 splits** | **0.61x** (-63.5%) | `1.15e-14` |
-| **512** | 64 | 0.068 ms | 0.074 ms | 8 splits $\to$ **8 splits** | **0.92x** (-8.5%) | `6.69e-15` |
-| **1024** | 64 | 0.125 ms | 0.083 ms | 16 splits $\to$ **8 splits** | **1.51x** (+33.8%) | `2.22e-15` |
-| **2048** | 64 | 0.238 ms | 0.093 ms | 32 splits $\to$ **8 splits** | **2.56x** (+60.9%) | `1.14e-15` |
-| **4096** | 64 | 0.470 ms | 0.122 ms | 64 splits $\to$ **8 splits** | **3.85x** (+74.1%) | `4.16e-16` |
+| **256** | 64 | 0.046 ms | 0.053 ms | 4 splits $\to$ **4 splits** | **0.86x** (-16.3%) | `1.15e-14` |
+| **512** | 64 | 0.079 ms | 0.082 ms | 8 splits $\to$ **8 splits** | **0.96x** (-3.8%) | `6.69e-15` |
+| **1024** | 64 | 0.144 ms | 0.094 ms | 16 splits $\to$ **8 splits** | **1.53x** (+34.6%) | `2.22e-15` |
+| **2048** | 64 | 0.275 ms | 0.109 ms | 32 splits $\to$ **8 splits** | **2.53x** (+60.4%) | `1.14e-15` |
+| **4096** | 64 | 0.544 ms | 0.125 ms | 64 splits $\to$ **8 splits** | **4.37x** (+77.1%) | `4.16e-16` |
 
 ## Key Architectural Insights & Verification
 
 1. **Hardware Compute Parity:**
-   - All active hardware compute paths achieve numerical alignment with max relative discrepancy of `4.29e-06` across GEMM and RMSNorm kernels.
-   - C-Engine demonstrates speedups up to 1.97x for CPU-bound RMSNorm operations.
+   - All active hardware compute paths achieve numerical alignment with max relative discrepancy of `5.34e-05` across GEMM and RMSNorm kernels.
+   - C-Engine demonstrates speedups up to 2.08x for CPU-bound RMSNorm operations.
    - Apple Metal GPU JIT achieves peak throughput of 0.15x relative to CPU BLAS baselines.
 
 2. **Anti-RAM Proof: $O(1)$ State Space Scaling (Analytical Estimates):**
@@ -90,7 +90,7 @@ This report profiles the full computational and memory spectrum of Parallax-Core
 
 3. **FlashDecoding-v2 Dynamic Split-K Efficiency:**
    - Dynamic Split-K caps partitions dynamically (e.g. from 64 splits in v1 to 8 splits in v2 at $T=4096$).
-   - Online logsumexp reduction maintains exact numerical equivalence while reaching up to 3.85x relative throughput.
+   - Online logsumexp reduction maintains exact numerical equivalence while reaching up to 4.37x relative throughput.
 
 ---
 *Sealed by Parallax Swarm Agent 18 (Continuous Benchmarking & Regression Guard) — Parallax Core Lab.*
