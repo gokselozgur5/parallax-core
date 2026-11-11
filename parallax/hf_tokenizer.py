@@ -203,6 +203,10 @@ class HFTokenizer:
         self.vocab = dict(vocab)
         self.normalizer: Optional[NormalizerForm] = normalizer
         self.id_to_token: Dict[int, str] = {v: k for k, v in self.vocab.items()}
+        self.added_tokens = added_tokens or {}
+        for tok, tok_id in self.added_tokens.items():
+            self.vocab[tok] = tok_id
+            self.id_to_token[tok_id] = tok
         self.vocab_size = len(self.vocab)
         self.split_pattern: Optional[str] = split_pattern
         self.pretokenizer_regex = _PRETOKENIZER_REGEX
@@ -226,11 +230,6 @@ class HFTokenizer:
                     compiled = _PRETOKENIZER_REGEX
             self.pretokenizer_regex = compiled
 
-        self.added_tokens = added_tokens or {}
-        for tok, tok_id in self.added_tokens.items():
-            self.vocab[tok] = tok_id
-            self.id_to_token[tok_id] = tok
-
         # Precompute byte representation for every token in vocab
         self.id_to_bytes: Dict[int, bytes] = {}
         for tok_id, tok_str in self.id_to_token.items():
@@ -251,7 +250,8 @@ class HFTokenizer:
                     if len(item) == 2:
                         self.merges[(str(item[0]), str(item[1]))] = rank
                 elif isinstance(item, str):
-                    parts = item.strip().split(" ")
+                    clean_item = item.rstrip("\r\n")
+                    parts = clean_item.split(" ")
                     if len(parts) == 2:
                         self.merges[(parts[0], parts[1])] = rank
 
@@ -281,9 +281,6 @@ class HFTokenizer:
         if not text:
             return []
 
-        if self.normalizer:
-            text = unicodedata.normalize(self.normalizer, text)
-
         # If full string matches special/added token directly
         if text in self.added_tokens:
             return [self.added_tokens[text]]
@@ -303,6 +300,9 @@ class HFTokenizer:
             if part in self.added_tokens:
                 token_ids.append(self.added_tokens[part])
                 continue
+
+            if self.normalizer:
+                part = unicodedata.normalize(self.normalizer, part)
 
             # Split piece into pre-tokens using pre-tokenizer regex
             pre_tokens: List[str] = []
