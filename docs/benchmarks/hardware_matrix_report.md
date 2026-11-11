@@ -32,9 +32,9 @@ This report profiles the full computational and memory spectrum of Parallax-Core
 
 | Tensor Shape ($Rows \times Cols$) | NumPy CPU (ms) | NumPy GFLOPS | C-Engine (ms) | C-Engine Speedup | Metal GPU (ms) | Metal GPU Speedup | Parity Error |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **512 x 512** | 0.153 ms | 6.86 | 0.119 ms | **1.29x** | 0.589 ms | **0.26x** | `2.15e-06` |
-| **1024 x 1024** | 1.066 ms | 3.94 | 0.657 ms | **1.62x** | 2.000 ms | **0.53x** | `3.10e-06` |
-| **1024 x 2048** | 2.668 ms | 3.14 | 1.352 ms | **1.97x** | 4.300 ms | **0.62x** | `4.29e-06` |
+| **512 x 512** | 0.156 ms | 6.71 | 0.115 ms | **1.36x** | 0.735 ms | **0.21x** | `2.15e-06` |
+| **1024 x 1024** | 1.118 ms | 3.75 | 0.595 ms | **1.88x** | 1.780 ms | **0.63x** | `3.10e-06` |
+| **1024 x 2048** | 2.517 ms | 3.33 | 1.212 ms | **2.08x** | 4.002 ms | **0.63x** | `4.29e-06` |
 
 ## 3. Architecture Weight Memory & INT4 Quantization (Theoretical Estimates)
 
