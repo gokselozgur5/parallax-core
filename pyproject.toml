@@ -32,7 +32,7 @@ where = ["."]
 include = ["parallax*", "scripts*"]
 
 [tool.setuptools.package-data]
-parallax = ["csrc/Makefile", "csrc/*.c", "csrc/*.h"]
+parallax = ["csrc/Makefile", "csrc/*.c", "csrc/*.h", "webui/*.html"]
 
 [tool.ruff]
 line-length = 100
