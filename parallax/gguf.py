@@ -18,10 +18,15 @@ import numpy as np
 
 from parallax.gguf_quant import (
     BLOCK_BYTES_Q4_0,
+    BLOCK_BYTES_Q4_K,
+    BLOCK_BYTES_Q6_K,
     BLOCK_BYTES_Q8_0,
     QK4_0,
     QK8_0,
+    QK_K,
     dequantize_q4_0,
+    dequantize_q4_k,
+    dequantize_q6_k,
     dequantize_q8_0,
 )
 
@@ -64,6 +69,8 @@ GGML_TYPE_Q5_0 = 6
 GGML_TYPE_Q5_1 = 7
 GGML_TYPE_Q8_0 = 8
 GGML_TYPE_Q8_1 = 9
+GGML_TYPE_Q4_K = 12
+GGML_TYPE_Q6_K = 14
 GGML_TYPE_BF16 = 26
 
 # LLAMA / GGUF General File Types (llama_ftype)
