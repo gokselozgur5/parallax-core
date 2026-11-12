@@ -134,6 +134,13 @@ class Qwen2CUDAModel:
         self.model_dir = model_dir
         self.tokenizer: Any = None
         
+        if os.path.isfile(model_dir) and model_dir.endswith(".gguf"):
+            self._init_from_gguf(model_dir)
+            half_dim = self.head_dim // 2
+            freq_seq = torch.arange(half_dim, device=self.device, dtype=torch.float32)
+            self.inv_freq = 1.0 / (self.rope_theta ** (freq_seq / half_dim))
+            return
+
         # Load config
         import json
         config_path = os.path.join(model_dir, "config.json")
