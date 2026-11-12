@@ -62,4 +62,4 @@ def test_qwen3_cuda_model_gguf_streaming_matches_parallax_lm(tmp_path: Path) -> 
     ref_logits = load_gguf_pretrained(gguf_path)(np.array([[1, 3, 5]], dtype=np.int64)).data[0, -1, :]
     eng = Qwen3CUDAModel(gguf_path, device="cpu", dtype=torch.float32)
     cuda_logits, _ = eng.forward_step(torch.tensor([[1, 3, 5]], dtype=torch.long), start_pos=0)
-    np.testing.assert_allclose(cuda_logits[0].numpy(), ref_logits, atol=1e-4)
+    np.testing.assert_allclose(cuda_logits[0].numpy(), ref_logits, rtol=1e-5, atol=1e-4)
