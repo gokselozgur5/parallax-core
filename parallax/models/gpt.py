@@ -116,6 +116,8 @@ class TransformerBlock(Module):
         rope_interleaved: bool = True,
         use_flash_attn: bool = False,
         sliding_window: Optional[int] = None,
+        head_dim: Optional[int] = None,
+        qk_norm: bool = False,
     ):
         super().__init__()
         self.attn_norm = RMSNorm(embed_dim, eps=rms_norm_eps)
@@ -129,6 +131,9 @@ class TransformerBlock(Module):
             rope_interleaved=rope_interleaved,
             use_flash_attn=use_flash_attn,
             sliding_window=sliding_window,
+            head_dim=head_dim,
+            qk_norm=qk_norm,
+            rms_norm_eps=rms_norm_eps,
         )
         self.mlp_norm = RMSNorm(embed_dim, eps=rms_norm_eps)
         self.use_swiglu = use_swiglu
@@ -195,6 +200,8 @@ class ParallaxLMConfig:
     rope_interleaved: bool = True
     use_flash_attn: bool = False
     sliding_window: Optional[int] = None
+    head_dim: Optional[int] = None
+    qk_norm: bool = False
 
 
 class Embedding(Module):
@@ -253,6 +260,8 @@ class ParallaxLM(Module):
                 rope_interleaved=config.rope_interleaved,
                 use_flash_attn=config.use_flash_attn,
                 sliding_window=config.sliding_window,
+                head_dim=config.head_dim,
+                qk_norm=config.qk_norm,
             )
             for _ in range(config.num_layers)
         ]
