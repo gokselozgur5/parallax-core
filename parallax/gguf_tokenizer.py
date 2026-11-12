@@ -13,7 +13,7 @@ from parallax.hf_tokenizer import _BYTE_TO_UNICODE, _UNICODE_TO_BYTE
 
 
 _BYTE_FALLBACK_RE = re.compile(r"^<0x([0-9a-fA-F]{2})>$")
-_GPT2_SPLIT_RE = re.compile(r"'s|'t|'re|'ve|'m|'ll|'d| ?[^\W\d_]+| ?\d+| ?[^\s\w]+|\s+(?!\S)|\s+")
+_GPT2_SPLIT_RE = re.compile(r"'s|'t|'re|'ve|'m|'ll|'d| ?[^\W\d_]+| ?\d+| ?(?:[^\s\w]|_)+|\s+(?!\S)|\s+")
 
 
 def _parse_gguf_token(token_str: str, model_type: Optional[str] = None, is_special: bool = False) -> bytes:
