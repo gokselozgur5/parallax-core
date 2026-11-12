@@ -133,6 +133,8 @@ class Qwen2CUDAModel:
 
         self.model_dir = model_dir
         self.tokenizer: Any = None
+        self.head_dim: int = 0
+        self.rope_theta: float = 1000000.0
         
         if os.path.isfile(model_dir) and model_dir.endswith(".gguf"):
             self._init_from_gguf(model_dir)
