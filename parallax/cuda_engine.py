@@ -143,7 +143,8 @@ class Qwen2CUDAModel:
         self.hidden_size = self.config["hidden_size"]
         self.num_heads = self.config["num_attention_heads"]
         self.num_kv_heads = self.config.get("num_key_value_heads", self.num_heads)
-        self.head_dim = self.hidden_size // self.num_heads
+        self.head_dim = int(self.config.get('head_dim', self.hidden_size // self.num_heads))
+        self.q_dim = self.num_heads * self.head_dim
         self.num_layers = self.config["num_hidden_layers"]
         self.intermediate_size = self.config["intermediate_size"]
         self.vocab_size = self.config["vocab_size"]
