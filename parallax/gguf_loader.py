@@ -20,9 +20,9 @@ def gguf_metadata_to_parallax(
 ) -> ParallaxLMConfig:
     """Extracts ParallaxLMConfig from GGUF metadata dictionary."""
     arch = str(metadata.get("general.architecture", "llama")).lower()
-    if arch not in ("llama", "mistral", "qwen2", "smollm"):
+    if arch not in ("llama", "mistral", "qwen2", "qwen3", "smollm"):
         raise ValueError(
-            f"Unsupported GGUF architecture: '{arch}'. Supported: llama, mistral, qwen2, smollm."
+            f"Unsupported GGUF architecture: '{arch}'. Supported: llama, mistral, qwen2, qwen3, smollm."
         )
 
     # Architecture hyper-parameters
@@ -111,6 +111,8 @@ def gguf_metadata_to_parallax(
         rms_norm_eps=rms_norm_eps,
         tie_weights=tie_weights,
         qkv_bias=qkv_bias,
+        head_dim=int(metadata[f"{arch}.attention.key_length"]) if f"{arch}.attention.key_length" in metadata else None,
+        qk_norm=bool(arch == "qwen3" or (tensors is not None and "blk.0.attn_q_norm.weight" in tensors)),
     )
 
 
