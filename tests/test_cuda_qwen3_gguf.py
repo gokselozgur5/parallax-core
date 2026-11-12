@@ -51,3 +51,15 @@ def _write_tiny_qwen3_gguf(gguf_path: str) -> None:
         "qwen3.attention.head_count": 1, "qwen3.attention.head_count_kv": 1, "qwen3.attention.key_length": 32,
         "qwen3.feed_forward_length": 32, "general.vocab_size": 16,
     }, gg, tensor_types=ttypes, tensor_shapes=tshapes)
+
+
+def test_qwen3_cuda_model_gguf_streaming_matches_parallax_lm(tmp_path: Path) -> None:
+    torch = pytest.importorskip("torch")
+    from parallax.cuda_engine import Qwen3CUDAModel
+
+    gguf_path = str(tmp_path / "tiny_qwen3_kquant.gguf")
+    _write_tiny_qwen3_gguf(gguf_path)
+    ref_logits = load_gguf_pretrained(gguf_path)(np.array([[1, 3, 5]], dtype=np.int64)).data[0, -1, :]
+    eng = Qwen3CUDAModel(gguf_path, device="cpu", dtype=torch.float32)
+    cuda_logits, _ = eng.forward_step(torch.tensor([[1, 3, 5]], dtype=torch.long), start_pos=0)
+    np.testing.assert_allclose(cuda_logits[0].numpy(), ref_logits, atol=1e-4)
