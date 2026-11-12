@@ -9,14 +9,17 @@ import re
 from typing import Dict, List, Optional, Tuple, Union
 
 from parallax.gguf import GGUFFile, load_gguf
-from parallax.hf_tokenizer import _UNICODE_TO_BYTE
+from parallax.hf_tokenizer import _BYTE_TO_UNICODE, _UNICODE_TO_BYTE
 
 
 _BYTE_FALLBACK_RE = re.compile(r"^<0x([0-9a-fA-F]{2})>$")
+_GPT2_SPLIT_RE = re.compile(r"'s|'t|'re|'ve|'m|'ll|'d| ?[^\W\d_]+| ?\d+| ?[^\s\w]+|\s+(?!\S)|\s+")
 
 
-def _parse_gguf_token(token_str: str, model_type: Optional[str] = None) -> bytes:
+def _parse_gguf_token(token_str: str, model_type: Optional[str] = None, is_special: bool = False) -> bytes:
     """Converts a GGUF string token representation into raw bytes."""
+    if is_special:
+        return token_str.encode("utf-8")
     m = _BYTE_FALLBACK_RE.match(token_str)
     if m:
         byte_val = int(m.group(1), 16)
