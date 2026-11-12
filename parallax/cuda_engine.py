@@ -60,6 +60,26 @@ def _gguf_name_to_hf_key(name: str) -> str:
     return name
 
 
+def _dequant_q4_k_torch(raw_t: "torch.Tensor", shape: Tuple[int, ...], dtype: "torch.dtype") -> "torch.Tensor":
+    blocks = raw_t.view(-1, 144)
+    nb = blocks.shape[0]
+    d = blocks[:, 0:2].contiguous().view(torch.float16).to(torch.float32)
+    dmin = blocks[:, 2:4].contiguous().view(torch.float16).to(torch.float32)
+    qsc = blocks[:, 4:16]
+    sc = torch.cat([
+        (qsc[:, 0:4] & 63).to(torch.float32),
+        ((qsc[:, 8:12] & 0x0F) | ((qsc[:, 0:4] >> 6) << 4)).to(torch.float32),
+    ], dim=1)
+    m = torch.cat([
+        (qsc[:, 4:8] & 63).to(torch.float32),
+        ((qsc[:, 8:12] >> 4) | ((qsc[:, 4:8] >> 6) << 4)).to(torch.float32),
+    ], dim=1)
+    qs = blocks[:, 16:144].view(nb, 4, 32)
+    nibbles = torch.stack([qs & 0x0F, qs >> 4], dim=2).to(torch.float32)
+    out = (d * sc).view(nb, 4, 2, 1) * nibbles - (dmin * m).view(nb, 4, 2, 1)
+    return out.reshape(shape).to(dtype)
+
+
 class Qwen2CUDAModel:
     """Zero-overhead GPU-native inference engine for Qwen2/2.5 models."""
 
