@@ -45,6 +45,7 @@ class GGUFTokenizer:
         pad_token_id: Optional[int] = None,
         unk_token_id: Optional[int] = None,
         model_type: Optional[str] = None,
+        token_types: Optional[List[int]] = None,
     ):
         self.raw_tokens = tokens
         self.vocab_size = len(tokens)
@@ -61,9 +62,13 @@ class GGUFTokenizer:
         # Mapping: raw bytes -> token_id
         self.bytes_to_id: Dict[bytes, int] = {}
 
+        special_ids = {i for i, t in enumerate(token_types or []) if i < len(tokens) and int(t) in (3, 4)}
+        specials = sorted((tokens[i] for i in special_ids if tokens[i]), key=len, reverse=True)
+        self._special_re = re.compile("(" + "|".join(re.escape(s) for s in specials) + ")") if specials else None
+
         for idx, tok in enumerate(tokens):
             self.token_to_id[tok] = idx
-            parsed_bytes = _parse_gguf_token(tok, model_type=model_type)
+            parsed_bytes = _parse_gguf_token(tok, model_type=model_type, is_special=(idx in special_ids))
             self.id_to_bytes[idx] = parsed_bytes
             if parsed_bytes not in self.bytes_to_id:
                 self.bytes_to_id[parsed_bytes] = idx
@@ -226,4 +231,5 @@ def load_gguf_tokenizer(source: Union[str, GGUFFile]) -> GGUFTokenizer:
         pad_token_id=pad_token_id,
         unk_token_id=unk_token_id,
         model_type=model_type,
+        token_types=metadata.get("tokenizer.ggml.token_type"),
     )
