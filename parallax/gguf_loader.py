@@ -51,8 +51,10 @@ def gguf_metadata_to_parallax(
         intermediate_size = int(intermediate_size)
 
     max_seq_len = int(metadata.get(f"{arch}.context_length", 2048))
-    rms_norm_eps = float(metadata.get(f"{arch}.attention.layer_norm_rms_epsilon", 1e-5))
-    rope_theta = float(metadata.get(f"{arch}.rope.freq_base", 10000.0))
+    default_eps = 1e-6 if arch.startswith(("qwen2", "qwen3")) else 1e-5
+    default_theta = 1000000.0 if arch.startswith(("qwen2", "qwen3")) else 10000.0
+    rms_norm_eps = float(metadata.get(f"{arch}.attention.layer_norm_rms_epsilon", default_eps))
+    rope_theta = float(metadata.get(f"{arch}.rope.freq_base", default_theta))
 
     # Vocab size calculation
     tokens = metadata.get("tokenizer.ggml.tokens")
