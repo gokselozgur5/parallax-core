@@ -166,6 +166,30 @@ class Qwen2CUDAModel:
         # Load weights directly into GPU memory
         self._load_weights()
 
+    def _init_from_gguf(self, gguf_path: str) -> None:
+        import math
+        from parallax.gguf import read_gguf_header
+        from parallax.gguf_tokenizer import load_gguf_tokenizer
+
+        hdr, data_base = read_gguf_header(gguf_path)
+        meta = hdr.metadata
+        arch = str(meta.get("general.architecture", "qwen3")).lower()
+        self.config = meta
+        self.hidden_size = int(meta[f"{arch}.embedding_length"])
+        self.num_heads = int(meta[f"{arch}.attention.head_count"])
+        self.num_kv_heads = int(meta.get(f"{arch}.attention.head_count_kv", self.num_heads))
+        self.head_dim = int(meta.get(f"{arch}.attention.key_length", self.hidden_size // self.num_heads))
+        self.q_dim = self.num_heads * self.head_dim
+        self.num_layers = int(meta[f"{arch}.block_count"])
+        self.intermediate_size = int(meta[f"{arch}.feed_forward_length"])
+        tokens = meta.get("tokenizer.ggml.tokens")
+        self.vocab_size = len(tokens) if tokens is not None else int(hdr.tensor_infos["token_embd.weight"].shape[0])
+        self.rms_norm_eps = float(meta.get(f"{arch}.attention.layer_norm_rms_epsilon", 1e-6))
+        self.rope_theta = float(meta.get(f"{arch}.rope.freq_base", 1000000.0))
+        if tokens is not None and "tokenizer.ggml.merges" in meta:
+            self.tokenizer = load_gguf_tokenizer(hdr)
+        self._stream_gguf_tensors(gguf_path, hdr.tensor_infos, data_base, math.prod)
+
     def _load_weights(self):
         from safetensors import safe_open
         st_files = [os.path.join(self.model_dir, f) for f in os.listdir(self.model_dir) if f.endswith(".safetensors")]
