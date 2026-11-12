@@ -80,6 +80,21 @@ def _dequant_q4_k_torch(raw_t: "torch.Tensor", shape: Tuple[int, ...], dtype: "t
     return out.reshape(shape).to(dtype)
 
 
+def _dequant_q6_k_torch(raw_t: "torch.Tensor", shape: Tuple[int, ...], dtype: "torch.dtype") -> "torch.Tensor":
+    blocks = raw_t.view(-1, 210)
+    nb = blocks.shape[0]
+    ql = blocks[:, 0:128].view(nb, 2, 2, 32)
+    qh = blocks[:, 128:192].view(nb, 2, 32)
+    sc = blocks[:, 192:208].contiguous().view(torch.int8).view(nb, 2, 4, 2, 1).to(torch.float32)
+    d = blocks[:, 208:210].contiguous().view(torch.float16).to(torch.float32).view(nb, 1, 1, 1, 1)
+    q1 = (((ql[:, :, 0, :] & 0x0F) | (((qh >> 0) & 3) << 4)).to(torch.int16) - 32).view(nb, 2, 2, 16)
+    q2 = (((ql[:, :, 1, :] & 0x0F) | (((qh >> 2) & 3) << 4)).to(torch.int16) - 32).view(nb, 2, 2, 16)
+    q3 = (((ql[:, :, 0, :] >> 4) | (((qh >> 4) & 3) << 4)).to(torch.int16) - 32).view(nb, 2, 2, 16)
+    q4 = (((ql[:, :, 1, :] >> 4) | (((qh >> 6) & 3) << 4)).to(torch.int16) - 32).view(nb, 2, 2, 16)
+    q_all = torch.stack([q1, q2, q3, q4], dim=2).to(torch.float32)
+    return (d * sc * q_all).reshape(shape).to(dtype)
+
+
 class Qwen2CUDAModel:
     """Zero-overhead GPU-native inference engine for Qwen2/2.5 models."""
 
