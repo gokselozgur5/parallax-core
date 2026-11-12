@@ -222,8 +222,12 @@ def ggml_tensor_byte_size(ggml_type: int, num_elements: int) -> int:
     raise NotImplementedError(f"Unsupported GGML tensor type: {ggml_type}")
 
 
-def load_gguf(file_path: str, cast_float64: bool = True) -> GGUFFile:
-    """Parses a GGUF binary file into a GGUFFile container."""
+def load_gguf(
+    file_path: str,
+    cast_float64: bool = True,
+    header_only: bool = False,
+) -> GGUFFile:
+    """Parses a GGUF binary file (or header metadata/descriptors only)."""
     with open(file_path, "rb") as f:
         magic = _read_exact(f, 4, "magic header")
         if magic != GGUF_MAGIC:
@@ -324,6 +328,10 @@ def load_gguf(file_path: str, cast_float64: bool = True) -> GGUFFile:
                     f"and '{next_name}' (DoS protection)"
                 )
 
+        if header_only:
+            object.__setattr__(info_container := GGUFFile(version=version, metadata=metadata, tensors={}, tensor_infos=tensor_infos), "data_base_offset", data_base_offset)
+            return info_container
+
         # Extract tensors
         tensors: Dict[str, np.ndarray] = {}
         for name, info in tensor_infos.items():
@@ -346,6 +354,10 @@ def load_gguf(file_path: str, cast_float64: bool = True) -> GGUFFile:
                 arr = dequantize_q8_0(raw_bytes, info.shape)
             elif info.ggml_type == GGML_TYPE_Q4_0:
                 arr = dequantize_q4_0(raw_bytes, info.shape)
+            elif info.ggml_type == GGML_TYPE_Q4_K:
+                arr = dequantize_q4_k(raw_bytes, info.shape)
+            elif info.ggml_type == GGML_TYPE_Q6_K:
+                arr = dequantize_q6_k(raw_bytes, info.shape)
 
             if cast_float64 and np.issubdtype(arr.dtype, np.floating):
                 arr = arr.astype(np.float64)
