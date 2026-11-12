@@ -23,3 +23,22 @@ def _make_qwen3_weights() -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]
         "output.weight": hf["lm_head.weight"],
     }
     return hf, gg
+
+
+def _populate_layer0(hf: dict[str, np.ndarray], gg: dict[str, np.ndarray]) -> None:
+    rng = np.random.default_rng(11)
+    pairs = [
+        ("input_layernorm.weight", "attn_norm.weight", (16,)),
+        ("post_attention_layernorm.weight", "ffn_norm.weight", (16,)),
+        ("self_attn.q_proj.weight", "attn_q.weight", (24, 16)),
+        ("self_attn.k_proj.weight", "attn_k.weight", (12, 16)),
+        ("self_attn.v_proj.weight", "attn_v.weight", (12, 16)),
+        ("self_attn.o_proj.weight", "attn_output.weight", (16, 24)),
+        ("self_attn.q_norm.weight", "attn_q_norm.weight", (6,)),
+        ("self_attn.k_norm.weight", "attn_k_norm.weight", (6,)),
+        ("mlp.gate_proj.weight", "ffn_gate.weight", (32, 16)),
+        ("mlp.up_proj.weight", "ffn_up.weight", (32, 16)),
+        ("mlp.down_proj.weight", "ffn_down.weight", (16, 32)),
+    ]
+    for hf_k, gg_k, shp in pairs:
+        hf[f"model.layers.0.{hf_k}"] = gg[f"blk.0.{gg_k}"] = rng.standard_normal(shp).astype(np.float32) * 0.1
