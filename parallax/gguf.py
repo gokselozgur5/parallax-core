@@ -205,6 +205,23 @@ def _write_metadata_value(f: BinaryIO, val: Any) -> None:
         raise TypeError(f"Unsupported metadata value type: {type(val)}")
 
 
+def ggml_tensor_byte_size(ggml_type: int, num_elements: int) -> int:
+    """Computes exact serialized byte length for a GGML tensor type."""
+    if ggml_type == GGML_TYPE_F32:
+        return num_elements * 4
+    if ggml_type in (GGML_TYPE_F16, GGML_TYPE_BF16):
+        return num_elements * 2
+    if ggml_type == GGML_TYPE_Q8_0:
+        return ((num_elements + QK8_0 - 1) // QK8_0) * BLOCK_BYTES_Q8_0
+    if ggml_type == GGML_TYPE_Q4_0:
+        return ((num_elements + QK4_0 - 1) // QK4_0) * BLOCK_BYTES_Q4_0
+    if ggml_type == GGML_TYPE_Q4_K:
+        return ((num_elements + QK_K - 1) // QK_K) * BLOCK_BYTES_Q4_K
+    if ggml_type == GGML_TYPE_Q6_K:
+        return ((num_elements + QK_K - 1) // QK_K) * BLOCK_BYTES_Q6_K
+    raise NotImplementedError(f"Unsupported GGML tensor type: {ggml_type}")
+
+
 def load_gguf(file_path: str, cast_float64: bool = True) -> GGUFFile:
     """Parses a GGUF binary file into a GGUFFile container."""
     with open(file_path, "rb") as f:
