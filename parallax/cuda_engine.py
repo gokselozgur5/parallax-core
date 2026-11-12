@@ -293,6 +293,11 @@ class Qwen2CUDAModel:
             k = k.view(batch, seq_len, self.num_kv_heads, self.head_dim).transpose(1, 2)
             v = v.view(batch, seq_len, self.num_kv_heads, self.head_dim).transpose(1, 2)
             
+            if (qn := w.get(prefix + "self_attn.q_norm.weight")) is not None:
+                q = self._rmsnorm(q, qn)
+            if (kn := w.get(prefix + "self_attn.k_norm.weight")) is not None:
+                k = self._rmsnorm(k, kn)
+
             # Apply RoPE
             q = self._apply_rope(q, start_pos)
             k = self._apply_rope(k, start_pos)
@@ -318,7 +323,7 @@ class Qwen2CUDAModel:
             attn_out = F.scaled_dot_product_attention(q, k_full, v_full, is_causal=is_causal)
             
             # Reshape back and project
-            attn_out = attn_out.transpose(1, 2).contiguous().view(batch, seq_len, self.hidden_size)
+            attn_out = attn_out.transpose(1, 2).contiguous().view(batch, seq_len, self.q_dim)
             attn_out = F.linear(attn_out, w[prefix + "self_attn.o_proj.weight"], w.get(prefix + "self_attn.o_proj.bias"))
             
             # Residual connection
@@ -445,3 +450,6 @@ class Qwen2CUDAModel:
             next_input = torch.tensor([[next_token]], dtype=torch.long, device=self.device)
             logits, kv_cache = self.forward_step(next_input, start_pos=cur_pos, kv_cache=kv_cache)
             cur_pos += 1
+
+
+Qwen3CUDAModel = Qwen2CUDAModel
