@@ -36,8 +36,8 @@ def _write_tiny_qwen3_gguf(gguf_path: str) -> None:
         "output.weight": raw6[:4].tobytes(), "blk.0.attn_norm.weight": np.ones(64, dtype=np.float32),
         "blk.0.ffn_norm.weight": np.ones(64, dtype=np.float32), "blk.0.attn_q.weight": raw4[:8].tobytes(),
         "blk.0.attn_k.weight": raw4[:4].tobytes(), "blk.0.attn_v.weight": raw6[:4].tobytes(),
-        "blk.0.attn_output.weight": raw4[:8].tobytes(), "blk.0.attn_q_norm.weight": np.ones(32, dtype=np.float32) * 1.1,
-        "blk.0.attn_k_norm.weight": np.ones(32, dtype=np.float32) * 0.9, "blk.0.ffn_gate.weight": raw4[:8].tobytes(),
+        "blk.0.attn_output.weight": raw4[:8].tobytes(), "blk.0.attn_q_norm.weight": np.ones(16, dtype=np.float32) * 1.1,
+        "blk.0.attn_k_norm.weight": np.ones(16, dtype=np.float32) * 0.9, "blk.0.ffn_gate.weight": raw4[:8].tobytes(),
         "blk.0.ffn_up.weight": raw4[:8].tobytes(), "blk.0.ffn_down.weight": raw6[:8].tobytes(),
     }
     ttypes = {k: (GGML_TYPE_Q6_K if k in ("output.weight", "blk.0.attn_v.weight", "blk.0.ffn_down.weight") else GGML_TYPE_Q4_K) for k, v in gg.items() if isinstance(v, bytes)}
@@ -48,7 +48,7 @@ def _write_tiny_qwen3_gguf(gguf_path: str) -> None:
     }
     save_gguf(gguf_path, {
         "general.architecture": "qwen3", "qwen3.embedding_length": 64, "qwen3.block_count": 1,
-        "qwen3.attention.head_count": 1, "qwen3.attention.head_count_kv": 1, "qwen3.attention.key_length": 32,
+        "qwen3.attention.head_count": 2, "qwen3.attention.head_count_kv": 1, "qwen3.attention.key_length": 16,
         "qwen3.feed_forward_length": 32, "general.vocab_size": 16,
     }, gg, tensor_types=ttypes, tensor_shapes=tshapes)
 
