@@ -149,3 +149,18 @@ def test_gguf_tokenizer_out_of_bounds_special_token_ids():
     # Encoding with unk=None does not raise IndexError
     encoded = tok.encode("z")
     assert isinstance(encoded, list)
+
+
+def test_gguf_gpt2_bpe_utf8_and_special_tokens_roundtrip():
+    from parallax.hf_tokenizer import _BYTE_TO_UNICODE
+
+    u_sp, u_nl = _BYTE_TO_UNICODE[32], _BYTE_TO_UNICODE[10]
+    u_c4, u_b1 = _BYTE_TO_UNICODE[0xC4], _BYTE_TO_UNICODE[0xB1]  # UTF-8 'ı'
+    tokens = ["<|im_start|>", "<|im_end|>", "h", "i", u_sp, u_nl, u_c4, u_b1, "hi", u_sp + u_c4 + u_b1]
+    ttypes = [3, 3, 1, 1, 1, 1, 1, 1, 1, 1]
+    merges = ["h i", f"{u_c4} {u_b1}", f"{u_sp} {u_c4}{u_b1}"]
+    tok = GGUFTokenizer(tokens=tokens, merges=merges, model_type="gpt2", token_types=ttypes)
+    prompt = "<|im_start|>hi ı\n<|im_end|>"
+    ids = tok.encode(prompt)
+    assert ids == [0, 8, 9, 5, 1]
+    assert tok.decode(ids) == prompt
