@@ -13,6 +13,7 @@ import numpy as np
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.models.llama import LlamaConfig, LlamaForCausalLM
+from parallax.models.qwen3 import Qwen3Config, Qwen3ForCausalLM
 from parallax.models.qwen2 import (
     Qwen2Config,
     Qwen2ForCausalLM,
@@ -74,13 +75,12 @@ def hf_config_to_parallax(
     """Translates a HuggingFace model config.json into a ParallaxLMConfig."""
     model_type = str(hf_config.get("model_type", "")).lower()
     is_supported_type = (
-        model_type in ("llama", "mistral", "qwen2", "smollm")
-        or model_type.startswith("qwen2")
-        or model_type.startswith("smollm")
+        model_type in ("llama", "mistral", "qwen2", "qwen3", "smollm")
+        or model_type.startswith(("qwen2", "qwen3", "smollm"))
     )
     if not model_type or not is_supported_type:
         raise ValueError(
-            f"Unsupported model_type: '{model_type}'. Supported architectures: llama, mistral, qwen2, smollm."
+            f"Unsupported model_type: '{model_type}'. Supported architectures: llama, mistral, qwen2, qwen3, smollm."
         )
 
     if hf_config.get("rope_scaling") is not None:
@@ -89,13 +89,11 @@ def hf_config_to_parallax(
     embed_dim = int(hf_config.get("hidden_size", 576))
     num_heads = int(hf_config.get("num_attention_heads", 9))
 
-    if "head_dim" in hf_config:
-        expected_head_dim = embed_dim // num_heads
-        actual_head_dim = int(hf_config["head_dim"])
-        if actual_head_dim != expected_head_dim:
-            raise NotImplementedError(
-                f"Custom head_dim ({actual_head_dim}) != hidden_size / num_heads ({expected_head_dim}) is not supported"
-            )
+    head_dim: Optional[int] = None
+    if "head_dim" in hf_config and hf_config["head_dim"] is not None:
+        head_dim = int(hf_config["head_dim"])
+        if head_dim <= 0 or head_dim % 2 != 0:
+            raise ValueError(f"head_dim must be a positive even integer, got {head_dim}")
 
     if "hidden_act" in hf_config:
         act = str(hf_config["hidden_act"]).lower()
