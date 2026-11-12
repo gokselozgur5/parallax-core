@@ -190,6 +190,24 @@ class Qwen2CUDAModel:
             self.tokenizer = load_gguf_tokenizer(hdr)
         self._stream_gguf_tensors(gguf_path, hdr.tensor_infos, data_base, math.prod)
 
+    def _stream_gguf_tensors(self, gguf_path: str, tensor_infos: Dict[str, Any], data_base: int, prod_fn: Any) -> None:
+        from parallax.gguf import ggml_tensor_byte_size
+
+        t0 = time.time()
+        self.weights = {}
+        with open(gguf_path, "rb") as f:
+            for name, info in tensor_infos.items():
+                n_elem = prod_fn(info.shape) if info.shape else 1
+                n_bytes = ggml_tensor_byte_size(info.ggml_type, n_elem)
+                f.seek(data_base + info.offset)
+                raw = f.read(n_bytes)
+                self.weights[_gguf_name_to_hf_key(name)] = _decode_gguf_tensor(
+                    raw, info.ggml_type, info.shape, self.device, self.dtype
+                )
+        if self.device.type == "cuda":
+            torch.cuda.synchronize()
+        self.load_time = time.time() - t0
+
     def _load_weights(self):
         from safetensors import safe_open
         st_files = [os.path.join(self.model_dir, f) for f in os.listdir(self.model_dir) if f.endswith(".safetensors")]
@@ -208,7 +226,8 @@ class Qwen2CUDAModel:
                         tensor = tensor.to(device=self.device)
                     self.weights[k] = tensor
                     
-        torch.cuda.synchronize()
+        if self.device.type == "cuda":
+            torch.cuda.synchronize()
         self.load_time = time.time() - t0
 
     def _apply_rope(self, x: torch.Tensor, start_pos: int) -> torch.Tensor:
