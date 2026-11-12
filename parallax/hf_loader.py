@@ -252,6 +252,11 @@ def load_hf_weights_into_model(
             # Only expect o_proj.bias if it actually exists in tensors
             if f"{prefix}.self_attn.o_proj.bias" in hf_tensors:
                 expected_keys.append(f"{prefix}.self_attn.o_proj.bias")
+        if model.config.qk_norm:
+            expected_keys.extend([
+                f"{prefix}.self_attn.q_norm.weight",
+                f"{prefix}.self_attn.k_norm.weight",
+            ])
         if model.config.use_swiglu:
             expected_keys.extend([
                 f"{prefix}.mlp.gate_proj.weight",
@@ -276,7 +281,7 @@ def load_hf_weights_into_model(
     # 2. Transformer Blocks
     num_heads = model.config.num_heads
     num_kv_heads = model.config.num_kv_heads if model.config.num_kv_heads is not None else num_heads
-    head_dim = model.config.embed_dim // num_heads
+    head_dim = model.config.head_dim or (model.config.embed_dim // num_heads)
 
     for i in range(model.config.num_layers):
         prefix = f"model.layers.{i}"
@@ -303,6 +308,9 @@ def load_hf_weights_into_model(
 
         _assign_param(block.attn.v_proj.weight, hf_tensors, f"{prefix}.self_attn.v_proj.weight")
         _assign_param(block.attn.out_proj.weight, hf_tensors, f"{prefix}.self_attn.o_proj.weight")
+        if block.attn.q_norm is not None and block.attn.k_norm is not None:
+            _assign_param(block.attn.q_norm.weight, hf_tensors, f"{prefix}.self_attn.q_norm.weight")
+            _assign_param(block.attn.k_norm.weight, hf_tensors, f"{prefix}.self_attn.k_norm.weight")
 
         # Attention biases (if present, e.g. Qwen2)
         q_bias_key = f"{prefix}.self_attn.q_proj.bias"
@@ -372,7 +380,9 @@ def load_hf_pretrained(
         tensors.update(load_safetensors(wf, cast_float64=True))
     p_config = hf_config_to_parallax(hf_config, hf_tensors=tensors)
     model: ParallaxLM
-    if isinstance(p_config, Qwen2Config):
+    if isinstance(p_config, Qwen3Config):
+        model = Qwen3ForCausalLM(p_config)
+    elif isinstance(p_config, Qwen2Config):
         model = Qwen2ForCausalLM(p_config)
     elif isinstance(p_config, LlamaConfig):
         model = LlamaForCausalLM(p_config)
