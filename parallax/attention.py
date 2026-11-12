@@ -9,7 +9,7 @@ import math
 from typing import Optional, Tuple, Union
 import numpy as np
 from parallax.flash_attn import flash_attention_backward, flash_attention_forward
-from parallax.nn import Linear, Module
+from parallax.nn import Linear, Module, RMSNorm
 from parallax.tensor import Tensor, _accumulate_grad
 
 
@@ -90,9 +90,12 @@ class CausalSelfAttention(Module):
         rope_interleaved: bool = True,
         use_flash_attn: bool = False,
         sliding_window: Optional[int] = None,
+        head_dim: Optional[int] = None,
+        qk_norm: bool = False,
+        rms_norm_eps: float = 1e-6,
     ):
         super().__init__()
-        if embed_dim % num_heads != 0:
+        if head_dim is None and embed_dim % num_heads != 0:
             raise ValueError("embed_dim must be divisible by num_heads")
         self.embed_dim = embed_dim
         self.num_heads = num_heads
@@ -101,8 +104,12 @@ class CausalSelfAttention(Module):
             raise ValueError("num_heads must be divisible by num_kv_heads for GQA")
         self.num_queries_per_kv = self.num_heads // self.num_kv_heads
 
-        self.head_dim = embed_dim // num_heads
+        self.head_dim = int(head_dim) if head_dim is not None else embed_dim // num_heads
+        if self.head_dim <= 0 or self.head_dim % 2 != 0:
+            raise ValueError("head_dim must be a positive even integer")
+        self.q_dim = self.num_heads * self.head_dim
         self.kv_dim = self.num_kv_heads * self.head_dim
+        self.qk_norm = qk_norm
         self.use_rope = use_rope
         self.qkv_bias = qkv_bias
         self.rope_theta = float(rope_theta)
