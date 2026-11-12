@@ -200,6 +200,22 @@ class Tensor:
         out._backward = _backward
         return out
 
+    def reshape(self, *shape: Union[int, Sequence[int]]) -> "Tensor":
+        if len(shape) == 1 and isinstance(shape[0], (tuple, list)):
+            new_shape = tuple(int(d) for d in shape[0])
+        else:
+            new_shape = tuple(int(d) for d in shape)  # type: ignore[arg-type]
+        out = Tensor(self.data.reshape(new_shape), (self,), "reshape")
+        if not out.requires_grad:
+            return out
+
+        def _backward() -> None:
+            if out.grad is not None and self.requires_grad:
+                _accumulate_grad(self, out.grad.reshape(self.shape))
+
+        out._backward = _backward
+        return out
+
     def transpose(self, *axes: int) -> "Tensor":
         if not axes:
             # Default swap last two dims
