@@ -54,7 +54,7 @@ def test_qwen3_hf_and_gguf_loaders_match_logits(tmp_path: Path) -> None:
         "num_key_value_heads": 2, "head_dim": 6, "num_hidden_layers": 1,
         "intermediate_size": 32, "vocab_size": 32, "tie_word_embeddings": False,
     }))
-    save_safetensors(hf, str(hf_dir / "model.safetensors"))
+    save_safetensors(str(hf_dir / "model.safetensors"), hf)
     gg_path = str(tmp_path / "q3.gguf")
     save_gguf(gg_path, {
         "general.architecture": "qwen3", "qwen3.embedding_length": 16, "qwen3.block_count": 1,
