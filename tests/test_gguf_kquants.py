@@ -49,3 +49,26 @@ def test_q4_k_and_q6_k_parity_and_streaming_header(tmp_path: Path) -> None:
     loaded = load_gguf(gguf_path, cast_float64=False)
     np.testing.assert_allclose(loaded.tensors["w4"], dequantize_q4_k(raw4.tobytes(), (2, 256)))
     np.testing.assert_allclose(loaded.tensors["w6"], q6)
+
+
+def test_q6_k_matches_ggml_scalar_reference() -> None:
+    rng = np.random.default_rng(77)
+    blk = rng.integers(0, 256, size=BLOCK_BYTES_Q6_K, dtype=np.uint8)
+    blk[208:210] = np.array([0x00, 0x38], dtype=np.uint8)
+    d = float(blk[208:210].copy().view("<f2")[0])
+    sc = blk[192:208].view(np.int8)
+    ref = np.zeros(256, dtype=np.float32)
+    for half in range(2):
+        ql = blk[half * 64 : (half + 1) * 64]
+        qh = blk[128 + half * 32 : 128 + (half + 1) * 32]
+        s8 = sc[half * 8 : (half + 1) * 8]
+        for l_idx in range(32):
+            is_idx = l_idx // 16
+            q1 = int(((ql[l_idx] & 0xF) | (((qh[l_idx] >> 0) & 3) << 4)).astype(np.int8)) - 32
+            q2 = int(((ql[l_idx + 32] & 0xF) | (((qh[l_idx] >> 2) & 3) << 4)).astype(np.int8)) - 32
+            q3 = int(((ql[l_idx] >> 4) | (((qh[l_idx] >> 4) & 3) << 4)).astype(np.int8)) - 32
+            q4 = int(((ql[l_idx + 32] >> 4) | (((qh[l_idx] >> 6) & 3) << 4)).astype(np.int8)) - 32
+            base = half * 128 + l_idx
+            ref[base], ref[base + 32] = d * s8[is_idx] * q1, d * s8[is_idx + 2] * q2
+            ref[base + 64], ref[base + 96] = d * s8[is_idx + 4] * q3, d * s8[is_idx + 6] * q4
+    np.testing.assert_allclose(dequantize_q6_k(blk.tobytes(), (256,)), ref, atol=1e-6)
