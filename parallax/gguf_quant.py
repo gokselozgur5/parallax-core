@@ -129,3 +129,24 @@ def quantize_q4_0(arr: np.ndarray) -> bytes:
         out_bytes.extend(packed[b].tobytes())
 
     return bytes(out_bytes)
+
+
+def dequantize_q4_k(raw_bytes: bytes, shape: Tuple[int, ...]) -> np.ndarray:
+    """Dequantizes a GGML Q4_K super-block byte buffer into an N-D float32 array."""
+    raw = np.frombuffer(raw_bytes, dtype=np.uint8)
+    n_blocks = len(raw) // BLOCK_BYTES_Q4_K
+    if n_blocks * BLOCK_BYTES_Q4_K != len(raw):
+        raise ValueError(f"Buffer length {len(raw)} is not a multiple of {BLOCK_BYTES_Q4_K}")
+    blocks = raw.reshape(n_blocks, BLOCK_BYTES_Q4_K)
+    d = blocks[:, 0:2].copy().view("<f2").astype(np.float32)
+    dmin = blocks[:, 2:4].copy().view("<f2").astype(np.float32)
+    qsc = blocks[:, 4:16]
+    sc = np.empty((n_blocks, 8), dtype=np.float32)
+    m = np.empty((n_blocks, 8), dtype=np.float32)
+    sc[:, 0:4], m[:, 0:4] = qsc[:, 0:4] & 63, qsc[:, 4:8] & 63
+    sc[:, 4:8] = (qsc[:, 8:12] & 0x0F) | ((qsc[:, 0:4] >> 6) << 4)
+    m[:, 4:8] = (qsc[:, 8:12] >> 4) | ((qsc[:, 4:8] >> 6) << 4)
+    qs = blocks[:, 16:144].reshape(n_blocks, 4, 32)
+    nibbles = np.stack([qs & 0x0F, qs >> 4], axis=2).astype(np.float32)
+    out = (d * sc).reshape(n_blocks, 4, 2, 1) * nibbles - (dmin * m).reshape(n_blocks, 4, 2, 1)
+    return out.reshape(shape)
