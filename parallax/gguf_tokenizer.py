@@ -101,6 +101,26 @@ class GGUFTokenizer:
         full_bytes = b"".join(byte_chunks)
         return full_bytes.decode("utf-8", errors="replace")
 
+    def _bpe_merge_symbols(self, symbols: List[str]) -> List[int]:
+        while len(symbols) >= 2:
+            best_pair = min(
+                ((symbols[i], symbols[i + 1]) for i in range(len(symbols) - 1) if (symbols[i], symbols[i + 1]) in self.merge_ranks),
+                key=lambda p: self.merge_ranks[p],
+                default=None,
+            )
+            if best_pair is None:
+                break
+            merged, new_syms, idx = best_pair[0] + best_pair[1], [], 0
+            while idx < len(symbols):
+                if idx < len(symbols) - 1 and (symbols[idx], symbols[idx + 1]) == best_pair:
+                    new_syms.append(merged)
+                    idx += 2
+                else:
+                    new_syms.append(symbols[idx])
+                    idx += 1
+            symbols = new_syms
+        return [self.token_to_id[s] for s in symbols if s in self.token_to_id]
+
     def encode(self, text: str) -> List[int]:
         """Encodes text to token IDs using byte-fallback and vocabulary matching."""
         if not text:
