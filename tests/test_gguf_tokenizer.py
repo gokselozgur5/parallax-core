@@ -164,3 +164,13 @@ def test_gguf_gpt2_bpe_utf8_and_special_tokens_roundtrip():
     ids = tok.encode(prompt)
     assert ids == [0, 8, 9, 5, 1]
     assert tok.decode(ids) == prompt
+
+
+def test_gguf_gpt2_bpe_preserves_underscores():
+    tok = GGUFTokenizer(
+        tokens=["h", "e", "a", "d", "_", "i", "m", "head", "dim"],
+        merges=["h e", "he a", "hea d", "d i", "di m"],
+        model_type="gpt2",
+    )
+    ids = tok.encode("head_dim")
+    assert tok.decode(ids) == "head_dim"
