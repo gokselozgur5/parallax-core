@@ -453,3 +453,11 @@ def save_gguf(
         # Write tensor data
         for chunk in tensor_chunks:
             f.write(chunk)
+
+
+
+def read_gguf_header(file_path: str) -> Tuple[GGUFFile, int]:
+    """Reads GGUF metadata and tensor descriptors without loading tensor payloads."""
+    gguf_file = load_gguf(file_path, cast_float64=False, header_only=True)
+    data_base = int(getattr(gguf_file, "data_base_offset", 0))
+    return gguf_file, data_base
