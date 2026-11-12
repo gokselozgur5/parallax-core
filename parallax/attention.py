@@ -142,6 +142,9 @@ class CausalSelfAttention(Module):
         q = self.q_proj(x)
         k = self.k_proj(x)
         v = self.v_proj(x)
+        if self.q_norm is not None and self.k_norm is not None:
+            q = self.q_norm(q.reshape(B, T, self.num_heads, self.head_dim)).reshape(B, T, self.q_dim)
+            k = self.k_norm(k.reshape(B, T, self.num_kv_heads, self.head_dim)).reshape(B, T, self.kv_dim)
 
         # 2. Reshape to multi-head:
         # Q: [B, num_heads, T, head_dim]
@@ -220,7 +223,7 @@ class CausalSelfAttention(Module):
             out_heads = attn_weights @ v_heads_expanded
 
         # 7. Merge heads: [B, num_heads, T, head_dim] -> [B, T, num_heads, head_dim] -> [B, T, embed_dim]
-        merged = np.transpose(out_heads, (0, 2, 1, 3)).reshape(B, T, C)
+        merged = np.transpose(out_heads, (0, 2, 1, 3)).reshape(B, T, self.q_dim)
 
         attn_out = Tensor(merged, (q, k, v), "CausalSelfAttention")
 
@@ -287,7 +290,7 @@ class CausalSelfAttention(Module):
                     apply_rope(dq_rope_in, seq_dim=1, offset=offset, conjugate=True, theta=self.rope_theta, interleaved=self.rope_interleaved),
                     (0, 2, 1, 3),
                 )
-            dq = np.transpose(dq_heads, (0, 2, 1, 3)).reshape(B, T, C)
+            dq = np.transpose(dq_heads, (0, 2, 1, 3)).reshape(B, T, self.q_dim)
 
             if not use_flash_path:
                 # dL/dK_expanded = d_scores^T @ Q
