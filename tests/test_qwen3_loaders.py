@@ -42,3 +42,24 @@ def _populate_layer0(hf: dict[str, np.ndarray], gg: dict[str, np.ndarray]) -> No
     ]
     for hf_k, gg_k, shp in pairs:
         hf[f"model.layers.0.{hf_k}"] = gg[f"blk.0.{gg_k}"] = rng.standard_normal(shp).astype(np.float32) * 0.1
+
+
+def test_qwen3_hf_and_gguf_loaders_match_logits(tmp_path: Path) -> None:
+    hf, gg = _make_qwen3_weights()
+    _populate_layer0(hf, gg)
+    hf_dir = tmp_path / "hf_q3"
+    hf_dir.mkdir()
+    (hf_dir / "config.json").write_text(json.dumps({
+        "model_type": "qwen3", "hidden_size": 16, "num_attention_heads": 4,
+        "num_key_value_heads": 2, "head_dim": 6, "num_hidden_layers": 1,
+        "intermediate_size": 32, "vocab_size": 32, "tie_word_embeddings": False,
+    }))
+    save_safetensors(hf, str(hf_dir / "model.safetensors"))
+    gg_path = str(tmp_path / "q3.gguf")
+    save_gguf(gg_path, {
+        "general.architecture": "qwen3", "qwen3.embedding_length": 16, "qwen3.block_count": 1,
+        "qwen3.attention.head_count": 4, "qwen3.attention.head_count_kv": 2,
+        "qwen3.attention.key_length": 6, "qwen3.feed_forward_length": 32, "general.vocab_size": 32,
+    }, gg)
+    ids = np.array([[1, 4, 7]], dtype=np.int64)
+    np.testing.assert_allclose(load_hf_pretrained(str(hf_dir))(ids).data, load_gguf_pretrained(gg_path)(ids).data, atol=1e-6)
