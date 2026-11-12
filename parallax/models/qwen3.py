@@ -43,3 +43,27 @@ class Qwen3Config(ParallaxLMConfig):
         }
         cfg.update(kwargs)
         return cls(**cfg)
+
+    @classmethod
+    def qwen3_32b(cls, **kwargs: Any) -> "Qwen3Config":
+        """Returns standard configuration for Qwen/Qwen3-32B."""
+        cfg: Dict[str, Any] = {
+            "vocab_size": 151936,
+            "embed_dim": 5120,
+            "num_heads": 64,
+            "num_kv_heads": 8,
+            "head_dim": 128,
+            "num_layers": 64,
+            "max_seq_len": 40960,
+            "tie_weights": False,
+            "intermediate_size": 25600,
+        }
+        cfg.update(kwargs)
+        return cls(**cfg)
+
+
+class Qwen3ForCausalLM(ParallaxLM):
+    """Qwen3ForCausalLM with GQA, per-head QK RMSNorm, and SwiGLU MLP."""
+
+    def __init__(self, config: Optional[Qwen3Config] = None):
+        super().__init__(config or Qwen3Config.qwen3_0_6b())
