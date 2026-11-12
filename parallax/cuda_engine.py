@@ -46,6 +46,20 @@ _GGUF_LAYER_SUFFIXES: Dict[str, str] = {
 }
 
 
+def _gguf_name_to_hf_key(name: str) -> str:
+    if name == "token_embd.weight":
+        return "model.embed_tokens.weight"
+    if name == "output_norm.weight":
+        return "model.norm.weight"
+    if name == "output.weight":
+        return "lm_head.weight"
+    if name.startswith("blk."):
+        _, idx, rest = name.split(".", 2)
+        if rest in _GGUF_LAYER_SUFFIXES:
+            return f"model.layers.{idx}.{_GGUF_LAYER_SUFFIXES[rest]}"
+    return name
+
+
 class Qwen2CUDAModel:
     """Zero-overhead GPU-native inference engine for Qwen2/2.5 models."""
 
