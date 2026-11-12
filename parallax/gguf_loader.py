@@ -139,6 +139,11 @@ def load_gguf_weights_into_model(
             f"blk.{i}.attn_v.weight",
             f"blk.{i}.attn_output.weight",
         ])
+        if model.config.qk_norm:
+            expected_keys.extend([
+                f"blk.{i}.attn_q_norm.weight",
+                f"blk.{i}.attn_k_norm.weight",
+            ])
         if model.config.qkv_bias:
             expected_keys.extend([
                 f"blk.{i}.attn_q.bias",
@@ -191,6 +196,9 @@ def load_gguf_weights_into_model(
         _assign_param(block.attn.k_proj.weight, gguf_tensors, f"blk.{i}.attn_k.weight")
         _assign_param(block.attn.v_proj.weight, gguf_tensors, f"blk.{i}.attn_v.weight")
         _assign_param(block.attn.out_proj.weight, gguf_tensors, f"blk.{i}.attn_output.weight")
+        if block.attn.q_norm is not None and block.attn.k_norm is not None:
+            _assign_param(block.attn.q_norm.weight, gguf_tensors, f"blk.{i}.attn_q_norm.weight")
+            _assign_param(block.attn.k_norm.weight, gguf_tensors, f"blk.{i}.attn_k_norm.weight")
 
         # Attention projection biases (e.g. Qwen2)
         _assign_bias(block.attn.q_proj, gguf_tensors, f"blk.{i}.attn_q.bias")
