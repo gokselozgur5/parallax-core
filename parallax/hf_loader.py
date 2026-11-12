@@ -176,6 +176,8 @@ def hf_config_to_parallax(
             tie_weights=tie_weights,
             qkv_bias=qkv_bias,
             sliding_window=sliding_window,
+            head_dim=head_dim,
+            qk_norm=qk_norm,
         )
 
     if model_type == "llama":
@@ -195,6 +197,8 @@ def hf_config_to_parallax(
             tie_weights=tie_weights,
             qkv_bias=qkv_bias,
             sliding_window=sliding_window,
+            head_dim=head_dim,
+            qk_norm=qk_norm,
         )
 
     return ParallaxLMConfig(
