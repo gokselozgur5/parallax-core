@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Generator, List, Optional, Tuple, Dict
+from typing import Any, Generator, List, Optional, Tuple, Dict
 
 try:
     import torch
@@ -121,16 +121,18 @@ class Qwen2CUDAModel:
     """Zero-overhead GPU-native inference engine for Qwen2/2.5 models."""
 
     def __init__(self, model_dir: str, device: str = "cuda", dtype: Optional[torch.dtype] = None):
-        if not _CUDA_AVAILABLE:
+        if torch is None or (str(device).startswith("cuda") and not _CUDA_AVAILABLE):
             raise RuntimeError("CUDA is not available. Please ensure an NVIDIA GPU and PyTorch CUDA build are installed.")
-        
+
         self.device = torch.device(device)
         if dtype is None:
-            self.dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32
+            use_bf16 = self.device.type == "cuda" and torch.cuda.is_bf16_supported()
+            self.dtype = torch.bfloat16 if use_bf16 else torch.float32
         else:
             self.dtype = dtype
-            
+
         self.model_dir = model_dir
+        self.tokenizer: Any = None
         
         # Load config
         import json
