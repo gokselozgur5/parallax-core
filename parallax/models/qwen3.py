@@ -26,3 +26,20 @@ class Qwen3Config(ParallaxLMConfig):
     qk_norm: bool = True
     rope_theta: float = 1000000.0
     rope_interleaved: bool = False
+
+    @classmethod
+    def qwen3_0_6b(cls, **kwargs: Any) -> "Qwen3Config":
+        """Returns standard configuration for Qwen/Qwen3-0.6B."""
+        cfg: Dict[str, Any] = {
+            "vocab_size": 151936,
+            "embed_dim": 1024,
+            "num_heads": 16,
+            "num_kv_heads": 8,
+            "head_dim": 128,
+            "num_layers": 28,
+            "max_seq_len": 40960,
+            "tie_weights": True,
+            "intermediate_size": 3072,
+        }
+        cfg.update(kwargs)
+        return cls(**cfg)
