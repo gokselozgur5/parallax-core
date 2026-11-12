@@ -118,12 +118,10 @@ def hf_config_to_parallax(
     elif model_type.startswith("qwen2"):
         intermediate_size = calculate_qwen2_intermediate_size(embed_dim)
 
-    # Qwen2/2.5 defaults to 1e-6, others usually 1e-5
-    default_eps = 1e-6 if model_type.startswith("qwen2") else 1e-5
+    default_eps = 1e-6 if model_type.startswith(("qwen2", "qwen3")) else 1e-5
     rms_norm_eps = float(hf_config.get("rms_norm_eps", default_eps))
 
-    # Qwen2/2.5 defaults to 1,000,000.0, others usually 10,000.0
-    default_theta = 1000000.0 if model_type.startswith("qwen2") else 10000.0
+    default_theta = 1000000.0 if model_type.startswith(("qwen2", "qwen3")) else 10000.0
     rope_theta = float(hf_config.get("rope_theta", default_theta))
 
     sliding_window = hf_config.get("sliding_window")
@@ -147,6 +145,20 @@ def hf_config_to_parallax(
         else:
             tie_weights = False
 
+    qk_norm = bool(
+        hf_config.get("qk_norm", False)
+        or model_type.startswith("qwen3")
+        or (hf_tensors is not None and "model.layers.0.self_attn.q_norm.weight" in hf_tensors)
+    )
+    if model_type.startswith("qwen3"):
+        return Qwen3Config(
+            vocab_size=vocab_size, embed_dim=embed_dim, num_heads=num_heads,
+            num_kv_heads=num_kv_heads, head_dim=head_dim or (embed_dim // num_heads),
+            num_layers=num_layers, max_seq_len=max_seq_len, rope_theta=rope_theta,
+            intermediate_size=intermediate_size, rms_norm_eps=rms_norm_eps,
+            tie_weights=tie_weights, qkv_bias=qkv_bias, qk_norm=qk_norm,
+            sliding_window=sliding_window,
+        )
     if model_type.startswith("qwen2"):
         return Qwen2Config(
             vocab_size=vocab_size,
