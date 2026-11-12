@@ -150,3 +150,22 @@ def dequantize_q4_k(raw_bytes: bytes, shape: Tuple[int, ...]) -> np.ndarray:
     nibbles = np.stack([qs & 0x0F, qs >> 4], axis=2).astype(np.float32)
     out = (d * sc).reshape(n_blocks, 4, 2, 1) * nibbles - (dmin * m).reshape(n_blocks, 4, 2, 1)
     return out.reshape(shape)
+
+
+def dequantize_q6_k(raw_bytes: bytes, shape: Tuple[int, ...]) -> np.ndarray:
+    """Dequantizes a GGML Q6_K super-block byte buffer into an N-D float32 array."""
+    raw = np.frombuffer(raw_bytes, dtype=np.uint8)
+    n_blocks = len(raw) // BLOCK_BYTES_Q6_K
+    if n_blocks * BLOCK_BYTES_Q6_K != len(raw):
+        raise ValueError(f"Buffer length {len(raw)} is not a multiple of {BLOCK_BYTES_Q6_K}")
+    blocks = raw.reshape(n_blocks, BLOCK_BYTES_Q6_K)
+    ql = blocks[:, 0:128].reshape(n_blocks, 2, 2, 32)
+    qh = blocks[:, 128:192].reshape(n_blocks, 2, 32)
+    sc = blocks[:, 192:208].view(np.int8).reshape(n_blocks, 2, 4, 2, 1).astype(np.float32)
+    d = blocks[:, 208:210].copy().view("<f2").astype(np.float32).reshape(n_blocks, 1, 1, 1, 1)
+    q1 = (((ql[:, :, 0, :] & 0x0F) | (((qh >> 0) & 3) << 4)).astype(np.int8) - 32).reshape(n_blocks, 2, 2, 16)
+    q2 = (((ql[:, :, 1, :] & 0x0F) | (((qh >> 2) & 3) << 4)).astype(np.int8) - 32).reshape(n_blocks, 2, 2, 16)
+    q3 = (((ql[:, :, 0, :] >> 4) | (((qh >> 4) & 3) << 4)).astype(np.int8) - 32).reshape(n_blocks, 2, 2, 16)
+    q4 = (((ql[:, :, 1, :] >> 4) | (((qh >> 6) & 3) << 4)).astype(np.int8) - 32).reshape(n_blocks, 2, 2, 16)
+    q_all = np.stack([q1, q2, q3, q4], axis=2).astype(np.float32)
+    return (d * sc * q_all).reshape(shape)
