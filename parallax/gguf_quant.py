@@ -15,6 +15,10 @@ BLOCK_BYTES_Q8_0 = 34  # 2 bytes FP16 delta + 32 bytes int8
 QK4_0 = 32
 BLOCK_BYTES_Q4_0 = 18  # 2 bytes FP16 delta + 16 bytes dual-nibble uint8
 
+QK_K = 256
+BLOCK_BYTES_Q4_K = 144  # 2B d + 2B dmin + 12B packed 6-bit scales/mins + 128B nibbles
+BLOCK_BYTES_Q6_K = 210  # 128B ql + 64B qh + 16B int8 scales + 2B FP16 d
+
 
 def dequantize_q8_0(raw_bytes: bytes, shape: Tuple[int, ...]) -> np.ndarray:
     """Dequantizes a GGML Q8_0 byte buffer into an N-D float array."""
