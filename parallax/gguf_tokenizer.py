@@ -125,10 +125,24 @@ class GGUFTokenizer:
         """Encodes text to token IDs using byte-fallback and vocabulary matching."""
         if not text:
             return []
+        if self._special_re is not None:
+            parts = [p for p in self._special_re.split(text) if p]
+            if len(parts) > 1 or (len(parts) == 1 and parts[0] in self.token_to_id and self._special_re.fullmatch(parts[0])):
+                out: List[int] = []
+                for p in parts:
+                    out.extend([self.token_to_id[p]] if self._special_re.fullmatch(p) else self._encode_plain(p))
+                return out
+        return self._encode_plain(text)
 
-        if self.model_type == "llama":
-            if not text.startswith(" ") and not text.startswith("\u2581"):
-                text = " " + text
+    def _encode_plain(self, text: str) -> List[int]:
+        if self.model_type == "llama" and not text.startswith((" ", "\u2581")):
+            text = " " + text
+
+        if self.merge_ranks and self.model_type == "gpt2":
+            ids: List[int] = []
+            for piece in _GPT2_SPLIT_RE.findall(text):
+                ids.extend(self._bpe_merge_symbols([_BYTE_TO_UNICODE[b] for b in piece.encode("utf-8")]))
+            return ids
 
         # If merge table exists, perform rank-ordered BPE over initial symbols
         if self.merge_ranks:
