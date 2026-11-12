@@ -105,7 +105,7 @@ def test_gguf_unsupported_tensor_type_raises():
 
     try:
         alignment = 32
-        unsupported_type = 14  # Q6_K or arbitrary unsupported GGML type
+        unsupported_type = 99  # arbitrary unsupported GGML type
         with open(tmp_path, "wb") as f:
             f.write(GGUF_MAGIC)
             f.write(struct.pack("<IQQ", 3, 1, 0))
