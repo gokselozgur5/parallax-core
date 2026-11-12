@@ -95,6 +95,28 @@ def _dequant_q6_k_torch(raw_t: "torch.Tensor", shape: Tuple[int, ...], dtype: "t
     return (d * sc * q_all).reshape(shape).to(dtype)
 
 
+def _decode_gguf_tensor(
+    raw_bytes: bytes, ggml_type: int, shape: Tuple[int, ...], device: "torch.device", dtype: "torch.dtype"
+) -> "torch.Tensor":
+    from parallax.gguf import GGML_TYPE_BF16, GGML_TYPE_F16, GGML_TYPE_F32, GGML_TYPE_Q4_0, GGML_TYPE_Q4_K, GGML_TYPE_Q6_K, GGML_TYPE_Q8_0
+    from parallax.gguf_quant import dequantize_q4_0, dequantize_q8_0
+
+    if ggml_type in (GGML_TYPE_Q4_K, GGML_TYPE_Q6_K):
+        raw_t = torch.frombuffer(bytearray(raw_bytes), dtype=torch.uint8).to(device)
+        return _dequant_q4_k_torch(raw_t, shape, dtype) if ggml_type == GGML_TYPE_Q4_K else _dequant_q6_k_torch(raw_t, shape, dtype)
+    if ggml_type == GGML_TYPE_F32:
+        return torch.frombuffer(bytearray(raw_bytes), dtype=torch.float32).reshape(shape).to(device=device, dtype=dtype)
+    if ggml_type == GGML_TYPE_F16:
+        return torch.frombuffer(bytearray(raw_bytes), dtype=torch.float16).reshape(shape).to(device=device, dtype=dtype)
+    if ggml_type == GGML_TYPE_BF16:
+        return torch.frombuffer(bytearray(raw_bytes), dtype=torch.bfloat16).reshape(shape).to(device=device, dtype=dtype)
+    if ggml_type == GGML_TYPE_Q8_0:
+        return torch.from_numpy(dequantize_q8_0(raw_bytes, shape)).to(device=device, dtype=dtype)
+    if ggml_type == GGML_TYPE_Q4_0:
+        return torch.from_numpy(dequantize_q4_0(raw_bytes, shape)).to(device=device, dtype=dtype)
+    raise NotImplementedError(f"Unsupported GGUF tensor type {ggml_type} in CUDA engine")
+
+
 class Qwen2CUDAModel:
     """Zero-overhead GPU-native inference engine for Qwen2/2.5 models."""
 
