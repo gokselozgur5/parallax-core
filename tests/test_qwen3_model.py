@@ -21,7 +21,8 @@ def test_qwen3_32b_preset_and_decoupled_head_dim_shapes() -> None:
     assert attn.k_proj.weight.shape == (16, 20)
     assert attn.out_proj.weight.shape == (20, 32)
     tokens = np.array([[1, 5, 9, 2]], dtype=np.int64)
-    _, caches = model(tokens, kv_caches=[None, None])  # type: ignore[list-item]
+    empty = [(np.zeros((1, 2, 0, 8)), np.zeros((1, 2, 0, 8))) for _ in range(2)]
+    _, caches = model(tokens, kv_caches=empty)
     step_logits, _ = model(np.array([[7]], dtype=np.int64), kv_caches=caches)
     full_logits = model(np.array([[1, 5, 9, 2, 7]], dtype=np.int64))
     np.testing.assert_allclose(step_logits.data[:, 0, :], full_logits.data[:, -1, :], atol=1e-6)
