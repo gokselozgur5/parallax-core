@@ -304,18 +304,7 @@ def load_gguf(file_path: str, cast_float64: bool = True) -> GGUFFile:
             except OverflowError as e:
                 raise ValueError(f"Integer overflow calculating element count for tensor '{name}': {e}") from e
 
-            if info.ggml_type == GGML_TYPE_F32:
-                byte_size = num_elements * 4
-            elif info.ggml_type == GGML_TYPE_F16 or info.ggml_type == GGML_TYPE_BF16:
-                byte_size = num_elements * 2
-            elif info.ggml_type == GGML_TYPE_Q8_0:
-                n_blocks = (num_elements + QK8_0 - 1) // QK8_0
-                byte_size = n_blocks * BLOCK_BYTES_Q8_0
-            elif info.ggml_type == GGML_TYPE_Q4_0:
-                n_blocks = (num_elements + QK4_0 - 1) // QK4_0
-                byte_size = n_blocks * BLOCK_BYTES_Q4_0
-            else:
-                raise NotImplementedError(f"Unsupported GGML tensor type: {info.ggml_type}")
+            byte_size = ggml_tensor_byte_size(info.ggml_type, num_elements)
 
             tensor_start_offset = data_base_offset + info.offset
             if tensor_start_offset < 0 or byte_size < 0 or tensor_start_offset + byte_size > total_file_size:
@@ -339,16 +328,7 @@ def load_gguf(file_path: str, cast_float64: bool = True) -> GGUFFile:
         tensors: Dict[str, np.ndarray] = {}
         for name, info in tensor_infos.items():
             num_elements = math.prod(info.shape) if info.shape else 1
-            if info.ggml_type == GGML_TYPE_F32:
-                byte_size = num_elements * 4
-            elif info.ggml_type == GGML_TYPE_F16 or info.ggml_type == GGML_TYPE_BF16:
-                byte_size = num_elements * 2
-            elif info.ggml_type == GGML_TYPE_Q8_0:
-                n_blocks = (num_elements + QK8_0 - 1) // QK8_0
-                byte_size = n_blocks * BLOCK_BYTES_Q8_0
-            elif info.ggml_type == GGML_TYPE_Q4_0:
-                n_blocks = (num_elements + QK4_0 - 1) // QK4_0
-                byte_size = n_blocks * BLOCK_BYTES_Q4_0
+            byte_size = ggml_tensor_byte_size(info.ggml_type, num_elements)
 
             tensor_start_offset = data_base_offset + info.offset
             f.seek(tensor_start_offset)
