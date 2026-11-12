@@ -37,14 +37,15 @@ def test_hf_config_rope_scaling_rejected():
 
 
 def test_hf_config_custom_head_dim_mismatch():
-    # embed_dim=128, num_heads=4 -> expected head_dim = 32
-    with pytest.raises(NotImplementedError, match="Custom head_dim"):
-        hf_config_to_parallax({
-            "model_type": "llama",
-            "hidden_size": 128,
-            "num_attention_heads": 4,
-            "head_dim": 64,
-        })
+    cfg = hf_config_to_parallax({
+        "model_type": "qwen3",
+        "hidden_size": 128,
+        "num_attention_heads": 4,
+        "head_dim": 64,
+    })
+    assert cfg.head_dim == 64
+    with pytest.raises(ValueError, match="head_dim must be a positive even integer"):
+        hf_config_to_parallax({"model_type": "qwen3", "hidden_size": 128, "num_attention_heads": 4, "head_dim": 31})
 
 
 def test_hf_config_hidden_act_validation():
