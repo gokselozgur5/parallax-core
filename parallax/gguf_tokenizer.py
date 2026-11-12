@@ -150,33 +150,7 @@ class GGUFTokenizer:
                             symbols.append(self.raw_tokens[self.unk_token_id])
                     i += 1
 
-            while len(symbols) >= 2:
-                best_pair = None
-                best_rank = float("inf")
-                for idx in range(len(symbols) - 1):
-                    pair = (symbols[idx], symbols[idx + 1])
-                    if pair in self.merge_ranks:
-                        rank = self.merge_ranks[pair]
-                        if rank < best_rank:
-                            best_rank = rank
-                            best_pair = pair
-
-                if best_pair is None:
-                    break
-
-                merged = best_pair[0] + best_pair[1]
-                new_syms: List[str] = []
-                idx = 0
-                while idx < len(symbols):
-                    if idx < len(symbols) - 1 and (symbols[idx], symbols[idx + 1]) == best_pair:
-                        new_syms.append(merged)
-                        idx += 2
-                    else:
-                        new_syms.append(symbols[idx])
-                        idx += 1
-                symbols = new_syms
-
-            return [self.token_to_id[s] for s in symbols if s in self.token_to_id]
+            return self._bpe_merge_symbols(symbols)
 
         # If full text exists directly in vocabulary, return it
         if text in self.token_to_id:
