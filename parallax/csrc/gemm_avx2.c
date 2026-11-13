@@ -41,3 +41,28 @@ void c_gemm_avx2_f32(
                 _mm256_storeu_ps(c_row + j, c0);
                 _mm256_storeu_ps(c_row + j + 8, c1);
             }
+            for (; Ns - j >= 8; j += 8) {
+                __m256 c0 = _mm256_loadu_ps(c_row + j);
+                __m256 b0 = _mm256_loadu_ps(b_row + j);
+                c0 = _mm256_fmadd_ps(a_vec, b0, c0);
+                _mm256_storeu_ps(c_row + j, c0);
+            }
+            for (; j < Ns; ++j) {
+                c_row[j] += a_val * b_row[j];
+            }
+        }
+    }
+}
+#else
+void c_gemm_avx2_f32(
+    const float *A,
+    const float *B,
+    float *C,
+    int M,
+    int N,
+    int K
+) {
+    if (!A || !B || !C || M <= 0 || N <= 0 || K < 0) return;
+    const size_t Ms = (size_t)M;
+    const size_t Ns = (size_t)N;
+    const size_t Ks = (size_t)K;
