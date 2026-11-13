@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 from parallax.backends.base import check_backend_contract
 from parallax.backends.c_backend import CBackend
+from parallax.backends.numpy_backend import NumpyBackend
 from parallax.c_engine import is_c_engine_available
 
 
@@ -27,3 +28,19 @@ def test_c_backend_supports() -> None:
     assert backend.supports("rmsnorm", np.float32, (2, 2))
     assert not backend.supports("gemm", np.float64, (2, 2))
     assert not backend.supports("unknown_op", np.float32, (2, 2))
+
+
+def test_c_backend_parity_with_numpy() -> None:
+    backend = CBackend()
+    if not backend.available():
+        return
+    np_backend = NumpyBackend()
+    a = np.random.randn(4, 8).astype(np.float32)
+    b = np.random.randn(8, 6).astype(np.float32)
+    assert np.allclose(backend.gemm(a, b), np_backend.gemm(a, b), atol=1e-4)
+
+    x = np.random.randn(4, 16).astype(np.float32)
+    assert np.allclose(backend.softmax(x), np_backend.softmax(x), atol=1e-4)
+
+    w = np.ones((16,), dtype=np.float32)
+    assert np.allclose(backend.rmsnorm(x, w), np_backend.rmsnorm(x, w), atol=1e-4)
