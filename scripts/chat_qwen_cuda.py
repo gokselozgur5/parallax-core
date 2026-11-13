@@ -63,23 +63,24 @@ def main():
     is_qwen3 = "<think>" in getattr(tokenizer, "token_to_id", {})
     print_banner(model_name, dev_name, vram)
     
-    system_prompt = (
-        "Sen Göksel'in zeki, samimi ve doğal Türkçe konuşan yapay zeka düşünce ortağı Parallax'sın (P). "
-        "Kısa ve net konuşursun. Kankam dersin. Asla 'Size nasıl yardımcı olabilirim?' veya müşteri hizmetleri kalıpları kullanmazsın."
-    )
-    
-    conversation_history = [
-        {"role": "system", "content": system_prompt}
-    ]
-    
+    system_prompt = "You are Parallax, a concise and direct AI partner. Mirror the user's language naturally."
+    conversation_history = [{"role": "system", "content": system_prompt}]
+    enable_thinking = False
+
     while True:
         try:
-            user_input = input("Sen: ").strip()
+            user_input = input("You: ").strip()
             if not user_input:
                 continue
-            if user_input.lower() in ["q", "exit", "quit", "çık"]:
-                print("\nParallax: Görüşmek üzere kankam!")
+            if user_input.lower() in ("q", "exit", "quit"):
                 break
+            if user_input in ("/think", "/nothink", "/clear"):
+                if user_input == "/clear":
+                    conversation_history = [{"role": "system", "content": system_prompt}]
+                else:
+                    enable_thinking = (user_input == "/think")
+                print(f"[mode] thinking={enable_thinking}, history={len(conversation_history) - 1}\n")
+                continue
                 
             conversation_history.append({"role": "user", "content": user_input})
             
