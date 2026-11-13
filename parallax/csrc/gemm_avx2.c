@@ -66,3 +66,21 @@ void c_gemm_avx2_f32(
     const size_t Ms = (size_t)M;
     const size_t Ns = (size_t)N;
     const size_t Ks = (size_t)K;
+    if (K == 0) {
+        for (size_t i = 0; i < Ms * Ns; ++i) C[i] = 0.0f;
+        return;
+    }
+    for (size_t i = 0; i < Ms; ++i) {
+        const float *a_row = A + i * Ks;
+        float *c_row = C + i * Ns;
+        for (size_t j = 0; j < Ns; ++j) c_row[j] = 0.0f;
+        for (size_t k = 0; k < Ks; ++k) {
+            float a_val = a_row[k];
+            const float *b_row = B + k * Ns;
+            for (size_t j = 0; j < Ns; ++j) {
+                c_row[j] += a_val * b_row[j];
+            }
+        }
+    }
+}
+#endif
