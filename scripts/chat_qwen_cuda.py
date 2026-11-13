@@ -32,6 +32,13 @@ def print_banner(model_name: str, device_name: str, vram_gb: float) -> None:
     print("=" * 68 + "\n")
 
 
+def build_chatml_prompt(history: List[Dict[str, str]], is_qwen3: bool, enable_thinking: bool = False) -> str:
+    kept = [history[0]] + history[1:][-8:] if len(history) > 9 else history
+    body = "".join(f"<|im_start|>{m['role']}\n{m['content']}<|im_end|>\n" for m in kept)
+    suffix = "" if (not is_qwen3 or enable_thinking) else "<think>\n\n</think>\n\n"
+    return body + "<|im_start|>assistant\n" + suffix
+
+
 def main():
     if not is_cuda_available():
         print("ERROR: CUDA GPU is not available.")
