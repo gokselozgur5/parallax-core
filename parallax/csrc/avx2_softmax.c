@@ -44,3 +44,27 @@ void c_softmax_avx2_f32(
             out_row[c] = exp_val;
             sum += (double)exp_val;
         }
+        double inv_sum = 1.0 / sum;
+        float inv_sum_f = (float)inv_sum;
+        __m256 inv_vec = _mm256_set1_ps(inv_sum_f);
+        c = 0;
+        for (; cols_s - c >= 8; c += 8) {
+            __m256 v = _mm256_loadu_ps(out_row + c);
+            v = _mm256_mul_ps(v, inv_vec);
+            _mm256_storeu_ps(out_row + c, v);
+        }
+        for (; c < cols_s; ++c) {
+            out_row[c] = (float)((double)out_row[c] * inv_sum);
+        }
+    }
+}
+#else
+void c_softmax_avx2_f32(
+    const float *input,
+    float *output,
+    int rows,
+    int cols
+) {
+    if (!input || !output || rows <= 0 || cols <= 0) return;
+    const size_t rows_s = (size_t)rows;
+    const size_t cols_s = (size_t)cols;
