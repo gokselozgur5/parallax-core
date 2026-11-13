@@ -40,3 +40,23 @@ def test_stub_capability_queries():
     assert not b.supports("gemm", np.float64, (4, 4))
     assert not b.supports("gemm", np.float32, (4,))
     assert not b.supports("conv", np.float32, (4, 4))
+
+
+def test_broken_stubs_fail_contract():
+    class NoName(StubBackend):
+        name = ""
+
+    class BadAvail(StubBackend):
+        def available(self):
+            return 1
+
+    class BadSupports(StubBackend):
+        def supports(self, op, dtype, shape):
+            return None
+
+    with pytest.raises(ValueError):
+        check_backend_contract(NoName())
+    with pytest.raises(TypeError):
+        check_backend_contract(BadAvail())
+    with pytest.raises(TypeError):
+        check_backend_contract(BadSupports())
