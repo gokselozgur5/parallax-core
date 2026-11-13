@@ -25,3 +25,18 @@ class MetalBufferView:
 
     def as_numpy(self) -> np.ndarray:
         return self.array
+
+    def release(self) -> None:
+        if self.device_buffer is not None:
+            try:
+                import parallax.metal_engine as me
+                me._objc_send(None, self.device_buffer, "release")
+            except Exception:
+                pass
+            self.device_buffer = None
+
+    def __enter__(self) -> MetalBufferView:
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self.release()
