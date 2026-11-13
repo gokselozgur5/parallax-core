@@ -110,3 +110,26 @@ def candidate_backends(
         if "numpy" not in c:
             c.append("numpy")
     return c
+
+
+def dispatch(op: str, *args: Any, **kwargs: Any) -> Any:
+    env = kwargs.pop("_environ", None)
+    n_elems, dtype, shape = _inspect_inputs(args)
+    candidates = candidate_backends(op, n_elements=n_elems, environ=env)
+    last_err: Exception | None = None
+    for name in candidates:
+        b = _resolve_backend(name)
+        if b is None or not b.available() or not b.supports(op, dtype, shape):
+            _record_fallback(op, name, "backend not available or unsupported")
+            continue
+        fn = getattr(b, op, None)
+        if not callable(fn):
+            _record_fallback(op, name, f"backend lacks op {op}")
+            continue
+        try:
+            return fn(*args, **kwargs)
+        except Exception as exc:
+            last_err = exc
+            _record_fallback(op, name, str(exc), exc=exc)
+    msg = f"All backends failed for {op}: {candidates}"
+    raise RuntimeError(msg) from last_err
