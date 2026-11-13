@@ -34,24 +34,19 @@ def print_banner(model_name: str, device_name: str, vram_gb: float) -> None:
 
 def main():
     if not is_cuda_available():
-        print("HATA: CUDA GPU bulunamadı!")
+        print("ERROR: CUDA GPU is not available.")
         sys.exit(1)
-        
+
     import torch
     dev_name = torch.cuda.get_device_name(0)
     vram = torch.cuda.get_device_properties(0).total_memory / (1024**3)
-    
-    # Priority: sys.argv[1] -> 3B -> 0.5B
-    if len(sys.argv) > 1:
-        model_dir = sys.argv[1]
-    elif os.path.exists("models/qwen2.5-3b"):
-        model_dir = "models/qwen2.5-3b"
-    elif os.path.exists("models/qwen2.5-0.5b"):
-        model_dir = "models/qwen2.5-0.5b"
-    else:
-        print("HATA: Hiçbir model dizini bulunamadı!")
+    default_gguf = os.path.expanduser("~/.parallax/models/Qwen3-32B-Q4_K_M.gguf")
+    candidates = [sys.argv[1]] if len(sys.argv) > 1 else [default_gguf, "models/qwen2.5-3b", "models/qwen2.5-0.5b"]
+    model_dir = next((p for p in candidates if os.path.exists(p)), "")
+    if not model_dir:
+        print("ERROR: Model path not found. Pass a .gguf file or HF directory.")
         sys.exit(1)
-        
+
     model_name = os.path.basename(model_dir)
     print(f"[1/2] Model ağırlıkları RTX 4090 VRAM'ine yükleniyor ({model_name} / {dev_name})...")
     t0 = time.time()
