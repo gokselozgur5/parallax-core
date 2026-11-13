@@ -33,3 +33,12 @@ def test_bind_success_configures_signature() -> None:
         assert fn is mock_fn
         assert fn.argtypes == [ctypes.c_float]
         assert fn.restype == ctypes.c_int
+
+
+def test_bind_real_c_engine_symbol() -> None:
+    lib = get_c_lib()
+    if lib is None:
+        return
+    fn = bind("c_gemm_f32", [ctypes.c_void_p] * 3 + [ctypes.c_int] * 3, None)
+    assert fn is not None
+    assert bind("non_existent_kernel_symbol", [], None) is None
