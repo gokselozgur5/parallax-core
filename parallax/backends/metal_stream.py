@@ -27,3 +27,22 @@ class MetalStream:
         if sys.platform != "darwin":
             return False
         return is_metal_available()
+
+    def _create_queue(self) -> Optional[Any]:
+        import ctypes
+        import parallax.metal_engine as me
+
+        if me._DEVICE is None or me._objc_send is None:
+            return None
+        return me._objc_send(ctypes.c_void_p, me._DEVICE, "newCommandQueue")
+
+    def synchronize(self) -> None:
+        if not self.available() or self._queue is None:
+            return
+        import ctypes
+        import parallax.metal_engine as me
+
+        cmd_buf = me._objc_send(ctypes.c_void_p, self._queue, "commandBuffer")
+        if cmd_buf:
+            me._objc_send(None, cmd_buf, "commit")
+            me._objc_send(None, cmd_buf, "waitUntilCompleted")
