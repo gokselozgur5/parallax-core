@@ -55,3 +55,11 @@ def test_avx2_gemm_parity_with_numpy(m: int, k: int, n: int) -> None:
     actual = gemm_avx2(a, b)
     max_err = float(np.max(np.abs(actual - expected)))
     assert max_err < 1e-4
+
+
+def test_avx2_gemm_zero_k() -> None:
+    a = np.empty((3, 0), dtype=np.float32)
+    b = np.empty((0, 4), dtype=np.float32)
+    c = gemm_avx2(a, b)
+    assert c.shape == (3, 4)
+    assert np.all(c == 0.0)
