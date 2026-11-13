@@ -25,3 +25,28 @@ class FallbackRecord:
     backend: str
     reason: str
     exception: str | None = None
+
+
+_fallback_history: list[FallbackRecord] = []
+_fallback_lock = threading.Lock()
+
+
+def get_fallback_history() -> list[FallbackRecord]:
+    """Return a snapshot copy of recorded fallback events."""
+    with _fallback_lock:
+        return list(_fallback_history)
+
+
+def clear_fallback_history() -> None:
+    """Clear the recorded fallback history."""
+    with _fallback_lock:
+        _fallback_history.clear()
+
+
+def _record_fallback(op: str, backend: str, reason: str, exc: Exception | None = None) -> None:
+    """Record a fallback event into global history."""
+    exc_str = f"{type(exc).__name__}: {exc}" if exc is not None else None
+    record = FallbackRecord(op=op, backend=backend, reason=reason, exception=exc_str)
+    with _fallback_lock:
+        _fallback_history.append(record)
+    _LOGGER.debug("Dispatch fallback for %s on %s: %s", op, backend, reason)
