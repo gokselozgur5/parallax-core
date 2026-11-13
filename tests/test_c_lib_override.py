@@ -26,3 +26,15 @@ def test_c_lib_default_behavior(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("PARALLAX_C_LIB", raising=False)
     assert isinstance(is_c_engine_available(), bool)
     reset_c_lib_cache()
+
+
+def test_c_lib_override_missing_require_raises(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    reset_c_lib_cache()
+    missing = tmp_path / "libmissing.dylib"
+    monkeypatch.setenv("PARALLAX_C_LIB", str(missing))
+    monkeypatch.setenv("PARALLAX_REQUIRE_C_ENGINE", "1")
+    with pytest.raises(RuntimeError, match="PARALLAX_REQUIRE_C_ENGINE=1 but C-engine failed"):
+        is_c_engine_available()
+    reset_c_lib_cache()
