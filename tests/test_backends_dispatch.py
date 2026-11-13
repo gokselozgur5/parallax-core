@@ -69,3 +69,28 @@ def test_dispatch_skips_unsupported_backend():
     res = dispatch("gemm", a, a, _environ={"PARALLAX_BACKEND": "c"})
     assert res is not None
     assert len(get_fallback_history()) == 1
+
+
+class FaultyBackend(MockBackend):
+    def gemm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        raise RuntimeError("Kernel crashed")
+
+
+def test_dispatch_falls_back_on_execution_exception():
+    faulty = FaultyBackend("c", is_avail=True, supports_op=True)
+    fallback = CalculatorBackend("numpy", is_avail=True, supports_op=True)
+    registry.register("c", faulty)
+    registry.register("numpy", fallback)
+    a = np.ones((2, 2), dtype=np.float32)
+    res = dispatch("gemm", a, a, _environ={"PARALLAX_BACKEND": "c"})
+    assert res is not None
+    history = get_fallback_history()
+    assert len(history) == 1
+    assert "Kernel crashed" in history[0].reason
+
+
+def test_dispatch_raises_when_all_fail():
+    faulty = FaultyBackend("numpy", is_avail=True, supports_op=True)
+    registry.register("numpy", faulty)
+    with pytest.raises(RuntimeError, match="All backends failed"):
+        dispatch("gemm", np.ones((2, 2), dtype=np.float32), np.ones((2, 2)))
