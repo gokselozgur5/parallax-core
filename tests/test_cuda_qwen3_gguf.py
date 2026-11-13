@@ -63,3 +63,13 @@ def test_qwen3_cuda_model_gguf_streaming_matches_parallax_lm(tmp_path: Path) -> 
     eng = Qwen3CUDAModel(gguf_path, device="cpu", dtype=torch.float32)
     cuda_logits, _ = eng.forward_step(torch.tensor([[1, 3, 5]], dtype=torch.long), start_pos=0)
     np.testing.assert_allclose(cuda_logits[0].numpy(), ref_logits, rtol=1e-5, atol=1e-4)
+
+
+def test_chat_qwen_cuda_build_chatml_prompt_qwen3_modes() -> None:
+    from scripts.chat_qwen_cuda import build_chatml_prompt
+
+    hist = [{"role": "system", "content": "sys"}, {"role": "user", "content": "selam"}]
+    p_fast = build_chatml_prompt(hist, is_qwen3=True, enable_thinking=False)
+    assert p_fast.endswith("<|im_start|>assistant\n<think>\n\n</think>\n\n")
+    p_think = build_chatml_prompt(hist, is_qwen3=True, enable_thinking=True)
+    assert p_think.endswith("<|im_start|>assistant\n")
