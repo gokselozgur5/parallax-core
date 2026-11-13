@@ -48,15 +48,12 @@ def main():
         sys.exit(1)
 
     model_name = os.path.basename(model_dir)
-    print(f"[1/2] Model ağırlıkları RTX 4090 VRAM'ine yükleniyor ({model_name} / {dev_name})...")
+    print(f"[1/2] Loading weights onto {dev_name} ({model_name})...", flush=True)
     t0 = time.time()
-    model = Qwen2CUDAModel(model_dir=model_dir, device="cuda")
-    print(f"✓ Model GPU belleğinde hazır! ({time.time() - t0:.2f} saniye)")
-    
-    print("[2/2] Tokenizer hazırlanıyor...")
-    tokenizer = load_hf_tokenizer(model_dir)
-    print("✓ Qwen2.5 BPE Tokenizer aktif.\n")
-    
+    model = Qwen3CUDAModel(model_dir=model_dir, device="cuda")
+    print(f"[OK] Loaded in {time.time() - t0:.2f}s.\n", flush=True)
+    tokenizer = model.tokenizer if model.tokenizer is not None else load_hf_tokenizer(model_dir)
+    is_qwen3 = "<think>" in getattr(tokenizer, "token_to_id", {})
     print_banner(model_name, dev_name, vram)
     
     system_prompt = (
