@@ -46,3 +46,32 @@ class MetalStream:
         if cmd_buf:
             me._objc_send(None, cmd_buf, "commit")
             me._objc_send(None, cmd_buf, "waitUntilCompleted")
+
+    def release(self) -> None:
+        with self._lock:
+            if self._queue is not None:
+                import parallax.metal_engine as me
+
+                try:
+                    if me._objc_send is not None:
+                        me._objc_send(None, self._queue, "release")
+                except Exception:
+                    pass
+                self._queue = None
+
+
+_default_stream = MetalStream(stream_id=0)
+
+
+def current_stream() -> MetalStream:
+    return getattr(_tls, "stream", _default_stream)
+
+
+@contextmanager
+def use_stream(stream: MetalStream) -> Generator[MetalStream, None, None]:
+    prev = current_stream()
+    _tls.stream = stream
+    try:
+        yield stream
+    finally:
+        _tls.stream = prev
