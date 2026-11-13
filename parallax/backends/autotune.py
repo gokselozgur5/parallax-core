@@ -91,3 +91,15 @@ def _run_op(backend: Any, op: str, size: int) -> None:
         backend.rmsnorm(x, w)
 
 
+def measure_time(backend: Any, op: str, size: int, repeat: int = 3) -> float:
+    """Measure median duration in nanoseconds for op execution."""
+    _run_op(backend, op, size)
+    timings = []
+    for _ in range(repeat):
+        t0 = time.perf_counter_ns()
+        _run_op(backend, op, size)
+        timings.append(time.perf_counter_ns() - t0)
+    return float(np.median(timings))
+
+
+
