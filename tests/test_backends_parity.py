@@ -23,3 +23,20 @@ class MockBackend(Backend):
 
     def available(self) -> bool:
         return self._available
+    def supports(self, op: str, dtype: Any, shape: tuple[int, ...]) -> bool:
+        return op in ("gemm", "softmax", "rmsnorm")
+
+    def gemm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        return (a @ b) + self.offset
+
+
+def test_parity_exact_match() -> None:
+    backend = MockBackend("exact", offset=0.0)
+    a = np.ones((2, 2), dtype=np.float32)
+    b = np.ones((2, 2), dtype=np.float32)
+    report = check_parity("gemm", a, b, backends=[backend])
+    assert "exact" in report
+    res = report["exact"]
+    assert res.passed
+    assert res.status == "ok"
+    assert res.max_abs_error == 0.0
