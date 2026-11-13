@@ -55,3 +55,21 @@ def test_quarantine_reset() -> None:
     q.record_failure("gemm", "c")
     q.reset()
     assert not q.is_quarantined("gemm", "c")
+
+
+def test_quarantine_thread_safety() -> None:
+    import threading
+
+    q = BackendQuarantine(failure_threshold=100)
+
+    def worker() -> None:
+        for _ in range(50):
+            q.record_failure("gemm", "c")
+
+    threads = [threading.Thread(target=worker) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert q.failure_count("gemm", "c") == 200
