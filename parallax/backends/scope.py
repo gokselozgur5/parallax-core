@@ -58,3 +58,18 @@ def current_backend(op: str | None = None) -> str | None:
         if entry_op is None:
             return backend
     return None
+
+
+def clear_scopes() -> None:
+    """Clear all active scopes for current thread."""
+    _get_stack().clear()
+
+
+scoped_backend = current_backend
+
+__all__ = [
+    "clear_scopes",
+    "current_backend",
+    "scoped_backend",
+    "use_backend",
+]
