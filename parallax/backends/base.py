@@ -23,3 +23,21 @@ class Backend(abc.ABC):
     @abc.abstractmethod
     def supports(self, op: str, dtype: Any, shape: tuple[int, ...]) -> bool:
         """Return True if ``op`` is supported for ``dtype`` and ``shape``."""
+
+
+def check_backend_contract(backend: Backend) -> None:
+    """Validate that ``backend`` honours the Backend contract.
+
+    Raises TypeError or ValueError with a descriptive message.
+    """
+    name = getattr(backend, "name", None)
+    if not isinstance(name, str):
+        raise TypeError(f"backend name must be a str, got {type(name).__name__}")
+    if not name:
+        raise ValueError("backend name must be a non-empty string")
+    avail = backend.available()
+    if not isinstance(avail, bool):
+        raise TypeError(f"available() must return bool, got {type(avail).__name__}")
+    sample = backend.supports("gemm", "float32", (2, 2))
+    if not isinstance(sample, bool):
+        raise TypeError(f"supports() must return bool, got {type(sample).__name__}")
