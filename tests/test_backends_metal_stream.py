@@ -32,3 +32,12 @@ def test_metal_stream_synchronize_and_context() -> None:
     assert current_stream() == orig
     s1.release()
     assert s1._queue is None
+
+
+def test_metal_stream_off_macos(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sys.platform", "linux")
+    stream = MetalStream(stream_id=9)
+    assert not stream.available()
+    assert stream._queue is None
+    stream.synchronize()
+    stream.release()
