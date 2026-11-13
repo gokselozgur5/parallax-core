@@ -49,3 +49,16 @@ static void softmax_avx512_kernel(const float *in, float *out, int rows, int col
 }
 #endif
 
+int c_softmax_avx512_f32(const float *in, float *out, int rows, int cols) {
+    if (!in || !out) return PARALLAX_STATUS_NULL_POINTER;
+    if (rows <= 0 || cols <= 0) return PARALLAX_STATUS_INVALID_DIMENSION;
+    if (!c_has_avx512_softmax_f32()) return PARALLAX_STATUS_UNSUPPORTED_ISA;
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+    softmax_avx512_kernel(in, out, rows, cols);
+    return PARALLAX_STATUS_OK;
+#else
+    return PARALLAX_STATUS_UNSUPPORTED_ISA;
+#endif
+}
+
+
