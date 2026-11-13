@@ -25,3 +25,22 @@ class MockBackend(Backend):
 
     def supports(self, op: str, dtype: Any, shape: tuple[int, ...]) -> bool:
         return self._supports
+
+
+@pytest.fixture(autouse=True)
+def clean_registry_and_history():
+    registry.clear()
+    clear_fallback_history()
+    yield
+    registry.clear()
+    clear_fallback_history()
+
+
+def test_fallback_record_repr_and_clearing():
+    record = FallbackRecord(op="gemm", backend="mock", reason="failed", exception=None)
+    assert record.op == "gemm"
+    assert record.backend == "mock"
+    assert record.reason == "failed"
+    assert get_fallback_history() == []
+    clear_fallback_history()
+    assert get_fallback_history() == []
