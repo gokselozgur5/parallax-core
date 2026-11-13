@@ -51,3 +51,30 @@ class MetalTensorBridge:
                 me._objc_send(None, buffer, "release")
         except Exception:
             pass
+
+    def from_metal_buffer(
+        self,
+        buffer: Any,
+        shape: tuple[int, ...],
+        dtype: Any = np.float32,
+    ) -> Optional[np.ndarray]:
+        if not self.available() or buffer is None:
+            return None
+        import ctypes
+        import parallax.metal_engine as me
+
+        ptr = me._objc_send(ctypes.c_void_p, buffer, "contents")
+        if not ptr:
+            return None
+        c_type = ctypes.POINTER(ctypes.c_float)
+        arr = np.ctypeslib.as_array(ctypes.cast(ptr, c_type), shape=shape)
+        return arr.copy()
+
+    def is_shared(self, array: np.ndarray, buffer: Any) -> bool:
+        if not self.available() or buffer is None or array is None:
+            return False
+        import ctypes
+        import parallax.metal_engine as me
+
+        ptr = me._objc_send(ctypes.c_void_p, buffer, "contents")
+        return int(array.ctypes.data) == int(ptr or 0)
