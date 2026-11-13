@@ -107,3 +107,17 @@ class MetalPipelineCache:
                 self._release_pso(old_p)
             self._cache[key] = pso
         return pso
+
+    def clear(self) -> None:
+        with self._lock:
+            for pso in self._cache.values():
+                self._release_pso(pso)
+            self._cache.clear()
+
+    def stats(self) -> dict[str, int]:
+        with self._lock:
+            return {
+                "hits": self._hits,
+                "misses": self._misses,
+                "count": len(self._cache),
+            }
