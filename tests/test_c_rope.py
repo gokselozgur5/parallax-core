@@ -36,3 +36,15 @@ def test_rope_parity_interleaved() -> None:
     expected = np.transpose(ref, (1, 0, 2))
     actual = rope_in_place(x.copy(), start_pos=5, theta=10000.0, interleaved=True)
     np.testing.assert_allclose(actual, expected, atol=1e-6, rtol=1e-5)
+
+
+def test_rope_parity_non_interleaved() -> None:
+    from parallax.attention import apply_rope
+
+    rng = np.random.default_rng(43)
+    x = rng.standard_normal((6, 2, 16)).astype(np.float32)
+    x_t = np.transpose(x, (1, 0, 2))
+    ref = apply_rope(x_t, seq_dim=1, offset=0, theta=5000.0, interleaved=False)
+    expected = np.transpose(ref, (1, 0, 2))
+    actual = rope_in_place(x.copy(), start_pos=0, theta=5000.0, interleaved=False)
+    np.testing.assert_allclose(actual, expected, atol=1e-6, rtol=1e-5)
