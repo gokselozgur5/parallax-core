@@ -1,12 +1,15 @@
 import pytest
 from parallax.backends.autotune import (
     SCHEMA_VERSION,
+    autotune,
+    find_crossover,
     get_default_cache_dir,
     get_default_cache_path,
     load_cache,
     save_cache,
     validate_cache_schema,
 )
+from parallax.backends.numpy_backend import NumpyBackend
 
 
 def test_default_cache_paths(tmp_path, monkeypatch):
@@ -47,4 +50,29 @@ def test_load_cache_corrupt_schema(tmp_path):
     target.write_text('{"version": 1, "thresholds": "invalid"}', encoding="utf-8")
     with pytest.raises(ValueError, match="Missing or invalid 'thresholds'"):
         load_cache(target)
+
+
+class DummyFastBackend:
+    name = "dummy_fast"
+
+    def gemm(self, a, b):
+        return a @ b
+
+    def softmax(self, x, axis=-1):
+        return x
+
+    def rmsnorm(self, x, weight, eps=1e-5):
+        return x * weight
+
+
+def test_find_crossover_and_autotune(tmp_path):
+    fast = DummyFastBackend()
+    ref = NumpyBackend()
+    threshold = find_crossover("gemm", fast, ref, ladder=(8, 16))
+    assert threshold > 0
+    cache_file = tmp_path / "autotune.json"
+    res = autotune(fast, ref, ops=("gemm", "softmax"), path=cache_file)
+    assert "gemm" in res and "softmax" in res
+    assert cache_file.is_file()
+
 
