@@ -8,7 +8,6 @@ from parallax.backends.base import Backend
 from parallax.backends.numpy_backend import NumpyBackend
 from parallax.backends.parity import (
     ParityError,
-    check_op_parity,
     check_parity,
     parity_errors,
 )
