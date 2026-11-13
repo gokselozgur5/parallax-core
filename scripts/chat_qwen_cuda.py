@@ -100,19 +100,21 @@ def main():
                 repetition_penalty=1.12,
             ):
                 gen_tokens.append(token_id)
-                token_text = tokenizer.decode([token_id])
-                print(token_text, end="", flush=True)
-                
+                decoded_so_far = tokenizer.decode(gen_tokens)
+                if not decoded_so_far.endswith("\ufffd"):
+                    print(decoded_so_far[printed_len:], end="", flush=True)
+                    printed_len = len(decoded_so_far)
+
+            full_reply = tokenizer.decode(gen_tokens)
+            if printed_len < len(full_reply):
+                print(full_reply[printed_len:], end="", flush=True)
             gen_time = time.time() - t_gen_start
-            speed = len(gen_tokens) / gen_time if gen_time > 0 else 0
-            
-            print(f"\n\n⚡ [{speed:.1f} tokens/s | {len(gen_tokens)} tokens in {gen_time:.2f}s]\n")
-            
-            assistant_reply = tokenizer.decode(gen_tokens).strip()
-            conversation_history.append({"role": "assistant", "content": assistant_reply})
-            
+            speed = len(gen_tokens) / gen_time if gen_time > 0 else 0.0
+            print(f"\n\n[{speed:.2f} tokens/s | {len(gen_tokens)} tokens in {gen_time:.2f}s]\n")
+            conversation_history.append({"role": "assistant", "content": full_reply.strip()})
+
         except (KeyboardInterrupt, EOFError):
-            print("\nÇıkış yapıldı.")
+            print("\nExiting.")
             break
 
 
