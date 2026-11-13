@@ -24,3 +24,17 @@ class MetalPipelineCache:
         if sys.platform != "darwin":
             return False
         return is_metal_available()
+
+    @staticmethod
+    def _make_key(func_name: str, source: str) -> tuple[str, str]:
+        digest = hashlib.sha256(source.encode("utf-8")).hexdigest()[:16]
+        return (func_name, digest)
+
+    def _release_pso(self, pso: Any) -> None:
+        import parallax.metal_engine as me
+
+        try:
+            if me._objc_send is not None and pso:
+                me._objc_send(None, pso, "release")
+        except Exception:
+            pass
