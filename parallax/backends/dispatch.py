@@ -79,3 +79,14 @@ def _resolve_backend(name: str) -> Backend | None:
         except KeyError:
             return None
     return None
+
+
+def _inspect_inputs(args: tuple[Any, ...]) -> tuple[int, Any, tuple[int, ...]]:
+    if not args:
+        return 0, None, ()
+    first = args[0]
+    return (
+        int(getattr(first, "size", 0)),
+        getattr(first, "dtype", None),
+        tuple(getattr(first, "shape", ())),
+    )
