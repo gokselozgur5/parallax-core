@@ -29,3 +29,30 @@ def test_avx2_softmax_invalid_axis() -> None:
     x = np.ones((2, 4), dtype=np.float32)
     with pytest.raises(ValueError, match="only supports last dimension"):
         softmax_avx2(x, axis=0)
+
+
+def _numpy_softmax(x: np.ndarray) -> np.ndarray:
+    shifted = x - np.max(x, axis=-1, keepdims=True)
+    exp_x = np.exp(shifted)
+    return exp_x / np.sum(exp_x, axis=-1, keepdims=True)
+
+
+@pytest.mark.parametrize(
+    "rows,cols",
+    [
+        (1, 1),
+        (2, 4),
+        (3, 8),
+        (4, 16),
+        (7, 23),
+        (16, 64),
+    ],
+)
+def test_avx2_softmax_parity(rows: int, cols: int) -> None:
+    rng = np.random.default_rng(42)
+    x = rng.standard_normal((rows, cols), dtype=np.float32)
+    expected = _numpy_softmax(x)
+    actual = softmax_avx2(x)
+    assert np.allclose(actual, expected, atol=1e-5)
+    row_sums = np.sum(actual, axis=-1)
+    assert np.allclose(row_sums, np.ones(rows), atol=1e-5)
