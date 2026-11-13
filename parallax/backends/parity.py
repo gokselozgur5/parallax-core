@@ -92,3 +92,27 @@ def check_op_parity(
         return ParityResult(name, op, err, passed, status)
     except Exception as exc:
         return ParityResult(name, op, 0.0, False, "error", str(exc))
+
+
+def check_parity(
+    op: str,
+    *args: Any,
+    backends: Sequence[Backend | str] | None = None,
+    reference: Backend | str = "numpy",
+    threshold: float = DEFAULT_PARITY_THRESHOLD,
+    raise_on_error: bool = False,
+    **kwargs: Any,
+) -> ParityReport:
+    ref_b = _resolve_backend(reference)
+    ref_fn = getattr(ref_b, op, None)
+    if ref_fn is None:
+        raise AttributeError(f"reference backend lacks op: {op}")
+    ref_out = ref_fn(*args, **kwargs)
+
+    targets: list[Backend] = []
+    if backends is None:
+        for name in registry.list_backends():
+            targets.append(_resolve_backend(name))
+    else:
+        for item in backends:
+            targets.append(_resolve_backend(item))
