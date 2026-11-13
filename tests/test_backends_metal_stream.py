@@ -20,3 +20,15 @@ def test_metal_stream_availability() -> None:
         if stream.available():
             assert stream._queue is not None
     stream.release()
+
+
+def test_metal_stream_synchronize_and_context() -> None:
+    s1 = MetalStream(stream_id=1, priority=1)
+    s1.synchronize()
+    orig = current_stream()
+    with use_stream(s1) as active:
+        assert active == s1
+        assert current_stream() == s1
+    assert current_stream() == orig
+    s1.release()
+    assert s1._queue is None
