@@ -39,6 +39,17 @@ def reset_rust_lib_cache() -> None:
 
 def find_rust_lib() -> Optional[Path]:
     """Locate the compiled libparallax_rs library if available."""
+    global _LOAD_ERROR_REASON
+    env_override = os.environ.get("PARALLAX_RUST_LIB")
+    if env_override:
+        path = Path(env_override).expanduser().resolve()
+        if path.is_file():
+            _LOAD_ERROR_REASON = None
+            return path
+        _LOAD_ERROR_REASON = f"PARALLAX_RUST_LIB path does not exist: {path}"
+        _LOGGER.warning("%s", _LOAD_ERROR_REASON)
+        return None
+
     repo_root = Path(__file__).resolve().parent.parent
     crate_target = repo_root / "crates" / "parallax-rs" / "target"
 
@@ -53,7 +64,9 @@ def find_rust_lib() -> Optional[Path]:
     for mode in ("release", "debug"):
         candidate = crate_target / mode / lib_name
         if candidate.is_file():
+            _LOAD_ERROR_REASON = None
             return candidate
+    _LOAD_ERROR_REASON = "libparallax_rs shared library not found in crate target"
     return None
 
 
