@@ -97,3 +97,31 @@ class MetalBufferPool:
                 "cached_bytes": self._cached_bytes,
                 "allocated_bytes": self._allocated_bytes,
             }
+
+
+class ZeroCopyViewCache:
+    """Cache mapping ndarray data pointers to zero-copy Metal buffers."""
+
+    def __init__(self, max_entries: int = 256) -> None:
+        self.max_entries = max_entries
+        self._lock = threading.Lock()
+        self._cache: dict[int, tuple[Any, int]] = {}
+
+    def available(self) -> bool:
+        if sys.platform != "darwin":
+            return False
+        return is_metal_available()
+
+    def _wrap_array(self, array: np.ndarray) -> Optional[Any]:
+        import parallax.metal_engine as me
+
+        if me._DEVICE is None or me._objc_send is None:
+            return None
+        return me._objc_send(
+            me.ctypes.c_void_p,
+            me._DEVICE,
+            "newBufferWithBytes:length:options:",
+            array.ctypes.data_as(me.ctypes.c_void_p),
+            array.nbytes,
+            0,
+        )
