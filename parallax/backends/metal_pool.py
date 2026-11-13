@@ -25,3 +25,31 @@ class MetalBufferPool:
         if sys.platform != "darwin":
             return False
         return is_metal_available()
+
+    @staticmethod
+    def _bucket_size(size: int) -> int:
+        if size <= 256:
+            return 256
+        return 1 << (size - 1).bit_length()
+
+    def _allocate_raw(self, size: int) -> Optional[Any]:
+        import parallax.metal_engine as me
+
+        if me._DEVICE is None or me._objc_send is None:
+            return None
+        buf = me._objc_send(
+            me.ctypes.c_void_p, me._DEVICE, "newBufferWithLength:options:", size, 0
+        )
+        if buf:
+            self._allocated_bytes += size
+        return buf
+
+    def _free_raw(self, buffer: Any, size: int) -> None:
+        import parallax.metal_engine as me
+
+        try:
+            if me._objc_send is not None:
+                me._objc_send(None, buffer, "release")
+        except Exception:
+            pass
+        self._allocated_bytes = max(0, self._allocated_bytes - size)
