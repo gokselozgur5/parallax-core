@@ -18,18 +18,18 @@ repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if repo_root not in sys.path:
     sys.path.insert(0, repo_root)
 
-from parallax.cuda_engine import Qwen2CUDAModel, is_cuda_available
+from typing import Dict, List
+from parallax.cuda_engine import Qwen3CUDAModel, is_cuda_available
 from parallax.hf_tokenizer import load_hf_tokenizer
 
 
-def print_banner(model_name: str, device_name: str, vram_gb: float):
+def print_banner(model_name: str, device_name: str, vram_gb: float) -> None:
     print("=" * 68)
-    print("  🚀 PARALLAX-CORE: NVIDIA RTX 4090 Canlı GPU Çıkarımı")
+    print("  PARALLAX-CORE: Interactive GPU Inference")
     print(f"  Model  : {model_name}")
-    print(f"  Donanım: {device_name} ({vram_gb:.1f} GB VRAM • bfloat16)")
-    print("  Motor  : Saf Parallax CUDA KV-Cache Engine (Top-P & Top-K Sampling)")
-    print("=" * 68)
-    print("Sohbete başlayabilirsiniz! Çıkmak için 'q' veya 'exit' yazın.\n")
+    print(f"  Device : {device_name} ({vram_gb:.1f} GB Memory, bfloat16)")
+    print("  Commands: /think, /nothink, /clear, exit")
+    print("=" * 68 + "\n")
 
 
 def main():
