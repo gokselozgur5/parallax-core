@@ -38,3 +38,21 @@ class MetalPipelineCache:
                 me._objc_send(None, pso, "release")
         except Exception:
             pass
+
+    def _compile_lib(self, src: str) -> tuple[Optional[Any], Optional[Any]]:
+        import ctypes
+        import parallax.metal_engine as me
+
+        if me._DEVICE is None or me._objc_send is None:
+            return None, None
+        err = ctypes.c_void_p()
+        s_cf = me._cf_string(src)
+        lib = me._objc_send(
+            ctypes.c_void_p,
+            me._DEVICE,
+            "newLibraryWithSource:options:error:",
+            s_cf,
+            None,
+            ctypes.byref(err),
+        )
+        return lib, s_cf
