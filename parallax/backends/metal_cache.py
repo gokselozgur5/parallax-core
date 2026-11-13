@@ -80,3 +80,30 @@ class MetalPipelineCache:
         me._cf_release(s_cf, f_cf)
         me._release_buffers(fn, lib)
         return pso
+
+    def has(self, func_name: str, source: str) -> bool:
+        key = self._make_key(func_name, source)
+        with self._lock:
+            return key in self._cache
+
+    def get_or_compile(
+        self, func_name: str, source: str
+    ) -> Optional[Any]:
+        if not self.available() or not func_name or not source:
+            return None
+        key = self._make_key(func_name, source)
+        with self._lock:
+            if key in self._cache:
+                self._hits += 1
+                return self._cache[key]
+            self._misses += 1
+        pso = self._compile_pipeline(func_name, source)
+        if pso is None:
+            return None
+        with self._lock:
+            if len(self._cache) >= self.max_entries:
+                old_k, old_p = next(iter(self._cache.items()))
+                del self._cache[old_k]
+                self._release_pso(old_p)
+            self._cache[key] = pso
+        return pso
