@@ -19,3 +19,20 @@ def test_numpy_gemm():
     c = np.array([[2.0, 0.0], [1.0, 2.0]], dtype=np.float32)
     res = b.gemm(a, c)
     assert np.allclose(res, a @ c)
+
+
+def test_numpy_softmax():
+    b = NumpyBackend()
+    x = np.array([1.0, 2.0, 3.0], dtype=np.float32)
+    res = b.softmax(x)
+    assert np.allclose(res, np.exp(x) / np.sum(np.exp(x)))
+
+
+def test_numpy_rmsnorm():
+    b = NumpyBackend()
+    x = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    weight = np.array([1.0, 1.0], dtype=np.float32)
+    res = b.rmsnorm(x, weight)
+    variance = np.mean(x * x, axis=-1, keepdims=True)
+    expected = (x / np.sqrt(variance + 1e-5)) * weight
+    assert np.allclose(res, expected)
