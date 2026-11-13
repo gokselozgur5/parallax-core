@@ -78,3 +78,22 @@ class MetalBufferPool:
                 self._cached_bytes += bucket
                 return
         self._free_raw(buffer, bucket)
+
+    def clear(self) -> None:
+        with self._lock:
+            for bucket, bufs in self._pool.items():
+                for b in bufs:
+                    self._free_raw(b, bucket)
+            self._pool.clear()
+            self._cached_bytes = 0
+
+    def stats(self) -> dict[str, int]:
+        with self._lock:
+            cached_count = sum(len(b) for b in self._pool.values())
+            return {
+                "hits": self._hits,
+                "misses": self._misses,
+                "cached_count": cached_count,
+                "cached_bytes": self._cached_bytes,
+                "allocated_bytes": self._allocated_bytes,
+            }
