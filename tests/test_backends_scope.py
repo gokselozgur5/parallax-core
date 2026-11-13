@@ -43,3 +43,20 @@ def test_scope_as_function_decorator():
 
     assert compute() == "c"
     assert current_backend() is None
+
+
+def test_per_op_scope_and_global_fallback():
+    with use_backend("numpy"):
+        assert current_backend("gemm") == "numpy"
+        with use_backend("metal", op="gemm"):
+            assert current_backend("gemm") == "metal"
+            assert current_backend("softmax") == "numpy"
+        assert current_backend("gemm") == "numpy"
+
+
+def test_clear_override_with_none():
+    with use_backend("c"):
+        assert current_backend() == "c"
+        with use_backend(None):
+            assert current_backend() is None
+        assert current_backend() == "c"
