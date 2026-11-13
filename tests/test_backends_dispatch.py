@@ -94,3 +94,30 @@ def test_dispatch_raises_when_all_fail():
     registry.register("numpy", faulty)
     with pytest.raises(RuntimeError, match="All backends failed"):
         dispatch("gemm", np.ones((2, 2), dtype=np.float32), np.ones((2, 2)))
+
+
+from parallax.backends.dispatch import set_scope_backend
+
+
+def test_dispatch_scope_override_precedence():
+    backend = CalculatorBackend("rust", is_avail=True, supports_op=True)
+    registry.register("rust", backend)
+    set_scope_backend("rust")
+    try:
+        a = np.ones((2, 2), dtype=np.float32)
+        res = dispatch("gemm", a, a)
+        assert res is not None
+        assert get_fallback_history() == []
+    finally:
+        set_scope_backend(None)
+
+
+def test_dispatch_unavailable_backend_fallback():
+    unavail = CalculatorBackend("rust", is_avail=False, supports_op=True)
+    fallback = CalculatorBackend("numpy", is_avail=True, supports_op=True)
+    registry.register("rust", unavail)
+    registry.register("numpy", fallback)
+    a = np.ones((2, 2), dtype=np.float32)
+    res = dispatch("gemm", a, a, _environ={"PARALLAX_BACKEND": "rust"})
+    assert res is not None
+    assert len(get_fallback_history()) == 1
