@@ -24,6 +24,29 @@ static inline float32x4_t poly_exp_vec(float32x4_t x) {
 int c_softmax_neon_f32(const float *in, float *out, int rows, int cols) {
     if (!in || !out) return PARALLAX_STATUS_NULL_POINTER;
     if (rows <= 0 || cols <= 0) return PARALLAX_STATUS_INVALID_DIMENSION;
+    for (int r = 0; r < rows; ++r) {
+        const float *in_row = in + r * cols;
+        float *out_row = out + r * cols;
+        float max_val = in_row[0];
+        for (int c = 1; c < cols; ++c) if (in_row[c] > max_val) max_val = in_row[c];
+        double sum = 0.0;
+        int c = 0;
+        if (!isnan(max_val) && !isinf(max_val)) {
+            for (; c + 4 <= cols; c += 4) {
+                float32x4_t ev = poly_exp_vec(vsubq_f32(vld1q_f32(in_row + c), vdupq_n_f32(max_val)));
+                vst1q_f32(out_row + c, ev);
+                float tmp[4]; vst1q_f32(tmp, ev);
+                for (int k = 0; k < 4; ++k) sum += (double)tmp[k];
+            }
+        }
+        for (; c < cols; ++c) {
+            float ev = expf(in_row[c] - max_val);
+            out_row[c] = ev;
+            sum += (double)ev;
+        }
+        double inv_sum = 1.0 / sum;
+        for (c = 0; c < cols; ++c) out_row[c] = (float)((double)out_row[c] * inv_sum);
+    }
     return PARALLAX_STATUS_OK;
 }
 #endif
