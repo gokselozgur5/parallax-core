@@ -19,3 +19,9 @@ class CpuInfo:
     neon: bool = False
     avx2: bool = False
     avx512f: bool = False
+
+
+def normalize_arch(machine: str) -> str:
+    """Map platform machine names onto arm64 or x86_64."""
+    key = machine.strip().lower()
+    return _ARCH_ALIASES.get(key, key)
