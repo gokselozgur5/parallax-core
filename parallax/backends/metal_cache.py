@@ -56,3 +56,27 @@ class MetalPipelineCache:
             ctypes.byref(err),
         )
         return lib, s_cf
+
+    def _compile_pipeline(self, func_name: str, src: str) -> Optional[Any]:
+        import ctypes
+        import parallax.metal_engine as me
+
+        lib, s_cf = self._compile_lib(src)
+        if not lib:
+            me._cf_release(s_cf)
+            return None
+        f_cf = me._cf_string(func_name)
+        fn = me._objc_send(ctypes.c_void_p, lib, "newFunctionWithName:", f_cf)
+        pso = None
+        err = ctypes.c_void_p()
+        if fn:
+            pso = me._objc_send(
+                ctypes.c_void_p,
+                me._DEVICE,
+                "newComputePipelineStateWithFunction:error:",
+                fn,
+                ctypes.byref(err),
+            )
+        me._cf_release(s_cf, f_cf)
+        me._release_buffers(fn, lib)
+        return pso
