@@ -19,3 +19,29 @@ int c_has_avx512_f32(void) {
     return 0;
 #endif
 }
+
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+#include <immintrin.h>
+
+__attribute__((target("avx512f,avx512dq,avx512vl,avx512bw")))
+static void avx512_kernel(const float *A, const float *B, float *C, int M, int N, int K) {
+    for (int i = 0; i < M; ++i) {
+        float *c_row = C + i * N;
+        for (int j = 0; j < N; ++j) c_row[j] = 0.0f;
+        for (int k = 0; k < K; ++k) {
+            float a_val = A[i * K + k];
+            const float *b_row = B + k * N;
+            int j = 0;
+            __m512 a_vec = _mm512_set1_ps(a_val);
+            for (; N - j >= 16; j += 16) {
+                __m512 c_vec = _mm512_loadu_ps(c_row + j);
+                __m512 b_vec = _mm512_loadu_ps(b_row + j);
+                c_vec = _mm512_fmadd_ps(a_vec, b_vec, c_vec);
+                _mm512_storeu_ps(c_row + j, c_vec);
+            }
+            for (; j < N; ++j) c_row[j] += a_val * b_row[j];
+        }
+    }
+}
+#endif
+
