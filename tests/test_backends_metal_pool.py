@@ -44,3 +44,28 @@ def test_metal_pool_off_macos(monkeypatch: pytest.MonkeyPatch) -> None:
     assert not pool.available()
     assert pool.acquire(1024) is None
     pool.release(None, 1024)
+
+
+def test_zero_copy_view_cache() -> None:
+    cache = ZeroCopyViewCache(max_entries=4)
+    if not cache.available():
+        pytest.skip("Metal unavailable")
+    arr = np.ones((16, 16), dtype=np.float32)
+    buf1 = cache.get_or_create(arr)
+    assert buf1 is not None
+    assert cache.count() == 1
+    buf2 = cache.get_or_create(arr)
+    assert buf1 == buf2
+    cache.clear()
+    assert cache.count() == 0
+
+
+def test_zero_copy_view_cache_off_macos(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("sys.platform", "linux")
+    cache = ZeroCopyViewCache()
+    assert not cache.available()
+    arr = np.ones((8,), dtype=np.float32)
+    assert cache.get_or_create(arr) is None
+    cache.clear()
