@@ -33,3 +33,11 @@ def clear() -> None:
     """Remove every registered backend."""
     with _lock:
         _backends.clear()
+
+
+def list_backends() -> list[str]:
+    """Return names by descending priority, ties in registration order."""
+    with _lock:
+        items = list(_backends.items())
+    items.sort(key=lambda item: -item[1][1])
+    return [name for name, _ in items]
