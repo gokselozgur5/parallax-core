@@ -45,3 +45,20 @@ static void avx512_kernel(const float *A, const float *B, float *C, int M, int N
 }
 #endif
 
+int c_gemm_avx512_f32(const float *A, const float *B, float *C, int M, int N, int K) {
+    if (!A || !B || !C) return PARALLAX_STATUS_NULL_POINTER;
+    if (M <= 0 || N <= 0 || K < 0) return PARALLAX_STATUS_INVALID_DIMENSION;
+    if (!c_has_avx512_f32()) return PARALLAX_STATUS_UNSUPPORTED_ISA;
+    if (K == 0) {
+        for (int i = 0; i < M * N; ++i) C[i] = 0.0f;
+        return PARALLAX_STATUS_OK;
+    }
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+    avx512_kernel(A, B, C, M, N, K);
+    return PARALLAX_STATUS_OK;
+#else
+    return PARALLAX_STATUS_UNSUPPORTED_ISA;
+#endif
+}
+
+
