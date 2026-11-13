@@ -116,3 +116,23 @@ def check_parity(
     else:
         for item in backends:
             targets.append(_resolve_backend(item))
+    report = ParityReport()
+    for b in targets:
+        report[b.name] = check_op_parity(
+            b, op, ref_out, *args, threshold=threshold, **kwargs
+        )
+
+    if raise_on_error and not report.all_passed:
+        flagged = report.flagged_backends
+        raise ParityError(f"parity check failed for backends: {flagged}")
+    return report
+
+
+def parity_errors(
+    op: str,
+    *args: Any,
+    threshold: float = DEFAULT_PARITY_THRESHOLD,
+    **kwargs: Any,
+) -> dict[str, float]:
+    report = check_parity(op, *args, threshold=threshold, **kwargs)
+    return report.max_errors
