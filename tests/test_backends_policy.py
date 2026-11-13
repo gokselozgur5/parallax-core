@@ -21,3 +21,20 @@ CASES = [
     (FakeCpu("x86_64", "Linux"), ("rust", "numpy")),
     (FakeCpu("riscv64", "Linux"), ("numpy",)),
 ]
+
+
+@pytest.mark.parametrize("cpu,expected", CASES)
+@pytest.mark.parametrize("op", sorted(MIN_ELEMENTS))
+def test_order_above_threshold(op, cpu, expected):
+    assert backend_order(op, MIN_ELEMENTS[op], cpu) == expected
+
+
+@pytest.mark.parametrize("cpu,_expected", CASES)
+@pytest.mark.parametrize("op", sorted(MIN_ELEMENTS))
+def test_small_inputs_stay_on_numpy(op, cpu, _expected):
+    assert backend_order(op, MIN_ELEMENTS[op] - 1, cpu) == ("numpy",)
+
+
+def test_unknown_op_raises():
+    with pytest.raises(ValueError, match="unknown op"):
+        backend_order("conv3d", 1 << 20, CASES[0][0])
