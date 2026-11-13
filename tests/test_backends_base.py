@@ -17,3 +17,14 @@ class StubBackend(Backend):
 def test_backend_cannot_be_instantiated():
     with pytest.raises(TypeError):
         Backend()  # type: ignore[abstract]
+
+
+def test_incomplete_subclass_raises():
+    class OnlyAvailable(Backend):
+        name = "partial"
+
+        def available(self) -> bool:
+            return True
+
+    with pytest.raises(TypeError):
+        OnlyAvailable()  # type: ignore[abstract]
