@@ -73,7 +73,23 @@ def _find_or_build_library() -> Optional[ctypes.CDLL]:
 
 def _find_or_build_library_unlocked() -> Optional[ctypes.CDLL]:
     global _C_LIB, _LIB_LOAD_ATTEMPTED, _LOAD_ERROR_REASON
-    csrc_dir = Path(__file__).parent / "csrc"
+    env_override = os.environ.get("PARALLAX_C_LIB")
+    if env_override:
+        path = Path(env_override).expanduser().resolve()
+        if not path.is_file():
+            _C_LIB = None
+            _LOAD_ERROR_REASON = f"PARALLAX_C_LIB path does not exist: {path}"
+            _LIB_LOAD_ATTEMPTED = True
+            if os.environ.get("PARALLAX_REQUIRE_C_ENGINE") == "1":
+                raise RuntimeError(f"PARALLAX_REQUIRE_C_ENGINE=1 but C-engine failed: {_LOAD_ERROR_REASON}")
+            _LOGGER.warning("%s", _LOAD_ERROR_REASON)
+            return None
+        lib_path = path
+    else:
+        lib_path = None
+
+    if lib_path is None:
+        csrc_dir = Path(__file__).parent / "csrc"
     
     # Candidate shared library names
     exts = [".dylib", ".so", ".dll"]
