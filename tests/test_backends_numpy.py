@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 from parallax.backends.base import check_backend_contract
 from parallax.backends.numpy_backend import NumpyBackend
 
