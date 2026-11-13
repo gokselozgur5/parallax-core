@@ -125,3 +125,22 @@ class ZeroCopyViewCache:
             array.nbytes,
             0,
         )
+
+    def _release_raw(self, buffer: Any) -> None:
+        import parallax.metal_engine as me
+
+        try:
+            if me._objc_send is not None:
+                me._objc_send(None, buffer, "release")
+        except Exception:
+            pass
+
+    def clear(self) -> None:
+        with self._lock:
+            for buf, _ in self._cache.values():
+                self._release_raw(buf)
+            self._cache.clear()
+
+    def count(self) -> int:
+        with self._lock:
+            return len(self._cache)
