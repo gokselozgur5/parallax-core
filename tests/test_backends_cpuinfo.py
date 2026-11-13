@@ -40,3 +40,14 @@ def test_cpuinfo_is_frozen():
     info = CpuInfo(arch="arm64", system="Linux")
     with pytest.raises(dataclasses.FrozenInstanceError):
         info.neon = True  # type: ignore[misc]
+
+
+def test_detect_cpu_falls_back_when_source_missing(monkeypatch, tmp_path):
+    monkeypatch.setattr(cpuinfo.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(cpuinfo.platform, "machine", lambda: "aarch64")
+    monkeypatch.setattr(cpuinfo, "_PROC_CPUINFO", str(tmp_path / "missing"))
+    assert cpuinfo.detect_cpu() == CpuInfo(arch="arm64", system="Linux")
+
+
+def test_detect_cpu_on_host_returns_cpuinfo():
+    assert isinstance(cpuinfo.detect_cpu(), CpuInfo)
