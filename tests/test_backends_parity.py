@@ -91,3 +91,22 @@ def test_parity_raise_on_error() -> None:
     a = np.ones((2, 2), dtype=np.float32)
     with pytest.raises(ParityError, match="parity check failed"):
         check_parity("gemm", a, a, backends=[bad], raise_on_error=True)
+
+
+def test_parity_registry_integration() -> None:
+    registry.clear()
+    registry.register("mock_ok", MockBackend("mock_ok", offset=0.0))
+    a = np.ones((2, 2), dtype=np.float32)
+    errors = parity_errors("gemm", a, a)
+    assert "mock_ok" in errors
+    assert errors["mock_ok"] == 0.0
+    registry.clear()
+
+
+def test_parity_real_numpy_ops() -> None:
+    nb = NumpyBackend()
+    x = np.random.randn(4, 8).astype(np.float32)
+    w = np.ones((8,), dtype=np.float32)
+    report = check_parity("rmsnorm", x, w, backends=[nb])
+    assert report["numpy"].passed
+    assert report["numpy"].max_abs_error == 0.0
