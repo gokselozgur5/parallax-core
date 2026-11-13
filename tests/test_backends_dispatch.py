@@ -44,3 +44,28 @@ def test_fallback_record_repr_and_clearing():
     assert get_fallback_history() == []
     clear_fallback_history()
     assert get_fallback_history() == []
+
+
+class CalculatorBackend(MockBackend):
+    def gemm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        return a @ b
+
+
+def test_dispatch_success_on_first_candidate():
+    backend = CalculatorBackend("numpy", is_avail=True, supports_op=True)
+    registry.register("numpy", backend)
+    a = np.ones((2, 2), dtype=np.float32)
+    res = dispatch("gemm", a, a)
+    np.testing.assert_array_equal(res, np.full((2, 2), 2.0, dtype=np.float32))
+    assert get_fallback_history() == []
+
+
+def test_dispatch_skips_unsupported_backend():
+    unsupported = CalculatorBackend("c", is_avail=True, supports_op=False)
+    supported = CalculatorBackend("numpy", is_avail=True, supports_op=True)
+    registry.register("c", unsupported)
+    registry.register("numpy", supported)
+    a = np.ones((2, 2), dtype=np.float32)
+    res = dispatch("gemm", a, a, _environ={"PARALLAX_BACKEND": "c"})
+    assert res is not None
+    assert len(get_fallback_history()) == 1
