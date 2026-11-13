@@ -38,3 +38,28 @@ class ParityReport(dict[str, ParityResult]):
     @property
     def flagged_backends(self) -> list[str]:
         return [k for k, v in self.items() if not v.passed]
+
+
+def _resolve_backend(target: str | Backend) -> Backend:
+    if isinstance(target, Backend):
+        return target
+    try:
+        registered = registry.get(target)
+        if isinstance(registered, Backend):
+            return registered
+        if callable(registered):
+            return registered()
+    except KeyError:
+        pass
+    if target == "numpy":
+        from parallax.backends.numpy_backend import NumpyBackend
+
+        return NumpyBackend()
+    raise ValueError(f"unknown backend: {target!r}")
+
+
+def _infer_layout(args: Sequence[Any]) -> tuple[Any, tuple[int, ...]]:
+    for arg in args:
+        if isinstance(arg, np.ndarray):
+            return arg.dtype, arg.shape
+    return np.float32, (1,)
