@@ -32,3 +32,19 @@ def test_layernorm_parity_nn() -> None:
     expected = ln(Tensor(x)).data
     actual = c_layernorm(x, weight=ln.weight.data, bias=ln.bias.data, eps=1e-5)
     np.testing.assert_allclose(actual, expected, atol=1e-5, rtol=1e-5)
+
+
+def test_layernorm_constant_rows() -> None:
+    from parallax.nn import LayerNorm
+    from parallax.tensor import Tensor
+
+    dim = 32
+    ln = LayerNorm(dim, eps=1e-5)
+    x = np.ones((3, dim), dtype=np.float32)
+    x[0, :] = 3.0
+    x[1, :] = -5.0
+    x[2, :] = np.linspace(0.0, 1.0, dim, dtype=np.float32)
+
+    expected = ln(Tensor(x)).data
+    actual = c_layernorm(x, weight=ln.weight.data, bias=ln.bias.data, eps=1e-5)
+    np.testing.assert_allclose(actual, expected, atol=1e-5, rtol=1e-5)
