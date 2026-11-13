@@ -28,3 +28,15 @@ def test_incomplete_subclass_raises():
 
     with pytest.raises(TypeError):
         OnlyAvailable()  # type: ignore[abstract]
+
+
+def test_stub_passes_contract():
+    check_backend_contract(StubBackend())
+
+
+def test_stub_capability_queries():
+    b = StubBackend()
+    assert b.supports("gemm", np.float32, (4, 4))
+    assert not b.supports("gemm", np.float64, (4, 4))
+    assert not b.supports("gemm", np.float32, (4,))
+    assert not b.supports("conv", np.float32, (4, 4))
