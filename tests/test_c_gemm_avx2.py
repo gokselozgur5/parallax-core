@@ -34,3 +34,24 @@ def test_avx2_gemm_shape_mismatch() -> None:
     b = np.ones((4, 5), dtype=np.float32)
     with pytest.raises(ValueError, match="shape mismatch"):
         gemm_avx2(a, b)
+
+
+@pytest.mark.parametrize(
+    "m,k,n",
+    [
+        (1, 1, 1),
+        (2, 4, 3),
+        (7, 13, 19),
+        (16, 16, 16),
+        (24, 32, 48),
+        (33, 17, 25),
+    ],
+)
+def test_avx2_gemm_parity_with_numpy(m: int, k: int, n: int) -> None:
+    rng = np.random.default_rng(42)
+    a = rng.standard_normal((m, k), dtype=np.float32)
+    b = rng.standard_normal((k, n), dtype=np.float32)
+    expected = a @ b
+    actual = gemm_avx2(a, b)
+    max_err = float(np.max(np.abs(actual - expected)))
+    assert max_err < 1e-4
