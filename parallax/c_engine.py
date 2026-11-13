@@ -25,6 +25,20 @@ _LOGGER = logging.getLogger("parallax.c_engine")
 _INT32_MAX: int = 2147483647
 
 
+def get_c_lib_load_error() -> Optional[str]:
+    """Return the last recorded C library load error reason, if any."""
+    return _LOAD_ERROR_REASON
+
+
+def reset_c_lib_cache() -> None:
+    """Reset cached C library instance and error state (for testing)."""
+    global _C_LIB, _LIB_LOAD_ATTEMPTED, _LOAD_ERROR_REASON
+    with _INIT_LOCK:
+        _C_LIB = None
+        _LIB_LOAD_ATTEMPTED = False
+        _LOAD_ERROR_REASON = None
+
+
 def _get_build_cache_dir() -> Path:
     cache_base = os.environ.get("XDG_CACHE_HOME")
     if cache_base:
