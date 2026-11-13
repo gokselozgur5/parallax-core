@@ -41,3 +41,21 @@ def test_metal_backend_unavailable_off_macos(
     backend = MetalBackend()
     assert not backend.available()
     assert not backend.supports("gemm", np.float32, (2, 2))
+
+
+def test_metal_backend_parity_with_numpy() -> None:
+    backend = MetalBackend()
+    if not backend.available():
+        pytest.skip("Metal backend is not available on this platform")
+    from parallax.backends.numpy_backend import NumpyBackend
+
+    np_backend = NumpyBackend()
+    a = np.random.randn(4, 8).astype(np.float32)
+    b = np.random.randn(8, 6).astype(np.float32)
+    assert np.allclose(backend.gemm(a, b), np_backend.gemm(a, b), atol=1e-4)
+
+    x = np.random.randn(4, 16).astype(np.float32)
+    w = np.ones((16,), dtype=np.float32)
+    assert np.allclose(
+        backend.rmsnorm(x, w), np_backend.rmsnorm(x, w), atol=1e-4
+    )
