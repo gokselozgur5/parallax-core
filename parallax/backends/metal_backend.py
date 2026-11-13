@@ -14,3 +14,13 @@ class MetalBackend(Backend):
         if sys.platform != "darwin":
             return False
         return is_metal_available()
+
+    def supports(self, op: str, dtype: Any, shape: tuple[int, ...]) -> bool:
+        if not self.available():
+            return False
+        if op not in ("gemm", "rmsnorm"):
+            return False
+        try:
+            return np.dtype(dtype) == np.float32
+        except Exception:
+            return False
