@@ -47,3 +47,12 @@ def native_order(cpu: CpuLike) -> tuple[str, ...]:
     if arch == "x86_64":
         return ("rust", NUMPY)
     return (NUMPY,)
+
+
+def backend_order(op: str, n_elements: int, cpu: CpuLike) -> tuple[str, ...]:
+    """Return the ordered backends to try for ``op`` on ``n_elements`` items."""
+    if op not in MIN_ELEMENTS:
+        raise ValueError(f"unknown op {op!r}; expected one of {sorted(MIN_ELEMENTS)}")
+    if n_elements < MIN_ELEMENTS[op]:
+        return (NUMPY,)
+    return native_order(cpu)
