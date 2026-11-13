@@ -44,3 +44,17 @@ def use_backend(
         yield norm_backend
     finally:
         stack.pop()
+
+
+def current_backend(op: str | None = None) -> str | None:
+    """Return currently active scoped backend for op or global scope."""
+    stack = _get_stack()
+    if not stack:
+        return None
+    norm_op = _normalize_name(op, "op") if op is not None else None
+    for entry_op, backend in reversed(stack):
+        if norm_op is not None and entry_op == norm_op:
+            return backend
+        if entry_op is None:
+            return backend
+    return None
