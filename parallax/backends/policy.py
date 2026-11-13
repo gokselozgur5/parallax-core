@@ -32,3 +32,18 @@ MIN_ELEMENTS: dict[str, int] = {
 }
 
 _ARCH_ALIASES = {"aarch64": "arm64", "amd64": "x86_64"}
+
+
+def native_order(cpu: CpuLike) -> tuple[str, ...]:
+    """Return the preferred backends for a CPU, always ending with NumPy."""
+    arch = cpu.arch.strip().lower()
+    arch = _ARCH_ALIASES.get(arch, arch)
+    if arch == "arm64" and cpu.system == "Darwin":
+        return ("metal", "c-neon", NUMPY)
+    if arch == "arm64" and cpu.neon:
+        return ("c-neon", NUMPY)
+    if arch == "x86_64" and cpu.avx2:
+        return ("c-avx", "rust", NUMPY)
+    if arch == "x86_64":
+        return ("rust", NUMPY)
+    return (NUMPY,)
