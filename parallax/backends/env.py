@@ -18,3 +18,14 @@ def _normalize(var: str, raw: str) -> str | None:
         valid = ", ".join(sorted(VALID_BACKENDS))
         raise ValueError(f"{var}={raw!r} is not a known backend; expected one of: {valid}")
     return name
+
+
+def backend_override(op: str, environ: Mapping[str, str] | None = None) -> str | None:
+    """Return the forced backend for ``op``; the per-op variable wins."""
+    env = os.environ if environ is None else environ
+    per_op = f"{GLOBAL_VAR}_{op.upper()}"
+    for var in (per_op, GLOBAL_VAR):
+        value = _normalize(var, env.get(var, ""))
+        if value is not None:
+            return value
+    return None
