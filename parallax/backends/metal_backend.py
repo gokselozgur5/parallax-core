@@ -24,3 +24,11 @@ class MetalBackend(Backend):
             return np.dtype(dtype) == np.float32
         except Exception:
             return False
+
+    def gemm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        return metal_gemm(a, b)
+
+    def rmsnorm(
+        self, x: np.ndarray, weight: np.ndarray, eps: float = 1e-5
+    ) -> np.ndarray:
+        return metal_rmsnorm(x, weight, eps=eps)
