@@ -18,8 +18,23 @@ import numpy as np
 _LOGGER = logging.getLogger("parallax.rust_engine")
 _RUST_LIB: Optional[ctypes.CDLL] = None
 _LIB_LOAD_ATTEMPTED: bool = False
+_LOAD_ERROR_REASON: Optional[str] = None
 _INIT_LOCK = threading.Lock()
 _EXPECTED_ABI_VERSION: int = 2
+
+
+def get_rust_lib_load_error() -> Optional[str]:
+    """Return the last recorded load error reason, if any."""
+    return _LOAD_ERROR_REASON
+
+
+def reset_rust_lib_cache() -> None:
+    """Reset cached library instance and error state (for testing)."""
+    global _RUST_LIB, _LIB_LOAD_ATTEMPTED, _LOAD_ERROR_REASON
+    with _INIT_LOCK:
+        _RUST_LIB = None
+        _LIB_LOAD_ATTEMPTED = False
+        _LOAD_ERROR_REASON = None
 
 
 def find_rust_lib() -> Optional[Path]:
