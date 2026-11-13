@@ -90,3 +90,23 @@ def _inspect_inputs(args: tuple[Any, ...]) -> tuple[int, Any, tuple[int, ...]]:
         getattr(first, "dtype", None),
         tuple(getattr(first, "shape", ())),
     )
+
+
+def candidate_backends(
+    op: str, n_elements: int = 0, environ: Mapping[str, str] | None = None
+) -> list[str]:
+    c: list[str] = []
+    sb = get_scope_backend()
+    if sb:
+        c.append(sb)
+    ov = backend_override(op, environ=environ)
+    if ov and ov not in c:
+        c.append(ov)
+    try:
+        for name in backend_order(op, n_elements, detect_cpu()):
+            if name not in c:
+                c.append(name)
+    except (ValueError, KeyError):
+        if "numpy" not in c:
+            c.append("numpy")
+    return c
