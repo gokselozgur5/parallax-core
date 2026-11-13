@@ -59,3 +59,20 @@ def parse_proc_cpuinfo(text: str, machine: str) -> CpuInfo:
         avx2="avx2" in flags,
         avx512f="avx512f" in flags,
     )
+
+
+def detect_cpu() -> CpuInfo:
+    """Probe the live host, returning an all-false CpuInfo when unavailable."""
+    machine, system = platform.machine(), platform.system()
+    try:
+        if system == "Darwin":
+            out = subprocess.run(
+                ["sysctl", "-a"], capture_output=True, text=True, check=True, timeout=5
+            ).stdout
+            return parse_sysctl(out, machine)
+        if system == "Linux":
+            with open(_PROC_CPUINFO, encoding="utf-8") as handle:
+                return parse_proc_cpuinfo(handle.read(), machine)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return CpuInfo(arch=normalize_arch(machine), system=system)
