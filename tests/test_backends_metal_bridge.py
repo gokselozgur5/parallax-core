@@ -40,3 +40,17 @@ def test_metal_bridge_to_and_from_buffer() -> None:
     assert rec is not None
     assert np.allclose(orig, rec)
     bridge.release_buffer(buf)
+
+
+def test_metal_bridge_off_macos(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sys.platform", "linux")
+    bridge = MetalTensorBridge()
+    assert not bridge.available()
+    arr = np.ones((4, 4), dtype=np.float32)
+    buf, shape, dtype = bridge.to_metal_buffer(arr)
+    assert buf is None
+    assert shape == (4, 4)
+    assert dtype == np.float32
+    assert bridge.from_metal_buffer(buf, shape, dtype) is None
+    assert not bridge.is_shared(arr, buf)
+    bridge.release_buffer(None)
