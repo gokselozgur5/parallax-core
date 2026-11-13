@@ -15,3 +15,21 @@ def register(name: str, backend: Any, priority: int = 0) -> None:
         if name in _backends:
             raise ValueError(f"backend already registered: {name!r}")
         _backends[name] = (backend, priority)
+
+
+def get(name: str) -> Any:
+    """Return the backend registered under name."""
+    with _lock:
+        return _backends[name][0]
+
+
+def unregister(name: str) -> None:
+    """Remove the backend registered under name."""
+    with _lock:
+        del _backends[name]
+
+
+def clear() -> None:
+    """Remove every registered backend."""
+    with _lock:
+        _backends.clear()

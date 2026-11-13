@@ -1,5 +1,5 @@
 """Compute backend registry."""
 
-from parallax.backends.registry import register
+from parallax.backends.registry import clear, get, register, unregister
 
-__all__ = ["register"]
+__all__ = ["clear", "get", "register", "unregister"]
