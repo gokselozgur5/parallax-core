@@ -25,3 +25,16 @@ def test_non_compliant_arrays_are_copied(arr):
     assert copied is True
     assert out.dtype == np.float32 and out.flags.c_contiguous
     np.testing.assert_allclose(out, arr.astype(np.float32))
+
+
+@pytest.mark.parametrize(
+    "arr",
+    [
+        np.array([1, "a", None], dtype=object),
+        np.ones(4, dtype=np.complex64),
+        np.array(["1.0", "2.0"]),
+    ],
+)
+def test_rejected_dtypes_raise(arr):
+    with pytest.raises(TypeError, match="real numeric input"):
+        ensure_f32_contiguous(arr)
