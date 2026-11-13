@@ -53,3 +53,28 @@ class MetalBufferPool:
         except Exception:
             pass
         self._allocated_bytes = max(0, self._allocated_bytes - size)
+
+    def acquire(self, size_bytes: int) -> Optional[Any]:
+        if not self.available() or size_bytes <= 0:
+            return None
+        bucket = self._bucket_size(size_bytes)
+        with self._lock:
+            cached_list = self._pool.get(bucket)
+            if cached_list:
+                buf = cached_list.pop()
+                self._cached_bytes -= bucket
+                self._hits += 1
+                return buf
+            self._misses += 1
+        return self._allocate_raw(bucket)
+
+    def release(self, buffer: Any, size_bytes: int) -> None:
+        if buffer is None or size_bytes <= 0:
+            return
+        bucket = self._bucket_size(size_bytes)
+        with self._lock:
+            if self._cached_bytes + bucket <= self.max_cached_bytes:
+                self._pool.setdefault(bucket, []).append(buffer)
+                self._cached_bytes += bucket
+                return
+        self._free_raw(buffer, bucket)
