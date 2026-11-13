@@ -54,3 +54,23 @@ def test_parity_threshold_flagging() -> None:
     assert report["drift"].status == "flagged"
     assert report.flagged_backends == ["drift"]
     assert not report.all_passed
+
+
+def test_parity_unavailable_backend() -> None:
+    backend = MockBackend("offline", available=False)
+    a = np.ones((2, 2), dtype=np.float32)
+    report = check_parity("gemm", a, a, backends=[backend])
+    res = report["offline"]
+    assert res.passed
+    assert res.status == "unavailable"
+    assert res.max_abs_error == 0.0
+
+
+def test_parity_unsupported_op() -> None:
+    backend = MockBackend("unsupported")
+    backend.supports = lambda op, dt, shp: False  # type: ignore[method-assign]
+    a = np.ones((2, 2), dtype=np.float32)
+    report = check_parity("gemm", a, a, backends=[backend])
+    res = report["unsupported"]
+    assert res.passed
+    assert res.status == "unsupported"
