@@ -74,3 +74,20 @@ def test_parity_unsupported_op() -> None:
     res = report["unsupported"]
     assert res.passed
     assert res.status == "unsupported"
+
+
+def test_parity_error_handling() -> None:
+    backend = MockBackend("failing")
+    backend.gemm = lambda a, b: 1 / 0  # type: ignore[method-assign]
+    a = np.ones((2, 2), dtype=np.float32)
+    report = check_parity("gemm", a, a, backends=[backend])
+    assert not report["failing"].passed
+    assert report["failing"].status == "error"
+    assert "division by zero" in str(report["failing"].error_message)
+
+
+def test_parity_raise_on_error() -> None:
+    bad = MockBackend("bad", offset=1.0)
+    a = np.ones((2, 2), dtype=np.float32)
+    with pytest.raises(ParityError, match="parity check failed"):
+        check_parity("gemm", a, a, backends=[bad], raise_on_error=True)
