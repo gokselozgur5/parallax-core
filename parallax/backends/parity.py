@@ -63,3 +63,32 @@ def _infer_layout(args: Sequence[Any]) -> tuple[Any, tuple[int, ...]]:
         if isinstance(arg, np.ndarray):
             return arg.dtype, arg.shape
     return np.float32, (1,)
+
+
+def check_op_parity(
+    backend: Backend,
+    op: str,
+    ref_output: np.ndarray,
+    *args: Any,
+    threshold: float = DEFAULT_PARITY_THRESHOLD,
+    **kwargs: Any,
+) -> ParityResult:
+    name = backend.name
+    if not backend.available():
+        return ParityResult(name, op, 0.0, True, "unavailable")
+    dtype, shape = _infer_layout(args)
+    if not backend.supports(op, dtype, shape):
+        return ParityResult(name, op, 0.0, True, "unsupported")
+    try:
+        fn = getattr(backend, op, None)
+        if fn is None or not callable(fn):
+            return ParityResult(name, op, 0.0, False, "error", f"missing op {op}")
+        out = fn(*args, **kwargs)
+        if not isinstance(out, np.ndarray):
+            return ParityResult(name, op, 0.0, False, "error", "not ndarray")
+        err = float(np.max(np.abs(out - ref_output)))
+        passed = bool(err <= threshold)
+        status = "ok" if passed else "flagged"
+        return ParityResult(name, op, err, passed, status)
+    except Exception as exc:
+        return ParityResult(name, op, 0.0, False, "error", str(exc))
