@@ -44,3 +44,30 @@ class BackendQuarantine:
         """Return current consecutive failure count for (op, backend)."""
         with self._lock:
             return self._failures.get((op, backend), 0)
+
+    def filter_backends(self, op: str, backends: list[str]) -> list[str]:
+        """Return backends that are not quarantined for op."""
+        with self._lock:
+            return [b for b in backends if (op, b) not in self._quarantined]
+
+    def reset(self, op: Optional[str] = None, backend: Optional[str] = None) -> None:
+        """Reset quarantine and failure counts."""
+        with self._lock:
+            if op is None and backend is None:
+                self._failures.clear()
+                self._quarantined.clear()
+                return
+            keys = [
+                k for k in self._failures
+                if (op is None or k[0] == op) and (backend is None or k[1] == backend)
+            ]
+            for k in keys:
+                self._failures.pop(k, None)
+                self._quarantined.discard(k)
+
+
+_DEFAULT_QUARANTINE = BackendQuarantine()
+
+
+def get_default_quarantine() -> BackendQuarantine:
+    return _DEFAULT_QUARANTINE
