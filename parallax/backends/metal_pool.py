@@ -144,3 +144,26 @@ class ZeroCopyViewCache:
     def count(self) -> int:
         with self._lock:
             return len(self._cache)
+
+    def get_or_create(self, array: np.ndarray) -> Optional[Any]:
+        if not self.available() or array.size == 0:
+            return None
+        if not array.flags.c_contiguous:
+            return None
+        ptr = int(array.ctypes.data)
+        nbytes = array.nbytes
+        with self._lock:
+            if ptr in self._cache:
+                buf, cached_bytes = self._cache[ptr]
+                if cached_bytes == nbytes:
+                    return buf
+        buf = self._wrap_array(array)
+        if buf is None:
+            return None
+        with self._lock:
+            if len(self._cache) >= self.max_entries:
+                old_ptr, (old_buf, _) = next(iter(self._cache.items()))
+                del self._cache[old_ptr]
+                self._release_raw(old_buf)
+            self._cache[ptr] = (buf, nbytes)
+        return buf
