@@ -22,3 +22,19 @@ class ParityResult:
     passed: bool
     status: str
     error_message: str | None = None
+
+
+class ParityReport(dict[str, ParityResult]):
+    """Mapping from backend name to its ParityResult."""
+
+    @property
+    def all_passed(self) -> bool:
+        return all(r.passed for r in self.values())
+
+    @property
+    def max_errors(self) -> dict[str, float]:
+        return {k: v.max_abs_error for k, v in self.items() if v.status == "ok"}
+
+    @property
+    def flagged_backends(self) -> list[str]:
+        return [k for k, v in self.items() if not v.passed]
