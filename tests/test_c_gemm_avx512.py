@@ -14,3 +14,24 @@ def test_gemm_avx512_shape_checks():
     b = np.ones((4, 5), dtype=np.float32)
     with pytest.raises(ValueError, match="Shape mismatch"):
         gemm_avx512(a, b)
+
+
+def test_gemm_avx512_execution_or_safe_guard():
+    a = np.random.randn(8, 16).astype(np.float32)
+    b = np.random.randn(16, 32).astype(np.float32)
+    if is_avx512_available():
+        res = gemm_avx512(a, b)
+        assert np.allclose(res, a @ b, atol=1e-4)
+    else:
+        with pytest.raises(RuntimeError, match="AVX-512F is not supported on this CPU"):
+            gemm_avx512(a, b)
+
+
+def test_gemm_avx512_parity_skipped_when_unavailable():
+    if not is_avx512_available():
+        pytest.skip("AVX-512F ISA not supported on this host")
+    a = np.random.randn(7, 33).astype(np.float32)
+    b = np.random.randn(33, 9).astype(np.float32)
+    res = gemm_avx512(a, b)
+    assert np.allclose(res, a @ b, atol=1e-4)
+
