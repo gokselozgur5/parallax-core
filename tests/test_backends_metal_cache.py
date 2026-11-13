@@ -37,3 +37,13 @@ def test_metal_cache_compilation_and_reuse() -> None:
     assert cache.stats()["hits"] == 1
     cache.clear()
     assert cache.stats()["count"] == 0
+
+
+def test_metal_cache_off_macos(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sys.platform", "linux")
+    cache = MetalPipelineCache()
+    assert not cache.available()
+    assert cache.get_or_compile("func", "src") is None
+    assert not cache.has("func", "src")
+    cache.clear()
+    assert cache.stats()["count"] == 0
