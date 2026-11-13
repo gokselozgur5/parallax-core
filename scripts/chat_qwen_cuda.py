@@ -84,20 +84,12 @@ def main():
                 
             conversation_history.append({"role": "user", "content": user_input})
             
-            # Format ChatML prompt (keep only last 4 turns)
-            prompt = ""
-            for msg in conversation_history[-8:]:
-                role = msg["role"]
-                content = msg["content"]
-                prompt += f"<|im_start|>{role}\n{content}<|im_end|>\n"
-            prompt += "<|im_start|>assistant\n"
-            
+            prompt = build_chatml_prompt(conversation_history, is_qwen3, enable_thinking)
             prompt_tokens = tokenizer.encode(prompt)
-            
             print("\nParallax: ", end="", flush=True)
-            
             t_gen_start = time.time()
-            gen_tokens = []
+            gen_tokens: List[int] = []
+            printed_len = 0
             
             for token_id in model.generate_stream(
                 prompt_tokens=prompt_tokens,
