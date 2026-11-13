@@ -40,3 +40,17 @@ def test_parity_exact_match() -> None:
     assert res.passed
     assert res.status == "ok"
     assert res.max_abs_error == 0.0
+
+
+def test_parity_threshold_flagging() -> None:
+    ok_backend = MockBackend("slight", offset=1e-5)
+    bad_backend = MockBackend("drift", offset=1e-3)
+    a = np.eye(2, dtype=np.float32)
+    b = np.eye(2, dtype=np.float32)
+    report = check_parity("gemm", a, b, backends=[ok_backend, bad_backend])
+    assert report["slight"].passed
+    assert report["slight"].status == "ok"
+    assert not report["drift"].passed
+    assert report["drift"].status == "flagged"
+    assert report.flagged_backends == ["drift"]
+    assert not report.all_passed
