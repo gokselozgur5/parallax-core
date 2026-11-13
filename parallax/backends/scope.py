@@ -28,3 +28,19 @@ def _normalize_name(val: Any, label: str) -> str | None:
     if not cleaned:
         raise ValueError(f"{label} cannot be empty")
     return cleaned
+
+
+@contextlib.contextmanager
+def use_backend(
+    backend: Any,
+    op: str | None = None,
+) -> Generator[str | None, None, None]:
+    """Temporarily override active compute backend in current thread."""
+    stack = _get_stack()
+    norm_backend = _normalize_name(backend, "backend")
+    norm_op = _normalize_name(op, "op")
+    stack.append((norm_op, norm_backend))
+    try:
+        yield norm_backend
+    finally:
+        stack.pop()
