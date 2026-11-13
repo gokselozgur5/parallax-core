@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 import json
 import os
 from pathlib import Path
 import time
 from typing import Any
+
+import numpy as np
 
 SCHEMA_VERSION = 1
 
@@ -65,4 +68,26 @@ def load_cache(path: Path | str | None = None) -> dict[str, int] | None:
         data = json.load(f)
     validate_cache_schema(data)
     return data["thresholds"]
+
+
+DEFAULT_LADDERS: dict[str, tuple[int, ...]] = {
+    "gemm": (16, 32, 64, 128, 256),
+    "softmax": (64, 256, 1024, 4096),
+    "rmsnorm": (64, 256, 1024, 4096),
+}
+
+
+def _run_op(backend: Any, op: str, size: int) -> None:
+    if op == "gemm":
+        a = np.ones((size, size), dtype=np.float32)
+        b = np.ones((size, size), dtype=np.float32)
+        backend.gemm(a, b)
+    elif op == "softmax":
+        x = np.ones((1, size), dtype=np.float32)
+        backend.softmax(x)
+    elif op == "rmsnorm":
+        x = np.ones((1, size), dtype=np.float32)
+        w = np.ones((size,), dtype=np.float32)
+        backend.rmsnorm(x, w)
+
 
