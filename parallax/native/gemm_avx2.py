@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import ctypes
-from typing import Any, Optional
 import numpy as np
 
 from parallax.native.loader import bind
