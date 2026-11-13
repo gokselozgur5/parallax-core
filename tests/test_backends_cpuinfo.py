@@ -20,3 +20,23 @@ def test_parse_sysctl_apple_silicon():
 def test_parse_sysctl_intel_mac():
     info = parse_sysctl(INTEL_MAC, "x86_64")
     assert info == CpuInfo(arch="x86_64", system="Darwin", avx2=True, avx512f=True)
+
+
+X86_LINUX = "processor\t: 0\nflags\t\t: fpu sse sse2 avx avx2 fma\n"
+ARM_LINUX = "processor\t: 0\nFeatures\t: fp asimd evtstrm aes\n"
+
+
+def test_parse_proc_cpuinfo_x86_64():
+    info = parse_proc_cpuinfo(X86_LINUX, "AMD64")
+    assert info == CpuInfo(arch="x86_64", system="Linux", avx2=True)
+
+
+def test_parse_proc_cpuinfo_aarch64():
+    info = parse_proc_cpuinfo(ARM_LINUX, "aarch64")
+    assert info == CpuInfo(arch="arm64", system="Linux", neon=True)
+
+
+def test_cpuinfo_is_frozen():
+    info = CpuInfo(arch="arm64", system="Linux")
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        info.neon = True  # type: ignore[misc]
