@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import ctypes
 from typing import Any, Optional
 import numpy as np
+from parallax.metal.aligned import aligned_empty, is_aligned
 
 
 class MetalBufferView:
@@ -40,3 +42,29 @@ class MetalBufferView:
 
     def __exit__(self, *args: Any) -> None:
         self.release()
+
+
+def wrap_buffer(arr: np.ndarray, page_size: Optional[int] = None) -> MetalBufferView:
+    aligned_arr = arr if is_aligned(arr, page_size) else aligned_empty(arr.shape, dtype=arr.dtype, page_size=page_size)
+    if aligned_arr is not arr:
+        aligned_arr[...] = arr
+
+    dev_buf, zero_copy = None, False
+    try:
+        import parallax.metal_engine as me
+        if me.is_metal_available():
+            me._init_metal()
+            if me._DEVICE is not None:
+                dev_buf = me._objc_send(
+                    ctypes.c_void_p,
+                    me._DEVICE,
+                    "newBufferWithBytesNoCopy:length:options:deallocator:",
+                    ctypes.c_void_p(aligned_arr.ctypes.data),
+                    int(aligned_arr.nbytes),
+                    0,
+                    None,
+                )
+                zero_copy = bool(dev_buf)
+    except Exception:
+        pass
+    return MetalBufferView(aligned_arr, device_buffer=dev_buf, is_zero_copy=zero_copy)
