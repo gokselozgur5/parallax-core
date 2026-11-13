@@ -43,3 +43,19 @@ def parse_sysctl(text: str, machine: str) -> CpuInfo:
         avx2="AVX2" in flags or values.get("hw.optional.avx2_0") == "1",
         avx512f="AVX512F" in flags or values.get("hw.optional.avx512f") == "1",
     )
+
+
+def parse_proc_cpuinfo(text: str, machine: str) -> CpuInfo:
+    """Build CpuInfo from Linux ``/proc/cpuinfo`` text."""
+    flags: set[str] = set()
+    for line in text.splitlines():
+        key, sep, value = line.partition(":")
+        if sep and key.strip().lower() in ("flags", "features"):
+            flags.update(value.lower().split())
+    return CpuInfo(
+        arch=normalize_arch(machine),
+        system="Linux",
+        neon="asimd" in flags or "neon" in flags,
+        avx2="avx2" in flags,
+        avx512f="avx512f" in flags,
+    )
