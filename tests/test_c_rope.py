@@ -24,3 +24,15 @@ def test_rope_zero_length() -> None:
     x = np.zeros((0, 4, 8), dtype=np.float32)
     out = rope_in_place(x)
     assert out.shape == (0, 4, 8)
+
+
+def test_rope_parity_interleaved() -> None:
+    from parallax.attention import apply_rope
+
+    rng = np.random.default_rng(42)
+    x = rng.standard_normal((8, 4, 32)).astype(np.float32)
+    x_t = np.transpose(x, (1, 0, 2))
+    ref = apply_rope(x_t, seq_dim=1, offset=5, theta=10000.0, interleaved=True)
+    expected = np.transpose(ref, (1, 0, 2))
+    actual = rope_in_place(x.copy(), start_pos=5, theta=10000.0, interleaved=True)
+    np.testing.assert_allclose(actual, expected, atol=1e-6, rtol=1e-5)
