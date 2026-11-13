@@ -27,8 +27,17 @@ else
     ARCH_FLAGS ?=
 endif
 
+ifeq ($(UNAME_M),x86_64)
+    AVX512_FLAGS ?= -mavx512f -mavx512dq -mavx512vl -mavx512bw
+else
+    AVX512_FLAGS ?=
+endif
+
+%_avx512.o: CFLAGS_ISA := $(AVX512_FLAGS)
+%avx512.o: CFLAGS_ISA := $(AVX512_FLAGS)
+
 TARGET := libparallax_c.$(SHARED_EXT)
-SRCS := gemm.c softmax.c rmsnorm.c
+SRCS := $(wildcard *.c)
 OBJS := $(SRCS:.c=.o)
 
 all: $(TARGET)
@@ -37,7 +46,7 @@ $(TARGET): $(OBJS)
 	$(CC) $(LDFLAGS) $(CFLAGS) $(ARCH_FLAGS) -o $@ $(OBJS) -lm
 
 %.o: %.c
-	$(CC) $(CFLAGS) $(ARCH_FLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) $(ARCH_FLAGS) $(CFLAGS_ISA) -c $< -o $@
 
 clean:
 	rm -f $(OBJS) $(TARGET) *.so *.dylib
