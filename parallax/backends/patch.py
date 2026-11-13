@@ -27,3 +27,19 @@ def enable_native(model: Any) -> Any:
         return DispatchedLinear.from_linear(model)
     _swap(model, Linear, DispatchedLinear.from_linear)
     return model
+
+
+
+def _restore(dl: DispatchedLinear) -> Linear:
+    lin = Linear(dl.in_features, dl.out_features, bias=dl.bias is not None)
+    lin.weight = dl.weight
+    lin.bias = dl.bias
+    return lin
+
+
+def disable_native(model: Any) -> Any:
+    """Recursively restore original Linear modules in-place."""
+    if isinstance(model, DispatchedLinear):
+        return _restore(model)
+    _swap(model, DispatchedLinear, _restore)
+    return model
