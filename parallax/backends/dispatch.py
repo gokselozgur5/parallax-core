@@ -50,3 +50,32 @@ def _record_fallback(op: str, backend: str, reason: str, exc: Exception | None =
     with _fallback_lock:
         _fallback_history.append(record)
     _LOGGER.debug("Dispatch fallback for %s on %s: %s", op, backend, reason)
+
+
+_scope_local = threading.local()
+
+
+def set_scope_backend(backend: str | None) -> None:
+    """Set the active backend override for the current thread."""
+    _scope_local.backend = backend
+
+
+def get_scope_backend() -> str | None:
+    """Get the active backend override for the current thread."""
+    return getattr(_scope_local, "backend", None)
+
+
+def _resolve_backend(name: str) -> Backend | None:
+    """Resolve backend name from registry or known fallbacks."""
+    try:
+        b = registry.get(name)
+        if isinstance(b, Backend):
+            return b
+    except KeyError:
+        pass
+    if name in ("c-neon", "c-avx", "c"):
+        try:
+            return registry.get("c")
+        except KeyError:
+            return None
+    return None
