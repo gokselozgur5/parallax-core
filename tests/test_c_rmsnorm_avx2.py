@@ -17,3 +17,13 @@ def test_rmsnorm_avx2_shape_validation():
     else:
         with pytest.raises(ValueError, match="shape mismatch"):
             rmsnorm_avx2(x, w_bad)
+
+
+def test_rmsnorm_avx2_raises_when_unavailable(monkeypatch):
+    import parallax.native.avx2_rmsnorm as mod
+
+    monkeypatch.setattr(mod, "is_avx2_rmsnorm_available", lambda: False)
+    x = np.ones((2, 8), dtype=np.float32)
+    w = np.ones((8,), dtype=np.float32)
+    with pytest.raises(RuntimeError, match="unavailable"):
+        mod.rmsnorm_avx2(x, w)
