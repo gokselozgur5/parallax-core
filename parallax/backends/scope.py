@@ -16,3 +16,15 @@ def _get_stack() -> list[tuple[str | None, str | None]]:
         stack = []
         _local.stack = stack
     return stack
+
+
+def _normalize_name(val: Any, label: str) -> str | None:
+    if val is None:
+        return None
+    name = getattr(val, "name", val)
+    if not isinstance(name, str):
+        raise TypeError(f"{label} must be a str or None; got {type(val).__name__}")
+    cleaned = name.strip().lower()
+    if not cleaned:
+        raise ValueError(f"{label} cannot be empty")
+    return cleaned
