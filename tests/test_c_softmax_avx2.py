@@ -56,3 +56,10 @@ def test_avx2_softmax_parity(rows: int, cols: int) -> None:
     assert np.allclose(actual, expected, atol=1e-5)
     row_sums = np.sum(actual, axis=-1)
     assert np.allclose(row_sums, np.ones(rows), atol=1e-5)
+
+
+def test_avx2_softmax_large_logits() -> None:
+    x = np.array([[1000.0, 1001.0, 1002.0], [-1000.0, -1001.0, -1002.0]], dtype=np.float32)
+    out = softmax_avx2(x)
+    assert np.all(np.isfinite(out))
+    assert np.allclose(np.sum(out, axis=-1), np.ones(2), atol=1e-5)
