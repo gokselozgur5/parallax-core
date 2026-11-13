@@ -102,4 +102,30 @@ def measure_time(backend: Any, op: str, size: int, repeat: int = 3) -> float:
     return float(np.median(timings))
 
 
+def find_crossover(op: str, fast: Any, ref: Any, ladder: Sequence[int] | None = None) -> int:
+    """Find element count crossover threshold where fast <= ref."""
+    steps = ladder or DEFAULT_LADDERS.get(op, (32, 64, 128, 256))
+    for s in steps:
+        t_fast = measure_time(fast, op, s)
+        t_ref = measure_time(ref, op, s)
+        n_elems = s * s if op == "gemm" else s
+        if t_fast <= t_ref:
+            return n_elems
+    last = steps[-1]
+    return last * last if op == "gemm" else last
+
+
+def autotune(
+    fast: Any,
+    ref: Any,
+    ops: Sequence[str] = ("gemm", "softmax", "rmsnorm"),
+    path: Path | str | None = None,
+) -> dict[str, int]:
+    """Tune crossover thresholds and persist to JSON cache."""
+    thresholds = {op: find_crossover(op, fast, ref) for op in ops}
+    save_cache(thresholds, path=path)
+    return thresholds
+
+
+
 
