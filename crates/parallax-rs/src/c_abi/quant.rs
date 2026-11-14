@@ -18,6 +18,23 @@ pub unsafe extern "C" fn parallax_quantize_q8_0(
     STATUS_OK
 }
 
+/// Dequantizes a BlockQ8_0 struct back into 32 f32 values.
+///
+/// # Safety
+/// Both `block` and `out_f32` must be non-null and valid.
+#[no_mangle]
+pub unsafe extern "C" fn parallax_dequantize_q8_0(
+    block: *const BlockQ8_0,
+    out_f32: *mut f32,
+) -> i32 {
+    if block.is_null() || out_f32.is_null() {
+        return STATUS_NULL_POINTER;
+    }
+    let out_slice: &mut [f32; 32] = &mut *(out_f32 as *mut [f32; 32]);
+    (*block).dequantize(out_slice);
+    STATUS_OK
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
