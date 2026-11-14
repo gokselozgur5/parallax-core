@@ -50,3 +50,22 @@ def normalize_arch(machine: str) -> str:
 
 CpuProbe = CpuFeatures
 CpuInfo = CpuFeatures
+
+
+
+def parse_proc_cpuinfo(text: str, machine: str = "") -> CpuFeatures:
+    """Build CpuFeatures from Linux /proc/cpuinfo content."""
+    flags: set[str] = set()
+    for line in text.splitlines():
+        key, sep, value = line.partition(":")
+        if sep and key.strip().lower() in ("flags", "features"):
+            flags.update(value.lower().split())
+    arch = normalize_arch(machine) if machine else "unknown"
+    has_512 = any(f.startswith("avx512") for f in flags)
+    return CpuFeatures(
+        arch=arch,
+        system="Linux",
+        neon="asimd" in flags or "neon" in flags,
+        avx2="avx2" in flags,
+        avx512=has_512,
+    )
