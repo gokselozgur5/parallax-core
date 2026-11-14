@@ -30,3 +30,13 @@ def _create_test_model():
 
 def test_native_generation_parity_greedy():
     model = _create_test_model()
+    prompt = [1, 5, 12]
+
+    np.random.seed(123)
+    tokens_vanilla = generate(model, prompt, max_new_tokens=10, temperature=0.0)
+
+    enable_native(model)
+    np.random.seed(123)
+    tokens_native = generate(model, prompt, max_new_tokens=10, temperature=0.0)
+
+    assert tokens_vanilla == tokens_native
