@@ -193,4 +193,19 @@ mod tests {
         assert!((out[0] - 10.0).abs() < 1e-4);
         assert!((out[1] - 1.0).abs() < 1e-4);
     }
+
+    #[test]
+    fn test_flash_attn_f16_scale_correction_equivalence() {
+        let q = [200.0f32, 300.0];
+        let k = [200.0f32, 300.0];
+        let v = [1.0f32, 2.0];
+        let mut out_std = [0.0f32; 2];
+        let mut out_corr = [0.0f32; 2];
+        let cfg_std = FlashAttnConfig::new(2, false, false);
+        let cfg_corr = FlashAttnConfig::new(2, false, true);
+        flash_attn(&q, &k, &v, &mut out_std, 1, 2, cfg_std).unwrap();
+        flash_attn(&q, &k, &v, &mut out_corr, 1, 2, cfg_corr).unwrap();
+        assert!((out_std[0] - out_corr[0]).abs() < 1e-4);
+        assert!((out_std[1] - out_corr[1]).abs() < 1e-4);
+    }
 }
