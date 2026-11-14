@@ -32,3 +32,11 @@ pub fn find_merge(table: &[MergeEntry], left: u32, right: u32) -> Option<&MergeE
     let target = (left, right);
     table.binary_search_by(|entry| entry.key().cmp(&target)).ok().map(|idx| &table[idx])
 }
+
+/// Validates if a table slice is strictly sorted by (left, right) with no duplicates.
+pub fn is_table_sorted(table: &[MergeEntry]) -> bool {
+    if table.len() <= 1 {
+        return true;
+    }
+    table.windows(2).all(|w| w[0].key() < w[1].key())
+}
