@@ -208,4 +208,18 @@ mod tests {
         assert!((out_std[0] - out_corr[0]).abs() < 1e-4);
         assert!((out_std[1] - out_corr[1]).abs() < 1e-4);
     }
+
+    #[test]
+    fn test_flash_attn_nan_and_errors() {
+        let q = [f32::NAN, 1.0];
+        let k = [1.0f32, 1.0];
+        let v = [1.0f32, 1.0];
+        let mut out = [0.0f32; 2];
+        let cfg = FlashAttnConfig::new(2, false, false);
+        assert_eq!(flash_attn(&q, &k, &v, &mut out, 1, 2, cfg), Ok(()));
+        assert!(out[0].is_nan() || out[1].is_nan());
+
+        let invalid_cfg = FlashAttnConfig { scale: -1.0, is_causal: false, f16_scale_correction: false };
+        assert_eq!(flash_attn(&q, &k, &v, &mut out, 1, 2, invalid_cfg), Err(FlashAttnError::InvalidScale));
+    }
 }
