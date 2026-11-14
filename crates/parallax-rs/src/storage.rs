@@ -64,3 +64,29 @@ pub struct TensorView<'a> {
     pub shape: Vec<usize>,
     pub data: &'a [u8],
 }
+
+impl<'a> TensorView<'a> {
+    pub fn element_count(&self) -> usize {
+        self.shape.iter().product()
+    }
+
+    pub fn byte_size(&self) -> usize {
+        self.element_count() * self.dtype.element_size()
+    }
+
+    pub fn as_f32_slice(&self) -> Result<&'a [f32], StorageError> {
+        if self.dtype != StorageDType::F32 {
+            return Err(StorageError::InvalidDType);
+        }
+        if !crate::is_aligned_f32(self.data.as_ptr()) {
+            return Err(StorageError::UnalignedTensorData);
+        }
+        let count = self.element_count();
+        if self.data.len() != count * 4 {
+            return Err(StorageError::OffsetOutOfBounds);
+        }
+        Ok(unsafe {
+            std::slice::from_raw_parts(self.data.as_ptr() as *const f32, count)
+        })
+    }
+}
