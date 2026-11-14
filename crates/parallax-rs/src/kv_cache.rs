@@ -78,4 +78,16 @@ impl CircularKvBuffer {
             Ok(phys)
         }
     }
+
+    /// Calculate buffer offset and length for a given (head, physical_slot).
+    #[inline]
+    pub fn slot_offset(&self, head: usize, slot: usize) -> Result<usize, KvCacheError> {
+        if head >= self.num_heads || slot >= self.capacity {
+            return Err(KvCacheError::InvalidDimension);
+        }
+        // Offset: (head * capacity + slot) * head_dim
+        let h_offset = head.checked_mul(self.capacity).ok_or(KvCacheError::InvalidDimension)?;
+        let slot_offset = h_offset.checked_add(slot).ok_or(KvCacheError::InvalidDimension)?;
+        slot_offset.checked_mul(self.head_dim).ok_or(KvCacheError::InvalidDimension)
+    }
 }
