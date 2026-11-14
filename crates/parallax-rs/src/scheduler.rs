@@ -31,3 +31,23 @@ impl std::error::Error for SchedulerError {}
 pub struct SequenceBinner {
     buckets: Vec<usize>,
 }
+
+impl SequenceBinner {
+    /// Create a new binner from a list of bucket boundaries.
+    pub fn new(boundaries: &[usize]) -> Result<Self, SchedulerError> {
+        if boundaries.is_empty() {
+            return Err(SchedulerError::EmptyBuckets);
+        }
+        let mut buckets = Vec::new();
+        for &b in boundaries {
+            if b == 0 {
+                return Err(SchedulerError::ZeroLengthSequence);
+            }
+            if !buckets.contains(&b) {
+                buckets.push(b);
+            }
+        }
+        buckets.sort_unstable();
+        Ok(Self { buckets })
+    }
+}
