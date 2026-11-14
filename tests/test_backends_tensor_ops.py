@@ -52,3 +52,13 @@ def test_dispatched_matmul_1d_2d_and_2d_1d():
     z.sum().backward()
     assert np.allclose(x.grad, [[5.0, 6.0], [5.0, 6.0]])
     assert np.allclose(y.grad, [4.0, 6.0])
+
+
+SHAPES = [
+    ((4,), (4,)),
+    ((3,), (3, 4)),
+    ((2, 3), (3,)),
+    ((2, 4), (4, 3)),
+    ((2, 3, 4), (2, 4, 5)),
+    ((2, 1, 3, 4), (5, 4, 2)),
+]
