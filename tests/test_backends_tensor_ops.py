@@ -62,3 +62,15 @@ SHAPES = [
     ((2, 3, 4), (2, 4, 5)),
     ((2, 1, 3, 4), (5, 4, 2)),
 ]
+
+
+@pytest.mark.parametrize("s_a,s_b", SHAPES)
+def test_dispatched_matmul_matches_tensor_matmul(s_a, s_b):
+    np.random.seed(42)
+    d_a, d_b = np.random.randn(*s_a), np.random.randn(*s_b)
+    t_a1, t_b1 = Tensor(d_a.copy(), requires_grad=True), Tensor(d_b.copy(), requires_grad=True)
+    (t_a1 @ t_b1).sum().backward()
+    t_a2, t_b2 = Tensor(d_a.copy(), requires_grad=True), Tensor(d_b.copy(), requires_grad=True)
+    dispatched_matmul(t_a2, t_b2).sum().backward()
+    assert np.allclose(t_a1.grad, t_a2.grad)
+    assert np.allclose(t_b1.grad, t_b2.grad)
