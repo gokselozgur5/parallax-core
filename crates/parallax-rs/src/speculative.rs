@@ -18,3 +18,17 @@ pub struct VerificationResult {
     pub num_accepted: usize,
     pub all_accepted: bool,
 }
+
+/// Finds argmax index over a float slice.
+pub fn argmax_f32(slice: &[f32]) -> Option<usize> {
+    if slice.is_empty() { return None; }
+    let mut best_idx = 0;
+    let mut best_val = slice[0];
+    for (i, &val) in slice.iter().enumerate().skip(1) {
+        if val > best_val {
+            best_val = val;
+            best_idx = i;
+        }
+    }
+    Some(best_idx)
+}
