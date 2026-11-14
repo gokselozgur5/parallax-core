@@ -20,6 +20,8 @@ def _format_isa_flags(info: cpuinfo.CpuInfo) -> str:
 
 
 def _check_backend_available(backend: Any) -> bool:
+    if isinstance(backend, bool):
+        return backend
     if isinstance(backend, Backend):
         return bool(backend.available())
     if hasattr(backend, "available") and callable(backend.available):
