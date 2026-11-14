@@ -163,4 +163,15 @@ mod tests {
         assert_eq!(argmax_f32(&logits), Some(1));
         assert_eq!(argmax_f32(&[]), None);
     }
+
+    #[test]
+    fn test_verify_draft_greedy_all_accepted() {
+        let target_logits = [0.1f32, 0.9, 0.2, 0.8, 0.1, 0.3, 0.2, 0.3, 0.7];
+        let draft_tokens = [1u32, 0];
+        let res = verify_draft_greedy(&target_logits, &draft_tokens, 2, 3).unwrap();
+        assert_eq!(res.num_accepted, 2);
+        assert!(res.all_accepted);
+        assert_eq!(res.accepted_tokens, vec![1, 0]);
+        assert_eq!(res.bonus_token, Some(2));
+    }
 }
