@@ -16,3 +16,17 @@ def setup_backend():
 
 
 def _create_test_model():
+    cfg = ParallaxLMConfig(
+        vocab_size=32,
+        embed_dim=16,
+        num_heads=2,
+        num_layers=2,
+        max_seq_len=64,
+        intermediate_size=32,
+    )
+    np.random.seed(42)
+    return ParallaxLM(cfg)
+
+
+def test_native_generation_parity_greedy():
+    model = _create_test_model()
