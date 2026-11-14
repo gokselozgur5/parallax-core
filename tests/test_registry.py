@@ -44,3 +44,15 @@ def test_list_backends_priority_order():
     reg.register("metal", object(), priority=5)
     reg.register("hip", object(), priority=10)
     assert reg.list_backends() == ["cuda", "hip", "metal", "cpu"]
+
+
+def test_dict_like_access_and_len():
+    reg = BackendRegistry()
+    eng = object()
+    reg.register("cpu", eng, priority=2)
+    assert "cpu" in reg
+    assert "gpu" not in reg
+    assert len(reg) == 1
+    assert reg["cpu"] is eng
+    del reg["cpu"]
+    assert "cpu" not in reg
