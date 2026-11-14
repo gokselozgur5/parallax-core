@@ -79,3 +79,13 @@ static void flashattn_neon_kernel(const float *q, const float *k, const float *v
         if (l_i > 0.0f) vec_scale_neon(oi, 1.0f / l_i, head_dim);
     }
 }
+
+int c_flashattn_neon_f32(const float *q, const float *k, const float *v,
+                         float *out, int seq_len, int head_dim,
+                         float scale, int is_causal) {
+    if (!q || !k || !v || !out) return PARALLAX_STATUS_NULL_POINTER;
+    if (seq_len <= 0 || head_dim <= 0) return PARALLAX_STATUS_INVALID_DIMENSION;
+    flashattn_neon_kernel(q, k, v, out, seq_len, head_dim, scale, is_causal);
+    return PARALLAX_STATUS_OK;
+}
+#endif
