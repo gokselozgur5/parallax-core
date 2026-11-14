@@ -51,3 +51,23 @@ def test_dispatch_chain_all_backends_fail_raises():
     chain = DispatchChain(registry={})
     with pytest.raises(RuntimeError, match="All backends in fallback chain failed"):
         chain.execute("gemm", 1, 2, candidate_override=["missing_a", "missing_b"])
+
+
+def test_dispatch_chain_module_helpers_and_custom_policy():
+    from parallax.core.dispatch import DispatchPolicy
+    from parallax.core.dispatch_chain import (
+        clear_fallback_history,
+        dispatch_chain,
+        dispatch_with_fallback,
+        get_fallback_history,
+    )
+
+    clear_fallback_history()
+    assert get_fallback_history() == []
+    policy = DispatchPolicy(thresholds={"gemm": 100})
+    chain = DispatchChain(policy=policy, registry={})
+    assert chain.get_candidates("gemm", 50) == ["numpy"]
+    with pytest.raises(RuntimeError):
+        dispatch_chain("unknown_op", 1, candidate_override=["nonexistent"])
+    assert len(get_fallback_history()) == 1
+    clear_fallback_history()
