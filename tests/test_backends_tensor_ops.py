@@ -36,3 +36,19 @@ def test_dispatched_matmul_1d():
     assert np.allclose(c.data, 32.0)
     assert np.allclose(a.grad, [4.0, 5.0, 6.0])
     assert np.allclose(b.grad, [1.0, 2.0, 3.0])
+
+
+def test_dispatched_matmul_1d_2d_and_2d_1d():
+    a = Tensor([1.0, 2.0], requires_grad=True)
+    b = Tensor([[3.0, 4.0, 5.0], [6.0, 7.0, 8.0]], requires_grad=True)
+    c = dispatched_matmul(a, b)
+    c.sum().backward()
+    assert np.allclose(a.grad, [12.0, 21.0])
+    assert np.allclose(b.grad, [[1.0, 1.0, 1.0], [2.0, 2.0, 2.0]])
+
+    x = Tensor([[1.0, 2.0], [3.0, 4.0]], requires_grad=True)
+    y = Tensor([5.0, 6.0], requires_grad=True)
+    z = dispatched_matmul(x, y)
+    z.sum().backward()
+    assert np.allclose(x.grad, [[5.0, 6.0], [5.0, 6.0]])
+    assert np.allclose(y.grad, [4.0, 6.0])
