@@ -6,3 +6,14 @@ from typing import Any
 from parallax.backends import cpuinfo
 from parallax.backends import registry
 from parallax.backends.base import Backend
+
+
+def _format_isa_flags(info: cpuinfo.CpuInfo) -> str:
+    flags: list[str] = []
+    if info.neon:
+        flags.append("NEON")
+    if info.avx2:
+        flags.append("AVX2")
+    if info.avx512f:
+        flags.append("AVX-512")
+    return ", ".join(flags) if flags else "none"
