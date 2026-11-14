@@ -46,7 +46,7 @@ def generate_markdown_report(
     parity_override: dict[str, str] | None = None,
 ) -> str:
     """Generate a compact markdown report of backends and capabilities."""
-    info = cpu_info or cpuinfo.probe()
+    info = cpu_info or cpuinfo.detect_cpu()
     isa = _format_isa_flags(info)
     lines: list[str] = [
         "| Backend | Available | ISA Flags | Parity |",
