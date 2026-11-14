@@ -40,3 +40,17 @@ class BackendRegistry:
             items = list(self._backends.items())
         items.sort(key=lambda item: -item[1][1])
         return [name for name, _ in items]
+
+    def __contains__(self, name: str) -> bool:
+        with self._lock:
+            return name in self._backends
+
+    def __len__(self) -> int:
+        with self._lock:
+            return len(self._backends)
+
+    def __getitem__(self, name: str) -> Any:
+        return self.get(name)
+
+    def __delitem__(self, name: str) -> None:
+        self.unregister(name)
