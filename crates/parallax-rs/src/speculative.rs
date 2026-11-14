@@ -100,3 +100,29 @@ pub fn verify_candidate_stochastic(
     let ratio = p_target / draft_prob;
     roll < ratio.min(1.0)
 }
+
+/// Computes residual probability distribution max(0, p - q) normalized.
+pub fn compute_residual_distribution(
+    target_probs: &[f32],
+    draft_probs: &[f32],
+    residual_out: &mut [f32],
+) -> Result<(), SpeculativeError> {
+    if target_probs.len() != draft_probs.len() || target_probs.len() != residual_out.len() {
+        return Err(SpeculativeError::DimensionMismatch);
+    }
+    let mut sum = 0.0f32;
+    for i in 0..target_probs.len() {
+        let diff = (target_probs[i] - draft_probs[i]).max(0.0);
+        residual_out[i] = diff;
+        sum += diff;
+    }
+    if sum > 1e-12 {
+        let inv_sum = 1.0 / sum;
+        for val in residual_out.iter_mut() {
+            *val *= inv_sum;
+        }
+    } else {
+        residual_out.copy_from_slice(target_probs);
+    }
+    Ok(())
+}
