@@ -110,3 +110,17 @@ pub fn dot_fp16_simd_aligned(a: &[u16], b: &[u16]) -> Result<f32, NeonFp16Error>
     verify_fp16_alignment(a.as_ptr(), b.as_ptr(), true)?;
     dot_fp16_scalar(a, b)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_pointer_aligned() {
+        let val: [u8; 32] = [0; 32];
+        let p = val.as_ptr();
+        assert!(is_pointer_aligned(p, 1));
+        assert!(!is_pointer_aligned(std::ptr::null::<u8>(), 16));
+        assert!(!is_pointer_aligned(p, 0));
+    }
+}
