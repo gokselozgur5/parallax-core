@@ -18,3 +18,10 @@ impl StorageTelemetry {
         }
     }
 }
+
+impl StorageTelemetry {
+    pub fn record_eviction(&mut self, bytes: u64) {
+        self.eviction_count = self.eviction_count.saturating_add(1);
+        self.evicted_bytes = self.evicted_bytes.saturating_add(bytes);
+    }
+}
