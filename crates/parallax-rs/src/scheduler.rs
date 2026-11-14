@@ -51,3 +51,24 @@ impl SequenceBinner {
         Ok(Self { buckets })
     }
 }
+
+impl SequenceBinner {
+    /// Return slice of configured bucket boundaries.
+    #[inline]
+    pub fn buckets(&self) -> &[usize] {
+        &self.buckets
+    }
+
+    /// Find smallest bucket boundary that fits seq_len.
+    pub fn find_bucket(&self, seq_len: usize) -> Result<usize, SchedulerError> {
+        if seq_len == 0 {
+            return Err(SchedulerError::ZeroLengthSequence);
+        }
+        for &b in &self.buckets {
+            if seq_len <= b {
+                return Ok(b);
+            }
+        }
+        Err(SchedulerError::ExceedsCapacity)
+    }
+}
