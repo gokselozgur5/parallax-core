@@ -12,3 +12,17 @@ pub struct MergeEntry {
     pub rank: u32,
     pub new_id: u32,
 }
+
+impl MergeEntry {
+    /// Constructs a new MergeEntry.
+    #[inline]
+    pub const fn new(left: u32, right: u32, rank: u32, new_id: u32) -> Self {
+        Self { left, right, rank, new_id }
+    }
+
+    /// Comparison key for sorting and binary searching: (left, right).
+    #[inline]
+    pub const fn key(&self) -> (u32, u32) {
+        (self.left, self.right)
+    }
+}
