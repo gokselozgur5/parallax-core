@@ -10,3 +10,9 @@ from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 @pytest.fixture(autouse=True)
 def setup_backend():
     registry.clear()
+    registry.register("numpy", NumpyBackend())
+    yield
+    registry.clear()
+
+
+def _create_test_model():
