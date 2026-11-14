@@ -305,3 +305,6 @@ pub unsafe extern "C" fn parallax_collate_batch_u32(
     })).unwrap_or(STATUS_INVALID_DIMENSION)
 }
 
+
+pub mod q8_gemv;
+pub use q8_gemv::{gemv_q8_0, vec_dot_q8_0_f32, vec_dot_q8_0_f32_block, BlockQ8_0};
