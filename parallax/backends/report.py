@@ -25,3 +25,8 @@ def _check_backend_available(backend: Any) -> bool:
     if hasattr(backend, "available") and callable(backend.available):
         return bool(backend.available())
     return True
+
+
+def _format_row(name: str, avail: bool, isa: str, parity: str) -> str:
+    av_str = "true" if avail else "false"
+    return f"| {name} | {av_str} | {isa} | {parity} |"
