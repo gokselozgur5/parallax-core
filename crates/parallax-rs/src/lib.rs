@@ -144,6 +144,32 @@ pub unsafe extern "C" fn parallax_bpe_find_merge(
     })).unwrap_or(STATUS_INVALID_DIMENSION)
 }
 
+/// C-ABI export for validating whether a merge table is strictly sorted.
+#[no_mangle]
+pub unsafe extern "C" fn parallax_bpe_is_sorted(
+    table_ptr: *const bpe::MergeEntry,
+    table_len: usize,
+) -> i32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        if table_ptr.is_null() && table_len > 0 {
+            return STATUS_NULL_POINTER;
+        }
+        if table_len > 0 && !is_aligned_u32(table_ptr) {
+            return STATUS_UNALIGNED_POINTER;
+        }
+        let table = if table_len == 0 {
+            &[][..]
+        } else {
+            slice::from_raw_parts(table_ptr, table_len)
+        };
+        if bpe::is_table_sorted(table) {
+            1
+        } else {
+            0
+        }
+    })).unwrap_or(STATUS_INVALID_DIMENSION)
+}
+
 /// C-ABI export for version check / smoke test.
 #[no_mangle]
 pub extern "C" fn parallax_version() -> u32 {
