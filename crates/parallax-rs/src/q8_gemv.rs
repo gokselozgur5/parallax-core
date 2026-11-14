@@ -46,3 +46,14 @@ pub fn vec_dot_q8_0_f32_block(block: &BlockQ8_0, x: &[f32; 32]) -> f32 {
     }
     sum_i * block.scale
 }
+
+/// Computes dot product between a row of Q8_0 blocks and f32 vector x.
+pub fn vec_dot_q8_0_f32(blocks: &[BlockQ8_0], x: &[f32]) -> f32 {
+    assert_eq!(blocks.len() * 32, x.len());
+    let mut sum = 0.0f32;
+    for (b_idx, block) in blocks.iter().enumerate() {
+        let chunk: &[f32; 32] = x[b_idx * 32..(b_idx + 1) * 32].try_into().unwrap();
+        sum += vec_dot_q8_0_f32_block(block, chunk);
+    }
+    sum
+}
