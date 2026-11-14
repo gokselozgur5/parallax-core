@@ -23,3 +23,15 @@ def test_get_unknown_raises():
     reg = BackendRegistry()
     with pytest.raises(KeyError):
         reg.get("missing")
+
+
+def test_unregister_and_clear():
+    reg = BackendRegistry()
+    reg.register("cpu", object())
+    reg.unregister("cpu")
+    with pytest.raises(KeyError):
+        reg.unregister("cpu")
+    reg.register("cpu", object())
+    reg.clear()
+    with pytest.raises(KeyError):
+        reg.get("cpu")
