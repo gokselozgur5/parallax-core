@@ -74,3 +74,14 @@ class RoPECache:
             raise ValueError(f"range [{start_pos}, {start_pos + T}) invalid")
         if T == 0 or H == 0 or D == 0:
             return x
+        if _c_apply_rope_cached is not None:
+            xp = x.ctypes.data_as(_f32_ptr)
+            cp = self.cos.ctypes.data_as(_f32_ptr)
+            sp = self.sin.ctypes.data_as(_f32_ptr)
+            rc = _c_apply_rope_cached(
+                xp, cp, sp, int(T), int(H), int(D),
+                int(start_pos), int(self.max_seq_len), 1 if interleaved else 0,
+            )
+            if rc != 0:
+                raise RuntimeError(f"c_apply_rope_cached_f32 failed: {rc}")
+        return x
