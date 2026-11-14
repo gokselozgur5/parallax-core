@@ -97,5 +97,17 @@ def test_check_backend_protocol_validation():
         check_backend_protocol(InvalidName())
 
 
+def test_numpy_backend_satisfies_protocol():
+    from parallax.backends.numpy_backend import NumpyBackend
+    from parallax.core.protocol import BackendProtocol, check_backend_protocol, query_capability
+
+    nb = NumpyBackend()
+    assert isinstance(nb, BackendProtocol)
+    check_backend_protocol(nb)
+    assert query_capability(nb, "gemm")
+    assert not query_capability(nb, "unknown_op")
+
+
+
 
 
