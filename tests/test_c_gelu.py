@@ -38,3 +38,15 @@ def test_gelu_multidimensional() -> None:
     ref = gelu_numpy(x)
     assert res.shape == (2, 4, 16)
     assert float(np.max(np.abs(res - ref))) < 1e-6
+
+
+def test_gelu_zero_length() -> None:
+    x = np.empty((0, 16), dtype=np.float32)
+    res = c_gelu(x)
+    assert res.shape == (0, 16)
+
+
+def test_gelu_invalid_inputs() -> None:
+    x_complex = np.ones((4, 8), dtype=np.complex64)
+    with pytest.raises(TypeError, match="Complex dtypes"):
+        c_gelu(x_complex)
