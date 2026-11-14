@@ -140,4 +140,13 @@ mod tests {
         assert!(fp16_to_f32(0x7C00).is_infinite());
         assert!(fp16_to_f32(0x7E00).is_nan());
     }
+
+    #[test]
+    fn test_dot_fp16_scalar_and_dimension_mismatch() {
+        let a = [0x3C00, 0x4000]; // 1.0, 2.0
+        let b = [0x4200, 0x4400]; // 3.0, 4.0
+        let res = dot_fp16_scalar(&a, &b).unwrap();
+        assert!((res - 11.0).abs() < 1e-4);
+        assert_eq!(dot_fp16_scalar(&a[..1], &b), Err(NeonFp16Error::DimensionMismatch));
+    }
 }
