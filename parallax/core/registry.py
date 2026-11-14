@@ -54,3 +54,20 @@ class BackendRegistry:
 
     def __delitem__(self, name: str) -> None:
         self.unregister(name)
+
+
+_default_registry = BackendRegistry()
+register = _default_registry.register
+get = _default_registry.get
+unregister = _default_registry.unregister
+clear = _default_registry.clear
+list_backends = _default_registry.list_backends
+
+__all__ = [
+    "BackendRegistry",
+    "clear",
+    "get",
+    "list_backends",
+    "register",
+    "unregister",
+]
