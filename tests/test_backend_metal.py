@@ -51,3 +51,15 @@ def test_metal_backend_mock_execution(monkeypatch):
     a = np.ones((2, 2), dtype=np.float32)
     out = backend.gemm(a, a)
     assert np.allclose(out, a @ a)
+
+
+def test_metal_backend_mock_rmsnorm(monkeypatch):
+    backend = MetalBackend()
+    monkeypatch.setattr(backend, "available", lambda: True)
+    import parallax.metal_engine as me
+
+    monkeypatch.setattr(me, "metal_rmsnorm", lambda x, w, eps=1e-5: x * w)
+    x = np.ones((2, 2), dtype=np.float32)
+    w = np.ones((2,), dtype=np.float32)
+    out = backend.rmsnorm(x, w)
+    assert np.allclose(out, x * w)
