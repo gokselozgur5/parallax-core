@@ -48,3 +48,17 @@ static inline void vec_scale_neon(float *out, float scale, int len) {
     }
     for (; d < len; ++d) out[d] *= scale;
 }
+
+static inline void update_kv_step_neon(float *oi, const float *vj, float score,
+                                       float *m_i, float *l_i, int head_dim) {
+    if (score > *m_i) {
+        float alpha = expf(*m_i - score);
+        *m_i = score;
+        *l_i = *l_i * alpha + 1.0f;
+        vec_scale_add_neon(oi, alpha, vj, 1.0f, head_dim);
+    } else {
+        float p = expf(score - *m_i);
+        *l_i += p;
+        vec_scale_add_neon(oi, 1.0f, vj, p, head_dim);
+    }
+}
