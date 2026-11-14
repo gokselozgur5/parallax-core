@@ -33,3 +33,14 @@ def get_backend_override(
             if val is not None:
                 return val
     return None
+
+
+backend_override = get_backend_override
+
+
+def is_override_active(
+    op: str | None = None,
+    env: Mapping[str, str] | None = None,
+) -> bool:
+    """Return True if an environment override is specified for the backend."""
+    return get_backend_override(op=op, env=env) is not None
