@@ -140,3 +140,23 @@ def get_fallback_history() -> list[FallbackRecord]:
 def clear_fallback_history() -> None:
     """Clear fallback history recorded by the default chain."""
     _DEFAULT_CHAIN.clear_history()
+
+
+def dispatch_chain(
+    op: str,
+    *args: Any,
+    platform: PlatformInfo | None = None,
+    candidate_override: Sequence[str] | None = None,
+    **kwargs: Any,
+) -> Any:
+    """Execute op via the default resilient fallback execution chain."""
+    return _DEFAULT_CHAIN.execute(
+        op,
+        *args,
+        platform=platform,
+        candidate_override=candidate_override,
+        **kwargs,
+    )
+
+
+dispatch_with_fallback = dispatch_chain
