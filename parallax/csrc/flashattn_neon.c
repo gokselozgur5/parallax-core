@@ -62,3 +62,20 @@ static inline void update_kv_step_neon(float *oi, const float *vj, float score,
         vec_scale_add_neon(oi, 1.0f, vj, p, head_dim);
     }
 }
+
+static void flashattn_neon_kernel(const float *q, const float *k, const float *v,
+                                  float *out, int seq_len, int head_dim,
+                                  float scale, int is_causal) {
+    for (int i = 0; i < seq_len; ++i) {
+        const float *qi = q + i * head_dim;
+        float *oi = out + i * head_dim;
+        for (int d = 0; d < head_dim; ++d) oi[d] = 0.0f;
+        float m_i = -INFINITY, l_i = 0.0f;
+        int max_j = is_causal ? (i + 1) : seq_len;
+        for (int j = 0; j < max_j; ++j) {
+            float s = dot_product_neon(qi, k + j * head_dim, head_dim) * scale;
+            update_kv_step_neon(oi, v + j * head_dim, s, &m_i, &l_i, head_dim);
+        }
+        if (l_i > 0.0f) vec_scale_neon(oi, 1.0f / l_i, head_dim);
+    }
+}
