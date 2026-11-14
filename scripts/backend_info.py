@@ -15,3 +15,21 @@ from parallax.backends.numpy_backend import NumpyBackend
 from parallax.backends.report import generate_markdown_report
 from parallax.backends.rust_backend import RustBackend
 
+
+def register_standard_backends() -> None:
+    """Ensure standard backends are registered if missing."""
+    factories: dict[str, Callable[[], Backend]] = {
+        "numpy": NumpyBackend,
+        "c": CBackend,
+        "rust": RustBackend,
+        "metal": MetalBackend,
+    }
+    existing = set(registry.list_backends())
+    for name, factory in factories.items():
+        if name not in existing:
+            try:
+                registry.register(name, factory())
+            except Exception:
+                pass
+
+
