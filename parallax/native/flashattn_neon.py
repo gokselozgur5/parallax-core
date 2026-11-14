@@ -49,3 +49,15 @@ def _prep_arrays(q: np.ndarray, k: np.ndarray, v: np.ndarray):
         np.ascontiguousarray(k, dtype=np.float32),
         np.ascontiguousarray(v, dtype=np.float32),
     )
+
+
+def _invoke_neon_kernel(fn, q, k, v, out, seq_len, head_dim, scale, is_causal):
+    c_flag = 1 if is_causal else 0
+    status = fn(
+        q.ctypes.data, k.ctypes.data, v.ctypes.data, out.ctypes.data,
+        seq_len, head_dim, ctypes.c_float(scale), c_flag
+    )
+    if status == -5:
+        raise RuntimeError("NEON is not supported on this platform")
+    if status != 0:
+        raise RuntimeError(f"c_flashattn_neon_f32 failed: {status}")
