@@ -40,3 +40,23 @@ pub fn is_table_sorted(table: &[MergeEntry]) -> bool {
     }
     table.windows(2).all(|w| w[0].key() < w[1].key())
 }
+
+/// Finds the best (lowest rank) applicable merge across adjacent pairs in tokens.
+pub fn find_best_merge(table: &[MergeEntry], tokens: &[u32]) -> Option<(usize, MergeEntry)> {
+    if tokens.len() < 2 {
+        return None;
+    }
+    let mut best: Option<(usize, MergeEntry)> = None;
+    for i in 0..tokens.len() - 1 {
+        if let Some(entry) = find_merge(table, tokens[i], tokens[i + 1]) {
+            match best {
+                None => best = Some((i, *entry)),
+                Some((_, current_best)) if entry.rank < current_best.rank => {
+                    best = Some((i, *entry));
+                }
+                _ => {}
+            }
+        }
+    }
+    best
+}
