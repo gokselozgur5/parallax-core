@@ -229,19 +229,19 @@ impl<'a> StorageReader<'a> {
         Ok(None)
     }
 
-    pub fn iter(&self) -> StorageIter<'a> {
+    pub fn iter<'s>(&'s self) -> StorageIter<'s, 'a> {
         StorageIter { reader: self, offset: self.header_offset, index: 0 }
     }
 }
 
 /// Iterator over tensors in a StorageReader.
-pub struct StorageIter<'a> {
-    reader: &'a StorageReader<'a>,
+pub struct StorageIter<'s, 'a> {
+    reader: &'s StorageReader<'a>,
     offset: usize,
     index: usize,
 }
 
-impl<'a> Iterator for StorageIter<'a> {
+impl<'s, 'a> Iterator for StorageIter<'s, 'a> {
     type Item = Result<TensorView<'a>, StorageError>;
 
     fn next(&mut self) -> Option<Self::Item> {
