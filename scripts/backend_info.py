@@ -33,3 +33,12 @@ def register_standard_backends() -> None:
                 pass
 
 
+def _check_available(backend: Any) -> bool:
+    if isinstance(backend, bool):
+        return backend
+    if isinstance(backend, Backend):
+        return bool(backend.available())
+    if hasattr(backend, "available") and callable(backend.available):
+        return bool(backend.available())
+    return True
+
