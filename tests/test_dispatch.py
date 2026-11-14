@@ -25,3 +25,16 @@ def test_heuristic_dispatch_fallback_when_backend_unavailable():
     plat = PlatformInfo(arch="arm64", system="Darwin", neon=True)
     avail = {"c-neon", "numpy"}
     assert policy.select_backend("gemm", 10000, platform=plat, available_backends=avail) == "c-neon"
+
+
+def test_heuristic_dispatch_x86_avx2():
+    policy = DispatchPolicy()
+    plat = PlatformInfo(arch="x86_64", system="Linux", avx2=True)
+    assert policy.candidate_backends("gemm", 10000, platform=plat) == ["c-avx", "rust", "numpy"]
+    assert policy.select_backend("gemm", 10000, platform=plat) == "c-avx"
+
+
+def test_heuristic_dispatch_cuda():
+    policy = DispatchPolicy()
+    plat = PlatformInfo(arch="x86_64", system="Linux", cuda=True)
+    assert policy.select_backend("gemm", 10000, platform=plat) == "cuda"
