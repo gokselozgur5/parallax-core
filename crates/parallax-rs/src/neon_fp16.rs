@@ -80,3 +80,15 @@ pub fn fp16_to_f32(bits: u16) -> f32 {
         if sign == 1 { -val } else { val }
     }
 }
+
+/// Computes scalar fallback dot-product for unaligned or scalar tail segments.
+pub fn dot_fp16_scalar(a: &[u16], b: &[u16]) -> Result<f32, NeonFp16Error> {
+    if a.len() != b.len() {
+        return Err(NeonFp16Error::DimensionMismatch);
+    }
+    let mut sum: f32 = 0.0;
+    for (&x, &y) in a.iter().zip(b.iter()) {
+        sum += fp16_to_f32(x) * fp16_to_f32(y);
+    }
+    Ok(sum)
+}
