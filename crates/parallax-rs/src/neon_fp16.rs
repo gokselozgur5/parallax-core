@@ -131,4 +131,13 @@ mod tests {
         assert_eq!(verify_fp16_alignment(buf.as_ptr(), std::ptr::null(), false), Err(NeonFp16Error::NullPointer));
         assert!(verify_fp16_alignment(buf.as_ptr(), buf.as_ptr(), false).is_ok());
     }
+
+    #[test]
+    fn test_fp16_to_f32_known_values() {
+        assert_eq!(fp16_to_f32(0x0000), 0.0);
+        assert_eq!(fp16_to_f32(0x3C00), 1.0);
+        assert_eq!(fp16_to_f32(0xC000), -2.0);
+        assert!(fp16_to_f32(0x7C00).is_infinite());
+        assert!(fp16_to_f32(0x7E00).is_nan());
+    }
 }
