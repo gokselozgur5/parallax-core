@@ -328,3 +328,19 @@ fn write_entry_metadata(entry: &TensorEntryBuilder, data_offset: usize, out: &mu
         out.extend_from_slice(&(d as u64).to_le_bytes());
     }
 }
+
+fn serialize_storage_into(entries: &[TensorEntryBuilder], out: &mut Vec<u8>) -> Result<(), StorageError> {
+    let (total_size, data_offsets) = compute_header_offsets(entries)?;
+    out.reserve(total_size);
+    write_storage_header(entries, out);
+    for (entry, &offset) in entries.iter().zip(data_offsets.iter()) {
+        write_entry_metadata(entry, offset, out);
+    }
+    for (entry, &offset) in entries.iter().zip(data_offsets.iter()) {
+        while out.len() < offset {
+            out.push(0);
+        }
+        out.extend_from_slice(entry.data);
+    }
+    Ok(())
+}
