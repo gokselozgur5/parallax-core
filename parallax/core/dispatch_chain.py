@@ -71,3 +71,26 @@ class DispatchChain:
         exc_str = f"{type(exc).__name__}: {exc}" if exc is not None else None
         self._history.append(FallbackRecord(op=op, backend=backend, reason=reason, exception=exc_str))
         _LOGGER.debug("Dispatch fallback for %s on %s: %s", op, backend, reason)
+
+    def get_candidates(
+        self,
+        op: str,
+        size_or_shape: int | Sequence[int] = 0,
+        platform: PlatformInfo | None = None,
+    ) -> list[str]:
+        return self.policy.candidate_backends(op, size_or_shape, platform=platform)
+
+    def execute(
+        self,
+        op: str,
+        *args: Any,
+        platform: PlatformInfo | None = None,
+        candidate_override: Sequence[str] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        n_elems, dtype, shape = _inspect_inputs(args)
+        if candidate_override is not None:
+            candidates = list(candidate_override)
+        else:
+            candidates = self.get_candidates(op, n_elems, platform=platform)
+        return self._run_chain(op, candidates, dtype, shape, args, kwargs)
