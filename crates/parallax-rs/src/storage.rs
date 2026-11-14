@@ -292,3 +292,21 @@ pub fn serialize_storage(entries: &[TensorEntryBuilder]) -> Result<Vec<u8>, Stor
     serialize_storage_into(entries, &mut out)?;
     Ok(out)
 }
+
+fn compute_header_offsets(entries: &[TensorEntryBuilder]) -> Result<(usize, Vec<usize>), StorageError> {
+    let mut header_size = 16usize; // Magic, version, count, flags
+    for entry in entries {
+        header_size = header_size.checked_add(20).ok_or(StorageError::DimensionOverflow)?;
+        header_size = header_size.checked_add(entry.name.len()).ok_or(StorageError::DimensionOverflow)?;
+        let dims_size = entry.shape.len().checked_mul(8).ok_or(StorageError::DimensionOverflow)?;
+        header_size = header_size.checked_add(dims_size).ok_or(StorageError::DimensionOverflow)?;
+    }
+    let mut data_cursor = (header_size + STORAGE_ALIGNMENT - 1) & !(STORAGE_ALIGNMENT - 1);
+    let mut data_offsets = Vec::with_capacity(entries.len());
+    for entry in entries {
+        data_offsets.push(data_cursor);
+        let next = data_cursor.checked_add(entry.data.len()).ok_or(StorageError::DimensionOverflow)?;
+        data_cursor = (next + STORAGE_ALIGNMENT - 1) & !(STORAGE_ALIGNMENT - 1);
+    }
+    Ok((data_cursor, data_offsets))
+}
