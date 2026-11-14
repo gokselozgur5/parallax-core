@@ -33,3 +33,23 @@ def test_op_query_attributes_and_validation():
     with pytest.raises(ValueError):
         OpQuery("")
 
+
+def test_query_capability_mechanism():
+    from parallax.core.protocol import OpQuery, query_capability
+
+    class MockBackend:
+        name = "mock"
+
+        def available(self) -> bool:
+            return True
+
+        def supports(self, op: str, dtype: Any = None, shape: tuple[int, ...] = ()) -> bool:
+            return op == "gemm" and shape == (2, 2)
+
+    b = MockBackend()
+    assert query_capability(b, "gemm", shape=(2, 2))
+    assert not query_capability(b, "gemm", shape=(3, 3))
+    assert query_capability(b, OpQuery("gemm", shape=(2, 2)))
+    assert not query_capability(b, OpQuery("softmax"))
+
+
