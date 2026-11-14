@@ -47,4 +47,20 @@ mod tests {
         let count = parallax_backend_count();
         assert_eq!(count, 4);
     }
+
+    #[test]
+    fn test_parallax_get_device_type_success() {
+        let expected = [
+            DEVICE_TYPE_CPU,
+            DEVICE_TYPE_CUDA,
+            DEVICE_TYPE_METAL,
+            DEVICE_TYPE_NEON,
+        ];
+        for (idx, &dev) in expected.iter().enumerate() {
+            let mut out = 999u32;
+            let status = unsafe { parallax_get_device_type(idx as u32, &mut out) };
+            assert_eq!(status, STATUS_OK);
+            assert_eq!(out, dev);
+        }
+    }
 }
