@@ -25,3 +25,10 @@ impl StorageTelemetry {
         self.evicted_bytes = self.evicted_bytes.saturating_add(bytes);
     }
 }
+
+impl StorageTelemetry {
+    pub fn update_memory_usage(&mut self, resident: usize, mapped: usize) {
+        self.resident_bytes = resident;
+        self.mapped_bytes = mapped;
+    }
+}
