@@ -111,3 +111,20 @@ static void flashattn_avx512_kernel(const float *q, const float *k, const float 
     }
 }
 #endif
+
+
+int c_flashattn_avx512_f32(const float *q, const float *k, const float *v,
+                           float *out, int seq_len, int head_dim,
+                           float scale, int is_causal) {
+    if (!q || !k || !v || !out) return PARALLAX_STATUS_NULL_POINTER;
+    if (seq_len <= 0 || head_dim <= 0) return PARALLAX_STATUS_INVALID_DIMENSION;
+    if (!c_has_avx512_flashattn_f32()) return PARALLAX_STATUS_UNSUPPORTED_ISA;
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+    flashattn_avx512_kernel(q, k, v, out, seq_len, head_dim, scale, is_causal);
+    return PARALLAX_STATUS_OK;
+#else
+    (void)scale;
+    (void)is_causal;
+    return PARALLAX_STATUS_UNSUPPORTED_ISA;
+#endif
+}
