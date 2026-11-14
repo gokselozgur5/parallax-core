@@ -344,3 +344,28 @@ fn serialize_storage_into(entries: &[TensorEntryBuilder], out: &mut Vec<u8>) -> 
     }
     Ok(())
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_storage_roundtrip() {
+        let data = vec![1.0f32, 2.0, 3.0, 4.0];
+        let bytes = unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 4) };
+        let entries = [TensorEntryBuilder {
+            name: "weight",
+            dtype: StorageDType::F32,
+            shape: vec![2, 2],
+            data: bytes,
+        }];
+        let buf = serialize_storage(&entries).expect("serialize");
+        let reader = StorageReader::parse(&buf).expect("parse");
+        assert_eq!(reader.tensor_count(), 1);
+        let view = reader.get("weight").expect("get").expect("found");
+        assert_eq!(view.name, "weight");
+        assert_eq!(view.shape, vec![2, 2]);
+        assert_eq!(view.as_f32_slice().unwrap(), &data[..]);
+    }
+}
