@@ -26,3 +26,13 @@ def test_dispatched_linear_forward_parity() -> None:
         out2 = dlin(x2)
         assert out1.shape == (2, 3)
         assert np.allclose(out1.data, out2.data, atol=1e-6)
+
+
+def test_dispatched_linear_batched() -> None:
+    lin = Linear(5, 2, bias=True)
+    dlin = DispatchedLinear.from_linear(lin)
+    x = Tensor(np.random.randn(3, 4, 5))
+    out1 = lin(x)
+    out2 = dlin(x)
+    assert out1.shape == (3, 4, 2)
+    assert np.allclose(out1.data, out2.data, atol=1e-6)
