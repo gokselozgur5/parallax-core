@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
 
@@ -21,3 +22,17 @@ class BackendProtocol(Protocol):
 
 
 Backend = BackendProtocol
+
+
+@dataclass(frozen=True)
+class OpQuery:
+    """Descriptor for an op capability query."""
+
+    op: str
+    dtype: Any = None
+    shape: tuple[int, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.op, str) or not self.op.strip():
+            raise ValueError("op must be a non-empty string")
+
