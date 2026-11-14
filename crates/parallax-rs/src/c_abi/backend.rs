@@ -8,3 +8,9 @@ pub const DEVICE_TYPE_CUDA: u32 = 1;
 pub const DEVICE_TYPE_METAL: u32 = 2;
 /// Device type identifier for ARM NEON backend.
 pub const DEVICE_TYPE_NEON: u32 = 3;
+
+/// Returns total number of registered compute backends.
+#[no_mangle]
+pub extern "C" fn parallax_backend_count() -> u32 {
+    4
+}
