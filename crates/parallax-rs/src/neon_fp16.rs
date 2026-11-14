@@ -36,3 +36,23 @@ pub fn is_pointer_aligned<T>(ptr: *const T, align_bytes: usize) -> bool {
     }
     (ptr as usize) % align_bytes == 0
 }
+
+/// Verifies memory alignment for NEON FP16 vector operands.
+pub fn verify_fp16_alignment(
+    a_ptr: *const u16,
+    b_ptr: *const u16,
+    strict_simd: bool,
+) -> Result<(), NeonFp16Error> {
+    if a_ptr.is_null() || b_ptr.is_null() {
+        return Err(NeonFp16Error::NullPointer);
+    }
+    let required = if strict_simd {
+        NEON_SIMD_ALIGNMENT_BYTES
+    } else {
+        FP16_ELEMENT_ALIGNMENT_BYTES
+    };
+    if !is_pointer_aligned(a_ptr, required) || !is_pointer_aligned(b_ptr, required) {
+        return Err(NeonFp16Error::UnalignedPointer);
+    }
+    Ok(())
+}
