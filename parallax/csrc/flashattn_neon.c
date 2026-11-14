@@ -37,3 +37,14 @@ static inline void vec_scale_add_neon(float *out, float alpha, const float *v, f
     }
     for (; d < len; ++d) out[d] = out[d] * alpha + p * v[d];
 }
+
+static inline void vec_scale_neon(float *out, float scale, int len) {
+    int d = 0;
+    float32x4_t vscale = vdupq_n_f32(scale);
+    for (; len - d >= 4; d += 4) {
+        float32x4_t vo = vld1q_f32(out + d);
+        vo = vmulq_f32(vo, vscale);
+        vst1q_f32(out + d, vo);
+    }
+    for (; d < len; ++d) out[d] *= scale;
+}
