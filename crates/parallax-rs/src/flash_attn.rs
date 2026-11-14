@@ -134,3 +134,20 @@ pub fn flash_attn_forward_kernel(
         normalize_output_row(oi, l_i);
     }
 }
+
+pub fn flash_attn(
+    q: &[f32],
+    k: &[f32],
+    v: &[f32],
+    out: &mut [f32],
+    seq_len: usize,
+    head_dim: usize,
+    config: FlashAttnConfig,
+) -> Result<(), FlashAttnError> {
+    if config.scale < 0.0 || config.scale.is_nan() {
+        return Err(FlashAttnError::InvalidScale);
+    }
+    validate_attention_dims(seq_len, head_dim, q, k, v, out)?;
+    flash_attn_forward_kernel(q, k, v, out, seq_len, head_dim, config);
+    Ok(())
+}
