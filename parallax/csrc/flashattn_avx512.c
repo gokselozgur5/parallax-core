@@ -81,6 +81,7 @@ static void vec_scale_avx512(float *out, float scale, int len) {
 __attribute__((target("avx512f,avx512dq,avx512vl,avx512bw")))
 static void update_kv_step_avx512(float *oi, const float *vj, float score,
                                   float *m_i, float *l_i, int head_dim) {
+    if (isnan(score) || (isinf(score) && score < 0.0f)) return;
     if (score > *m_i) {
         float alpha = expf(*m_i - score);
         *m_i = score;
