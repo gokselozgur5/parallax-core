@@ -40,3 +40,14 @@ def test_metal_backend_unavailable_execution():
             backend.gemm(np.zeros((2, 2), dtype=np.float32), np.zeros((2, 2), dtype=np.float32))
         with pytest.raises(RuntimeError, match="Metal backend is not available"):
             backend.rmsnorm(np.zeros((2, 2), dtype=np.float32), np.zeros((2,), dtype=np.float32))
+
+
+def test_metal_backend_mock_execution(monkeypatch):
+    backend = MetalBackend()
+    monkeypatch.setattr(backend, "available", lambda: True)
+    import parallax.metal_engine as me
+
+    monkeypatch.setattr(me, "metal_gemm", lambda a, b: a @ b)
+    a = np.ones((2, 2), dtype=np.float32)
+    out = backend.gemm(a, a)
+    assert np.allclose(out, a @ a)
