@@ -87,3 +87,25 @@ def test_parse_sysctl_intel():
     assert info.avx2
     assert info.avx512
     assert not info.neon
+
+
+import platform
+from parallax.core.probe import detect_cpu, probe_cpu
+
+
+def test_probe_cpu_live():
+    info = probe_cpu()
+    assert isinstance(info, CpuFeatures)
+    assert detect_cpu() == info
+    assert info.arch in ("x86_64", "arm64", platform.machine().lower())
+
+
+def test_probe_cpu_fallback(monkeypatch):
+    monkeypatch.setattr(platform, "system", lambda: "UnknownOS")
+    monkeypatch.setattr(platform, "machine", lambda: "x86_64")
+    info = probe_cpu()
+    assert info.arch == "x86_64"
+    assert info.system == "UnknownOS"
+    assert not info.neon
+    assert not info.avx2
+    assert not info.avx512
