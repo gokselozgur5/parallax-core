@@ -67,3 +67,23 @@ def _invoke_c_kernel(fn, q, k, v, out, seq_len, head_dim, scale, is_causal):
         raise RuntimeError("AVX-512F is not supported on this CPU")
     if status != 0:
         raise RuntimeError(f"c_flashattn_avx512_f32 failed: {status}")
+
+
+def flashattn_avx512(
+    q: np.ndarray,
+    k: np.ndarray,
+    v: np.ndarray,
+    scale: Optional[float] = None,
+    is_causal: bool = False,
+) -> np.ndarray:
+    """Compute single-head FlashAttention-1 forward with online softmax."""
+    seq_len, head_dim = _validate_inputs(q, k, v)
+    fn = _get_flashattn_avx512_fn()
+    if fn is None:
+        raise RuntimeError("c_flashattn_avx512_f32 symbol not available")
+    if scale is None:
+        scale = float(1.0 / np.sqrt(head_dim))
+    qc, kc, vc = _prep_arrays(q, k, v)
+    out = np.empty((seq_len, head_dim), dtype=np.float32)
+    _invoke_c_kernel(fn, qc, kc, vc, out, seq_len, head_dim, scale, is_causal)
+    return out
