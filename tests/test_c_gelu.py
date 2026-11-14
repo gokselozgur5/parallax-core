@@ -15,3 +15,16 @@ def test_gelu_parity_small() -> None:
     ref = gelu_numpy(x)
     max_err = float(np.max(np.abs(res - ref)))
     assert max_err < 1e-6
+
+
+def test_gelu_large_negative_and_positive() -> None:
+    x = np.array(
+        [-1000.0, -100.0, -50.0, -10.0, -1.0, 0.0, 1.0, 10.0, 50.0, 100.0, 1000.0],
+        dtype=np.float32,
+    )
+    res = c_gelu(x)
+    ref = gelu_numpy(x)
+    assert not np.any(np.isnan(res))
+    assert not np.any(np.isinf(res))
+    max_err = float(np.max(np.abs(res - ref)))
+    assert max_err < 1e-6
