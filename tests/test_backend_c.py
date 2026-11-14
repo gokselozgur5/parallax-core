@@ -30,3 +30,14 @@ def test_c_backend_softmax():
     assert np.allclose(out, expected)
 
 
+def test_c_backend_rmsnorm():
+    backend = CEngineBackend()
+    x = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    weight = np.array([1.0, 1.0], dtype=np.float32)
+    out = backend.rmsnorm(x, weight, eps=1e-5)
+    variance = np.mean(x * x, axis=-1, keepdims=True)
+    expected = (x / np.sqrt(variance + 1e-5)) * weight
+    assert np.allclose(out, expected, atol=1e-4)
+
+
+
