@@ -107,3 +107,30 @@ pub fn validate_attention_dims(
     }
     Ok(())
 }
+
+pub fn flash_attn_forward_kernel(
+    q: &[f32],
+    k: &[f32],
+    v: &[f32],
+    out: &mut [f32],
+    seq_len: usize,
+    head_dim: usize,
+    config: FlashAttnConfig,
+) {
+    let (q_scale, k_scale) = compute_scale_factor(config.scale, config.f16_scale_correction);
+    for i in 0..seq_len {
+        let qi = &q[i * head_dim..(i + 1) * head_dim];
+        let oi = &mut out[i * head_dim..(i + 1) * head_dim];
+        oi.fill(0.0);
+        let mut m_i = f32::NEG_INFINITY;
+        let mut l_i = 0.0f32;
+        let max_j = if config.is_causal { i + 1 } else { seq_len };
+        for j in 0..max_j {
+            let kj = &k[j * head_dim..(j + 1) * head_dim];
+            let vj = &v[j * head_dim..(j + 1) * head_dim];
+            let s = dot_product_scaled(qi, kj, q_scale, k_scale);
+            update_kv_step(oi, vj, s, &mut m_i, &mut l_i);
+        }
+        normalize_output_row(oi, l_i);
+    }
+}
