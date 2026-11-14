@@ -1,12 +1,12 @@
 //! Parallax Core Rust Engine: Zero-dependency C-ABI interface for high-performance tensor ops.
 
 pub mod bpe;
-pub mod neon_fp16;
 pub mod kv_cache;
+pub mod neon_fp16;
+pub mod speculative;
 pub mod tensor;
 
 use std::slice;
-
 /// Return error codes for C-ABI calls.
 pub const STATUS_OK: i32 = 0;
 pub const STATUS_NULL_POINTER: i32 = -1;
@@ -14,17 +14,14 @@ pub const STATUS_INVALID_DIMENSION: i32 = -2;
 pub const STATUS_UNALIGNED_POINTER: i32 = -3;
 pub const STATUS_ALIASING_POINTER: i32 = -4;
 pub const STATUS_NOT_FOUND: i32 = -5;
-
 #[inline]
 fn is_aligned_u32<T>(ptr: *const T) -> bool {
     (ptr as usize).is_multiple_of(std::mem::align_of::<u32>())
 }
-
 #[inline]
 fn is_aligned_f32<T>(ptr: *const T) -> bool {
     (ptr as usize).is_multiple_of(std::mem::align_of::<f32>())
 }
-
 #[inline]
 fn ranges_overlap(p1: usize, len1: usize, p2: usize, len2: usize) -> bool {
     if len1 == 0 || len2 == 0 {
@@ -36,7 +33,6 @@ fn ranges_overlap(p1: usize, len1: usize, p2: usize, len2: usize) -> bool {
     let Some(end2) = p2.checked_add(size2) else { return true };
     p1 < end2 && p2 < end1
 }
-
 /// C-ABI export for GEMM: C = alpha * (A @ B) + beta * C
 ///
 /// Parameters:
@@ -85,7 +81,6 @@ pub unsafe extern "C" fn parallax_gemm_f32(
         }
     })).unwrap_or(STATUS_INVALID_DIMENSION)
 }
-
 /// C-ABI export for in-place Softmax along last dimension.
 ///
 /// Parameters:
@@ -116,7 +111,6 @@ pub unsafe extern "C" fn parallax_softmax_f32(
         }
     })).unwrap_or(STATUS_INVALID_DIMENSION)
 }
-
 /// C-ABI export for looking up a single BPE merge rule via binary search.
 ///
 /// # Safety
@@ -150,7 +144,6 @@ pub unsafe extern "C" fn parallax_bpe_find_merge(
         }
     })).unwrap_or(STATUS_INVALID_DIMENSION)
 }
-
 /// C-ABI export for validating whether a merge table is strictly sorted.
 ///
 /// # Safety
@@ -181,28 +174,23 @@ pub unsafe extern "C" fn parallax_bpe_is_sorted(
         }
     })).unwrap_or(STATUS_INVALID_DIMENSION)
 }
-
 /// C-ABI export for version check / smoke test.
 #[no_mangle]
 pub extern "C" fn parallax_version() -> u32 {
     2
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
     #[test]
     fn test_c_abi_version() {
         assert_eq!(parallax_version(), 2);
     }
-
     #[test]
     fn test_c_abi_gemm() {
         let a = [2.0f32, 0.0, 0.0, 2.0];
         let b = [1.0f32, 2.0, 3.0, 4.0];
         let mut c = [0.0f32; 4];
-
         unsafe {
             let res = parallax_gemm_f32(
                 2, 2, 2, 1.0,
@@ -211,10 +199,8 @@ mod tests {
             );
             assert_eq!(res, STATUS_OK);
         }
-
         assert_eq!(&c[..], &[2.0, 4.0, 6.0, 8.0]);
     }
-
     #[test]
     fn test_c_abi_softmax() {
         let mut data = [0.0f32, 0.0f32];
@@ -225,7 +211,6 @@ mod tests {
         assert!((data[0] - 0.5).abs() < 1e-6);
         assert!((data[1] - 0.5).abs() < 1e-6);
     }
-
     #[test]
     fn test_c_abi_validation() {
         let buf = [1.0f32; 4];
@@ -237,7 +222,6 @@ mod tests {
             assert_eq!(res, STATUS_INVALID_DIMENSION);
             let res = parallax_softmax_f32(out.as_mut_ptr(), 2, 2, 2);
             assert_eq!(res, STATUS_INVALID_DIMENSION);
-
             // Null and alignment checks
             assert_eq!(parallax_gemm_f32(2, 2, 2, 1.0, std::ptr::null(), 4, buf.as_ptr(), 4, 0.0, out.as_mut_ptr(), 4), STATUS_NULL_POINTER);
             assert_eq!(parallax_softmax_f32(std::ptr::null_mut(), 4, 2, 2), STATUS_NULL_POINTER);
@@ -246,7 +230,6 @@ mod tests {
             let unaligned_mut = raw.as_ptr().wrapping_add(1) as *mut f32;
             assert_eq!(parallax_gemm_f32(2, 2, 2, 1.0, unaligned, 4, buf.as_ptr(), 4, 0.0, out.as_mut_ptr(), 4), STATUS_UNALIGNED_POINTER);
             assert_eq!(parallax_softmax_f32(unaligned_mut, 4, 2, 2), STATUS_UNALIGNED_POINTER);
-
             // BPE C-ABI checks
             let table = [bpe::MergeEntry::new(1, 2, 0, 10)];
             let mut rank = 0u32;
@@ -255,14 +238,11 @@ mod tests {
             assert_eq!(res, STATUS_OK);
             assert_eq!(rank, 0);
             assert_eq!(new_id, 10);
-
             let res_missing = parallax_bpe_find_merge(table.as_ptr(), 1, 9, 9, &mut rank, &mut new_id);
             assert_eq!(res_missing, STATUS_NOT_FOUND);
-
             assert_eq!(parallax_bpe_is_sorted(table.as_ptr(), 1), 1);
             assert_eq!(parallax_bpe_find_merge(std::ptr::null(), 1, 1, 2, &mut rank, &mut new_id), STATUS_NULL_POINTER);
             assert_eq!(parallax_bpe_is_sorted(std::ptr::null(), 1), STATUS_NULL_POINTER);
-
             // Aliasing checks
             let mut shared = vec![1.0f32; 8];
             let s_ptr = shared.as_mut_ptr();
