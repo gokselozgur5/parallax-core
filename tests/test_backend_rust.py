@@ -18,3 +18,12 @@ def test_rust_backend_gemm():
     out = backend.gemm(a, b)
     assert np.allclose(out, a @ b)
 
+
+def test_rust_backend_softmax():
+    backend = RustEngineBackend()
+    x = np.array([1.0, 2.0, 3.0], dtype=np.float32)
+    out = backend.softmax(x)
+    expected = np.exp(x) / np.sum(np.exp(x))
+    assert np.allclose(out, expected)
+
+
