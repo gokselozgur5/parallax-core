@@ -37,3 +37,25 @@ static inline void apply_rope_scalar_step(
         head[idx2] = v1 * s + v2 * c;
     }
 }
+
+#if defined(PARALLAX_HAVE_NEON)
+static inline void apply_rope_neon_step(
+    float *head, const float *cos_ptr, const float *sin_ptr,
+    int half, int interleaved
+) {
+    int i = 0;
+    if (interleaved) {
+        for (; i + 3 < half; i += 4) {
+            float32x4_t c = vld1q_f32(cos_ptr + i);
+            float32x4_t s = vld1q_f32(sin_ptr + i);
+            float32x4x2_t v = vld2q_f32(head + 2 * i);
+            float32x4_t r1 = vsubq_f32(vmulq_f32(v.val[0], c), vmulq_f32(v.val[1], s));
+            float32x4_t r2 = vaddq_f32(vmulq_f32(v.val[0], s), vmulq_f32(v.val[1], c));
+            float32x4x2_t res;
+            res.val[0] = r1;
+            res.val[1] = r2;
+            vst2q_f32(head + 2 * i, res);
+        }
+    }
+}
+#endif
