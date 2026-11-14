@@ -21,3 +21,17 @@ class DispatchedLinear(Module):
         weight_data = np.random.uniform(-limit, limit, (out_features, in_features))
         self.weight = Parameter(weight_data, label="Linear.weight")
         self.bias: Parameter | None = Parameter(np.zeros(out_features), label="Linear.bias") if bias else None
+
+    def forward(self, x: Tensor) -> Tensor:
+        w_t = self.weight.transpose(1, 0)
+        out = dispatched_matmul(x, w_t)
+        if self.bias is not None:
+            out = out + self.bias
+        return out
+
+    @classmethod
+    def from_linear(cls, linear: Any) -> "DispatchedLinear":
+        mod = cls(linear.in_features, linear.out_features, bias=linear.bias is not None)
+        mod.weight = linear.weight
+        mod.bias = linear.bias
+        return mod
