@@ -14,3 +14,16 @@ pub enum NeonFp16Error {
     DimensionMismatch,
     PointerAliasing,
 }
+
+impl std::fmt::Display for NeonFp16Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NullPointer => write!(f, "null pointer provided"),
+            Self::UnalignedPointer => write!(f, "pointer is not aligned to required boundary"),
+            Self::DimensionMismatch => write!(f, "vector length dimension mismatch"),
+            Self::PointerAliasing => write!(f, "source and destination pointers alias"),
+        }
+    }
+}
+
+impl std::error::Error for NeonFp16Error {}
