@@ -168,4 +168,26 @@ mod tests {
         assert_eq!(CircularKvBuffer::new(4, 64, 0).unwrap_err(), KvCacheError::InvalidDimension);
         assert_eq!(CircularKvBuffer::new(usize::MAX, 64, 128).unwrap_err(), KvCacheError::InvalidDimension);
     }
+
+    #[test]
+    fn test_kv_cache_append_and_read_no_wrap() {
+        let mut cache = CircularKvBuffer::new(2, 4, 3).unwrap();
+        let mut k_buf = vec![0.0f32; cache.required_buffer_len().unwrap()];
+        let mut v_buf = vec![0.0f32; cache.required_buffer_len().unwrap()];
+
+        let k1 = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
+        let v1 = [10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0];
+        let slot = cache.append(&mut k_buf, &mut v_buf, &k1, &v1).unwrap();
+        assert_eq!(slot, 0);
+        assert_eq!(cache.active_tokens(), 1);
+
+        let mut out_k = [0.0f32; 4];
+        let mut out_v = [0.0f32; 4];
+        cache.read_token(&k_buf, &v_buf, 0, 0, &mut out_k, &mut out_v).unwrap();
+        assert_eq!(out_k, [1.0, 2.0, 3.0, 4.0]);
+        assert_eq!(out_v, [10.0, 20.0, 30.0, 40.0]);
+        cache.read_token(&k_buf, &v_buf, 1, 0, &mut out_k, &mut out_v).unwrap();
+        assert_eq!(out_k, [5.0, 6.0, 7.0, 8.0]);
+        assert_eq!(out_v, [50.0, 60.0, 70.0, 80.0]);
+    }
 }
