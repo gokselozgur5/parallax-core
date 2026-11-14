@@ -59,3 +59,12 @@ def test_gelu_fallback_when_c_unavailable() -> None:
         res = c_gelu(x)
         ref = gelu_numpy(x)
         assert np.allclose(res, ref, atol=1e-6)
+
+
+def test_gelu_nan_and_inf_propagation() -> None:
+    x = np.array([np.nan, -np.inf, np.inf], dtype=np.float32)
+    res_c = c_gelu(x)
+    ref_np = gelu_numpy(x)
+    assert np.isnan(res_c[0]) and np.isnan(ref_np[0])
+    assert res_c[1] == 0.0 and ref_np[1] == 0.0
+    assert np.isinf(res_c[2]) and np.isinf(ref_np[2])
