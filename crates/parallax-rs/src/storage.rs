@@ -187,3 +187,13 @@ impl<'a> StorageReader<'a> {
         Ok(&self.data[data_offset..data_end])
     }
 }
+
+impl<'a> StorageReader<'a> {
+    fn read_tensor_entry(&self, offset: usize) -> Result<(TensorView<'a>, usize), StorageError> {
+        let (dtype, ndim, name_len, data_offset, offset) = self.parse_entry_header(offset)?;
+        let (name, offset) = self.read_name(offset, name_len)?;
+        let (shape, offset) = self.read_dims(offset, ndim)?;
+        let data = self.validate_data_slice(&shape, dtype, data_offset)?;
+        Ok((TensorView { name, dtype, shape, data }, offset))
+    }
+}
