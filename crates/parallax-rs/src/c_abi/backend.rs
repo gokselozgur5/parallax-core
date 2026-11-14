@@ -37,3 +37,14 @@ pub unsafe extern "C" fn parallax_get_device_type(
         _ => STATUS_NOT_FOUND,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parallax_backend_count() {
+        let count = parallax_backend_count();
+        assert_eq!(count, 4);
+    }
+}
