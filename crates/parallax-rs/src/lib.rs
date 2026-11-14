@@ -179,6 +179,19 @@ pub unsafe extern "C" fn parallax_bpe_is_sorted(
         }
     })).unwrap_or(STATUS_INVALID_DIMENSION)
 }
+
+#[inline]
+unsafe fn validate_flash_attn_ptrs(
+    q: *const f32, k: *const f32, v: *const f32, out: *mut f32,
+) -> i32 {
+    if q.is_null() || k.is_null() || v.is_null() || out.is_null() {
+        return STATUS_NULL_POINTER;
+    }
+    if !is_aligned_f32(q) || !is_aligned_f32(k) || !is_aligned_f32(v) || !is_aligned_f32(out) {
+        return STATUS_UNALIGNED_POINTER;
+    }
+    STATUS_OK
+}
 /// C-ABI export for version check / smoke test.
 #[no_mangle]
 pub extern "C" fn parallax_version() -> u32 {
