@@ -154,3 +154,18 @@ impl<'a> StorageReader<'a> {
         Ok((shape, offset))
     }
 }
+
+impl<'a> StorageReader<'a> {
+    fn parse_entry_header(&self, offset: usize) -> Result<(StorageDType, usize, usize, usize, usize), StorageError> {
+        let header_end = offset.checked_add(20).ok_or(StorageError::OffsetOutOfBounds)?;
+        if header_end > self.data.len() {
+            return Err(StorageError::UnexpectedEof);
+        }
+        let dtype_raw = u32::from_le_bytes(self.data[offset..offset + 4].try_into().unwrap());
+        let dtype = StorageDType::from_u32(dtype_raw).ok_or(StorageError::InvalidDType)?;
+        let ndim = u32::from_le_bytes(self.data[offset + 4..offset + 8].try_into().unwrap()) as usize;
+        let name_len = u32::from_le_bytes(self.data[offset + 8..offset + 12].try_into().unwrap()) as usize;
+        let data_offset = u64::from_le_bytes(self.data[offset + 12..offset + 20].try_into().unwrap()) as usize;
+        Ok((dtype, ndim, name_len, data_offset, header_end))
+    }
+}
