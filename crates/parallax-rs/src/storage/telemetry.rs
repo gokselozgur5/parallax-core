@@ -32,3 +32,9 @@ impl StorageTelemetry {
         self.mapped_bytes = mapped;
     }
 }
+
+impl StorageTelemetry {
+    pub fn reset(&mut self) {
+        *self = Self::new();
+    }
+}
