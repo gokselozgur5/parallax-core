@@ -90,3 +90,24 @@ static void update_kv_step_avx512(float *oi, const float *vj, float score,
     }
 }
 #endif
+
+
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+__attribute__((target("avx512f,avx512dq,avx512vl,avx512bw")))
+static void flashattn_avx512_kernel(const float *q, const float *k, const float *v,
+                                    float *out, int seq_len, int head_dim,
+                                    float scale, int is_causal) {
+    for (int i = 0; i < seq_len; ++i) {
+        const float *qi = q + i * head_dim;
+        float *oi = out + i * head_dim;
+        for (int d = 0; d < head_dim; ++d) oi[d] = 0.0f;
+        float m_i = -INFINITY, l_i = 0.0f;
+        int max_j = is_causal ? (i + 1) : seq_len;
+        for (int j = 0; j < max_j; ++j) {
+            float s = dot_product_avx512(qi, k + j * head_dim, head_dim) * scale;
+            update_kv_step_avx512(oi, v + j * head_dim, s, &m_i, &l_i, head_dim);
+        }
+        if (l_i > 0.0f) vec_scale_avx512(oi, 1.0f / l_i, head_dim);
+    }
+}
+#endif
