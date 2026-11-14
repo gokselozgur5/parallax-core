@@ -84,3 +84,19 @@ pub fn verify_draft_greedy(
     let num_acc = if all_acc { acc.len() } else { acc.len() - 1 };
     Ok(VerificationResult { accepted_tokens: acc, bonus_token: bonus, num_accepted: num_acc, all_accepted: all_acc })
 }
+
+/// Verifies single stochastic candidate against target distribution and random roll.
+pub fn verify_candidate_stochastic(
+    target_probs: &[f32],
+    draft_prob: f32,
+    cand: u32,
+    roll: f32,
+) -> bool {
+    let cand_idx = cand as usize;
+    if cand_idx >= target_probs.len() || draft_prob <= 0.0 || roll < 0.0 || roll > 1.0 {
+        return false;
+    }
+    let p_target = target_probs[cand_idx];
+    let ratio = p_target / draft_prob;
+    roll < ratio.min(1.0)
+}
