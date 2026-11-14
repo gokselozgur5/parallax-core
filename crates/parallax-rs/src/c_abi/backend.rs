@@ -63,4 +63,13 @@ mod tests {
             assert_eq!(out, dev);
         }
     }
+
+    #[test]
+    fn test_parallax_get_device_type_errors() {
+        let mut out = 0u32;
+        let status_oob = unsafe { parallax_get_device_type(4, &mut out) };
+        assert_eq!(status_oob, STATUS_NOT_FOUND);
+        let status_null = unsafe { parallax_get_device_type(0, std::ptr::null_mut()) };
+        assert_eq!(status_null, STATUS_NULL_POINTER);
+    }
 }
