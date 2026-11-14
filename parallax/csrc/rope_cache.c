@@ -71,3 +71,23 @@ static inline void apply_rope_neon_step(
     }
 }
 #endif
+
+static inline void apply_rope_vector_step(
+    float *head, const float *cos_ptr, const float *sin_ptr,
+    int half, int interleaved
+) {
+#if defined(PARALLAX_HAVE_NEON)
+    apply_rope_neon_step(head, cos_ptr, sin_ptr, half, interleaved);
+    int tail_start = (half / 4) * 4;
+    for (int i = tail_start; i < half; ++i) {
+        float c = cos_ptr[i], s = sin_ptr[i];
+        int idx1 = interleaved ? 2 * i : i;
+        int idx2 = interleaved ? 2 * i + 1 : half + i;
+        float v1 = head[idx1], v2 = head[idx2];
+        head[idx1] = v1 * c - v2 * s;
+        head[idx2] = v1 * s + v2 * c;
+    }
+#else
+    apply_rope_scalar_step(head, cos_ptr, sin_ptr, half, interleaved);
+#endif
+}
