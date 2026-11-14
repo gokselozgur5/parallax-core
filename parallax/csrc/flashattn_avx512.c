@@ -39,3 +39,21 @@ static float dot_product_avx512(const float *a, const float *b, int len) {
     return total;
 }
 #endif
+
+
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+__attribute__((target("avx512f,avx512dq,avx512vl,avx512bw")))
+static void vec_scale_add_avx512(float *out, float alpha, const float *v, float p, int len) {
+    int d = 0;
+    __m512 valpha = _mm512_set1_ps(alpha);
+    __m512 vp = _mm512_set1_ps(p);
+    for (; len - d >= 16; d += 16) {
+        __m512 vo = _mm512_loadu_ps(out + d);
+        __m512 vv = _mm512_loadu_ps(v + d);
+        vo = _mm512_mul_ps(vo, valpha);
+        vo = _mm512_fmadd_ps(vp, vv, vo);
+        _mm512_storeu_ps(out + d, vo);
+    }
+    for (; d < len; ++d) out[d] = out[d] * alpha + p * v[d];
+}
+#endif
