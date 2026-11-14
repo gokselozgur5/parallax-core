@@ -24,3 +24,13 @@ class BackendRegistry:
             if name not in self._backends:
                 raise KeyError(f"backend not found: {name!r}")
             return self._backends[name][0]
+
+    def unregister(self, name: str) -> None:
+        with self._lock:
+            if name not in self._backends:
+                raise KeyError(f"backend not found: {name!r}")
+            del self._backends[name]
+
+    def clear(self) -> None:
+        with self._lock:
+            self._backends.clear()
