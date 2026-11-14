@@ -152,3 +152,15 @@ impl AcceptanceStats {
         Self { total_proposed: proposed, total_accepted: accepted, acceptance_rate: rate }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_argmax_f32_basic() {
+        let logits = [-1.0f32, 2.5, 0.3, -4.0];
+        assert_eq!(argmax_f32(&logits), Some(1));
+        assert_eq!(argmax_f32(&[]), None);
+    }
+}
