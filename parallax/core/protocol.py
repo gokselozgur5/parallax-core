@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
@@ -52,5 +53,23 @@ def query_capability(
     if not hasattr(backend, "supports"):
         return False
     return bool(backend.supports(query.op, query.dtype, query.shape))
+
+
+def query_backend_capabilities(
+    backend: Any,
+    ops: Sequence[str | OpQuery],
+    check_available: bool = True,
+) -> dict[str, bool]:
+    """Query capabilities for multiple operations on a backend."""
+    results: dict[str, bool] = {}
+    for item in ops:
+        op_name = item.op if isinstance(item, OpQuery) else item
+        results[op_name] = query_capability(
+            backend,
+            item,
+            check_available=check_available,
+        )
+    return results
+
 
 
