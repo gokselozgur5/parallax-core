@@ -11,3 +11,15 @@ from parallax.native.flashattn_neon import (
     is_flashattn_neon_available,
     flashattn_neon,
 )
+
+
+def test_flashattn_neon_symbol_available():
+    assert is_flashattn_neon_available()
+
+
+def test_flashattn_neon_invalid_dims():
+    q = np.ones((4, 16), dtype=np.float32)
+    k = np.ones((4, 32), dtype=np.float32)
+    v = np.ones((4, 32), dtype=np.float32)
+    with pytest.raises(ValueError):
+        flashattn_neon(q, k, v)
