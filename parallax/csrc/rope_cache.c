@@ -91,3 +91,26 @@ static inline void apply_rope_vector_step(
     apply_rope_scalar_step(head, cos_ptr, sin_ptr, half, interleaved);
 #endif
 }
+
+int c_apply_rope_cached_f32(
+    float *x, const float *cos_cache, const float *sin_cache,
+    int T, int H, int D, int start_pos, int max_seq_len, int interleaved
+) {
+    if (!x || !cos_cache || !sin_cache) return PARALLAX_STATUS_NULL_POINTER;
+    if (T < 0 || H < 0 || D < 0 || (D % 2 != 0) || start_pos < 0) {
+        return PARALLAX_STATUS_INVALID_DIMENSION;
+    }
+    if (T == 0 || H == 0 || D == 0) return PARALLAX_STATUS_OK;
+    if (start_pos + T > max_seq_len) return PARALLAX_STATUS_INVALID_DIMENSION;
+    int half = D / 2;
+    for (int t = 0; t < T; ++t) {
+        int pos = start_pos + t;
+        const float *c_ptr = cos_cache + pos * half;
+        const float *s_ptr = sin_cache + pos * half;
+        for (int h = 0; h < H; ++h) {
+            float *head = x + (t * H + h) * D;
+            apply_rope_vector_step(head, c_ptr, s_ptr, half, interleaved);
+        }
+    }
+    return PARALLAX_STATUS_OK;
+}
