@@ -72,4 +72,26 @@ def query_backend_capabilities(
     return results
 
 
+def check_backend_protocol(backend: Any) -> None:
+    """Validate that backend honours the BackendProtocol contract."""
+    name = getattr(backend, "name", None)
+    if not isinstance(name, str):
+        raise TypeError(f"backend name must be a str, got {type(name).__name__}")
+    if not name.strip():
+        raise ValueError("backend name must be a non-empty string")
+    avail_fn = getattr(backend, "available", None)
+    if not callable(avail_fn):
+        raise TypeError("backend must define callable available()")
+    avail = avail_fn()
+    if not isinstance(avail, bool):
+        raise TypeError(f"available() must return bool, got {type(avail).__name__}")
+    supports_fn = getattr(backend, "supports", None)
+    if not callable(supports_fn):
+        raise TypeError("backend must define callable supports()")
+    sample = supports_fn("gemm", None, ())
+    if not isinstance(sample, bool):
+        raise TypeError(f"supports() must return bool, got {type(sample).__name__}")
+
+
+
 
