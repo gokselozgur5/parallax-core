@@ -50,3 +50,12 @@ def test_gelu_invalid_inputs() -> None:
     x_complex = np.ones((4, 8), dtype=np.complex64)
     with pytest.raises(TypeError, match="Complex dtypes"):
         c_gelu(x_complex)
+
+
+def test_gelu_fallback_when_c_unavailable() -> None:
+    from unittest.mock import patch
+    x = np.array([-2.0, 0.0, 2.0], dtype=np.float32)
+    with patch("parallax.native.gelu._get_gelu_fn", return_value=None):
+        res = c_gelu(x)
+        ref = gelu_numpy(x)
+        assert np.allclose(res, ref, atol=1e-6)
