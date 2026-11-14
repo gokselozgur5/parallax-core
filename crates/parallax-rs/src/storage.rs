@@ -120,3 +120,18 @@ impl<'a> StorageReader<'a> {
         self.tensor_count
     }
 }
+
+impl<'a> StorageReader<'a> {
+    fn read_name(&self, offset: usize, name_len: usize) -> Result<(&'a str, usize), StorageError> {
+        if name_len > 256 {
+            return Err(StorageError::NameTooLong);
+        }
+        let end = offset.checked_add(name_len).ok_or(StorageError::OffsetOutOfBounds)?;
+        if end > self.data.len() {
+            return Err(StorageError::UnexpectedEof);
+        }
+        let name_bytes = &self.data[offset..end];
+        let name = std::str::from_utf8(name_bytes).map_err(|_| StorageError::InvalidNameUtf8)?;
+        Ok((name, end))
+    }
+}
