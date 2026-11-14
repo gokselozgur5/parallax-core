@@ -80,3 +80,13 @@ pub fn update_kv_step(
         }
     }
 }
+
+#[inline]
+pub fn normalize_output_row(out: &mut [f32], l_i: f32) {
+    if l_i > 0.0 {
+        let inv_l = 1.0 / l_i;
+        for val in out.iter_mut() {
+            *val *= inv_l;
+        }
+    }
+}
