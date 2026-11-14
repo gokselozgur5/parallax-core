@@ -90,4 +90,11 @@ impl CircularKvBuffer {
         let slot_offset = h_offset.checked_add(slot).ok_or(KvCacheError::InvalidDimension)?;
         slot_offset.checked_mul(self.head_dim).ok_or(KvCacheError::InvalidDimension)
     }
+
+    /// Total expected buffer capacity in float elements (num_heads * capacity * head_dim).
+    #[inline]
+    pub fn required_buffer_len(&self) -> Result<usize, KvCacheError> {
+        let per_head = self.capacity.checked_mul(self.head_dim).ok_or(KvCacheError::InvalidDimension)?;
+        self.num_heads.checked_mul(per_head).ok_or(KvCacheError::InvalidDimension)
+    }
 }
