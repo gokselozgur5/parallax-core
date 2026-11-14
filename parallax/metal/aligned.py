@@ -47,3 +47,17 @@ def aligned_empty(
     if isinstance(shape, tuple) and num_items * dt.itemsize == alloc_bytes:
         return arr.reshape(shape)
     return arr
+
+
+def aligned_zeros(
+    shape: int | tuple[int, ...],
+    dtype: Any = np.float32,
+    page_size: Optional[int] = None,
+) -> np.ndarray:
+    arr = aligned_empty(shape, dtype=dtype, page_size=page_size)
+    arr.fill(0)
+    return arr
+
+
+empty_aligned = aligned_empty
+zeros_aligned = aligned_zeros
