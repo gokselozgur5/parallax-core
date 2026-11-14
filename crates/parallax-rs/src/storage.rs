@@ -97,3 +97,26 @@ pub struct StorageReader<'a> {
     tensor_count: usize,
     header_offset: usize,
 }
+
+impl<'a> StorageReader<'a> {
+    pub fn parse(data: &'a [u8]) -> Result<Self, StorageError> {
+        if data.len() < 16 {
+            return Err(StorageError::UnexpectedEof);
+        }
+        if &data[0..4] != &STORAGE_MAGIC {
+            return Err(StorageError::InvalidMagic);
+        }
+        let version = u32::from_le_bytes(data[4..8].try_into().unwrap());
+        if version != STORAGE_VERSION {
+            return Err(StorageError::UnsupportedVersion);
+        }
+        let tensor_count = u32::from_le_bytes(data[8..12].try_into().unwrap()) as usize;
+        let reader = Self { data, tensor_count, header_offset: 16 };
+        reader.validate_archive()?;
+        Ok(reader)
+    }
+
+    pub fn tensor_count(&self) -> usize {
+        self.tensor_count
+    }
+}
