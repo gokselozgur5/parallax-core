@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from parallax.backends import cpuinfo
 from parallax.backends.report import generate_markdown_report
 
 
