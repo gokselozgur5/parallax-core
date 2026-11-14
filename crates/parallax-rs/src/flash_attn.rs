@@ -151,3 +151,20 @@ pub fn flash_attn(
     flash_attn_forward_kernel(q, k, v, out, seq_len, head_dim, config);
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_scale_factor_calculation() {
+        let (q_s, k_s) = compute_scale_factor(0.25, false);
+        assert!((q_s - 0.25).abs() < 1e-6);
+        assert!((k_s - 1.0).abs() < 1e-6);
+
+        let (q_corr, k_corr) = compute_scale_factor(0.25, true);
+        assert!((q_corr - 0.5).abs() < 1e-6);
+        assert!((k_corr - 0.5).abs() < 1e-6);
+        assert!((q_corr * k_corr - 0.25).abs() < 1e-6);
+    }
+}
