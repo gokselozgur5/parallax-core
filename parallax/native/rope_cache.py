@@ -57,3 +57,20 @@ class RoPECache:
             cos[:] = np.cos(ang).astype(np.float32)
             sin[:] = np.sin(ang).astype(np.float32)
         return cls(cos=cos, sin=sin, dim=dim, max_seq_len=max_seq_len, theta=float(theta))
+
+    def apply_in_place(
+        self, x: np.ndarray, start_pos: int = 0, interleaved: bool = True
+    ) -> np.ndarray:
+        if x.ndim != 3:
+            raise ValueError(f"x must have shape [T, H, D], got ndim {x.ndim}")
+        if x.dtype != np.float32:
+            raise TypeError("x must be float32")
+        if not x.flags.c_contiguous:
+            raise ValueError("x must be C-contiguous")
+        T, H, D = x.shape
+        if D != self.dim:
+            raise ValueError(f"dim mismatch: tensor {D} vs cache {self.dim}")
+        if start_pos < 0 or start_pos + T > self.max_seq_len:
+            raise ValueError(f"range [{start_pos}, {start_pos + T}) invalid")
+        if T == 0 or H == 0 or D == 0:
+            return x
