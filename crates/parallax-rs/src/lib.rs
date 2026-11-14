@@ -1,7 +1,8 @@
 //! Parallax Core Rust Engine: Zero-dependency C-ABI interface for high-performance tensor ops.
 
-pub mod neon_fp16;
 pub mod kv_cache;
+pub mod neon_fp16;
+pub mod speculative;
 pub mod tensor;
 
 use std::slice;
