@@ -40,3 +40,9 @@ def test_native_generation_parity_greedy():
     tokens_native = generate(model, prompt, max_new_tokens=10, temperature=0.0)
 
     assert tokens_vanilla == tokens_native
+
+    disable_native(model)
+    np.random.seed(123)
+    tokens_restored = generate(model, prompt, max_new_tokens=10, temperature=0.0)
+
+    assert tokens_vanilla == tokens_restored
