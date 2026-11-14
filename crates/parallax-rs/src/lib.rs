@@ -116,6 +116,11 @@ pub unsafe extern "C" fn parallax_softmax_f32(
 }
 
 /// C-ABI export for looking up a single BPE merge rule via binary search.
+///
+/// # Safety
+///
+/// Pointers `table_ptr`, `out_rank`, and `out_new_id` must be valid, aligned,
+/// non-null, and `table_ptr` must reference at least `table_len` elements.
 #[no_mangle]
 pub unsafe extern "C" fn parallax_bpe_find_merge(
     table_ptr: *const bpe::MergeEntry,
