@@ -16,3 +16,18 @@ def is_avx512_rmsnorm_available() -> bool:
     if _FN_HAS_AVX512_RMSNORM is None:
         _FN_HAS_AVX512_RMSNORM = bind("c_has_avx512_rmsnorm_f32", [], ctypes.c_int)
     return bool(_FN_HAS_AVX512_RMSNORM() != 0) if _FN_HAS_AVX512_RMSNORM else False
+
+
+def _get_rmsnorm_avx512_fn() -> Optional[Callable[..., Any]]:
+    global _FN_RMSNORM_AVX512
+    if _FN_RMSNORM_AVX512 is None:
+        args = [
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_float,
+        ]
+        _FN_RMSNORM_AVX512 = bind("c_rmsnorm_avx512_f32", args, ctypes.c_int)
+    return _FN_RMSNORM_AVX512
