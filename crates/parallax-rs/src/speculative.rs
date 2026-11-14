@@ -137,3 +137,18 @@ pub fn sample_token_from_probs(probs: &[f32], roll: f32) -> Result<u32, Speculat
     }
     Ok((probs.len() - 1) as u32)
 }
+
+/// Calculates acceptance statistics (rate, accepted tokens, total proposed).
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct AcceptanceStats {
+    pub total_proposed: usize,
+    pub total_accepted: usize,
+    pub acceptance_rate: f32,
+}
+
+impl AcceptanceStats {
+    pub fn compute(proposed: usize, accepted: usize) -> Self {
+        let rate = if proposed > 0 { accepted as f32 / proposed as f32 } else { 0.0 };
+        Self { total_proposed: proposed, total_accepted: accepted, acceptance_rate: rate }
+    }
+}
