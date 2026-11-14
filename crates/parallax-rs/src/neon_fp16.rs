@@ -92,3 +92,12 @@ pub fn dot_fp16_scalar(a: &[u16], b: &[u16]) -> Result<f32, NeonFp16Error> {
     }
     Ok(sum)
 }
+
+/// Computes FP16 dot-product with runtime alignment verification and chunking.
+pub fn dot_fp16_verified(a: &[u16], b: &[u16]) -> Result<f32, NeonFp16Error> {
+    if a.len() != b.len() {
+        return Err(NeonFp16Error::DimensionMismatch);
+    }
+    verify_fp16_alignment(a.as_ptr(), b.as_ptr(), false)?;
+    dot_fp16_scalar(a, b)
+}
