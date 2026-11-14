@@ -55,3 +55,12 @@ def test_flashattn_neon_parity_causal():
     expected = ref_attn @ v
     actual = flashattn_neon(q, k, v, scale=scale, is_causal=True)
     assert np.allclose(actual, expected, atol=1e-4)
+
+
+def test_flashattn_neon_negative_inf_scores():
+    seq_len, head_dim = 2, 8
+    q = np.ones((seq_len, head_dim), dtype=np.float32)
+    k = np.full((seq_len, head_dim), -np.inf, dtype=np.float32)
+    v = np.ones((seq_len, head_dim), dtype=np.float32)
+    res = flashattn_neon(q, k, v, scale=1.0, is_causal=False)
+    assert not np.isnan(res).any()
