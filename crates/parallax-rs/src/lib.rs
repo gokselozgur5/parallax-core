@@ -150,6 +150,11 @@ pub unsafe extern "C" fn parallax_bpe_find_merge(
 }
 
 /// C-ABI export for validating whether a merge table is strictly sorted.
+///
+/// # Safety
+///
+/// If `table_len > 0`, `table_ptr` must be valid, aligned, non-null,
+/// and reference at least `table_len` elements.
 #[no_mangle]
 pub unsafe extern "C" fn parallax_bpe_is_sorted(
     table_ptr: *const bpe::MergeEntry,
