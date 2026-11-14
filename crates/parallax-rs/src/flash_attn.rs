@@ -180,4 +180,17 @@ mod tests {
         assert!((out[0] - 3.0).abs() < 1e-5);
         assert!((out[1] - 4.0).abs() < 1e-5);
     }
+
+    #[test]
+    fn test_flash_attn_causal_masking() {
+        let q = [1.0f32, 0.0, 0.0, 1.0];
+        let k = [1.0f32, 0.0, 0.0, 1.0];
+        let v = [10.0f32, 1.0, 20.0, 2.0];
+        let mut out = [0.0f32; 4];
+        let cfg = FlashAttnConfig::new(2, true, false);
+        let res = flash_attn(&q, &k, &v, &mut out, 2, 2, cfg);
+        assert_eq!(res, Ok(()));
+        assert!((out[0] - 10.0).abs() < 1e-4);
+        assert!((out[1] - 1.0).abs() < 1e-4);
+    }
 }
