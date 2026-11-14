@@ -47,3 +47,11 @@ def _validate_inputs(q: np.ndarray, k: np.ndarray, v: np.ndarray):
     if k.shape != (seq_len, head_dim) or v.shape != (seq_len, head_dim):
         raise ValueError("q, k, and v shapes must match (seq_len, head_dim)")
     return seq_len, head_dim
+
+
+def _prep_arrays(q: np.ndarray, k: np.ndarray, v: np.ndarray):
+    return (
+        np.ascontiguousarray(q, dtype=np.float32),
+        np.ascontiguousarray(k, dtype=np.float32),
+        np.ascontiguousarray(v, dtype=np.float32),
+    )
