@@ -156,3 +156,16 @@ impl CircularKvBuffer {
         self.total_inserted = 0;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_kv_cache_invalid_dimensions() {
+        assert_eq!(CircularKvBuffer::new(0, 64, 128).unwrap_err(), KvCacheError::InvalidDimension);
+        assert_eq!(CircularKvBuffer::new(4, 0, 128).unwrap_err(), KvCacheError::InvalidDimension);
+        assert_eq!(CircularKvBuffer::new(4, 64, 0).unwrap_err(), KvCacheError::InvalidDimension);
+        assert_eq!(CircularKvBuffer::new(usize::MAX, 64, 128).unwrap_err(), KvCacheError::InvalidDimension);
+    }
+}
