@@ -190,4 +190,18 @@ mod tests {
         assert_eq!(out_k, [5.0, 6.0, 7.0, 8.0]);
         assert_eq!(out_v, [50.0, 60.0, 70.0, 80.0]);
     }
+
+    #[test]
+    fn test_kv_cache_circular_wrap_around_boundary_safety() {
+        let mut cache = CircularKvBuffer::new(1, 2, 3).unwrap();
+        let mut k_buf = vec![0.0f32; 6];
+        let mut v_buf = vec![0.0f32; 6];
+        for i in 0..3 {
+            let t = i as f32;
+            let slot = cache.append(&mut k_buf, &mut v_buf, &[t, t + 0.5], &[t * 10.0, t * 10.0 + 5.0]).unwrap();
+            assert_eq!(slot, i);
+        }
+        assert_eq!(cache.active_tokens(), 3);
+        assert_eq!(cache.write_cursor(), 0);
+    }
 }
