@@ -1,6 +1,23 @@
 use crate::q8_gemv::BlockQ8_0;
 use crate::{STATUS_NULL_POINTER, STATUS_OK};
 
+/// Quantizes 32 f32 values into a BlockQ8_0 struct.
+///
+/// # Safety
+/// Both `input_f32` and `out_block` must be non-null and valid.
+#[no_mangle]
+pub unsafe extern "C" fn parallax_quantize_q8_0(
+    input_f32: *const f32,
+    out_block: *mut BlockQ8_0,
+) -> i32 {
+    if input_f32.is_null() || out_block.is_null() {
+        return STATUS_NULL_POINTER;
+    }
+    let slice: &[f32; 32] = &*(input_f32 as *const [f32; 32]);
+    *out_block = BlockQ8_0::quantize(slice);
+    STATUS_OK
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
