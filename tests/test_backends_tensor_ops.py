@@ -74,3 +74,11 @@ def test_dispatched_matmul_matches_tensor_matmul(s_a, s_b):
     dispatched_matmul(t_a2, t_b2).sum().backward()
     assert np.allclose(t_a1.grad, t_a2.grad)
     assert np.allclose(t_b1.grad, t_b2.grad)
+
+
+@pytest.mark.parametrize("s_a,s_b", SHAPES)
+def test_dispatched_matmul_finite_differences(s_a, s_b):
+    np.random.seed(42)
+    t1 = Tensor(np.random.randn(*s_a), requires_grad=True)
+    t2 = Tensor(np.random.randn(*s_b), requires_grad=True)
+    assert check_tensor_gradient(lambda x, y: dispatched_matmul(x, y).sum(), [t1, t2], eps=1e-5)
