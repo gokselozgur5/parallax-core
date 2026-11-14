@@ -69,3 +69,20 @@ class DispatchPolicy:
         if arch in ("x86_64", "amd64"):
             return ["rust", "numpy"]
         return ["numpy"]
+
+    def select_backend(
+        self,
+        op: str,
+        size_or_shape: int | Sequence[int] = 0,
+        platform: PlatformInfo | None = None,
+        available_backends: Sequence[str] | set[str] | None = None,
+    ) -> str:
+        """Select the optimal available backend according to heuristic policy."""
+        candidates = self.candidate_backends(op, size_or_shape, platform=platform)
+        if available_backends is None:
+            return candidates[0]
+        avail_set = set(available_backends)
+        for backend in candidates:
+            if backend in avail_set:
+                return backend
+        return "numpy"
