@@ -123,3 +123,20 @@ class DispatchChain:
                 last_exc = exc
                 self._record(op, name, str(exc), exc=exc)
         raise RuntimeError(f"All backends in fallback chain failed for op {op!r}: {candidates}") from last_exc
+
+    def dispatch(self, op: str, *args: Any, **kwargs: Any) -> Any:
+        """Alias for execute to provide drop-in dispatch interface."""
+        return self.execute(op, *args, **kwargs)
+
+
+_DEFAULT_CHAIN = DispatchChain()
+
+
+def get_fallback_history() -> list[FallbackRecord]:
+    """Return fallback history recorded by the default chain."""
+    return _DEFAULT_CHAIN.get_history()
+
+
+def clear_fallback_history() -> None:
+    """Clear fallback history recorded by the default chain."""
+    _DEFAULT_CHAIN.clear_history()
