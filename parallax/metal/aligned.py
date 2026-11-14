@@ -22,3 +22,17 @@ def allocate_page_aligned(size):
     Args:
         size (int): The size of the buffer in bytes.
 
+    Returns:
+        np.ndarray: A NumPy array allocated with page alignment.
+    """
+    aligned_size = align_to_page(size)
+    return np.empty(aligned_size, dtype=np.uint8)
+
+def free_page_aligned(buffer):
+    """
+    Frees a page-aligned buffer using NumPy.
+
+    Args:
+        buffer (np.ndarray): The NumPy array to be freed.
+    """
+    del buffer
