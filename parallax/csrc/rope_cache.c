@@ -57,5 +57,17 @@ static inline void apply_rope_neon_step(
             vst2q_f32(head + 2 * i, res);
         }
     }
+    } else {
+        for (; i + 3 < half; i += 4) {
+            float32x4_t c = vld1q_f32(cos_ptr + i);
+            float32x4_t s = vld1q_f32(sin_ptr + i);
+            float32x4_t v1 = vld1q_f32(head + i);
+            float32x4_t v2 = vld1q_f32(head + half + i);
+            float32x4_t r1 = vsubq_f32(vmulq_f32(v1, c), vmulq_f32(v2, s));
+            float32x4_t r2 = vaddq_f32(vmulq_f32(v1, s), vmulq_f32(v2, c));
+            vst1q_f32(head + i, r1);
+            vst1q_f32(head + half + i, r2);
+        }
+    }
 }
 #endif
