@@ -119,3 +119,31 @@ impl SequenceBinner {
         Ok(batches)
     }
 }
+
+impl SequenceBinner {
+    /// Collate sequence data into target padded buffer with attention mask.
+    pub fn collate(
+        &self, sequences: &[&[u32]], pad_token: u32,
+        out_tokens: &mut [u32], out_mask: &mut [u32],
+    ) -> Result<usize, SchedulerError> {
+        let max_len = sequences.iter().map(|s| s.len()).max().unwrap_or(0);
+        let bucket = self.find_bucket(max_len)?;
+        let req = sequences.len().checked_mul(bucket).ok_or(SchedulerError::BufferTooSmall)?;
+        if out_tokens.len() < req || out_mask.len() < req {
+            return Err(SchedulerError::BufferTooSmall);
+        }
+        for (i, seq) in sequences.iter().enumerate() {
+            let offset = i * bucket;
+            for j in 0..bucket {
+                if j < seq.len() {
+                    out_tokens[offset + j] = seq[j];
+                    out_mask[offset + j] = 1;
+                } else {
+                    out_tokens[offset + j] = pad_token;
+                    out_mask[offset + j] = 0;
+                }
+            }
+        }
+        Ok(bucket)
+    }
+}
