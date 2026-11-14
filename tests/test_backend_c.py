@@ -21,3 +21,12 @@ def test_c_backend_gemm():
     out = backend.gemm(a, b)
     assert np.allclose(out, a @ b)
 
+
+def test_c_backend_softmax():
+    backend = CEngineBackend()
+    x = np.array([[1.0, 2.0, 3.0]], dtype=np.float32)
+    out = backend.softmax(x)
+    expected = np.exp(x) / np.sum(np.exp(x), axis=-1, keepdims=True)
+    assert np.allclose(out, expected)
+
+
