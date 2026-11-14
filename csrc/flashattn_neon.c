@@ -46,3 +46,27 @@ void flash_attention_neon(FlashAttentionInput *input, FlashAttentionOutput *outp
 
                 // Online softmax
                 float sum_exp = 0.0f;
+                for (int l = 0; l < BLOCK_SIZE; ++l) {
+                    float exp_val = exp(q_val - k_val);
+                    sum_exp += exp_val;
+                }
+
+                // Compute attention value
+                float attn_val = q_val * k_val / sum_exp;
+
+                // Store the result in output
+                output->o[i * BLOCK_SIZE + j * BLOCK_SIZE + k] = attn_val;
+            }
+        }
+    }
+}
+
+void test_flash_attention_neon() {
+    float *q = (float *)malloc(SEQ_LENGTH * NUM_HEADS * BLOCK_SIZE * sizeof(float));
+    float *k = (float *)malloc(SEQ_LENGTH * NUM_HEADS * BLOCK_SIZE * sizeof(float));
+    float *v = (float *)malloc(SEQ_LENGTH * NUM_HEADS * BLOCK_SIZE * sizeof(float));
+    float *o = (float *)malloc(SEQ_LENGTH * NUM_HEADS * BLOCK_SIZE * sizeof(float));
+
+    // Initialize input data
+    for (int i = 0; i < SEQ_LENGTH * NUM_HEADS * BLOCK_SIZE; ++i) {
+        q[i] = rand() / RAND_MAX;
