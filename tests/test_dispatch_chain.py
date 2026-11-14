@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
+import numpy as np
 import pytest
 
 from parallax.core.dispatch_chain import DispatchChain, FallbackRecord
@@ -71,3 +72,15 @@ def test_dispatch_chain_module_helpers_and_custom_policy():
         dispatch_chain("unknown_op", 1, candidate_override=["nonexistent"])
     assert len(get_fallback_history()) == 1
     clear_fallback_history()
+
+
+def test_dispatch_chain_inspect_inputs_and_numpy_array():
+    class ShapeBackend(DummyBackend):
+        def gemm(self, a: Any, b: Any) -> Any:
+            return (a.shape, a.dtype)
+
+    backend = ShapeBackend()
+    chain = DispatchChain(registry={"shape_be": backend})
+    arr = np.zeros((4, 4), dtype=np.float32)
+    res = chain.execute("gemm", arr, arr, candidate_override=["shape_be"])
+    assert res == ((4, 4), np.dtype(np.float32))
