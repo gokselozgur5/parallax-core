@@ -35,3 +35,20 @@ pub struct CircularKvBuffer {
     /// Total lifetime tokens ingested (monotonic counter).
     pub total_inserted: usize,
 }
+
+impl CircularKvBuffer {
+    /// Create a new circular KV buffer descriptor.
+    pub fn new(num_heads: usize, head_dim: usize, capacity: usize) -> Result<Self, KvCacheError> {
+        if num_heads == 0 || head_dim == 0 || capacity == 0 {
+            return Err(KvCacheError::InvalidDimension);
+        }
+        let per_token = num_heads.checked_mul(head_dim).ok_or(KvCacheError::InvalidDimension)?;
+        let _ = capacity.checked_mul(per_token).ok_or(KvCacheError::InvalidDimension)?;
+        Ok(Self {
+            num_heads,
+            head_dim,
+            capacity,
+            total_inserted: 0,
+        })
+    }
+}
