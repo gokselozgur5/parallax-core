@@ -94,3 +94,32 @@ class DispatchChain:
         else:
             candidates = self.get_candidates(op, n_elems, platform=platform)
         return self._run_chain(op, candidates, dtype, shape, args, kwargs)
+
+    def _run_chain(
+        self,
+        op: str,
+        candidates: list[str],
+        dtype: Any,
+        shape: tuple[int, ...],
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+    ) -> Any:
+        last_exc: Exception | None = None
+        for name in candidates:
+            backend = _resolve_backend(self.registry, name)
+            if backend is None or (hasattr(backend, "available") and not backend.available()):
+                self._record(op, name, "backend unavailable or unresolved")
+                continue
+            if hasattr(backend, "supports") and not backend.supports(op, dtype, shape):
+                self._record(op, name, "backend does not support op")
+                continue
+            fn = getattr(backend, op, None)
+            if not callable(fn):
+                self._record(op, name, f"backend lacks callable op {op}")
+                continue
+            try:
+                return fn(*args, **kwargs)
+            except Exception as exc:
+                last_exc = exc
+                self._record(op, name, str(exc), exc=exc)
+        raise RuntimeError(f"All backends in fallback chain failed for op {op!r}: {candidates}") from last_exc
