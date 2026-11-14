@@ -41,3 +41,26 @@ def test_cpu_features_helpers():
     assert info.has_feature("avx2")
     assert info.has_feature("AVX-512")
     assert not info.has_feature("neon")
+
+
+from parallax.core.probe import parse_proc_cpuinfo
+
+X86_LINUX = "processor\t: 0\nflags\t\t: fpu sse sse2 avx avx2 avx512f\n"
+ARM_LINUX = "processor\t: 0\nFeatures\t: fp asimd evtstrm aes\n"
+
+
+def test_parse_proc_cpuinfo_x86_64():
+    info = parse_proc_cpuinfo(X86_LINUX, "AMD64")
+    assert info.arch == "x86_64"
+    assert info.system == "Linux"
+    assert info.avx2
+    assert info.avx512
+    assert not info.neon
+
+
+def test_parse_proc_cpuinfo_arm64():
+    info = parse_proc_cpuinfo(ARM_LINUX, "aarch64")
+    assert info.arch == "arm64"
+    assert info.system == "Linux"
+    assert info.neon
+    assert not info.avx2
