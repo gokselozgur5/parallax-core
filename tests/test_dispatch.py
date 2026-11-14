@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from parallax.core.dispatch import DispatchPolicy, PlatformInfo
+from parallax.core.dispatch import (
+    DispatchPolicy,
+    PlatformInfo,
+    get_candidate_backends,
+    select_optimal_backend,
+)
 
 
 def test_heuristic_dispatch_optimal_metal():
@@ -38,3 +43,16 @@ def test_heuristic_dispatch_cuda():
     policy = DispatchPolicy()
     plat = PlatformInfo(arch="x86_64", system="Linux", cuda=True)
     assert policy.select_backend("gemm", 10000, platform=plat) == "cuda"
+
+
+def test_select_optimal_backend_module_helper():
+    plat = PlatformInfo(arch="arm64", system="Darwin", neon=True)
+    assert select_optimal_backend("gemm", 10000, platform=plat) == "metal"
+    assert get_candidate_backends("gemm", 10000, platform=plat) == ["metal", "c-neon", "numpy"]
+
+
+def test_custom_thresholds_override():
+    policy = DispatchPolicy(thresholds={"gemm": 100})
+    plat = PlatformInfo(arch="arm64", system="Darwin", neon=True)
+    assert policy.select_backend("gemm", 50, platform=plat) == "numpy"
+    assert policy.select_backend("gemm", 150, platform=plat) == "metal"
