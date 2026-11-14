@@ -45,3 +45,29 @@ def _resolve_backend(registry: Any, name: str) -> Any:
     if isinstance(registry, dict):
         return registry.get(name)
     return getattr(registry, name, None)
+
+
+class DispatchChain:
+    """Resilient fallback execution chain across candidate backends."""
+
+    def __init__(
+        self,
+        policy: DispatchPolicy | None = None,
+        registry: Any | None = None,
+    ) -> None:
+        self.policy = policy if policy is not None else DispatchPolicy()
+        self.registry = registry
+        self._history: list[FallbackRecord] = []
+
+    def get_history(self) -> list[FallbackRecord]:
+        """Return shallow copy of recorded fallback events."""
+        return list(self._history)
+
+    def clear_history(self) -> None:
+        """Clear recorded fallback history."""
+        self._history.clear()
+
+    def _record(self, op: str, backend: str, reason: str, exc: Exception | None = None) -> None:
+        exc_str = f"{type(exc).__name__}: {exc}" if exc is not None else None
+        self._history.append(FallbackRecord(op=op, backend=backend, reason=reason, exception=exc_str))
+        _LOGGER.debug("Dispatch fallback for %s on %s: %s", op, backend, reason)
