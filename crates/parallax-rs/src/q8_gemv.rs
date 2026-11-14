@@ -6,3 +6,11 @@ pub struct BlockQ8_0 {
     pub scale: f32,
     pub qs: [i8; 32],
 }
+
+impl BlockQ8_0 {
+    pub const BLOCK_SIZE: usize = 32;
+
+    pub fn new(scale: f32, qs: [i8; 32]) -> Self {
+        Self { scale, qs }
+    }
+}
