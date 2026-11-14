@@ -97,4 +97,32 @@ impl CircularKvBuffer {
         let per_head = self.capacity.checked_mul(self.head_dim).ok_or(KvCacheError::InvalidDimension)?;
         self.num_heads.checked_mul(per_head).ok_or(KvCacheError::InvalidDimension)
     }
+
+    /// Insert single key-value token slices [num_heads, head_dim] into circular cache.
+    pub fn append(
+        &mut self,
+        k_buf: &mut [f32],
+        v_buf: &mut [f32],
+        new_k: &[f32],
+        new_v: &[f32],
+    ) -> Result<usize, KvCacheError> {
+        let req_buf = self.required_buffer_len()?;
+        if k_buf.len() != req_buf || v_buf.len() != req_buf {
+            return Err(KvCacheError::BufferLengthMismatch);
+        }
+        let per_token = self.num_heads.checked_mul(self.head_dim).ok_or(KvCacheError::InvalidDimension)?;
+        if new_k.len() != per_token || new_v.len() != per_token {
+            return Err(KvCacheError::BufferLengthMismatch);
+        }
+        let slot = self.write_cursor();
+        for h in 0..self.num_heads {
+            let offset = self.slot_offset(h, slot)?;
+            let src_start = h * self.head_dim;
+            let src_end = src_start + self.head_dim;
+            k_buf[offset..offset + self.head_dim].copy_from_slice(&new_k[src_start..src_end]);
+            v_buf[offset..offset + self.head_dim].copy_from_slice(&new_v[src_start..src_end]);
+        }
+        self.total_inserted = self.total_inserted.checked_add(1).ok_or(KvCacheError::InvalidDimension)?;
+        Ok(slot)
+    }
 }
