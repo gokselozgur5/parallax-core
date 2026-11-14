@@ -36,3 +36,22 @@ def test_enable_and_disable_container() -> None:
     disable_native(model)
     assert type(model.fc1) is Linear
     assert all(type(ly) is Linear for ly in model.layers)
+
+
+import numpy as np
+from parallax.tensor import Tensor
+
+
+def test_param_identity_and_parity() -> None:
+    lin = Linear(4, 3, bias=True)
+    orig_w, orig_b = lin.weight, lin.bias
+    x = Tensor(np.random.randn(2, 4))
+    y_orig = lin(x)
+    native = enable_native(lin)
+    assert native.weight is orig_w
+    assert native.bias is orig_b
+    assert np.allclose(native(x).data, y_orig.data, atol=1e-6)
+    restored = disable_native(native)
+    assert restored.weight is orig_w
+    assert restored.bias is orig_b
+    assert np.allclose(restored(x).data, y_orig.data, atol=1e-6)
