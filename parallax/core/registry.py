@@ -34,3 +34,9 @@ class BackendRegistry:
     def clear(self) -> None:
         with self._lock:
             self._backends.clear()
+
+    def list_backends(self) -> list[str]:
+        with self._lock:
+            items = list(self._backends.items())
+        items.sort(key=lambda item: -item[1][1])
+        return [name for name, _ in items]
