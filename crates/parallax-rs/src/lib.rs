@@ -115,6 +115,35 @@ pub unsafe extern "C" fn parallax_softmax_f32(
     })).unwrap_or(STATUS_INVALID_DIMENSION)
 }
 
+/// C-ABI export for looking up a single BPE merge rule via binary search.
+#[no_mangle]
+pub unsafe extern "C" fn parallax_bpe_find_merge(
+    table_ptr: *const bpe::MergeEntry,
+    table_len: usize,
+    left: u32,
+    right: u32,
+    out_rank: *mut u32,
+    out_new_id: *mut u32,
+) -> i32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        if table_ptr.is_null() || out_rank.is_null() || out_new_id.is_null() {
+            return STATUS_NULL_POINTER;
+        }
+        if !is_aligned_u32(table_ptr) || !is_aligned_u32(out_rank) || !is_aligned_u32(out_new_id) {
+            return STATUS_UNALIGNED_POINTER;
+        }
+        let table = slice::from_raw_parts(table_ptr, table_len);
+        match bpe::find_merge(table, left, right) {
+            Some(entry) => {
+                *out_rank = entry.rank;
+                *out_new_id = entry.new_id;
+                STATUS_OK
+            }
+            None => STATUS_NOT_FOUND,
+        }
+    })).unwrap_or(STATUS_INVALID_DIMENSION)
+}
+
 /// C-ABI export for version check / smoke test.
 #[no_mangle]
 pub extern "C" fn parallax_version() -> u32 {
