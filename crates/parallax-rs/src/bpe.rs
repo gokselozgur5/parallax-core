@@ -60,3 +60,14 @@ pub fn find_best_merge(table: &[MergeEntry], tokens: &[u32]) -> Option<(usize, M
     }
     best
 }
+
+/// Encodes raw tokens iteratively using binary search lookups on the merge table.
+pub fn bpe_encode(table: &[MergeEntry], tokens: &mut Vec<u32>) {
+    while tokens.len() >= 2 {
+        let Some((idx, entry)) = find_best_merge(table, tokens) else {
+            break;
+        };
+        tokens[idx] = entry.new_id;
+        tokens.remove(idx + 1);
+    }
+}
