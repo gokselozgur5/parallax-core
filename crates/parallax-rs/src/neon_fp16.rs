@@ -101,3 +101,12 @@ pub fn dot_fp16_verified(a: &[u16], b: &[u16]) -> Result<f32, NeonFp16Error> {
     verify_fp16_alignment(a.as_ptr(), b.as_ptr(), false)?;
     dot_fp16_scalar(a, b)
 }
+
+/// Computes strict 16-byte SIMD aligned NEON FP16 dot product with boundary checking.
+pub fn dot_fp16_simd_aligned(a: &[u16], b: &[u16]) -> Result<f32, NeonFp16Error> {
+    if a.len() != b.len() {
+        return Err(NeonFp16Error::DimensionMismatch);
+    }
+    verify_fp16_alignment(a.as_ptr(), b.as_ptr(), true)?;
+    dot_fp16_scalar(a, b)
+}
