@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from typing import Any
+import numpy as np
 from parallax.backends.base import Backend
 
 
@@ -35,4 +36,11 @@ class MetalBackend(Backend):
         return probe_metal()
 
     def supports(self, op: str, dtype: Any, shape: tuple[int, ...]) -> bool:
-        return False
+        if not self.available():
+            return False
+        if op not in ("gemm", "rmsnorm", "softmax"):
+            return False
+        try:
+            return np.dtype(dtype) == np.float32
+        except Exception:
+            return False
