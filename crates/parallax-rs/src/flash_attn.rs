@@ -167,4 +167,17 @@ mod tests {
         assert!((k_corr - 0.5).abs() < 1e-6);
         assert!((q_corr * k_corr - 0.25).abs() < 1e-6);
     }
+
+    #[test]
+    fn test_flash_attn_single_token_parity() {
+        let q = [1.0f32, 2.0];
+        let k = [1.0f32, 2.0];
+        let v = [3.0f32, 4.0];
+        let mut out = [0.0f32; 2];
+        let cfg = FlashAttnConfig::new(2, false, false);
+        let res = flash_attn(&q, &k, &v, &mut out, 1, 2, cfg);
+        assert_eq!(res, Ok(()));
+        assert!((out[0] - 3.0).abs() < 1e-5);
+        assert!((out[1] - 4.0).abs() < 1e-5);
+    }
 }
