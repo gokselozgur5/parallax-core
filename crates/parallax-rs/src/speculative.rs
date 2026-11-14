@@ -53,3 +53,10 @@ pub fn validate_draft_matrix(
     }
     Ok(())
 }
+
+/// Check target logits dimension for speculative verification.
+#[inline]
+pub fn check_target_len(logits: &[f32], gamma: usize, vocab_size: usize) -> Result<(), SpeculativeError> {
+    let exp = (gamma + 1).checked_mul(vocab_size).ok_or(SpeculativeError::DimensionMismatch)?;
+    if logits.len() != exp { Err(SpeculativeError::DimensionMismatch) } else { Ok(()) }
+}
