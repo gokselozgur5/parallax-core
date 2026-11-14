@@ -45,3 +45,9 @@ def test_dispatch_chain_fallback_on_unsupported_and_error():
     assert "engine fault" in (hist[0].exception or "")
     chain.clear_history()
     assert chain.get_history() == []
+
+
+def test_dispatch_chain_all_backends_fail_raises():
+    chain = DispatchChain(registry={})
+    with pytest.raises(RuntimeError, match="All backends in fallback chain failed"):
+        chain.execute("gemm", 1, 2, candidate_override=["missing_a", "missing_b"])
