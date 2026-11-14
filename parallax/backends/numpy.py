@@ -18,3 +18,8 @@ class NumpyBackend(Backend):
 
     def gemm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
         return a @ b
+
+    def softmax(self, x: np.ndarray, axis: int = -1) -> np.ndarray:
+        shifted = x - np.max(x, axis=axis, keepdims=True)
+        exp_x = np.exp(shifted)
+        return exp_x / np.sum(exp_x, axis=axis, keepdims=True)
