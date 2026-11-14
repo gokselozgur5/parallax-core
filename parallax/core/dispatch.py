@@ -43,3 +43,29 @@ class DispatchPolicy:
         self.thresholds = dict(DEFAULT_THRESHOLDS)
         if thresholds is not None:
             self.thresholds.update(thresholds)
+
+    def candidate_backends(
+        self,
+        op: str,
+        size_or_shape: int | Sequence[int] = 0,
+        platform: PlatformInfo | None = None,
+    ) -> list[str]:
+        """Return preferred backend candidate chain for op and size."""
+        n_elems = _compute_elements(size_or_shape)
+        min_elems = self.thresholds.get(op, 0)
+        if n_elems < min_elems:
+            return ["numpy"]
+        if platform is None:
+            return ["numpy"]
+        if platform.cuda:
+            return ["cuda", "numpy"]
+        arch = platform.arch.lower()
+        if arch in ("arm64", "aarch64") and platform.system == "Darwin":
+            return ["metal", "c-neon", "numpy"]
+        if arch in ("arm64", "aarch64") and platform.neon:
+            return ["c-neon", "numpy"]
+        if arch in ("x86_64", "amd64") and platform.avx2:
+            return ["c-avx", "rust", "numpy"]
+        if arch in ("x86_64", "amd64"):
+            return ["rust", "numpy"]
+        return ["numpy"]
