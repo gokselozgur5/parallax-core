@@ -69,3 +69,25 @@ def parse_proc_cpuinfo(text: str, machine: str = "") -> CpuFeatures:
         avx2="avx2" in flags,
         avx512=has_512,
     )
+
+
+
+def parse_sysctl(text: str, machine: str = "") -> CpuFeatures:
+    """Build CpuFeatures from Darwin sysctl output."""
+    values: dict[str, str] = {}
+    for line in text.splitlines():
+        key, sep, value = line.partition(":")
+        if sep:
+            values[key.strip()] = value.strip()
+    leaves = ("machdep.cpu.features", "machdep.cpu.leaf7_features")
+    flags = set(" ".join(values.get(k, "") for k in leaves).upper().split())
+    arch = normalize_arch(machine) if machine else "unknown"
+    has_neon = "1" in (values.get("hw.optional.neon"), values.get("hw.optional.AdvSIMD"))
+    has_512 = "AVX512F" in flags or values.get("hw.optional.avx512f") == "1"
+    return CpuFeatures(
+        arch=arch,
+        system="Darwin",
+        neon=has_neon,
+        avx2="AVX2" in flags or values.get("hw.optional.avx2_0") == "1",
+        avx512=has_512,
+    )
