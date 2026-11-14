@@ -4,6 +4,7 @@ import numpy as np
 from parallax.metal.aligned import (
     align_size,
     aligned_empty,
+    aligned_zeros,
     get_page_size,
     is_aligned,
 )
@@ -24,3 +25,16 @@ def test_aligned_empty_properties() -> None:
     assert arr.ctypes.data % ps == 0
     assert arr.nbytes % ps == 0
     assert is_aligned(arr)
+
+
+def test_aligned_zeros_and_writability() -> None:
+    arr = aligned_zeros(512, dtype=np.float32)
+    assert np.all(arr == 0)
+    arr[0] = 123.45
+    assert arr[0] == np.float32(123.45)
+
+
+def test_custom_page_size_alignment() -> None:
+    custom_ps = 8192
+    arr = aligned_empty(100, dtype=np.float32, page_size=custom_ps)
+    assert is_aligned(arr, page_size=custom_ps)
