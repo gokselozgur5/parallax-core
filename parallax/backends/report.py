@@ -30,3 +30,10 @@ def _check_backend_available(backend: Any) -> bool:
 def _format_row(name: str, avail: bool, isa: str, parity: str) -> str:
     av_str = "true" if avail else "false"
     return f"| {name} | {av_str} | {isa} | {parity} |"
+
+
+def _collect_backend_items(override: dict[str, Any] | None) -> list[tuple[str, Any]]:
+    if override is not None:
+        return sorted(override.items(), key=lambda x: x[0])
+    names = registry.list_backends()
+    return sorted([(n, registry.get(n)) for n in names], key=lambda x: x[0])
