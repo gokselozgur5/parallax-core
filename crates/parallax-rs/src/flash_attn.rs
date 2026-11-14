@@ -28,3 +28,14 @@ impl FlashAttnConfig {
         }
     }
 }
+
+#[inline]
+pub fn compute_scale_factor(scale: f32, f16_correction: bool) -> (f32, f32) {
+    if f16_correction {
+        let q_scale = scale.sqrt();
+        let k_scale = scale.sqrt();
+        (q_scale, k_scale)
+    } else {
+        (scale, 1.0)
+    }
+}
