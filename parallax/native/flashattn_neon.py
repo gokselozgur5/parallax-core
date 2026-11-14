@@ -27,3 +27,8 @@ def _get_flashattn_neon_fn() -> Optional[Callable[..., Any]]:
         ]
         _FN_FLASHATTN_NEON = bind("c_flashattn_neon_f32", args, ctypes.c_int)
     return _FN_FLASHATTN_NEON
+
+
+def is_flashattn_neon_available() -> bool:
+    """Return True if the NEON FlashAttention kernel symbol is bound."""
+    return _get_flashattn_neon_fn() is not None
