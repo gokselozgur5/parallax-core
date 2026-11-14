@@ -1,8 +1,9 @@
-pub mod telemetry;
-pub use telemetry::StorageTelemetry;
 //! Fast memory-mapped tensor storage serializer and deserializer.
 //!
 //! Provides zero-copy parsing of binary tensor storage archives.
+
+pub mod telemetry;
+pub use telemetry::StorageTelemetry;
 
 pub const STORAGE_MAGIC: [u8; 4] = *b"PXTS";
 pub const STORAGE_VERSION: u32 = 1;
