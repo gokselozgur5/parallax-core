@@ -86,3 +86,30 @@ class DispatchPolicy:
             if backend in avail_set:
                 return backend
         return "numpy"
+
+
+_DEFAULT_POLICY = DispatchPolicy()
+
+
+def select_optimal_backend(
+    op: str,
+    size_or_shape: int | Sequence[int] = 0,
+    platform: PlatformInfo | None = None,
+    available_backends: Sequence[str] | set[str] | None = None,
+) -> str:
+    """Convenience helper to select optimal backend with default policy."""
+    return _DEFAULT_POLICY.select_backend(
+        op,
+        size_or_shape,
+        platform=platform,
+        available_backends=available_backends,
+    )
+
+
+def get_candidate_backends(
+    op: str,
+    size_or_shape: int | Sequence[int] = 0,
+    platform: PlatformInfo | None = None,
+) -> list[str]:
+    """Convenience helper to get candidate backends with default policy."""
+    return _DEFAULT_POLICY.candidate_backends(op, size_or_shape, platform=platform)
