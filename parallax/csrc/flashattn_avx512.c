@@ -20,3 +20,22 @@ int c_has_avx512_flashattn_f32(void) {
     return 0;
 #endif
 }
+
+
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+#include <immintrin.h>
+
+__attribute__((target("avx512f,avx512dq,avx512vl,avx512bw")))
+static float dot_product_avx512(const float *a, const float *b, int len) {
+    int d = 0;
+    __m512 sum_vec = _mm512_setzero_ps();
+    for (; len - d >= 16; d += 16) {
+        __m512 va = _mm512_loadu_ps(a + d);
+        __m512 vb = _mm512_loadu_ps(b + d);
+        sum_vec = _mm512_fmadd_ps(va, vb, sum_vec);
+    }
+    float total = _mm512_reduce_add_ps(sum_vec);
+    for (; d < len; ++d) total += a[d] * b[d];
+    return total;
+}
+#endif
