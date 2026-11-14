@@ -20,3 +20,13 @@ def test_metal_backend_probe():
     assert is_metal_available() == info["available"]
     backend = MetalBackend()
     assert backend.probe() == info
+
+
+def test_metal_backend_supports(monkeypatch):
+    backend = MetalBackend()
+    assert not backend.supports("gemm", np.float32, (2, 2))
+    monkeypatch.setattr(backend, "available", lambda: True)
+    assert backend.supports("gemm", np.float32, (2, 2))
+    assert backend.supports("rmsnorm", "float32", (2, 2))
+    assert not backend.supports("unknown_op", np.float32, (2, 2))
+    assert not backend.supports("gemm", np.float64, (2, 2))
