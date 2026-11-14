@@ -35,3 +35,14 @@ fn test_gemv_q8_0_identity_mapping() {
     assert!((y[0] - 3.0).abs() < 1e-3);
     assert!((y[1] - 5.0).abs() < 1e-3);
 }
+
+#[test]
+fn test_vec_dot_q8_0_f32_direct() {
+    let mut input = [0.0f32; 32];
+    input[5] = 2.0;
+    let block = BlockQ8_0::quantize(&input);
+    let mut x = [0.0f32; 32];
+    x[5] = 4.0;
+    let dot = vec_dot_q8_0_f32(&[block], &x);
+    assert!((dot - 8.0).abs() < 1e-2);
+}
