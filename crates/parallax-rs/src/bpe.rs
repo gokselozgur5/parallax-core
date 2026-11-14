@@ -26,3 +26,9 @@ impl MergeEntry {
         (self.left, self.right)
     }
 }
+
+/// Searches for a pair in a slice of MergeEntry sorted by (left, right).
+pub fn find_merge(table: &[MergeEntry], left: u32, right: u32) -> Option<&MergeEntry> {
+    let target = (left, right);
+    table.binary_search_by(|entry| entry.key().cmp(&target)).ok().map(|idx| &table[idx])
+}
