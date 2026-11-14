@@ -57,3 +57,18 @@ static void vec_scale_add_avx512(float *out, float alpha, const float *v, float 
     for (; d < len; ++d) out[d] = out[d] * alpha + p * v[d];
 }
 #endif
+
+
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+__attribute__((target("avx512f,avx512dq,avx512vl,avx512bw")))
+static void vec_scale_avx512(float *out, float scale, int len) {
+    int d = 0;
+    __m512 vscale = _mm512_set1_ps(scale);
+    for (; len - d >= 16; d += 16) {
+        __m512 vo = _mm512_loadu_ps(out + d);
+        vo = _mm512_mul_ps(vo, vscale);
+        _mm512_storeu_ps(out + d, vo);
+    }
+    for (; d < len; ++d) out[d] *= scale;
+}
+#endif
