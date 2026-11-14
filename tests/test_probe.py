@@ -19,3 +19,25 @@ def test_cpu_features_frozen():
 
 def test_cpu_probe_alias():
     assert CpuProbe is CpuFeatures
+
+
+from parallax.core.probe import normalize_arch
+
+
+def test_normalize_arch():
+    assert normalize_arch("aarch64") == "arm64"
+    assert normalize_arch("ARM64") == "arm64"
+    assert normalize_arch("AMD64") == "x86_64"
+    assert normalize_arch("x86_64") == "x86_64"
+    assert normalize_arch("unknown_arch") == "unknown_arch"
+
+
+def test_cpu_features_helpers():
+    info = CpuFeatures(arch="x86_64", avx2=True, avx512=True)
+    assert info.has_avx2
+    assert info.has_avx512
+    assert info.avx512f
+    assert not info.has_neon
+    assert info.has_feature("avx2")
+    assert info.has_feature("AVX-512")
+    assert not info.has_feature("neon")
