@@ -209,5 +209,14 @@ mod tests {
         assert_eq!(cache.active_tokens(), 3);
         assert_eq!(cache.write_cursor(), 1);
         assert_eq!(cache.total_inserted, 4);
+
+        let mut out_k = [0.0f32; 2];
+        let mut out_v = [0.0f32; 2];
+        cache.read_token(&k_buf, &v_buf, 0, 0, &mut out_k, &mut out_v).unwrap();
+        assert_eq!(out_k, [1.0, 1.5]);
+        assert_eq!(out_v, [10.0, 15.0]);
+        cache.read_token(&k_buf, &v_buf, 0, 2, &mut out_k, &mut out_v).unwrap();
+        assert_eq!(out_k, [3.0, 3.5]);
+        assert_eq!(out_v, [30.0, 35.0]);
     }
 }
