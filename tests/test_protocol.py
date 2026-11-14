@@ -53,3 +53,21 @@ def test_query_capability_mechanism():
     assert not query_capability(b, OpQuery("softmax"))
 
 
+def test_query_backend_capabilities_batch():
+    from parallax.core.protocol import query_backend_capabilities
+
+    class MultiOpBackend:
+        name = "multi"
+
+        def available(self) -> bool:
+            return True
+
+        def supports(self, op: str, dtype: Any = None, shape: tuple[int, ...] = ()) -> bool:
+            return op in ("gemm", "rmsnorm")
+
+    b = MultiOpBackend()
+    res = query_backend_capabilities(b, ["gemm", "softmax", "rmsnorm"])
+    assert res == {"gemm": True, "softmax": False, "rmsnorm": True}
+
+
+
