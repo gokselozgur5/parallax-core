@@ -36,3 +36,21 @@ class OpQuery:
         if not isinstance(self.op, str) or not self.op.strip():
             raise ValueError("op must be a non-empty string")
 
+
+def query_capability(
+    backend: Any,
+    query: OpQuery | str,
+    dtype: Any = None,
+    shape: tuple[int, ...] = (),
+    check_available: bool = True,
+) -> bool:
+    """Query whether backend supports the given operation."""
+    if check_available and hasattr(backend, "available") and not backend.available():
+        return False
+    if isinstance(query, str):
+        query = OpQuery(op=query, dtype=dtype, shape=shape)
+    if not hasattr(backend, "supports"):
+        return False
+    return bool(backend.supports(query.op, query.dtype, query.shape))
+
+
