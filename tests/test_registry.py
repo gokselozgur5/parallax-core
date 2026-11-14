@@ -56,3 +56,18 @@ def test_dict_like_access_and_len():
     assert reg["cpu"] is eng
     del reg["cpu"]
     assert "cpu" not in reg
+
+
+def test_module_level_helpers():
+    from parallax.core.registry import clear, get, list_backends, register, unregister
+
+    clear()
+    engine = object()
+    register("cpu", engine, priority=1)
+    register("gpu", object(), priority=5)
+    assert get("cpu") is engine
+    assert list_backends() == ["gpu", "cpu"]
+    unregister("cpu")
+    assert list_backends() == ["gpu"]
+    clear()
+    assert list_backends() == []
