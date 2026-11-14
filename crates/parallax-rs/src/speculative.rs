@@ -126,3 +126,14 @@ pub fn compute_residual_distribution(
     }
     Ok(())
 }
+
+/// Samples a token index from a discrete probability distribution using a roll in [0, 1).
+pub fn sample_token_from_probs(probs: &[f32], roll: f32) -> Result<u32, SpeculativeError> {
+    if probs.is_empty() { return Err(SpeculativeError::EmptyVocab); }
+    let mut acc = 0.0f32;
+    for (idx, &p) in probs.iter().enumerate() {
+        acc += p;
+        if roll <= acc { return Ok(idx as u32); }
+    }
+    Ok((probs.len() - 1) as u32)
+}
