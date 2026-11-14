@@ -31,3 +31,13 @@ def test_rope_cache_parity_interleaved() -> None:
     expected = np.transpose(ref, (1, 0, 2))
     actual = cache.apply_in_place(x.copy(), start_pos=10, interleaved=True)
     np.testing.assert_allclose(actual, expected, atol=1e-5, rtol=1e-5)
+
+def test_rope_cache_parity_non_interleaved() -> None:
+    rng = np.random.default_rng(123)
+    x = rng.standard_normal((16, 2, 64)).astype(np.float32)
+    cache = RoPECache.create(dim=64, max_seq_len=256, theta=50000.0)
+    x_ref = np.transpose(x, (1, 0, 2))
+    ref = apply_rope(x_ref, seq_dim=1, offset=5, theta=50000.0, interleaved=False)
+    expected = np.transpose(ref, (1, 0, 2))
+    actual = cache.apply_in_place(x.copy(), start_pos=5, interleaved=False)
+    np.testing.assert_allclose(actual, expected, atol=1e-5, rtol=1e-5)
