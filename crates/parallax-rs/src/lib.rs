@@ -286,6 +286,23 @@ mod tests {
             assert_eq!(parallax_gemm_f32(2, 2, 2, 1.0, s_ptr, 4, buf.as_ptr(), 4, 0.0, s_ptr.add(2), 4), STATUS_ALIASING_POINTER);
         }
     }
+
+    #[test]
+    fn test_c_abi_flash_attn() {
+        let q = [1.0f32, 2.0];
+        let k = [1.0f32, 2.0];
+        let v = [3.0f32, 4.0];
+        let mut out = [0.0f32; 2];
+        unsafe {
+            let res = parallax_flash_attn_f32(
+                q.as_ptr(), k.as_ptr(), v.as_ptr(), out.as_mut_ptr(),
+                1, 2, 0.5, 0, 1,
+            );
+            assert_eq!(res, STATUS_OK);
+            assert!((out[0] - 3.0).abs() < 1e-4);
+            assert!((out[1] - 4.0).abs() < 1e-4);
+        }
+    }
 }
 
 /// C-ABI export to find bucket boundary for given sequence length.
