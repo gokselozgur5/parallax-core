@@ -70,3 +70,27 @@ void test_flash_attention_neon() {
     // Initialize input data
     for (int i = 0; i < SEQ_LENGTH * NUM_HEADS * BLOCK_SIZE; ++i) {
         q[i] = rand() / RAND_MAX;
+        k[i] = rand() / RAND_MAX;
+        v[i] = rand() / RAND_MAX;
+    }
+
+    // Create input and output structures
+    FlashAttentionInput input = {q, k, v};
+    FlashAttentionOutput output = o;
+
+    // Perform flash attention computation
+    flash_attention_neon(&input, &output);
+
+    // Verify the result against reference attention
+    float *ref_o = (float *)malloc(SEQ_LENGTH * NUM_HEADS * BLOCK_SIZE * sizeof(float));
+    for (int i = 0; i < SEQ_LENGTH * NUM_HEADS * BLOCK_SIZE; ++i) {
+        ref_o[i] = q[i] * k[i] / sum_exp;
+    }
+
+    // Compare the results
+    int pass = 1;
+    for (int i = 0; i < SEQ_LENGTH * NUM_HEADS * BLOCK_SIZE; ++i) {
+        if (fabs(output.o[i] - ref_o[i]) > 1e-6f) {
+            printf("Test failed at index %d\n", i);
+            pass = 0;
+            break;
