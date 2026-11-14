@@ -37,3 +37,28 @@ def _collect_backend_items(override: dict[str, Any] | None) -> list[tuple[str, A
         return sorted(override.items(), key=lambda x: x[0])
     names = registry.list_backends()
     return sorted([(n, registry.get(n)) for n in names], key=lambda x: x[0])
+
+
+def generate_markdown_report(
+    *,
+    cpu_info: cpuinfo.CpuInfo | None = None,
+    backends_override: dict[str, Any] | None = None,
+    parity_override: dict[str, str] | None = None,
+) -> str:
+    """Generate a compact markdown report of backends and capabilities."""
+    info = cpu_info or cpuinfo.probe()
+    isa = _format_isa_flags(info)
+    lines: list[str] = [
+        "| Backend | Available | ISA Flags | Parity |",
+        "|:---|:---|:---|:---|",
+    ]
+    items = _collect_backend_items(backends_override)
+    for name, b in items:
+        av = _check_backend_available(b)
+        par = (
+            parity_override.get(name, "pass" if av else "n/a")
+            if parity_override is not None
+            else ("pass" if av else "n/a")
+        )
+        lines.append(_format_row(name, av, isa, par))
+    return "\n".join(lines)
