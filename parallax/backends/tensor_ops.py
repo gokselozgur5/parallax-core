@@ -24,3 +24,18 @@ def dispatched_matmul(a: Tensor, b: Tensor) -> Tensor:
         a_is_1d, b_is_1d = (a.ndim == 1), (b.ndim == 1)
         a_2d = a.data[None, :] if a_is_1d else a.data
         b_2d = b.data[..., :, None] if b_is_1d else b.data
+        if a_is_1d and b_is_1d:
+            g_2d = np.array([[float(out.grad)]])
+        elif a_is_1d:
+            g_2d = out.grad[..., None, :]
+        elif b_is_1d:
+            g_2d = out.grad[..., None]
+        else:
+            g_2d = out.grad
+
+        if a.requires_grad:
+            other_t = np.swapaxes(b_2d, -1, -2)
+            grad_self = g_2d @ other_t
+            if a_is_1d:
+                grad_self = np.squeeze(grad_self, axis=-2)
+            _accumulate_grad(a, grad_self)
