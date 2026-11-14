@@ -94,3 +94,8 @@ void test_flash_attention_neon() {
             printf("Test failed at index %d\n", i);
             pass = 0;
             break;
+        }
+    }
+
+    free(q);
+    free(k);
