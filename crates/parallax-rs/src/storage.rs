@@ -269,3 +269,26 @@ pub struct TensorEntryBuilder<'a> {
     pub shape: Vec<usize>,
     pub data: &'a [u8],
 }
+
+/// Serializes a collection of tensor entries into a memory-mapped compliant binary buffer.
+pub fn serialize_storage(entries: &[TensorEntryBuilder]) -> Result<Vec<u8>, StorageError> {
+    for entry in entries {
+        if entry.name.len() > 256 {
+            return Err(StorageError::NameTooLong);
+        }
+        let mut numel = 1usize;
+        for &d in &entry.shape {
+            if d == 0 {
+                return Err(StorageError::ZeroDimension);
+            }
+            numel = numel.checked_mul(d).ok_or(StorageError::DimensionOverflow)?;
+        }
+        let byte_len = numel.checked_mul(entry.dtype.element_size()).ok_or(StorageError::DimensionOverflow)?;
+        if entry.data.len() != byte_len {
+            return Err(StorageError::OffsetOutOfBounds);
+        }
+    }
+    let mut out = Vec::new();
+    serialize_storage_into(entries, &mut out)?;
+    Ok(out)
+}
