@@ -27,3 +27,12 @@ impl std::fmt::Display for NeonFp16Error {
 }
 
 impl std::error::Error for NeonFp16Error {}
+
+/// Checks if a memory address satisfies the required byte alignment.
+#[inline(always)]
+pub fn is_pointer_aligned<T>(ptr: *const T, align_bytes: usize) -> bool {
+    if ptr.is_null() || align_bytes == 0 {
+        return false;
+    }
+    (ptr as usize) % align_bytes == 0
+}
