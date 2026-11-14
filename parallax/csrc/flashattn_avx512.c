@@ -72,3 +72,21 @@ static void vec_scale_avx512(float *out, float scale, int len) {
     for (; d < len; ++d) out[d] *= scale;
 }
 #endif
+
+
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+__attribute__((target("avx512f,avx512dq,avx512vl,avx512bw")))
+static void update_kv_step_avx512(float *oi, const float *vj, float score,
+                                  float *m_i, float *l_i, int head_dim) {
+    if (score > *m_i) {
+        float alpha = expf(*m_i - score);
+        *m_i = score;
+        *l_i = *l_i * alpha + 1.0f;
+        vec_scale_add_avx512(oi, alpha, vj, 1.0f, head_dim);
+    } else {
+        float p = expf(score - *m_i);
+        *l_i += p;
+        vec_scale_add_avx512(oi, 1.0f, vj, p, head_dim);
+    }
+}
+#endif
