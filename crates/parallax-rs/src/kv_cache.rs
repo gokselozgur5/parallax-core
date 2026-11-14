@@ -203,5 +203,11 @@ mod tests {
         }
         assert_eq!(cache.active_tokens(), 3);
         assert_eq!(cache.write_cursor(), 0);
+
+        let slot4 = cache.append(&mut k_buf, &mut v_buf, &[3.0, 3.5], &[30.0, 35.0]).unwrap();
+        assert_eq!(slot4, 0);
+        assert_eq!(cache.active_tokens(), 3);
+        assert_eq!(cache.write_cursor(), 1);
+        assert_eq!(cache.total_inserted, 4);
     }
 }
