@@ -20,10 +20,6 @@ pub const STATUS_NOT_FOUND: i32 = -5;
 fn is_aligned_u32<T>(ptr: *const T) -> bool {
     (ptr as usize).is_multiple_of(std::mem::align_of::<u32>())
 }
-#[inline]
-fn is_aligned_u32<T>(ptr: *const T) -> bool {
-    (ptr as usize).is_multiple_of(std::mem::align_of::<u32>())
-}
 
 #[inline]
 fn is_aligned_f32<T>(ptr: *const T) -> bool {
