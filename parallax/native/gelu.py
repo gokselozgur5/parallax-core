@@ -35,7 +35,8 @@ def gelu_numpy(x: np.ndarray) -> np.ndarray:
     with np.errstate(over="ignore", invalid="ignore"):
         inner = c * (x_f32 + np.float32(0.044715) * (x_f32**3))
         res = np.float32(0.5) * x_f32 * (np.float32(1.0) + np.tanh(inner))
-    res = np.where(np.isnan(res), np.float32(0.0), res)
+    res = np.where(x_f32 <= np.float32(-10.0), np.float32(0.0), res)
+    res = np.where(x_f32 >= np.float32(10.0), x_f32, res)
     return res
 
 
