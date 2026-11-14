@@ -317,3 +317,14 @@ fn write_storage_header(entries: &[TensorEntryBuilder], out: &mut Vec<u8>) {
     out.extend_from_slice(&(entries.len() as u32).to_le_bytes());
     out.extend_from_slice(&0u32.to_le_bytes()); // flags
 }
+
+fn write_entry_metadata(entry: &TensorEntryBuilder, data_offset: usize, out: &mut Vec<u8>) {
+    out.extend_from_slice(&(entry.dtype as u32).to_le_bytes());
+    out.extend_from_slice(&(entry.shape.len() as u32).to_le_bytes());
+    out.extend_from_slice(&(entry.name.len() as u32).to_le_bytes());
+    out.extend_from_slice(&(data_offset as u64).to_le_bytes());
+    out.extend_from_slice(entry.name.as_bytes());
+    for &d in &entry.shape {
+        out.extend_from_slice(&(d as u64).to_le_bytes());
+    }
+}
