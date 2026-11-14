@@ -261,3 +261,11 @@ impl<'a> Iterator for StorageIter<'a> {
         }
     }
 }
+
+/// Binary tensor entry builder for serialized archives.
+pub struct TensorEntryBuilder<'a> {
+    pub name: &'a str,
+    pub dtype: StorageDType,
+    pub shape: Vec<usize>,
+    pub data: &'a [u8],
+}
