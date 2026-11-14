@@ -66,3 +66,29 @@ def collect_backend_info_dict() -> dict[str, Any]:
         "backends": backends_data,
     }
 
+
+def main(argv: list[str] | None = None) -> int:
+    """CLI entrypoint for backend_info."""
+    parser = argparse.ArgumentParser(
+        description="Display Parallax backend availability and capabilities."
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="Emit output as valid JSON instead of markdown table.",
+    )
+    args = parser.parse_args(argv)
+
+    register_standard_backends()
+    if args.json_output:
+        data = collect_backend_info_dict()
+        print(json.dumps(data, indent=2))
+    else:
+        report = generate_markdown_report()
+        print(report)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
