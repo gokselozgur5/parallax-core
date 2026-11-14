@@ -6,6 +6,7 @@ import numpy as np
 from parallax.backends.base import Backend
 from parallax.c_engine import (
     c_gemm,
+    c_softmax,
     is_c_engine_available,
 )
 
@@ -28,6 +29,9 @@ class CEngineBackend(Backend):
 
     def gemm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
         return c_gemm(a, b)
+
+    def softmax(self, x: np.ndarray, axis: int = -1) -> np.ndarray:
+        return c_softmax(x, axis=axis)
 
 
 CBackend = CEngineBackend
