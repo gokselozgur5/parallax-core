@@ -81,3 +81,16 @@ pub struct ScheduledBatch {
     /// Indices or IDs of sequences assigned to this batch.
     pub sequence_indices: Vec<usize>,
 }
+
+impl SequenceBinner {
+    /// Calculate padding waste ratio for sequence lengths in a bucket.
+    pub fn padding_waste(&self, lengths: &[usize], bucket: usize) -> f64 {
+        if lengths.is_empty() || bucket == 0 {
+            return 0.0;
+        }
+        let total = lengths.len() * bucket;
+        let actual: usize = lengths.iter().sum();
+        let pad = total.saturating_sub(actual);
+        pad as f64 / total as f64
+    }
+}
