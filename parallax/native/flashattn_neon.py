@@ -32,3 +32,12 @@ def _get_flashattn_neon_fn() -> Optional[Callable[..., Any]]:
 def is_flashattn_neon_available() -> bool:
     """Return True if the NEON FlashAttention kernel symbol is bound."""
     return _get_flashattn_neon_fn() is not None
+
+
+def _validate_inputs(q: np.ndarray, k: np.ndarray, v: np.ndarray):
+    if q.ndim != 2 or k.ndim != 2 or v.ndim != 2:
+        raise ValueError("q, k, and v must be 2-dimensional tensors")
+    seq_len, head_dim = q.shape
+    if k.shape != (seq_len, head_dim) or v.shape != (seq_len, head_dim):
+        raise ValueError("q, k, and v shapes must match (seq_len, head_dim)")
+    return seq_len, head_dim
