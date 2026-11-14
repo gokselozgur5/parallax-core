@@ -22,3 +22,16 @@ impl std::fmt::Display for KvCacheError {
 }
 
 impl std::error::Error for KvCacheError {}
+
+/// In-place circular buffer KV cache manager with boundary wrap-around safety.
+#[derive(Debug, Clone)]
+pub struct CircularKvBuffer {
+    /// Number of attention heads for key/value.
+    pub num_heads: usize,
+    /// Head dimension size.
+    pub head_dim: usize,
+    /// Maximum circular token capacity.
+    pub capacity: usize,
+    /// Total lifetime tokens ingested (monotonic counter).
+    pub total_inserted: usize,
+}
