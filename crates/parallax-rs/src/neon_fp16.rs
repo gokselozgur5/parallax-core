@@ -123,4 +123,12 @@ mod tests {
         assert!(!is_pointer_aligned(std::ptr::null::<u8>(), 16));
         assert!(!is_pointer_aligned(p, 0));
     }
+
+    #[test]
+    fn test_verify_fp16_alignment() {
+        let buf = [0u16; 16];
+        assert_eq!(verify_fp16_alignment(std::ptr::null(), buf.as_ptr(), false), Err(NeonFp16Error::NullPointer));
+        assert_eq!(verify_fp16_alignment(buf.as_ptr(), std::ptr::null(), false), Err(NeonFp16Error::NullPointer));
+        assert!(verify_fp16_alignment(buf.as_ptr(), buf.as_ptr(), false).is_ok());
+    }
 }
