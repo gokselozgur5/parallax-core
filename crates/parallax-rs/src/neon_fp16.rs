@@ -56,3 +56,27 @@ pub fn verify_fp16_alignment(
     }
     Ok(())
 }
+
+/// Decodes an IEEE 754 binary16 half-precision float to standard IEEE 754 f32.
+#[inline(always)]
+pub fn fp16_to_f32(bits: u16) -> f32 {
+    let sign = (bits >> 15) & 1;
+    let exp = (bits >> 10) & 0x1F;
+    let mant = (bits & 0x3FF) as u32;
+    if exp == 0 {
+        if mant == 0 {
+            return if sign == 1 { -0.0 } else { 0.0 };
+        }
+        let val = (mant as f32 / 1024.0) * (2.0f32).powi(-14);
+        if sign == 1 { -val } else { val }
+    } else if exp == 31 {
+        if mant == 0 {
+            if sign == 1 { f32::NEG_INFINITY } else { f32::INFINITY }
+        } else {
+            f32::NAN
+        }
+    } else {
+        let val = (1.0 + (mant as f32 / 1024.0)) * (2.0f32).powi((exp as i32) - 15);
+        if sign == 1 { -val } else { val }
+    }
+}
