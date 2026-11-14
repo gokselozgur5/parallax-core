@@ -44,3 +44,26 @@ class MetalBackend(Backend):
             return np.dtype(dtype) == np.float32
         except Exception:
             return False
+
+    def gemm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        if not self.available():
+            raise RuntimeError("Metal backend is not available")
+        from parallax.metal_engine import metal_gemm
+
+        return metal_gemm(a, b)
+
+    def rmsnorm(
+        self, x: np.ndarray, weight: np.ndarray, eps: float = 1e-5
+    ) -> np.ndarray:
+        if not self.available():
+            raise RuntimeError("Metal backend is not available")
+        from parallax.metal_engine import metal_rmsnorm
+
+        return metal_rmsnorm(x, weight, eps=eps)
+
+    def softmax(self, x: np.ndarray, axis: int = -1) -> np.ndarray:
+        if not self.available():
+            raise RuntimeError("Metal backend is not available")
+        shifted = x - np.max(x, axis=axis, keepdims=True)
+        exp_x = np.exp(shifted)
+        return exp_x / np.sum(exp_x, axis=axis, keepdims=True)
