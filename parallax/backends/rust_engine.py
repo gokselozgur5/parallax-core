@@ -7,6 +7,7 @@ from parallax.backends.base import Backend
 from parallax.rust_engine import (
     is_rust_engine_available,
     rust_gemm,
+    rust_softmax,
 )
 
 
@@ -28,6 +29,9 @@ class RustEngineBackend(Backend):
 
     def gemm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
         return rust_gemm(a, b)
+
+    def softmax(self, x: np.ndarray, axis: int = -1) -> np.ndarray:
+        return rust_softmax(x, axis=axis)
 
 
 
