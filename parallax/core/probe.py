@@ -21,6 +21,32 @@ class CpuFeatures:
         object.__setattr__(self, "avx512", has_512)
         object.__setattr__(self, "avx512f", has_512)
 
+    @property
+    def has_neon(self) -> bool:
+        return self.neon
+
+    @property
+    def has_avx2(self) -> bool:
+        return self.avx2
+
+    @property
+    def has_avx512(self) -> bool:
+        return self.avx512
+
+    def has_feature(self, feature: str) -> bool:
+        norm = feature.lower().replace("-", "").replace("_", "")
+        return {"neon": self.neon, "avx2": self.avx2, "avx512": self.avx512, "avx512f": self.avx512}.get(norm, False)
+
+
+_ARCH_MAP = {"aarch64": "arm64", "arm64": "arm64", "amd64": "x86_64", "x86_64": "x86_64"}
+
+
+def normalize_arch(machine: str) -> str:
+    """Map platform machine name to canonical architecture."""
+    key = machine.strip().lower()
+    return _ARCH_MAP.get(key, key)
+
+
 
 CpuProbe = CpuFeatures
 CpuInfo = CpuFeatures
