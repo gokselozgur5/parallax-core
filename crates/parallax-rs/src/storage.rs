@@ -55,3 +55,12 @@ pub enum StorageError {
     NameTooLong,
     DimensionOverflow,
 }
+
+/// Deserialized view of a single tensor inside memory-mapped storage.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TensorView<'a> {
+    pub name: &'a str,
+    pub dtype: StorageDType,
+    pub shape: Vec<usize>,
+    pub data: &'a [u8],
+}
