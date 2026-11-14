@@ -51,7 +51,7 @@ static inline void vec_scale_neon(float *out, float scale, int len) {
 
 static inline void update_kv_step_neon(float *oi, const float *vj, float score,
                                        float *m_i, float *l_i, int head_dim) {
-    if (isnan(score) || (isinf(score) && score < 0.0f)) return;
+    if (isinf(score) && score < 0.0f) return;
     if (score > *m_i) {
         float alpha = expf(*m_i - score);
         *m_i = score;
