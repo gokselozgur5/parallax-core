@@ -197,4 +197,14 @@ mod tests {
         assert!((residual[0] - 1.0).abs() < 1e-6);
         assert_eq!(residual[1], 0.0);
     }
+
+    #[test]
+    fn test_sample_token_and_stats() {
+        let probs = [0.1f32, 0.4, 0.5];
+        assert_eq!(sample_token_from_probs(&probs, 0.05).unwrap(), 0);
+        assert_eq!(sample_token_from_probs(&probs, 0.3).unwrap(), 1);
+        assert_eq!(sample_token_from_probs(&probs, 0.8).unwrap(), 2);
+        let stats = AcceptanceStats::compute(4, 3);
+        assert!((stats.acceptance_rate - 0.75).abs() < 1e-6);
+    }
 }
