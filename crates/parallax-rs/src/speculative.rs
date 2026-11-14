@@ -32,3 +32,24 @@ pub fn argmax_f32(slice: &[f32]) -> Option<usize> {
     }
     Some(best_idx)
 }
+
+/// Validates matrix dimensions and returns (gamma, vocab_size).
+pub fn validate_draft_matrix(
+    logits: &[f32],
+    gamma: usize,
+    vocab_size: usize,
+) -> Result<(), SpeculativeError> {
+    if gamma == 0 {
+        return Err(SpeculativeError::EmptyDraft);
+    }
+    if vocab_size == 0 {
+        return Err(SpeculativeError::EmptyVocab);
+    }
+    let expected = gamma
+        .checked_mul(vocab_size)
+        .ok_or(SpeculativeError::DimensionMismatch)?;
+    if logits.len() != expected {
+        return Err(SpeculativeError::DimensionMismatch);
+    }
+    Ok(())
+}
