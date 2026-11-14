@@ -4,7 +4,10 @@ from typing import Any
 import numpy as np
 
 from parallax.backends.base import Backend
-from parallax.c_engine import is_c_engine_available
+from parallax.c_engine import (
+    c_gemm,
+    is_c_engine_available,
+)
 
 
 class CEngineBackend(Backend):
@@ -22,6 +25,9 @@ class CEngineBackend(Backend):
             return np.dtype(dtype) == np.float32
         except Exception:
             return False
+
+    def gemm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        return c_gemm(a, b)
 
 
 CBackend = CEngineBackend
