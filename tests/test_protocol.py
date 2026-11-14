@@ -108,6 +108,30 @@ def test_numpy_backend_satisfies_protocol():
     assert not query_capability(nb, "unknown_op")
 
 
+def test_check_backend_protocol_invalid_types():
+    from parallax.core.protocol import check_backend_protocol
+
+    class BadNameType:
+        name = 123
+        def available(self) -> bool: return True
+        def supports(self, op: str, dtype: Any = None, shape: tuple[int, ...] = ()) -> bool: return True
+
+    class BadAvailType:
+        name = "test"
+        def available(self) -> int: return 1  # type: ignore[return-value]
+        def supports(self, op: str, dtype: Any = None, shape: tuple[int, ...] = ()) -> bool: return True
+
+    class BadSupports:
+        name = "test"
+        def available(self) -> bool: return True
+        def supports(self, op: str, dtype: Any = None, shape: tuple[int, ...] = ()) -> None: return None  # type: ignore[return-value]
+
+    with pytest.raises(TypeError): check_backend_protocol(BadNameType())
+    with pytest.raises(TypeError): check_backend_protocol(BadAvailType())
+    with pytest.raises(TypeError): check_backend_protocol(BadSupports())
+
+
+
 
 
 
