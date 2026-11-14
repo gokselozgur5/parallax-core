@@ -38,3 +38,12 @@ def is_avx512_flashattn_available() -> bool:
     if _FN_HAS_AVX512_FLASHATTN is None:
         return False
     return bool(_FN_HAS_AVX512_FLASHATTN() != 0)
+
+
+def _validate_inputs(q: np.ndarray, k: np.ndarray, v: np.ndarray):
+    if q.ndim != 2 or k.ndim != 2 or v.ndim != 2:
+        raise ValueError("q, k, and v must be 2-dimensional tensors")
+    seq_len, head_dim = q.shape
+    if k.shape != (seq_len, head_dim) or v.shape != (seq_len, head_dim):
+        raise ValueError("q, k, and v shapes must match (seq_len, head_dim)")
+    return seq_len, head_dim
