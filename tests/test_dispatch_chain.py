@@ -27,3 +27,21 @@ def test_dispatch_chain_success_primary():
     res = chain.execute("gemm", 2, 3, candidate_override=["dummy"])
     assert res == 5
     assert chain.get_history() == []
+
+
+def test_dispatch_chain_fallback_on_unsupported_and_error():
+    class FaultyBackend(DummyBackend):
+        def gemm(self, a: int, b: int) -> int:
+            raise RuntimeError("engine fault")
+
+    faulty = FaultyBackend()
+    fallback = DummyBackend()
+    chain = DispatchChain(registry={"faulty": faulty, "fb": fallback})
+    res = chain.execute("gemm", 10, 20, candidate_override=["faulty", "fb"])
+    assert res == 30
+    hist = chain.get_history()
+    assert len(hist) == 1
+    assert hist[0].backend == "faulty"
+    assert "engine fault" in (hist[0].exception or "")
+    chain.clear_history()
+    assert chain.get_history() == []
