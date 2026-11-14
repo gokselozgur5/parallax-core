@@ -149,4 +149,10 @@ impl CircularKvBuffer {
         out_v.copy_from_slice(&v_buf[offset..offset + self.head_dim]);
         Ok(())
     }
+
+    /// Reset circular buffer counters back to empty state.
+    #[inline]
+    pub fn clear(&mut self) {
+        self.total_inserted = 0;
+    }
 }
