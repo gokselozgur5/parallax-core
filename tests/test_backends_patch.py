@@ -18,3 +18,21 @@ def setup_backend():
     registry.register("numpy", NumpyBackend())
     yield
     registry.clear()
+
+
+def test_enable_and_disable_single() -> None:
+    lin = Linear(4, 2)
+    native = enable_native(lin)
+    assert isinstance(native, DispatchedLinear)
+    restored = disable_native(native)
+    assert type(restored) is Linear
+
+
+def test_enable_and_disable_container() -> None:
+    model = MLP()
+    enable_native(model)
+    assert isinstance(model.fc1, DispatchedLinear)
+    assert all(isinstance(ly, DispatchedLinear) for ly in model.layers)
+    disable_native(model)
+    assert type(model.fc1) is Linear
+    assert all(type(ly) is Linear for ly in model.layers)
