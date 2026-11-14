@@ -23,3 +23,9 @@ class NumpyBackend(Backend):
         shifted = x - np.max(x, axis=axis, keepdims=True)
         exp_x = np.exp(shifted)
         return exp_x / np.sum(exp_x, axis=axis, keepdims=True)
+
+    def rmsnorm(
+        self, x: np.ndarray, weight: np.ndarray, eps: float = 1e-5
+    ) -> np.ndarray:
+        variance = np.mean(x * x, axis=-1, keepdims=True)
+        return (x / np.sqrt(variance + eps)) * weight
