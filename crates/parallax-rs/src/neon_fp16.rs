@@ -149,4 +149,12 @@ mod tests {
         assert!((res - 11.0).abs() < 1e-4);
         assert_eq!(dot_fp16_scalar(&a[..1], &b), Err(NeonFp16Error::DimensionMismatch));
     }
+
+    #[test]
+    fn test_dot_fp16_verified_parity() {
+        let a = [0x3C00; 8];
+        let b = [0x3C00; 8];
+        let res = dot_fp16_verified(&a, &b).unwrap();
+        assert!((res - 8.0).abs() < 1e-4);
+    }
 }
