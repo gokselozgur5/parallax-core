@@ -63,4 +63,19 @@ impl CircularKvBuffer {
     pub fn write_cursor(&self) -> usize {
         self.total_inserted % self.capacity
     }
+
+    /// Convert a relative logical token index in [0, active_tokens) to physical slot index.
+    pub fn logical_to_physical(&self, logical_idx: usize) -> Result<usize, KvCacheError> {
+        let active = self.active_tokens();
+        if logical_idx >= active {
+            return Err(KvCacheError::IndexOutOfBounds);
+        }
+        if self.total_inserted < self.capacity {
+            Ok(logical_idx)
+        } else {
+            // Buffer has wrapped: oldest token is at write_cursor()
+            let phys = (self.write_cursor() + logical_idx) % self.capacity;
+            Ok(phys)
+        }
+    }
 }
