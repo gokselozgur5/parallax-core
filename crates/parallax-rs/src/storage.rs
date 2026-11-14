@@ -197,3 +197,21 @@ impl<'a> StorageReader<'a> {
         Ok((TensorView { name, dtype, shape, data }, offset))
     }
 }
+
+impl<'a> StorageReader<'a> {
+    fn validate_archive(&self) -> Result<(), StorageError> {
+        let mut offset = self.header_offset;
+        let mut last_data_end = 0usize;
+        for _ in 0..self.tensor_count {
+            let (view, next_offset) = self.read_tensor_entry(offset)?;
+            let t_start = view.data.as_ptr() as usize - self.data.as_ptr() as usize;
+            let t_end = t_start + view.data.len();
+            if t_start < last_data_end {
+                return Err(StorageError::OverlappingTensorData);
+            }
+            last_data_end = t_end;
+            offset = next_offset;
+        }
+        Ok(())
+    }
+}
