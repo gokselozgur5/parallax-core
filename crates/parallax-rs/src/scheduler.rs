@@ -72,3 +72,12 @@ impl SequenceBinner {
         Err(SchedulerError::ExceedsCapacity)
     }
 }
+
+/// Batch descriptor for grouped requests assigned to a common bucket.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScheduledBatch {
+    /// Bucket capacity for sequence dimension.
+    pub bucket_len: usize,
+    /// Indices or IDs of sequences assigned to this batch.
+    pub sequence_indices: Vec<usize>,
+}
