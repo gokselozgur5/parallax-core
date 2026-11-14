@@ -185,4 +185,16 @@ mod tests {
         assert_eq!(res.accepted_tokens, vec![1, 1]);
         assert_eq!(res.bonus_token, None);
     }
+
+    #[test]
+    fn test_verify_candidate_stochastic_and_residual() {
+        let p_target = [0.2f32, 0.5, 0.3];
+        let p_draft = [0.1f32, 0.6, 0.3];
+        assert!(verify_candidate_stochastic(&p_target, 0.6, 1, 0.5));
+        assert!(!verify_candidate_stochastic(&p_target, 0.6, 1, 0.9));
+        let mut residual = [0.0f32; 3];
+        compute_residual_distribution(&p_target, &p_draft, &mut residual).unwrap();
+        assert!((residual[0] - 1.0).abs() < 1e-6);
+        assert_eq!(residual[1], 0.0);
+    }
 }
