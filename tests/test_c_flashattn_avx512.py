@@ -32,3 +32,19 @@ def test_flashattn_avx512_execution_or_safe_guard():
     else:
         with pytest.raises(RuntimeError, match="AVX-512F is not supported on this CPU"):
             flashattn_avx512(q, k, v)
+
+
+def test_flashattn_avx512_parity_skipped_when_unavailable():
+    if not is_avx512_flashattn_available():
+        pytest.skip("AVX-512F ISA not supported on this host")
+    seq_len, head_dim = 8, 32
+    scale = 1.0 / np.sqrt(head_dim)
+    q = np.random.randn(seq_len, head_dim).astype(np.float32)
+    k = np.random.randn(seq_len, head_dim).astype(np.float32)
+    v = np.random.randn(seq_len, head_dim).astype(np.float32)
+    res = flashattn_avx512(q, k, v, scale=scale, is_causal=False)
+    scores = (q @ k.T) * scale
+    exp_scores = np.exp(scores - np.max(scores, axis=-1, keepdims=True))
+    ref_attn = exp_scores / np.sum(exp_scores, axis=-1, keepdims=True)
+    expected = ref_attn @ v
+    assert np.allclose(res, expected, atol=1e-4)
