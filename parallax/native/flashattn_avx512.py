@@ -26,3 +26,15 @@ def _get_flashattn_avx512_fn() -> Optional[Callable[..., Any]]:
         ]
         _FN_FLASHATTN_AVX512 = bind("c_flashattn_avx512_f32", args, ctypes.c_int)
     return _FN_FLASHATTN_AVX512
+
+
+def is_avx512_flashattn_available() -> bool:
+    """Return True if AVX-512 FlashAttention is supported by CPU."""
+    global _FN_HAS_AVX512_FLASHATTN
+    if _FN_HAS_AVX512_FLASHATTN is None:
+        _FN_HAS_AVX512_FLASHATTN = bind(
+            "c_has_avx512_flashattn_f32", [], ctypes.c_int
+        )
+    if _FN_HAS_AVX512_FLASHATTN is None:
+        return False
+    return bool(_FN_HAS_AVX512_FLASHATTN() != 0)
