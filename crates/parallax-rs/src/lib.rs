@@ -258,3 +258,23 @@ mod tests {
         }
     }
 }
+
+/// C-ABI export to find bucket boundary for given sequence length.
+#[no_mangle]
+pub unsafe extern "C" fn parallax_find_bucket(
+    seq_len: usize, buckets_ptr: *const usize, buckets_len: usize, out_bucket: *mut usize,
+) -> i32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        if buckets_ptr.is_null() || out_bucket.is_null() { return STATUS_NULL_POINTER; }
+        if buckets_len == 0 { return STATUS_INVALID_DIMENSION; }
+        let buckets = slice::from_raw_parts(buckets_ptr, buckets_len);
+        let binner = match scheduler::SequenceBinner::new(buckets) {
+            Ok(b) => b,
+            Err(_) => return STATUS_INVALID_DIMENSION,
+        };
+        match binner.find_bucket(seq_len) {
+            Ok(b) => { *out_bucket = b; STATUS_OK },
+            Err(_) => STATUS_INVALID_DIMENSION,
+        }
+    })).unwrap_or(STATUS_INVALID_DIMENSION)
+}
