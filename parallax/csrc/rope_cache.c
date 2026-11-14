@@ -56,7 +56,6 @@ static inline void apply_rope_neon_step(
             res.val[1] = r2;
             vst2q_f32(head + 2 * i, res);
         }
-    }
     } else {
         for (; i + 3 < half; i += 4) {
             float32x4_t c = vld1q_f32(cos_ptr + i);
