@@ -27,3 +27,15 @@ def test_rust_backend_softmax():
     assert np.allclose(out, expected)
 
 
+def test_rust_backend_supports_and_alias():
+    from parallax.backends.rust_engine import RustBackend
+
+    backend = RustBackend()
+    assert isinstance(backend, RustEngineBackend)
+    if backend.available():
+        assert backend.supports("gemm", "float32", (2, 2)) is True
+        assert backend.supports("softmax", "float32", (2, 2)) is True
+        assert backend.supports("rmsnorm", "float32", (2, 2)) is False
+
+
+
