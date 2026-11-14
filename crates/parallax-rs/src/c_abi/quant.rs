@@ -41,5 +41,15 @@ mod tests {
         assert!((block.scale - (2.0 / 127.0)).abs() < 1e-6);
         assert_eq!(block.qs[0], 127);
     }
+
+    #[test]
+    fn test_parallax_dequantize_q8_0_null_ptrs() {
+        let block = BlockQ8_0::new(0.0, [0i8; 32]);
+        let mut out = [0.0f32; 32];
+        let res1 = unsafe { parallax_dequantize_q8_0(std::ptr::null(), out.as_mut_ptr()) };
+        assert_eq!(res1, STATUS_NULL_POINTER);
+        let res2 = unsafe { parallax_dequantize_q8_0(&block, std::ptr::null_mut()) };
+        assert_eq!(res2, STATUS_NULL_POINTER);
+    }
 }
 
