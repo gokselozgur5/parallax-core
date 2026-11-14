@@ -39,3 +39,17 @@ pub fn compute_scale_factor(scale: f32, f16_correction: bool) -> (f32, f32) {
         (scale, 1.0)
     }
 }
+
+#[inline]
+pub fn dot_product_scaled(
+    q: &[f32],
+    k: &[f32],
+    q_scale: f32,
+    k_scale: f32,
+) -> f32 {
+    let mut sum = 0.0f32;
+    for (&qi, &ki) in q.iter().zip(k.iter()) {
+        sum += (qi * q_scale) * (ki * k_scale);
+    }
+    sum
+}
