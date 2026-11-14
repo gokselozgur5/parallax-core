@@ -25,3 +25,9 @@ impl std::fmt::Display for SchedulerError {
 }
 
 impl std::error::Error for SchedulerError {}
+
+/// Sequence length binning policy for batching requests.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SequenceBinner {
+    buckets: Vec<usize>,
+}
