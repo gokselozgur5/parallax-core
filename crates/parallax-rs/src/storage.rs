@@ -169,3 +169,21 @@ impl<'a> StorageReader<'a> {
         Ok((dtype, ndim, name_len, data_offset, header_end))
     }
 }
+
+impl<'a> StorageReader<'a> {
+    fn validate_data_slice(&self, shape: &[usize], dtype: StorageDType, data_offset: usize) -> Result<&'a [u8], StorageError> {
+        let mut numel = 1usize;
+        for &d in shape {
+            numel = numel.checked_mul(d).ok_or(StorageError::DimensionOverflow)?;
+        }
+        let byte_len = numel.checked_mul(dtype.element_size()).ok_or(StorageError::DimensionOverflow)?;
+        if data_offset % STORAGE_ALIGNMENT != 0 {
+            return Err(StorageError::UnalignedTensorData);
+        }
+        let data_end = data_offset.checked_add(byte_len).ok_or(StorageError::OffsetOutOfBounds)?;
+        if data_end > self.data.len() {
+            return Err(StorageError::OffsetOutOfBounds);
+        }
+        Ok(&self.data[data_offset..data_end])
+    }
+}
