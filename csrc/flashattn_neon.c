@@ -22,3 +22,27 @@
 #define BLOCK_SIZE 128
 #define NUM_HEADS 4
 #define SEQ_LENGTH 512
+
+typedef struct {
+    float *q;
+    float *k;
+    float *v;
+} FlashAttentionInput;
+
+typedef struct {
+    float *o;
+} FlashAttentionOutput;
+
+void flash_attention_neon(FlashAttentionInput *input, FlashAttentionOutput *output) {
+    int i, j, k;
+    int num_blocks = SEQ_LENGTH / BLOCK_SIZE;
+
+    for (i = 0; i < num_blocks; ++i) {
+        for (j = 0; j < NUM_HEADS; ++j) {
+            for (k = 0; k < BLOCK_SIZE; ++k) {
+                float q_val = input->q[i * BLOCK_SIZE + j * BLOCK_SIZE + k];
+                float k_val = input->k[i * BLOCK_SIZE + j * BLOCK_SIZE + k];
+                float v_val = input->v[i * BLOCK_SIZE + j * BLOCK_SIZE + k];
+
+                // Online softmax
+                float sum_exp = 0.0f;
