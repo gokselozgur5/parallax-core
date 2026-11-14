@@ -30,3 +30,15 @@ def test_backend_info_cli_json(capsys):
     assert data["backends"]["numpy"]["parity"] == "pass"
 
 
+def test_backend_info_cli_only_numpy_available(capsys):
+    registry.clear()
+    with patch.object(backend_info.CBackend, "available", return_value=False), \
+         patch.object(backend_info.RustBackend, "available", return_value=False), \
+         patch.object(backend_info.MetalBackend, "available", return_value=False):
+        ret = backend_info.main([])
+        assert ret == 0
+        captured = capsys.readouterr().out
+        assert "| numpy | true |" in captured
+        assert "| c | false |" in captured
+        assert "| rust | false |" in captured
+        assert "| metal | false |" in captured
