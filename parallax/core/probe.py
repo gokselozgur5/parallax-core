@@ -91,3 +91,29 @@ def parse_sysctl(text: str, machine: str = "") -> CpuFeatures:
         avx2="AVX2" in flags or values.get("hw.optional.avx2_0") == "1",
         avx512=has_512,
     )
+
+
+
+import platform
+import subprocess
+
+_PROC_CPUINFO = "/proc/cpuinfo"
+
+
+def probe_cpu() -> CpuFeatures:
+    """Probe host CPU vector SIMD capabilities safely."""
+    machine, system = platform.machine(), platform.system()
+    try:
+        if system == "Darwin":
+            out = subprocess.run(["sysctl", "-a"], capture_output=True, text=True, check=True, timeout=5).stdout
+            return parse_sysctl(out, machine)
+        if system == "Linux":
+            with open(_PROC_CPUINFO, encoding="utf-8") as handle:
+                return parse_proc_cpuinfo(handle.read(), machine)
+    except (OSError, subprocess.SubprocessError, UnicodeDecodeError):
+        pass
+    return CpuFeatures(arch=normalize_arch(machine), system=system)
+
+
+detect_cpu = probe_cpu
+probe = probe_cpu
