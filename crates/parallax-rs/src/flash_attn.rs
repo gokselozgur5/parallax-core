@@ -90,3 +90,20 @@ pub fn normalize_output_row(out: &mut [f32], l_i: f32) {
         }
     }
 }
+
+pub fn validate_attention_dims(
+    seq_len: usize,
+    head_dim: usize,
+    q: &[f32],
+    k: &[f32],
+    v: &[f32],
+    out: &[f32],
+) -> Result<(), FlashAttnError> {
+    let req_len = seq_len
+        .checked_mul(head_dim)
+        .ok_or(FlashAttnError::DimensionOverflow)?;
+    if q.len() != req_len || k.len() != req_len || v.len() != req_len || out.len() != req_len {
+        return Err(FlashAttnError::DimensionMismatch);
+    }
+    Ok(())
+}
