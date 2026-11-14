@@ -51,4 +51,16 @@ impl CircularKvBuffer {
             total_inserted: 0,
         })
     }
+
+    /// Number of valid active tokens currently stored in the circular cache.
+    #[inline]
+    pub fn active_tokens(&self) -> usize {
+        self.total_inserted.min(self.capacity)
+    }
+
+    /// Slot index in the circular buffer [0, capacity) where the next token is written.
+    #[inline]
+    pub fn write_cursor(&self) -> usize {
+        self.total_inserted % self.capacity
+    }
 }
