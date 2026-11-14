@@ -39,3 +39,19 @@ impl StorageDType {
         }
     }
 }
+
+/// Error conditions for storage deserialization.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum StorageError {
+    InvalidMagic,
+    UnsupportedVersion,
+    UnexpectedEof,
+    InvalidDType,
+    InvalidNameUtf8,
+    OffsetOutOfBounds,
+    UnalignedTensorData,
+    OverlappingTensorData,
+    ZeroDimension,
+    NameTooLong,
+    DimensionOverflow,
+}
