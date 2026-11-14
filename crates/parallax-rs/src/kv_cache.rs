@@ -125,4 +125,28 @@ impl CircularKvBuffer {
         self.total_inserted = self.total_inserted.checked_add(1).ok_or(KvCacheError::InvalidDimension)?;
         Ok(slot)
     }
+
+    /// Read key and value vectors for a given head and logical index in time order.
+    pub fn read_token(
+        &self,
+        k_buf: &[f32],
+        v_buf: &[f32],
+        head: usize,
+        logical_idx: usize,
+        out_k: &mut [f32],
+        out_v: &mut [f32],
+    ) -> Result<(), KvCacheError> {
+        let req_buf = self.required_buffer_len()?;
+        if k_buf.len() != req_buf || v_buf.len() != req_buf {
+            return Err(KvCacheError::BufferLengthMismatch);
+        }
+        if out_k.len() != self.head_dim || out_v.len() != self.head_dim {
+            return Err(KvCacheError::BufferLengthMismatch);
+        }
+        let phys_slot = self.logical_to_physical(logical_idx)?;
+        let offset = self.slot_offset(head, phys_slot)?;
+        out_k.copy_from_slice(&k_buf[offset..offset + self.head_dim]);
+        out_v.copy_from_slice(&v_buf[offset..offset + self.head_dim]);
+        Ok(())
+    }
 }
