@@ -53,3 +53,30 @@ pub fn dot_product_scaled(
     }
     sum
 }
+
+#[inline]
+pub fn update_kv_step(
+    out: &mut [f32],
+    v: &[f32],
+    score: f32,
+    m_i: &mut f32,
+    l_i: &mut f32,
+) {
+    if score.is_infinite() && score < 0.0 {
+        return;
+    }
+    if score > *m_i {
+        let alpha = (*m_i - score).exp();
+        *m_i = score;
+        *l_i = *l_i * alpha + 1.0;
+        for (o_val, &v_val) in out.iter_mut().zip(v.iter()) {
+            *o_val = *o_val * alpha + v_val;
+        }
+    } else {
+        let p = (score - *m_i).exp();
+        *l_i += p;
+        for (o_val, &v_val) in out.iter_mut().zip(v.iter()) {
+            *o_val += p * v_val;
+        }
+    }
+}
