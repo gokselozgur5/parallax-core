@@ -15,3 +15,18 @@ def test_backend_info_cli_default(capsys):
     assert "| Backend | Available | ISA Flags | Parity |" in captured
     assert "numpy" in captured
 
+
+def test_backend_info_cli_json(capsys):
+    registry.clear()
+    ret = backend_info.main(["--json"])
+    assert ret == 0
+    captured = capsys.readouterr().out
+    data = json.loads(captured)
+    assert "cpu" in data
+    assert "backends" in data
+    assert "arch" in data["cpu"]
+    assert "numpy" in data["backends"]
+    assert data["backends"]["numpy"]["available"] is True
+    assert data["backends"]["numpy"]["parity"] == "pass"
+
+
