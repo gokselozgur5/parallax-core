@@ -42,3 +42,27 @@ def _check_available(backend: Any) -> bool:
         return bool(backend.available())
     return True
 
+
+def collect_backend_info_dict() -> dict[str, Any]:
+    """Collect system and backend info into a structured dictionary."""
+    register_standard_backends()
+    info = cpuinfo.detect_cpu()
+    backends_data: dict[str, dict[str, Any]] = {}
+    for name in sorted(registry.list_backends()):
+        b = registry.get(name)
+        avail = _check_available(b)
+        backends_data[name] = {
+            "available": avail,
+            "parity": "pass" if avail else "n/a",
+        }
+    return {
+        "cpu": {
+            "arch": info.arch,
+            "system": info.system,
+            "neon": info.neon,
+            "avx2": info.avx2,
+            "avx512f": info.avx512f,
+        },
+        "backends": backends_data,
+    }
+
