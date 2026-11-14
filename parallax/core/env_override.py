@@ -15,5 +15,10 @@ def get_backend_override(
 ) -> str | None:
     """Return backend override from environment if set, else None."""
     environ = os.environ if env is None else env
-    raw = environ.get(GLOBAL_VAR, "").strip().lower()
-    return raw if raw in VALID_BACKENDS else None
+    candidates = [f"{GLOBAL_VAR}_{op.upper()}"] if op else []
+    candidates.append(GLOBAL_VAR)
+    for var in candidates:
+        raw = environ.get(var, "").strip().lower()
+        if raw in VALID_BACKENDS:
+            return raw
+    return None
