@@ -310,3 +310,10 @@ fn compute_header_offsets(entries: &[TensorEntryBuilder]) -> Result<(usize, Vec<
     }
     Ok((data_cursor, data_offsets))
 }
+
+fn write_storage_header(entries: &[TensorEntryBuilder], out: &mut Vec<u8>) {
+    out.extend_from_slice(&STORAGE_MAGIC);
+    out.extend_from_slice(&STORAGE_VERSION.to_le_bytes());
+    out.extend_from_slice(&(entries.len() as u32).to_le_bytes());
+    out.extend_from_slice(&0u32.to_le_bytes()); // flags
+}
