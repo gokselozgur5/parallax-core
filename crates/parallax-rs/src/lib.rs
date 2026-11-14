@@ -278,3 +278,30 @@ pub unsafe extern "C" fn parallax_find_bucket(
         }
     })).unwrap_or(STATUS_INVALID_DIMENSION)
 }
+
+/// C-ABI export to collate sequences into padded buffer.
+#[no_mangle]
+pub unsafe extern "C" fn parallax_collate_batch_u32(
+    seq_ptrs: *const *const u32, seq_lens: *const usize, num_seqs: usize,
+    buckets_ptr: *const usize, buckets_len: usize, pad_token: u32,
+    out_tokens: *mut u32, out_mask: *mut u32, out_len: usize,
+) -> i32 {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        if seq_ptrs.is_null() || seq_lens.is_null() || buckets_ptr.is_null()
+            || out_tokens.is_null() || out_mask.is_null() { return STATUS_NULL_POINTER; }
+        let buckets = slice::from_raw_parts(buckets_ptr, buckets_len);
+        let Ok(binner) = scheduler::SequenceBinner::new(buckets) else { return STATUS_INVALID_DIMENSION; };
+        let lens = slice::from_raw_parts(seq_lens, num_seqs);
+        let ptrs = slice::from_raw_parts(seq_ptrs, num_seqs);
+        let mut seqs = Vec::with_capacity(num_seqs);
+        for i in 0..num_seqs {
+            if ptrs[i].is_null() { return STATUS_NULL_POINTER; }
+            seqs.push(slice::from_raw_parts(ptrs[i], lens[i]));
+        }
+        let toks = slice::from_raw_parts_mut(out_tokens, out_len);
+        let mask = slice::from_raw_parts_mut(out_mask, out_len);
+        if binner.collate(&seqs, pad_token, toks, mask).is_err() { return STATUS_INVALID_DIMENSION; }
+        STATUS_OK
+    })).unwrap_or(STATUS_INVALID_DIMENSION)
+}
+
