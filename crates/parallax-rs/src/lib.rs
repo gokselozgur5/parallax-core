@@ -235,6 +235,22 @@ mod tests {
             assert_eq!(parallax_gemm_f32(2, 2, 2, 1.0, unaligned, 4, buf.as_ptr(), 4, 0.0, out.as_mut_ptr(), 4), STATUS_UNALIGNED_POINTER);
             assert_eq!(parallax_softmax_f32(unaligned_mut, 4, 2, 2), STATUS_UNALIGNED_POINTER);
 
+            // BPE C-ABI checks
+            let table = [bpe::MergeEntry::new(1, 2, 0, 10)];
+            let mut rank = 0u32;
+            let mut new_id = 0u32;
+            let res = parallax_bpe_find_merge(table.as_ptr(), 1, 1, 2, &mut rank, &mut new_id);
+            assert_eq!(res, STATUS_OK);
+            assert_eq!(rank, 0);
+            assert_eq!(new_id, 10);
+
+            let res_missing = parallax_bpe_find_merge(table.as_ptr(), 1, 9, 9, &mut rank, &mut new_id);
+            assert_eq!(res_missing, STATUS_NOT_FOUND);
+
+            assert_eq!(parallax_bpe_is_sorted(table.as_ptr(), 1), 1);
+            assert_eq!(parallax_bpe_find_merge(std::ptr::null(), 1, 1, 2, &mut rank, &mut new_id), STATUS_NULL_POINTER);
+            assert_eq!(parallax_bpe_is_sorted(std::ptr::null(), 1), STATUS_NULL_POINTER);
+
             // Aliasing checks
             let mut shared = vec![1.0f32; 8];
             let s_ptr = shared.as_mut_ptr();
