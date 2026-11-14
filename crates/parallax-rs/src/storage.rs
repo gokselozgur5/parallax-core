@@ -233,3 +233,31 @@ impl<'a> StorageReader<'a> {
         StorageIter { reader: self, offset: self.header_offset, index: 0 }
     }
 }
+
+/// Iterator over tensors in a StorageReader.
+pub struct StorageIter<'a> {
+    reader: &'a StorageReader<'a>,
+    offset: usize,
+    index: usize,
+}
+
+impl<'a> Iterator for StorageIter<'a> {
+    type Item = Result<TensorView<'a>, StorageError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.reader.tensor_count {
+            return None;
+        }
+        match self.reader.read_tensor_entry(self.offset) {
+            Ok((view, next_offset)) => {
+                self.offset = next_offset;
+                self.index += 1;
+                Some(Ok(view))
+            }
+            Err(e) => {
+                self.index = self.reader.tensor_count;
+                Some(Err(e))
+            }
+        }
+    }
+}
