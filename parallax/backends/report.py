@@ -17,3 +17,11 @@ def _format_isa_flags(info: cpuinfo.CpuInfo) -> str:
     if info.avx512f:
         flags.append("AVX-512")
     return ", ".join(flags) if flags else "none"
+
+
+def _check_backend_available(backend: Any) -> bool:
+    if isinstance(backend, Backend):
+        return bool(backend.available())
+    if hasattr(backend, "available") and callable(backend.available):
+        return bool(backend.available())
+    return True
