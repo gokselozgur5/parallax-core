@@ -64,3 +64,26 @@ def test_parse_proc_cpuinfo_arm64():
     assert info.system == "Linux"
     assert info.neon
     assert not info.avx2
+
+
+from parallax.core.probe import parse_sysctl
+
+APPLE_SYSCTL = "hw.optional.neon: 1\nhw.optional.AdvSIMD: 1\nmachdep.cpu.brand_string: Apple M3\n"
+INTEL_SYSCTL = "machdep.cpu.features: FPU SSE SSE2\nmachdep.cpu.leaf7_features: SMEP AVX2 AVX512F\n"
+
+
+def test_parse_sysctl_apple():
+    info = parse_sysctl(APPLE_SYSCTL, "arm64")
+    assert info.arch == "arm64"
+    assert info.system == "Darwin"
+    assert info.neon
+    assert not info.avx2
+
+
+def test_parse_sysctl_intel():
+    info = parse_sysctl(INTEL_SYSCTL, "x86_64")
+    assert info.arch == "x86_64"
+    assert info.system == "Darwin"
+    assert info.avx2
+    assert info.avx512
+    assert not info.neon
