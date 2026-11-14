@@ -5,11 +5,34 @@ from typing import Any
 from parallax.backends.base import Backend
 
 
+def is_metal_available() -> bool:
+    if sys.platform != "darwin":
+        return False
+    try:
+        from parallax.metal_engine import is_metal_available as _avail
+
+        return bool(_avail())
+    except Exception:
+        return False
+
+
+def probe_metal() -> dict[str, Any]:
+    avail = is_metal_available()
+    return {
+        "available": avail,
+        "platform": sys.platform,
+        "device_name": "Apple Metal GPU" if avail else None,
+    }
+
+
 class MetalBackend(Backend):
     name: str = "metal"
 
     def available(self) -> bool:
-        return sys.platform == "darwin"
+        return is_metal_available()
+
+    def probe(self) -> dict[str, Any]:
+        return probe_metal()
 
     def supports(self, op: str, dtype: Any, shape: tuple[int, ...]) -> bool:
         return False
