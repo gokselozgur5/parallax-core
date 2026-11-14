@@ -26,3 +26,14 @@ def _get_gelu_fn() -> Optional[Callable[..., Any]]:
         )
         _GELU_INIT_ATTEMPTED = True
     return _GELU_FN
+
+
+def gelu_numpy(x: np.ndarray) -> np.ndarray:
+    """NumPy reference implementation of GELU tanh approximation."""
+    x_f32 = np.asarray(x, dtype=np.float32)
+    c = np.sqrt(np.float32(2.0) / np.pi, dtype=np.float32)
+    with np.errstate(over="ignore", invalid="ignore"):
+        inner = c * (x_f32 + np.float32(0.044715) * (x_f32**3))
+        res = np.float32(0.5) * x_f32 * (np.float32(1.0) + np.tanh(inner))
+    res = np.where(np.isnan(res), np.float32(0.0), res)
+    return res
