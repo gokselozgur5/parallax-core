@@ -90,3 +90,10 @@ impl<'a> TensorView<'a> {
         })
     }
 }
+
+/// Memory-mapped tensor storage archive parser.
+pub struct StorageReader<'a> {
+    data: &'a [u8],
+    tensor_count: usize,
+    header_offset: usize,
+}
