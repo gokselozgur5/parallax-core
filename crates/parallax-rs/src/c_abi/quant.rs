@@ -31,5 +31,15 @@ mod tests {
         let res2 = unsafe { parallax_quantize_q8_0(dummy.as_ptr(), std::ptr::null_mut()) };
         assert_eq!(res2, STATUS_NULL_POINTER);
     }
+
+    #[test]
+    fn test_parallax_quantize_q8_0_success() {
+        let vals = [2.0f32; 32];
+        let mut block = BlockQ8_0::new(0.0, [0i8; 32]);
+        let res = unsafe { parallax_quantize_q8_0(vals.as_ptr(), &mut block) };
+        assert_eq!(res, STATUS_OK);
+        assert!((block.scale - (2.0 / 127.0)).abs() < 1e-6);
+        assert_eq!(block.qs[0], 127);
+    }
 }
 
