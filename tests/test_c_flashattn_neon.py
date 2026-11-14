@@ -23,3 +23,18 @@ def test_flashattn_neon_invalid_dims():
     v = np.ones((4, 32), dtype=np.float32)
     with pytest.raises(ValueError):
         flashattn_neon(q, k, v)
+
+
+def test_flashattn_neon_parity_non_causal():
+    rng = np.random.default_rng(42)
+    seq_len, head_dim = 8, 32
+    scale = 1.0 / np.sqrt(head_dim)
+    q = rng.standard_normal((seq_len, head_dim)).astype(np.float32)
+    k = rng.standard_normal((seq_len, head_dim)).astype(np.float32)
+    v = rng.standard_normal((seq_len, head_dim)).astype(np.float32)
+    scores = (q @ k.T) * scale
+    exp_scores = np.exp(scores - np.max(scores, axis=-1, keepdims=True))
+    ref_attn = exp_scores / np.sum(exp_scores, axis=-1, keepdims=True)
+    expected = ref_attn @ v
+    actual = flashattn_neon(q, k, v, scale=scale, is_causal=False)
+    assert np.allclose(actual, expected, atol=1e-4)
