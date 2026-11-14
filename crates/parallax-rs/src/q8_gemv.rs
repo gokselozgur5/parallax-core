@@ -29,3 +29,11 @@ impl BlockQ8_0 {
         Self { scale, qs }
     }
 }
+
+impl BlockQ8_0 {
+    pub fn dequantize(&self, out: &mut [f32; 32]) {
+        for (i, &q) in self.qs.iter().enumerate() {
+            out[i] = (q as f32) * self.scale;
+        }
+    }
+}
