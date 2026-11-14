@@ -14,3 +14,18 @@ impl BlockQ8_0 {
         Self { scale, qs }
     }
 }
+
+impl BlockQ8_0 {
+    pub fn quantize(vals: &[f32; 32]) -> Self {
+        let max_abs = vals.iter().fold(0.0f32, |acc, &x| acc.max(x.abs()));
+        let scale = max_abs / 127.0;
+        let mut qs = [0i8; 32];
+        if scale > 0.0 {
+            for (i, &v) in vals.iter().enumerate() {
+                let q = (v / scale).round().clamp(-128.0, 127.0);
+                qs[i] = q as i8;
+            }
+        }
+        Self { scale, qs }
+    }
+}
