@@ -4,6 +4,7 @@ pub mod bpe;
 pub mod kv_cache;
 pub mod neon_fp16;
 pub mod speculative;
+pub mod storage;
 pub mod tensor;
 
 use std::slice;
