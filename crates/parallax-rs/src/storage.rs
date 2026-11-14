@@ -215,3 +215,21 @@ impl<'a> StorageReader<'a> {
         Ok(())
     }
 }
+
+impl<'a> StorageReader<'a> {
+    pub fn get(&self, tensor_name: &str) -> Result<Option<TensorView<'a>>, StorageError> {
+        let mut offset = self.header_offset;
+        for _ in 0..self.tensor_count {
+            let (view, next_offset) = self.read_tensor_entry(offset)?;
+            if view.name == tensor_name {
+                return Ok(Some(view));
+            }
+            offset = next_offset;
+        }
+        Ok(None)
+    }
+
+    pub fn iter(&self) -> StorageIter<'a> {
+        StorageIter { reader: self, offset: self.header_offset, index: 0 }
+    }
+}
