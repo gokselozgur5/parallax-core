@@ -174,4 +174,15 @@ mod tests {
         assert_eq!(res.accepted_tokens, vec![1, 0]);
         assert_eq!(res.bonus_token, Some(2));
     }
+
+    #[test]
+    fn test_verify_draft_greedy_partial_rejection() {
+        let target_logits = [0.1f32, 0.9, 0.2, 0.1, 0.8, 0.1, 0.0, 0.0, 1.0];
+        let draft_tokens = [1u32, 0];
+        let res = verify_draft_greedy(&target_logits, &draft_tokens, 2, 3).unwrap();
+        assert_eq!(res.num_accepted, 1);
+        assert!(!res.all_accepted);
+        assert_eq!(res.accepted_tokens, vec![1, 1]);
+        assert_eq!(res.bonus_token, None);
+    }
 }
