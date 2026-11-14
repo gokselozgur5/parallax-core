@@ -15,7 +15,10 @@
 
 int c_has_avx512_flashattn_f32(void) {
 #if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
-    return __builtin_cpu_supports("avx512f");
+    return __builtin_cpu_supports("avx512f") &&
+           __builtin_cpu_supports("avx512dq") &&
+           __builtin_cpu_supports("avx512vl") &&
+           __builtin_cpu_supports("avx512bw");
 #else
     return 0;
 #endif
