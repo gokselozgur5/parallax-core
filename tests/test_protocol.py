@@ -21,3 +21,15 @@ def test_backend_protocol_check():
     backend = DummyBackend()
     assert isinstance(backend, BackendProtocol)
     assert isinstance(backend, Backend)
+
+
+def test_op_query_attributes_and_validation():
+    from parallax.core.protocol import OpQuery
+
+    q = OpQuery("gemm", dtype="float32", shape=(2, 2))
+    assert q.op == "gemm"
+    assert q.dtype == "float32"
+    assert q.shape == (2, 2)
+    with pytest.raises(ValueError):
+        OpQuery("")
+
