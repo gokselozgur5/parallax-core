@@ -37,3 +37,12 @@ impl BlockQ8_0 {
         }
     }
 }
+
+/// Computes dot product between a Q8_0 block and an unquantized f32 slice.
+pub fn vec_dot_q8_0_f32_block(block: &BlockQ8_0, x: &[f32; 32]) -> f32 {
+    let mut sum_i = 0.0f32;
+    for (i, &q) in block.qs.iter().enumerate() {
+        sum_i += (q as f32) * x[i];
+    }
+    sum_i * block.scale
+}
