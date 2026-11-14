@@ -2,6 +2,7 @@
 
 pub mod bpe;
 pub mod neon_fp16;
+pub mod kv_cache;
 pub mod tensor;
 
 use std::slice;
