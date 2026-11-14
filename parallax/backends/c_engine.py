@@ -6,6 +6,7 @@ import numpy as np
 from parallax.backends.base import Backend
 from parallax.c_engine import (
     c_gemm,
+    c_rmsnorm,
     c_softmax,
     is_c_engine_available,
 )
@@ -32,6 +33,11 @@ class CEngineBackend(Backend):
 
     def softmax(self, x: np.ndarray, axis: int = -1) -> np.ndarray:
         return c_softmax(x, axis=axis)
+
+    def rmsnorm(
+        self, x: np.ndarray, weight: np.ndarray, eps: float = 1e-5
+    ) -> np.ndarray:
+        return c_rmsnorm(x, weight, eps=eps)
 
 
 CBackend = CEngineBackend
