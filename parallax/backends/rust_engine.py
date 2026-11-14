@@ -4,7 +4,10 @@ from typing import Any
 import numpy as np
 
 from parallax.backends.base import Backend
-from parallax.rust_engine import is_rust_engine_available
+from parallax.rust_engine import (
+    is_rust_engine_available,
+    rust_gemm,
+)
 
 
 class RustEngineBackend(Backend):
@@ -22,6 +25,10 @@ class RustEngineBackend(Backend):
             return np.dtype(dtype) == np.float32
         except Exception:
             return False
+
+    def gemm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        return rust_gemm(a, b)
+
 
 
 RustBackend = RustEngineBackend
