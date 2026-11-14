@@ -64,3 +64,11 @@ def test_flashattn_neon_negative_inf_scores():
     v = np.ones((seq_len, head_dim), dtype=np.float32)
     res = flashattn_neon(q, k, v, scale=1.0, is_causal=False)
     assert not np.isnan(res).any()
+
+
+def test_flashattn_neon_propagates_nan_scores():
+    q = np.ones((2, 8), dtype=np.float32)
+    k = np.array([[np.nan] * 8, [1.0] * 8], dtype=np.float32)
+    v = np.ones((2, 8), dtype=np.float32)
+    res = flashattn_neon(q, k, v, scale=1.0, is_causal=False)
+    assert np.isnan(res).any()
