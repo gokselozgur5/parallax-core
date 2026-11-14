@@ -70,4 +70,32 @@ def test_query_backend_capabilities_batch():
     assert res == {"gemm": True, "softmax": False, "rmsnorm": True}
 
 
+def test_check_backend_protocol_validation():
+    from parallax.core.protocol import check_backend_protocol
+
+    class ValidBackend:
+        name = "valid"
+
+        def available(self) -> bool:
+            return True
+
+        def supports(self, op: str, dtype: Any = None, shape: tuple[int, ...] = ()) -> bool:
+            return True
+
+    check_backend_protocol(ValidBackend())
+
+    class InvalidName:
+        name = ""
+
+        def available(self) -> bool:
+            return True
+
+        def supports(self, op: str, dtype: Any = None, shape: tuple[int, ...] = ()) -> bool:
+            return True
+
+    with pytest.raises(ValueError):
+        check_backend_protocol(InvalidName())
+
+
+
 
