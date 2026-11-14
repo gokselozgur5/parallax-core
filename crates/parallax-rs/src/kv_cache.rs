@@ -218,5 +218,7 @@ mod tests {
         cache.read_token(&k_buf, &v_buf, 0, 2, &mut out_k, &mut out_v).unwrap();
         assert_eq!(out_k, [3.0, 3.5]);
         assert_eq!(out_v, [30.0, 35.0]);
+
+        assert_eq!(cache.read_token(&k_buf, &v_buf, 0, 3, &mut out_k, &mut out_v).unwrap_err(), KvCacheError::IndexOutOfBounds);
     }
 }
