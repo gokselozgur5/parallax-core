@@ -106,7 +106,7 @@ def format_markdown_table(rows: Sequence[BackendReportRow], *, include_capabilit
     if include_capabilities:
         headers.append("Capabilities")
     header_line = "| " + " | ".join(headers) + " |"
-    sep_line = "| " + " | ".join([":---"] * len(headers)) + " |"
+    sep_line = "|" + "|".join([":---"] * len(headers)) + "|"
     lines = [header_line, sep_line]
     for r in rows:
         av_str = "true" if r.available else "false"
