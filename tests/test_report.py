@@ -47,3 +47,23 @@ def test_markdown_report_with_capabilities() -> None:
     assert "gemm, softmax" in report
     assert "| fake_rust | true |" in report
     assert "attention" in report
+
+
+def test_collect_backend_rows_dataclass() -> None:
+    from parallax.core.report import BackendReportRow, collect_backend_rows
+
+    class DummyBackend:
+        def available(self) -> bool:
+            return True
+
+        def supports(self, op: str) -> bool:
+            return op in ("gemm", "rmsnorm")
+
+    rows = collect_backend_rows({"dummy": DummyBackend()})
+    assert len(rows) == 1
+    r = rows[0]
+    assert isinstance(r, BackendReportRow)
+    assert r.name == "dummy"
+    assert r.available is True
+    assert r.parity == "pass"
+    assert r.capabilities == ("gemm", "rmsnorm")
