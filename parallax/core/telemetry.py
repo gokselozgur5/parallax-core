@@ -89,3 +89,9 @@ class DispatchTelemetry:
                 return 0.0
             total_ns = sum(s.total_latency_ns for s in self._op_stats.values())
             return total_ns / self._total_ops
+
+    def reset(self) -> None:
+        """Reset all tracked counters and statistics to zero."""
+        with self._lock:
+            self._op_stats.clear()
+            self._total_ops = 0
