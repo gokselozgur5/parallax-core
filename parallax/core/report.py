@@ -138,3 +138,12 @@ def generate_markdown_report(
     )
     return format_markdown_table(rows, include_capabilities=inc_caps)
 
+
+
+__all__ = [
+    "BackendReportRow",
+    "collect_backend_rows",
+    "format_isa_flags",
+    "format_markdown_table",
+    "generate_markdown_report",
+]
