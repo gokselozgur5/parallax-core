@@ -1,5 +1,6 @@
 """Backend quarantine after repeated runtime failures."""
 from __future__ import annotations
+from collections.abc import Sequence
 import threading
 
 class BackendQuarantine:
@@ -20,6 +21,12 @@ class BackendQuarantine:
     def is_quarantined(self, op: str, backend: str) -> bool:
         with self._lock:
             return (op, backend) in self._quarantined
+
+    def filter_backends(self, op: str, backends: Sequence[str]) -> list[str]:
+        """Return candidate backends excluding quarantined ones for op."""
+        with self._lock:
+            return [b for b in backends if (op, b) not in self._quarantined]
+
 
     def failure_count(self, op: str, backend: str) -> int:
         with self._lock:
