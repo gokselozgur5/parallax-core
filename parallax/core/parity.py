@@ -77,4 +77,25 @@ class ParityChecker:
         rel_err = float(np.max(diff / rel_denom)) if diff.size > 0 else 0.0
         return abs_err, rel_err, bool(abs_err <= threshold)
 
+    def check_op(
+        self,
+        backend: Any,
+        op: str,
+        ref_out: Any,
+        *args: Any,
+        threshold: float | None = None,
+        **kwargs: Any,
+    ) -> ParityResult:
+        tol = self.default_threshold if threshold is None else threshold
+        name = getattr(backend, "name", str(backend))
+        if hasattr(backend, "available") and not backend.available():
+            return ParityResult(name, op, 0.0, True, "unavailable")
+        fn = getattr(backend, op, None)
+        if not callable(fn):
+            return ParityResult(name, op, 0.0, False, "error", f"missing op {op}")
+        out = fn(*args, **kwargs)
+        abs_err, rel_err, passed = self.compare(out, ref_out, tol)
+        return ParityResult(name, op, abs_err, passed, "ok" if passed else "flagged", rel_err)
+
+
 
