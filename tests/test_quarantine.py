@@ -114,6 +114,23 @@ def test_module_level_quarantine_helpers() -> None:
     assert not is_quarantined("gemm", "metal")
 
 
+def test_quarantine_all_exports() -> None:
+    import parallax.core.quarantine as mod
+
+    assert sorted(mod.__all__) == [
+        "BackendQuarantine",
+        "filter_backends",
+        "get_default_quarantine",
+        "is_quarantined",
+        "record_failure",
+        "record_success",
+        "reset_quarantine",
+    ]
+    for sym in mod.__all__:
+        assert hasattr(mod, sym)
+
+
+
 
 
 
