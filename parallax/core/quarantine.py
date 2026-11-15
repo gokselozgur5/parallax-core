@@ -100,3 +100,19 @@ def record_success(op: str, backend: str) -> None:
     _DEFAULT_QUARANTINE.record_success(op, backend)
 
 
+def is_quarantined(op: str, backend: str) -> bool:
+    """Return True if (op, backend) is quarantined on default instance."""
+    return _DEFAULT_QUARANTINE.is_quarantined(op, backend)
+
+
+def filter_backends(op: str, backends: Sequence[str]) -> list[str]:
+    """Return non-quarantined backends from default quarantine."""
+    return _DEFAULT_QUARANTINE.filter_backends(op, backends)
+
+
+def reset_quarantine(op: str | None = None, backend: str | None = None) -> None:
+    """Reset default quarantine counters."""
+    _DEFAULT_QUARANTINE.reset(op=op, backend=backend)
+
+
+
