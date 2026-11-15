@@ -37,6 +37,11 @@ def dispatched_matmul(a: Tensor, b: Tensor) -> Tensor:
             if a_is_1d:
                 grad_a = np.squeeze(grad_a, axis=-2)
             _accumulate_grad(a, grad_a)
+        if b.requires_grad:
+            grad_b = np.swapaxes(a_2d, -1, -2) @ g_2d
+            if b_is_1d:
+                grad_b = np.squeeze(grad_b, axis=-1)
+            _accumulate_grad(b, grad_b)
 
     out._backward = _backward
     return out
