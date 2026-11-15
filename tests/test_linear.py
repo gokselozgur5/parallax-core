@@ -39,3 +39,11 @@ def test_dispatched_linear_forward_parity():
         assert out1.shape == (2, 3)
         assert np.allclose(out1.data, out2.data, atol=1e-6)
 
+
+def test_dispatched_linear_repr():
+    layer = DispatchedLinear(8, 4, bias=True)
+    expected = "DispatchedLinear(in_features=8, out_features=4, bias=True)"
+    assert repr(layer) == expected
+    assert layer.extra_repr() == "in_features=8, out_features=4, bias=True"
+
+
