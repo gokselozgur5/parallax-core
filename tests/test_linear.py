@@ -5,7 +5,7 @@ import pytest
 
 from parallax.backends import registry
 from parallax.backends.numpy_backend import NumpyBackend
-from parallax.nn import Linear
+from parallax.nn import Linear, Parameter
 from parallax.nn.linear import DispatchedLinear
 from parallax.tensor import Tensor
 
@@ -61,6 +61,20 @@ def test_dispatched_linear_batched():
     out2 = dlin(x)
     assert out1.shape == (3, 4, 2)
     assert np.allclose(out1.data, out2.data, atol=1e-6)
+
+
+def test_dispatched_linear_backward_parity():
+    lin = Linear(4, 3, bias=True)
+    dlin = DispatchedLinear(4, 3, bias=True)
+    dlin.weight = Parameter(lin.weight.data.copy())
+    dlin.bias = Parameter(lin.bias.data.copy()) if lin.bias is not None else None
+    x_data = np.random.randn(2, 4)
+    x1 = Tensor(x_data.copy(), requires_grad=True)
+    x2 = Tensor(x_data.copy(), requires_grad=True)
+    lin(x1).sum().backward()
+    dlin(x2).sum().backward()
+    assert np.allclose(x1.grad, x2.grad, atol=1e-6)
+
 
 
 
