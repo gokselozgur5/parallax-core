@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import pytest
 
-from parallax.core.scope import current_backend, use_backend
+from parallax.core.scope import (
+    clear_scopes,
+    current_backend,
+    scoped_backend,
+    use_backend,
+)
 
 
 def test_use_backend_basic_scope():
@@ -91,3 +96,12 @@ def test_thread_isolation_and_no_leakage():
     assert results["t1"] == (None, "c-neon", None)
     assert results["t2"] == (None, "rust", None)
     assert current_backend() is None
+
+
+
+def test_scoped_backend_alias():
+    clear_scopes()
+    assert scoped_backend() is None
+    with use_backend("rust"):
+        assert scoped_backend() == "rust"
+    assert scoped_backend() is None
