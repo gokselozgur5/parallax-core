@@ -17,3 +17,14 @@ def test_quarantine_initial_state_and_threshold() -> None:
 def test_invalid_threshold() -> None:
     with pytest.raises(ValueError, match="threshold must be >= 1"):
         BackendQuarantine(failure_threshold=0)
+
+
+def test_consecutive_failures_trigger_quarantine() -> None:
+    q = BackendQuarantine(failure_threshold=3)
+    assert not q.record_failure("gemm", "metal")
+    assert q.failure_count("gemm", "metal") == 1
+    assert not q.is_quarantined("gemm", "metal")
+    assert not q.record_failure("gemm", "metal")
+    assert q.record_failure("gemm", "metal")
+    assert q.is_quarantined("gemm", "metal")
+
