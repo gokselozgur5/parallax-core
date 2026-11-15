@@ -82,3 +82,29 @@ def test_reset_and_concurrent_records():
     assert tel.op_count("gemm") == 2000
     assert tel.backend_count("metal", "gemm") == 2000
     assert tel.total_latency_ns("gemm") == 20000
+
+
+def test_module_level_telemetry_helpers():
+    from parallax.core.telemetry import (
+        get_average_latency_ns,
+        get_backend_hit_rate,
+        get_op_count,
+        get_telemetry,
+        record,
+        reset_telemetry,
+    )
+
+    reset_telemetry()
+    assert isinstance(get_telemetry(), DispatchTelemetry)
+    assert get_op_count("matmul") == 0
+
+    record("matmul", "metal", 100)
+    record("matmul", "metal", 200)
+    record("matmul", "numpy", 300)
+
+    assert get_op_count("matmul") == 3
+    assert get_backend_hit_rate("metal", "matmul") == pytest.approx(2 / 3)
+    assert get_average_latency_ns("matmul") == pytest.approx(200.0)
+
+    reset_telemetry()
+    assert get_op_count("matmul") == 0
