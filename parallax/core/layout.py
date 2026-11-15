@@ -49,3 +49,19 @@ def validate_layout(
             raise LayoutError(f"dtype {arr.dtype} not allowed")
     if alignment is not None and not is_aligned(arr, alignment):
         raise LayoutError(f"tensor memory address does not satisfy {alignment}-byte alignment")
+
+
+def ensure_layout(
+    tensor_or_arr: Any,
+    *,
+    contiguous: bool = True,
+    dtype: Any = None,
+) -> tuple[np.ndarray, bool]:
+    """Ensure array has requested layout, returning (array, copied)."""
+    arr = _extract_array(tensor_or_arr)
+    target_dt = np.dtype(dtype) if dtype is not None else arr.dtype
+    if target_dt.kind in _REJECTED_KINDS:
+        raise LayoutError(f"unsupported target dtype {target_dt}")
+    if (not contiguous or is_c_contiguous(arr)) and arr.dtype == target_dt:
+        return arr, False
+    return np.ascontiguousarray(arr, dtype=target_dt), True
