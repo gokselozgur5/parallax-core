@@ -47,4 +47,18 @@ def test_filter_backends() -> None:
     assert q.filter_backends("softmax", ["metal", "numpy"]) == ["metal", "numpy"]
 
 
+def test_quarantine_reset() -> None:
+    q = BackendQuarantine(failure_threshold=2)
+    q.record_failure("gemm", "metal")
+    q.record_failure("gemm", "metal")
+    assert q.is_quarantined("gemm", "metal")
+    q.reset(op="gemm", backend="metal")
+    assert not q.is_quarantined("gemm", "metal")
+    q.record_failure("gemm", "metal")
+    q.record_failure("gemm", "metal")
+    q.reset()
+    assert not q.is_quarantined("gemm", "metal")
+
+
+
 
