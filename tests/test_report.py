@@ -67,3 +67,14 @@ def test_collect_backend_rows_dataclass() -> None:
     assert r.available is True
     assert r.parity == "pass"
     assert r.capabilities == ("gemm", "rmsnorm")
+
+
+def test_format_isa_flags_with_platform_info() -> None:
+    from parallax.core.dispatch import PlatformInfo
+    from parallax.core.report import format_isa_flags
+
+    info = PlatformInfo(arch="aarch64", system="Darwin", neon=True)
+    assert format_isa_flags(info) == "NEON"
+
+    none_info = PlatformInfo(arch="unknown", system="unknown")
+    assert format_isa_flags(none_info) == "none"
