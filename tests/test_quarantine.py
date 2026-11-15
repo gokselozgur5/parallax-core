@@ -28,3 +28,14 @@ def test_consecutive_failures_trigger_quarantine() -> None:
     assert q.record_failure("gemm", "metal")
     assert q.is_quarantined("gemm", "metal")
 
+
+def test_success_resets_failures() -> None:
+    q = BackendQuarantine(failure_threshold=3)
+    q.record_failure("gemm", "metal")
+    q.record_failure("gemm", "metal")
+    assert q.failure_count("gemm", "metal") == 2
+    q.record_success("gemm", "metal")
+    assert q.failure_count("gemm", "metal") == 0
+    assert not q.is_quarantined("gemm", "metal")
+
+
