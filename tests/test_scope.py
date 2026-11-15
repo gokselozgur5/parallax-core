@@ -51,3 +51,19 @@ def test_scope_restores_on_exception():
             assert current_backend() == "rust"
             raise RuntimeError("failure")
     assert current_backend() is None
+
+
+
+def test_invalid_backend_and_op_inputs():
+    with pytest.raises(ValueError, match="backend cannot be empty"):
+        with use_backend("   "):
+            pass
+    with pytest.raises(TypeError, match="backend must be a str"):
+        with use_backend(123):
+            pass
+    with pytest.raises(ValueError, match="op cannot be empty"):
+        with use_backend("c", op="  "):
+            pass
+    with pytest.raises(TypeError, match="op must be a str"):
+        with use_backend("c", op=123):
+            pass
