@@ -98,3 +98,21 @@ def collect_backend_rows(
         caps = _detect_capabilities(b, cap_override)
         rows.append(BackendReportRow(name=name, available=av, isa_flags=isa, parity=par, capabilities=caps))
     return rows
+
+
+def format_markdown_table(rows: Sequence[BackendReportRow], *, include_capabilities: bool = False) -> str:
+    """Format backend report rows into a clean Markdown table."""
+    headers = ["Backend", "Available", "ISA Flags", "Parity"]
+    if include_capabilities:
+        headers.append("Capabilities")
+    header_line = "| " + " | ".join(headers) + " |"
+    sep_line = "| " + " | ".join([":---"] * len(headers)) + " |"
+    lines = [header_line, sep_line]
+    for r in rows:
+        av_str = "true" if r.available else "false"
+        cols = [r.name, av_str, r.isa_flags, r.parity]
+        if include_capabilities:
+            caps_str = ", ".join(r.capabilities) if r.capabilities else "none"
+            cols.append(caps_str)
+        lines.append("| " + " | ".join(cols) + " |")
+    return "\n".join(lines)
