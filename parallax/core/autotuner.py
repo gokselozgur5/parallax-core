@@ -54,3 +54,14 @@ def save_cache(thresholds: dict[str, int], path: Path | str | None = None) -> Pa
     with target.open("w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2)
     return target
+
+
+def load_cache(path: Path | str | None = None) -> dict[str, int] | None:
+    """Load and validate crossover thresholds from JSON cache."""
+    target = Path(path) if path is not None else get_default_cache_path()
+    if not target.is_file():
+        return None
+    with target.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+    validate_cache_schema(data)
+    return data["thresholds"]
