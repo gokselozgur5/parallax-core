@@ -1,4 +1,5 @@
 from pathlib import Path
+import time
 import pytest
 from parallax.core.autotuner import (
     SCHEMA_VERSION,
@@ -113,3 +114,16 @@ def test_autotuner_apply_to_policy(tmp_path):
     policy = tuner.apply_to_policy()
     assert policy.thresholds["gemm"] == 128
     assert policy.thresholds["softmax"] == 512
+
+
+class SlowBackend:
+    def gemm(self, a, b):
+        time.sleep(0.001)
+        return a @ b
+
+
+def test_find_crossover_slow_backend_fallback():
+    slow = SlowBackend()
+    fast = DummyFastBackend()
+    crossover = find_crossover("gemm", slow, fast, ladder=(8, 16), repeat=1)
+    assert crossover == 256
