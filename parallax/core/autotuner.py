@@ -90,3 +90,28 @@ def _run_op(backend: Any, op: str, size: int) -> None:
         fn(np.ones((1, size), dtype=np.float32))
     elif op == "rmsnorm":
         fn(np.ones((1, size), dtype=np.float32), np.ones((size,), dtype=np.float32))
+
+
+def measure_latency(backend: Any, op: str, size: int, repeat: int = 3, warmup: int = 1) -> float:
+    """Measure median duration in nanoseconds for op execution."""
+    for _ in range(warmup):
+        _run_op(backend, op, size)
+    timings = []
+    for _ in range(repeat):
+        t0 = time.perf_counter_ns()
+        _run_op(backend, op, size)
+        timings.append(time.perf_counter_ns() - t0)
+    return float(np.median(timings))
+
+
+def find_crossover(op: str, fast: Any, ref: Any, ladder: Sequence[int] | None = None, repeat: int = 3) -> int:
+    """Find element count crossover threshold where fast <= ref."""
+    steps = ladder or DEFAULT_LADDERS.get(op, (32, 64, 128, 256))
+    for s in steps:
+        t_fast = measure_latency(fast, op, s, repeat=repeat)
+        t_ref = measure_latency(ref, op, s, repeat=repeat)
+        n_elems = s * s if op in ("gemm", "matmul") else s
+        if t_fast <= t_ref:
+            return n_elems
+    last = steps[-1]
+    return last * last if op in ("gemm", "matmul") else last
