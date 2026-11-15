@@ -37,3 +37,21 @@ def test_backend_counts_and_hit_rates():
     assert tel.backend_hit_rate("metal", "gemm") == 0.75
     assert tel.backend_hit_rate("numpy", "gemm") == 0.25
     assert tel.backend_hit_rate("metal") == 0.6
+
+
+def test_latency_counters_and_validation():
+    tel = DispatchTelemetry()
+    assert tel.total_latency_ns() == 0
+    assert tel.average_latency_ns() == 0.0
+
+    tel.record("gemm", "metal", 100)
+    tel.record("gemm", "numpy", 200)
+    tel.record("softmax", "c-neon", 300)
+
+    assert tel.total_latency_ns("gemm") == 300
+    assert tel.average_latency_ns("gemm") == 150.0
+    assert tel.total_latency_ns() == 600
+    assert tel.average_latency_ns() == 200.0
+
+    with pytest.raises(ValueError, match="non-negative"):
+        tel.record("gemm", "metal", -1)
