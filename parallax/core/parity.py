@@ -129,5 +129,31 @@ class ParityChecker:
         return report
 
 
+def check_parity(
+    op: str,
+    *args: Any,
+    backends: Sequence[Any] | None = None,
+    reference: Any = "numpy",
+    threshold: float = DEFAULT_PARITY_THRESHOLD,
+    raise_on_error: bool = False,
+    registry: Any = None,
+    **kwargs: Any,
+) -> ParityReport:
+    checker = ParityChecker(registry=registry, reference=reference, default_threshold=threshold)
+    return checker.check_parity(op, *args, backends=backends, threshold=threshold, raise_on_error=raise_on_error, **kwargs)
+
+
+def parity_errors(
+    op: str,
+    *args: Any,
+    threshold: float = DEFAULT_PARITY_THRESHOLD,
+    registry: Any = None,
+    **kwargs: Any,
+) -> dict[str, float]:
+    report = check_parity(op, *args, threshold=threshold, registry=registry, **kwargs)
+    return report.max_errors
+
+
+
 
 
