@@ -38,3 +38,10 @@ class DispatchedLinear(Module):
         mod.bias = linear.bias
         return mod
 
+    def extra_repr(self) -> str:
+        return f"in_features={self.in_features}, out_features={self.out_features}, bias={self.bias is not None}"
+
+    def __repr__(self) -> str:
+        return f"DispatchedLinear({self.extra_repr()})"
+
+
