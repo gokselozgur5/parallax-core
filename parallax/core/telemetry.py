@@ -47,3 +47,24 @@ class DispatchTelemetry:
             stats.total_count += 1
             stats.backend_counts[backend] = stats.backend_counts.get(backend, 0) + 1
             stats.total_latency_ns += latency_ns
+
+    def backend_count(self, backend: str, op: str | None = None) -> int:
+        """Return total calls executed on backend, optionally filtered by op."""
+        with self._lock:
+            if op is not None:
+                stats = self._op_stats.get(op)
+                return stats.backend_counts.get(backend, 0) if stats else 0
+            return sum(s.backend_counts.get(backend, 0) for s in self._op_stats.values())
+
+    def backend_hit_rate(self, backend: str, op: str | None = None) -> float:
+        """Return hit rate for backend, optionally filtered by op."""
+        with self._lock:
+            if op is not None:
+                stats = self._op_stats.get(op)
+                if stats is None or stats.total_count == 0:
+                    return 0.0
+                return stats.backend_counts.get(backend, 0) / stats.total_count
+            if self._total_ops == 0:
+                return 0.0
+            hits = sum(s.backend_counts.get(backend, 0) for s in self._op_stats.values())
+            return hits / self._total_ops
