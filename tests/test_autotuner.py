@@ -2,6 +2,8 @@ from pathlib import Path
 import pytest
 from parallax.core.autotuner import (
     SCHEMA_VERSION,
+    Autotuner,
+    autotune,
     find_crossover,
     get_default_cache_dir,
     get_default_cache_path,
@@ -82,3 +84,12 @@ def test_find_crossover_measurement():
     assert lat >= 0
     crossover = find_crossover("gemm", fast, ref, ladder=(8, 16))
     assert crossover in (64, 256)
+
+
+def test_autotune_orchestrator(tmp_path):
+    fast = DummyFastBackend()
+    ref = DummyRefBackend()
+    cache_path = tmp_path / "custom_tune.json"
+    res = autotune(fast, ref, ops=("gemm", "softmax"), path=cache_path)
+    assert "gemm" in res and "softmax" in res
+    assert cache_path.is_file()
