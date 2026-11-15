@@ -39,3 +39,12 @@ def test_success_resets_failures() -> None:
     assert not q.is_quarantined("gemm", "metal")
 
 
+def test_filter_backends() -> None:
+    q = BackendQuarantine(failure_threshold=2)
+    q.record_failure("gemm", "metal")
+    q.record_failure("gemm", "metal")
+    assert q.filter_backends("gemm", ["metal", "numpy", "rust"]) == ["numpy", "rust"]
+    assert q.filter_backends("softmax", ["metal", "numpy"]) == ["metal", "numpy"]
+
+
+
