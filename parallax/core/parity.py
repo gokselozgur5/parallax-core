@@ -90,12 +90,20 @@ class ParityChecker:
         name = getattr(backend, "name", str(backend))
         if hasattr(backend, "available") and not backend.available():
             return ParityResult(name, op, 0.0, True, "unavailable")
-        fn = getattr(backend, op, None)
-        if not callable(fn):
-            return ParityResult(name, op, 0.0, False, "error", f"missing op {op}")
-        out = fn(*args, **kwargs)
-        abs_err, rel_err, passed = self.compare(out, ref_out, tol)
-        return ParityResult(name, op, abs_err, passed, "ok" if passed else "flagged", rel_err)
+        if hasattr(backend, "supports"):
+            dt = getattr(args[0], "dtype", None) if args else None
+            shp = tuple(getattr(args[0], "shape", ())) if args else ()
+            if not backend.supports(op, dt, shp):
+                return ParityResult(name, op, 0.0, True, "unsupported")
+        try:
+            fn = getattr(backend, op, None)
+            if not callable(fn):
+                return ParityResult(name, op, 0.0, False, "error", f"missing op {op}")
+            out = fn(*args, **kwargs)
+            abs_err, rel_err, passed = self.compare(out, ref_out, tol)
+            return ParityResult(name, op, abs_err, passed, "ok" if passed else "flagged", rel_err)
+        except Exception as exc:
+            return ParityResult(name, op, 0.0, False, "error", error_message=str(exc))
 
     def check_parity(
         self,
