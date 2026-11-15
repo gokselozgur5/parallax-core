@@ -76,6 +76,26 @@ def test_quarantine_cooldown_expiry(monkeypatch: pytest.MonkeyPatch) -> None:
     assert not q.is_quarantined("gemm", "metal")
 
 
+def test_quarantine_thread_safety() -> None:
+    import threading
+
+    q = BackendQuarantine(failure_threshold=200)
+
+    def worker() -> None:
+        for _ in range(50):
+            q.record_failure("gemm", "metal")
+
+    threads = [threading.Thread(target=worker) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert q.failure_count("gemm", "metal") == 200
+    assert q.is_quarantined("gemm", "metal")
+
+
+
 
 
 
