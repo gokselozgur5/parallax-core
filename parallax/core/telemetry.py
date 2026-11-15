@@ -95,3 +95,21 @@ class DispatchTelemetry:
         with self._lock:
             self._op_stats.clear()
             self._total_ops = 0
+
+
+_DEFAULT_TELEMETRY = DispatchTelemetry()
+
+
+def get_telemetry() -> DispatchTelemetry:
+    """Return the global default DispatchTelemetry instance."""
+    return _DEFAULT_TELEMETRY
+
+
+def record(op: str, backend: str, latency_ns: int = 0) -> None:
+    """Record an operation dispatch invocation on default telemetry."""
+    _DEFAULT_TELEMETRY.record(op, backend, latency_ns)
+
+
+def get_op_count(op: str) -> int:
+    """Return total count for an op on default telemetry."""
+    return _DEFAULT_TELEMETRY.op_count(op)
