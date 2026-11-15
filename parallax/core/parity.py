@@ -55,3 +55,26 @@ def _resolve_backend(registry: Any, target: Any) -> Any:
         return NumpyBackend()
     raise ValueError(f"unknown backend: {target!r}")
 
+
+class ParityChecker:
+    """Validator of numerical parity across candidate backends."""
+
+    def __init__(
+        self,
+        registry: Any = None,
+        reference: Any = "numpy",
+        default_threshold: float = DEFAULT_PARITY_THRESHOLD,
+    ) -> None:
+        self.registry = registry
+        self.reference = reference
+        self.default_threshold = default_threshold
+
+    def compare(self, actual: Any, ref: Any, threshold: float) -> tuple[float, float, bool]:
+        act_arr, ref_arr = _to_numpy(actual), _to_numpy(ref)
+        diff = np.abs(act_arr - ref_arr)
+        abs_err = float(np.max(diff)) if diff.size > 0 else 0.0
+        rel_denom = np.abs(ref_arr) + 1e-12
+        rel_err = float(np.max(diff / rel_denom)) if diff.size > 0 else 0.0
+        return abs_err, rel_err, bool(abs_err <= threshold)
+
+
