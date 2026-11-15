@@ -65,3 +65,28 @@ def ensure_layout(
     if (not contiguous or is_c_contiguous(arr)) and arr.dtype == target_dt:
         return arr, False
     return np.ascontiguousarray(arr, dtype=target_dt), True
+
+
+class LayoutGuard:
+    """Configurable guard to validate tensor layouts before native dispatch."""
+
+    def __init__(
+        self,
+        *,
+        contiguous: bool = True,
+        allowed_dtypes: Sequence[Any] | None = None,
+        alignment: int | None = None,
+    ) -> None:
+        self.contiguous = contiguous
+        self.allowed_dtypes = allowed_dtypes
+        self.alignment = alignment
+
+    def validate(self, *tensors: Any) -> None:
+        """Validate layout constraints for all provided tensors."""
+        for item in tensors:
+            validate_layout(
+                item,
+                contiguous=self.contiguous,
+                allowed_dtypes=self.allowed_dtypes,
+                alignment=self.alignment,
+            )
