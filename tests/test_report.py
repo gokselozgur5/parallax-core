@@ -29,3 +29,21 @@ def test_markdown_report_fake_inputs() -> None:
         "| fake_metal | false | AVX2, AVX-512 | n/a |"
     )
     assert report == expected
+
+
+def test_markdown_report_with_capabilities() -> None:
+    backends = {"fake_c": True, "fake_rust": True}
+    capabilities = {
+        "fake_c": ["gemm", "softmax"],
+        "fake_rust": ["attention"],
+    }
+    report = generate_markdown_report(
+        backends=backends,
+        capabilities=capabilities,
+    )
+    assert "| Backend | Available | ISA Flags | Parity | Capabilities |" in report
+    assert "|:---|:---|:---|:---|:---|" in report
+    assert "| fake_c | true |" in report
+    assert "gemm, softmax" in report
+    assert "| fake_rust | true |" in report
+    assert "attention" in report
