@@ -30,12 +30,13 @@ def test_enable_and_disable_container() -> None:
 
 def test_monkey_patch_linear_reversibly() -> None:
     from parallax.nn.patcher import is_patched, patch_linear, unpatch_linear
+    import parallax.nn as nn
     assert not is_patched()
     patch_linear()
     assert is_patched()
-    lin = Linear(4, 2)
+    lin = nn.Linear(4, 2)
     assert isinstance(lin, DispatchedLinear)
     unpatch_linear()
     assert not is_patched()
-    lin2 = Linear(4, 2)
+    lin2 = nn.Linear(4, 2)
     assert type(lin2) is Linear
