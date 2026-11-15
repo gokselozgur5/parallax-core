@@ -47,3 +47,10 @@ def test_dispatched_linear_repr():
     assert layer.extra_repr() == "in_features=8, out_features=4, bias=True"
 
 
+def test_dispatched_linear_package_export():
+    from parallax.nn import DispatchedLinear as DL
+
+    assert DL is DispatchedLinear
+
+
+
