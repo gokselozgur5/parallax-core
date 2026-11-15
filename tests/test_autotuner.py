@@ -49,3 +49,25 @@ def test_load_cache_corrupt_schema(tmp_path):
     target.write_text('{"version": 1, "thresholds": "invalid"}', encoding="utf-8")
     with pytest.raises(ValueError, match="Missing or invalid 'thresholds'"):
         load_cache(target)
+
+
+class DummyFastBackend:
+    def gemm(self, a, b):
+        return a @ b
+
+    def softmax(self, x, axis=-1):
+        return x
+
+    def rmsnorm(self, x, weight, eps=1e-5):
+        return x * weight
+
+
+class DummyRefBackend:
+    def gemm(self, a, b):
+        return a @ b
+
+    def softmax(self, x, axis=-1):
+        return x
+
+    def rmsnorm(self, x, weight, eps=1e-5):
+        return x * weight
