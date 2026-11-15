@@ -60,5 +60,22 @@ def test_quarantine_reset() -> None:
     assert not q.is_quarantined("gemm", "metal")
 
 
+def test_quarantine_cooldown_expiry(monkeypatch: pytest.MonkeyPatch) -> None:
+    now = 100.0
+    monkeypatch.setattr("time.monotonic", lambda: now)
+    q = BackendQuarantine(failure_threshold=2, cooldown_seconds=10.0)
+    assert q.cooldown == 10.0
+    q.record_failure("gemm", "metal")
+    q.record_failure("gemm", "metal")
+    assert q.is_quarantined("gemm", "metal")
+
+    now = 105.0
+    assert q.is_quarantined("gemm", "metal")
+
+    now = 111.0
+    assert not q.is_quarantined("gemm", "metal")
+
+
+
 
 
