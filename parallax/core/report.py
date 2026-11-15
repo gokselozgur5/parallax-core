@@ -78,3 +78,23 @@ def _detect_capabilities(backend: Any, override: Sequence[str] | None = None) ->
                 pass
         return tuple(detected)
     return ()
+
+
+def collect_backend_rows(
+    backends: dict[str, Any] | None = None,
+    *,
+    cpu_info: Any = None,
+    parity: dict[str, str] | None = None,
+    capabilities: dict[str, Sequence[str]] | None = None,
+) -> list[BackendReportRow]:
+    """Collect status, ISA flags, parity and capabilities for backends."""
+    isa = format_isa_flags(cpu_info)
+    items = _collect_backend_items(backends)
+    rows: list[BackendReportRow] = []
+    for name, b in items:
+        av = _check_backend_available(b)
+        par = parity.get(name, "pass" if av else "n/a") if parity else ("pass" if av else "n/a")
+        cap_override = capabilities.get(name) if capabilities else None
+        caps = _detect_capabilities(b, cap_override)
+        rows.append(BackendReportRow(name=name, available=av, isa_flags=isa, parity=par, capabilities=caps))
+    return rows
