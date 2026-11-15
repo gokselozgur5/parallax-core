@@ -47,3 +47,18 @@ def test_alignment_guard():
     with pytest.raises(LayoutError, match="alignment"):
         validate_layout(unaligned, alignment=16)
 
+
+def test_ensure_layout_and_guard():
+    from parallax.core.layout import LayoutGuard, ensure_layout
+
+    arr = np.ones((4, 4), dtype=np.float64)[:, ::2]
+    out, copied = ensure_layout(arr, contiguous=True, dtype=np.float32)
+    assert copied is True
+    assert out.flags.c_contiguous
+    assert out.dtype == np.float32
+
+    guard = LayoutGuard(contiguous=True, allowed_dtypes=[np.float32])
+    guard.validate(out)
+    with pytest.raises(LayoutError):
+        guard.validate(arr)
+
