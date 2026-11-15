@@ -145,3 +145,23 @@ class Autotuner:
 
     def measure_latency(self, backend: Any, op: str, size: int) -> float:
         return measure_latency(backend, op, size, repeat=self.repeat, warmup=self.warmup)
+
+    def find_crossover(self, op: str, fast: Any, ref: Any, ladder: Sequence[int] | None = None) -> int:
+        return find_crossover(op, fast, ref, ladder=ladder, repeat=self.repeat)
+
+    def tune(
+        self, fast: Any, ref: Any, ops: Sequence[str] = ("gemm", "softmax", "rmsnorm"), save: bool = True
+    ) -> dict[str, int]:
+        thresholds = {op: self.find_crossover(op, fast, ref) for op in ops}
+        if save:
+            self.save_cache(thresholds)
+        return thresholds
+
+    def apply_to_policy(self, policy: Any = None) -> Any:
+        thresholds = self.load_cache() or {}
+        if policy is None:
+            from parallax.core.dispatch import DispatchPolicy
+
+            return DispatchPolicy(thresholds=thresholds)
+        policy.thresholds.update(thresholds)
+        return policy
