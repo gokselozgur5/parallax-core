@@ -24,3 +24,15 @@ def test_validate_layout_contiguity():
     non_c = np.ones((4, 4), dtype=np.float32)[:, ::2]
     with pytest.raises(LayoutError, match="contiguous"):
         validate_layout(non_c, contiguous=True)
+
+
+def test_validate_layout_dtype():
+    obj_arr = np.array(["a", "b"], dtype=object)
+    with pytest.raises(LayoutError, match="dtype"):
+        validate_layout(obj_arr)
+
+    f64_arr = np.ones((2, 2), dtype=np.float64)
+    with pytest.raises(LayoutError, match="dtype"):
+        validate_layout(f64_arr, allowed_dtypes=[np.float32])
+    validate_layout(f64_arr, allowed_dtypes=[np.float64, np.float32])
+
