@@ -67,3 +67,27 @@ def test_invalid_backend_and_op_inputs():
     with pytest.raises(TypeError, match="op must be a str"):
         with use_backend("c", op=123):
             pass
+
+
+import concurrent.futures
+
+
+def test_thread_isolation_and_no_leakage():
+    results = {}
+
+    def worker(name: str, backend_name: str):
+        before = current_backend()
+        with use_backend(backend_name):
+            inside = current_backend()
+        after = current_backend()
+        results[name] = (before, inside, after)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
+        f1 = ex.submit(worker, "t1", "c-neon")
+        f2 = ex.submit(worker, "t2", "rust")
+        f1.result()
+        f2.result()
+
+    assert results["t1"] == (None, "c-neon", None)
+    assert results["t2"] == (None, "rust", None)
+    assert current_backend() is None
