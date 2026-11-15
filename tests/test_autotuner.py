@@ -93,3 +93,14 @@ def test_autotune_orchestrator(tmp_path):
     res = autotune(fast, ref, ops=("gemm", "softmax"), path=cache_path)
     assert "gemm" in res and "softmax" in res
     assert cache_path.is_file()
+
+
+def test_autotuner_class_workflow(tmp_path):
+    tuner = Autotuner(cache_path=tmp_path / "tuner.json", repeat=2)
+    assert tuner.load_cache() is None
+    fast = DummyFastBackend()
+    ref = DummyRefBackend()
+    thresholds = tuner.tune(fast, ref, ops=("gemm",))
+    assert "gemm" in thresholds
+    assert tuner.get_cache_path().is_file()
+    assert tuner.load_cache() == thresholds
