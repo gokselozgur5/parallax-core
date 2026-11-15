@@ -55,3 +55,30 @@ def test_latency_counters_and_validation():
 
     with pytest.raises(ValueError, match="non-negative"):
         tel.record("gemm", "metal", -1)
+
+
+def test_reset_and_concurrent_records():
+    import threading
+
+    tel = DispatchTelemetry()
+    tel.record("gemm", "metal", 50)
+    tel.reset()
+    assert tel.total_ops() == 0
+    assert tel.op_count("gemm") == 0
+    assert tel.total_latency_ns() == 0
+
+    threads = [
+        threading.Thread(
+            target=lambda: [tel.record("gemm", "metal", 10) for _ in range(500)]
+        )
+        for _ in range(4)
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert tel.total_ops() == 2000
+    assert tel.op_count("gemm") == 2000
+    assert tel.backend_count("metal", "gemm") == 2000
+    assert tel.total_latency_ns("gemm") == 20000
