@@ -33,3 +33,17 @@ class DispatchTelemetry:
         with self._lock:
             stats = self._op_stats.get(op)
             return stats.total_count if stats is not None else 0
+
+    def record(self, op: str, backend: str, latency_ns: int = 0) -> None:
+        """Record an operation dispatch invocation with its latency."""
+        if latency_ns < 0:
+            raise ValueError(f"latency_ns must be non-negative, got {latency_ns}")
+        with self._lock:
+            self._total_ops += 1
+            stats = self._op_stats.get(op)
+            if stats is None:
+                stats = OpStats()
+                self._op_stats[op] = stats
+            stats.total_count += 1
+            stats.backend_counts[backend] = stats.backend_counts.get(backend, 0) + 1
+            stats.total_latency_ns += latency_ns
