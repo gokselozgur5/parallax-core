@@ -237,3 +237,16 @@ class LayerNorm(Module):
 
         out._backward = _backward
         return out
+
+
+from parallax.nn.linear import DispatchedLinear
+
+__all__ = [
+    "DispatchedLinear",
+    "LayerNorm",
+    "Linear",
+    "Module",
+    "Parameter",
+    "RMSNorm",
+]
+
