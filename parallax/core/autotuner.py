@@ -136,3 +136,12 @@ class Autotuner:
 
     def get_cache_path(self) -> Path:
         return self.cache_path
+
+    def load_cache(self) -> dict[str, int] | None:
+        return load_cache(self.cache_path)
+
+    def save_cache(self, thresholds: dict[str, int]) -> Path:
+        return save_cache(thresholds, path=self.cache_path)
+
+    def measure_latency(self, backend: Any, op: str, size: int) -> float:
+        return measure_latency(backend, op, size, repeat=self.repeat, warmup=self.warmup)
