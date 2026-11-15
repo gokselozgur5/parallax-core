@@ -24,3 +24,15 @@ class BackendQuarantine:
     def failure_count(self, op: str, backend: str) -> int:
         with self._lock:
             return self._failures.get((op, backend), 0)
+
+    def record_failure(self, op: str, backend: str) -> bool:
+        """Record failure; returns True if pair is now quarantined."""
+        with self._lock:
+            key = (op, backend)
+            count = self._failures.get(key, 0) + 1
+            self._failures[key] = count
+            if count >= self._threshold:
+                self._quarantined.add(key)
+                return True
+            return False
+
