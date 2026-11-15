@@ -82,5 +82,18 @@ def test_parity_module_helpers_and_raise_on_error():
     assert "ref" in errs and errs["ref"] == 0.0
 
 
+def test_parity_real_numpy_backend():
+    from parallax.backends.numpy_backend import NumpyBackend
+    from parallax.core.parity import check_parity
+
+    nb = NumpyBackend()
+    x = np.random.randn(4, 8).astype(np.float32)
+    w = np.ones((8,), dtype=np.float32)
+    report = check_parity("rmsnorm", x, w, backends=[nb], reference=nb)
+    assert report["numpy"].passed is True
+    assert report["numpy"].max_abs_error == 0.0
+
+
+
 
 
