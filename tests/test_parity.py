@@ -50,3 +50,22 @@ def test_parity_checker_exact_and_flagged():
     assert report.flagged_backends == ["bad"]
 
 
+def test_parity_checker_unavailable_and_unsupported():
+    from parallax.core.parity import ParityChecker
+
+    class Unavail(MockBackend):
+        def available(self) -> bool:
+            return False
+
+    class Unsupp(MockBackend):
+        def supports(self, op: str, dtype: object = None, shape: tuple[int, ...] = ()) -> bool:
+            return False
+
+    checker = ParityChecker(reference=MockBackend("ref"))
+    a = np.ones((2, 2), dtype=np.float32)
+    report = checker.check_parity("gemm", a, a, backends=[Unavail("off"), Unsupp("unsupp")])
+    assert report["off"].status == "unavailable" and report["off"].passed is True
+    assert report["unsupp"].status == "unsupported" and report["unsupp"].passed is True
+
+
+
