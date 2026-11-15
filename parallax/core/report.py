@@ -35,3 +35,25 @@ def format_isa_flags(info: Any = None) -> str:
     if getattr(info, "cuda", False):
         flags.append("CUDA")
     return ", ".join(flags) if flags else "none"
+
+
+def _check_backend_available(backend: Any) -> bool:
+    if isinstance(backend, bool):
+        return backend
+    if hasattr(backend, "available") and callable(backend.available):
+        try:
+            return bool(backend.available())
+        except Exception:
+            return False
+    return True
+
+
+def _collect_backend_items(override: dict[str, Any] | None) -> list[tuple[str, Any]]:
+    if override is not None:
+        return sorted(override.items(), key=lambda x: str(x[0]))
+    try:
+        from parallax.backends import registry
+        names = registry.list_backends()
+        return sorted([(n, registry.get(n)) for n in names], key=lambda x: str(x[0]))
+    except Exception:
+        return []
