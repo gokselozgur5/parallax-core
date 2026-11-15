@@ -116,3 +116,25 @@ def format_markdown_table(rows: Sequence[BackendReportRow], *, include_capabilit
             cols.append(caps_str)
         lines.append("| " + " | ".join(cols) + " |")
     return "\n".join(lines)
+
+
+def generate_markdown_report(
+    *,
+    cpu_info: Any = None,
+    backends: dict[str, Any] | None = None,
+    backends_override: dict[str, Any] | None = None,
+    parity_override: dict[str, str] | None = None,
+    capabilities: dict[str, Sequence[str]] | None = None,
+    include_capabilities: bool = False,
+) -> str:
+    """Generate a clean markdown report of active backends and capabilities."""
+    target_backends = backends if backends is not None else backends_override
+    inc_caps = include_capabilities or (capabilities is not None)
+    rows = collect_backend_rows(
+        target_backends,
+        cpu_info=cpu_info,
+        parity=parity_override,
+        capabilities=capabilities,
+    )
+    return format_markdown_table(rows, include_capabilities=inc_caps)
+
