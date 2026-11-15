@@ -57,3 +57,24 @@ def _collect_backend_items(override: dict[str, Any] | None) -> list[tuple[str, A
         return sorted([(n, registry.get(n)) for n in names], key=lambda x: str(x[0]))
     except Exception:
         return []
+
+
+COMMON_OPS: tuple[str, ...] = ("gemm", "matmul", "softmax", "rmsnorm", "attention")
+
+
+def _detect_capabilities(backend: Any, override: Sequence[str] | None = None) -> tuple[str, ...]:
+    if override is not None:
+        return tuple(override)
+    if hasattr(backend, "capabilities"):
+        caps = backend.capabilities
+        return tuple(caps() if callable(caps) else caps)
+    if hasattr(backend, "supports") and callable(backend.supports):
+        detected: list[str] = []
+        for op in COMMON_OPS:
+            try:
+                if backend.supports(op):
+                    detected.append(op)
+            except Exception:
+                pass
+        return tuple(detected)
+    return ()
