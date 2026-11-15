@@ -2,9 +2,11 @@ from pathlib import Path
 import pytest
 from parallax.core.autotuner import (
     SCHEMA_VERSION,
+    find_crossover,
     get_default_cache_dir,
     get_default_cache_path,
     load_cache,
+    measure_latency,
     save_cache,
     validate_cache_schema,
 )
@@ -71,3 +73,12 @@ class DummyRefBackend:
 
     def rmsnorm(self, x, weight, eps=1e-5):
         return x * weight
+
+
+def test_find_crossover_measurement():
+    fast = DummyFastBackend()
+    ref = DummyRefBackend()
+    lat = measure_latency(fast, "gemm", 16, repeat=2, warmup=1)
+    assert lat >= 0
+    crossover = find_crossover("gemm", fast, ref, ladder=(8, 16))
+    assert crossover in (64, 256)
