@@ -97,5 +97,29 @@ class ParityChecker:
         abs_err, rel_err, passed = self.compare(out, ref_out, tol)
         return ParityResult(name, op, abs_err, passed, "ok" if passed else "flagged", rel_err)
 
+    def check_parity(
+        self,
+        op: str,
+        *args: Any,
+        backends: Sequence[Any] | None = None,
+        reference: Any = None,
+        threshold: float | None = None,
+        raise_on_error: bool = False,
+        **kwargs: Any,
+    ) -> ParityReport:
+        ref_b = _resolve_backend(self.registry, self.reference if reference is None else reference)
+        ref_fn = getattr(ref_b, op, None)
+        if not callable(ref_fn):
+            raise AttributeError(f"reference backend lacks op: {op}")
+        ref_out = ref_fn(*args, **kwargs)
+        targets = [ref_b] if backends is None else [_resolve_backend(self.registry, b) for b in backends]
+        report = ParityReport()
+        for b in targets:
+            report[getattr(b, "name", str(b))] = self.check_op(b, op, ref_out, *args, threshold=threshold, **kwargs)
+        if raise_on_error and not report.all_passed:
+            raise ParityError(f"parity check failed for: {report.flagged_backends}")
+        return report
+
+
 
 
