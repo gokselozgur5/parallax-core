@@ -4,6 +4,16 @@ from parallax.nn import Linear, Module
 from parallax.nn.patcher import disable_native, enable_native
 
 
+@pytest.fixture(autouse=True)
+def setup_backend():
+    from parallax.backends import registry
+    from parallax.backends.numpy_backend import NumpyBackend
+    registry.clear()
+    registry.register("numpy", NumpyBackend())
+    yield
+    registry.clear()
+
+
 def test_enable_and_disable_single():
     lin = Linear(4, 2)
     native = enable_native(lin)
@@ -40,3 +50,21 @@ def test_monkey_patch_linear_reversibly() -> None:
     assert not is_patched()
     lin2 = nn.Linear(4, 2)
     assert type(lin2) is Linear
+
+
+def test_param_identity_and_parity() -> None:
+    import numpy as np
+    from parallax.tensor import Tensor
+
+    lin = Linear(4, 3, bias=True)
+    orig_w, orig_b = lin.weight, lin.bias
+    x = Tensor(np.random.randn(2, 4))
+    y_orig = lin(x)
+    native = enable_native(lin)
+    assert native.weight is orig_w
+    assert native.bias is orig_b
+    assert np.allclose(native(x).data, y_orig.data, atol=1e-6)
+    restored = disable_native(native)
+    assert restored.weight is orig_w
+    assert restored.bias is orig_b
+    assert np.allclose(restored(x).data, y_orig.data, atol=1e-6)
