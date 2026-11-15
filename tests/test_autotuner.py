@@ -104,3 +104,12 @@ def test_autotuner_class_workflow(tmp_path):
     assert "gemm" in thresholds
     assert tuner.get_cache_path().is_file()
     assert tuner.load_cache() == thresholds
+
+
+def test_autotuner_apply_to_policy(tmp_path):
+    cache_file = tmp_path / "autotune.json"
+    save_cache({"gemm": 128, "softmax": 512}, path=cache_file)
+    tuner = Autotuner(cache_path=cache_file)
+    policy = tuner.apply_to_policy()
+    assert policy.thresholds["gemm"] == 128
+    assert policy.thresholds["softmax"] == 512
