@@ -23,11 +23,19 @@ def is_c_contiguous(tensor_or_arr: Any) -> bool:
     return bool(_extract_array(tensor_or_arr).flags.c_contiguous)
 
 
+def is_aligned(tensor_or_arr: Any, alignment: int = 64) -> bool:
+    """Return True if tensor memory address is divisible by alignment bytes."""
+    if alignment <= 0:
+        raise ValueError(f"alignment must be positive integer, got {alignment}")
+    return (_extract_array(tensor_or_arr).ctypes.data % alignment) == 0
+
+
 def validate_layout(
     tensor_or_arr: Any,
     *,
     contiguous: bool = True,
     allowed_dtypes: Sequence[Any] | None = None,
+    alignment: int | None = None,
 ) -> None:
     """Validate that tensor layout meets native execution constraints."""
     arr = _extract_array(tensor_or_arr)
@@ -39,3 +47,5 @@ def validate_layout(
         allowed = {np.dtype(d) for d in allowed_dtypes}
         if arr.dtype not in allowed:
             raise LayoutError(f"dtype {arr.dtype} not allowed")
+    if alignment is not None and not is_aligned(arr, alignment):
+        raise LayoutError(f"tensor memory address does not satisfy {alignment}-byte alignment")
