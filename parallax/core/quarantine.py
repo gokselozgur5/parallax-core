@@ -25,6 +25,12 @@ class BackendQuarantine:
         with self._lock:
             return self._failures.get((op, backend), 0)
 
+    def record_success(self, op: str, backend: str) -> None:
+        """Reset consecutive failure counter on success."""
+        with self._lock:
+            self._failures.pop((op, backend), None)
+
+
     def record_failure(self, op: str, backend: str) -> bool:
         """Record failure; returns True if pair is now quarantined."""
         with self._lock:
