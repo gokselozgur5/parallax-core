@@ -115,3 +115,24 @@ def find_crossover(op: str, fast: Any, ref: Any, ladder: Sequence[int] | None = 
             return n_elems
     last = steps[-1]
     return last * last if op in ("gemm", "matmul") else last
+
+
+def autotune(
+    fast: Any, ref: Any, ops: Sequence[str] = ("gemm", "softmax", "rmsnorm"), path: Path | str | None = None
+) -> dict[str, int]:
+    """Tune crossover thresholds and persist to JSON cache."""
+    thresholds = {op: find_crossover(op, fast, ref) for op in ops}
+    save_cache(thresholds, path=path)
+    return thresholds
+
+
+class Autotuner:
+    """Empirical crossover-size autotuner with JSON cache."""
+
+    def __init__(self, cache_path: Path | str | None = None, repeat: int = 3, warmup: int = 1) -> None:
+        self.cache_path = Path(cache_path) if cache_path is not None else get_default_cache_path()
+        self.repeat = repeat
+        self.warmup = warmup
+
+    def get_cache_path(self) -> Path:
+        return self.cache_path
