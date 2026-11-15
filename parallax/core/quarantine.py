@@ -37,6 +37,22 @@ class BackendQuarantine:
         with self._lock:
             self._failures.pop((op, backend), None)
 
+    def reset(self, op: str | None = None, backend: str | None = None) -> None:
+        """Reset quarantine and failure counts selectively or globally."""
+        with self._lock:
+            if op is None and backend is None:
+                self._failures.clear()
+                self._quarantined.clear()
+                return
+            keys = [
+                k for k in self._failures
+                if (op is None or k[0] == op) and (backend is None or k[1] == backend)
+            ]
+            for k in keys:
+                self._failures.pop(k, None)
+                self._quarantined.discard(k)
+
+
 
     def record_failure(self, op: str, backend: str) -> bool:
         """Record failure; returns True if pair is now quarantined."""
