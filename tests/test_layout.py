@@ -36,3 +36,14 @@ def test_validate_layout_dtype():
         validate_layout(f64_arr, allowed_dtypes=[np.float32])
     validate_layout(f64_arr, allowed_dtypes=[np.float64, np.float32])
 
+
+def test_alignment_guard():
+    from parallax.core.layout import is_aligned
+
+    arr = np.ones(64, dtype=np.uint8)
+    unaligned = arr[1:]
+    assert is_aligned(arr, alignment=1) is True
+    assert is_aligned(unaligned, alignment=16) is False
+    with pytest.raises(LayoutError, match="alignment"):
+        validate_layout(unaligned, alignment=16)
+
