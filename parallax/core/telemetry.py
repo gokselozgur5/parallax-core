@@ -68,3 +68,24 @@ class DispatchTelemetry:
                 return 0.0
             hits = sum(s.backend_counts.get(backend, 0) for s in self._op_stats.values())
             return hits / self._total_ops
+
+    def total_latency_ns(self, op: str | None = None) -> int:
+        """Return total elapsed nanoseconds, optionally filtered by op."""
+        with self._lock:
+            if op is not None:
+                stats = self._op_stats.get(op)
+                return stats.total_latency_ns if stats is not None else 0
+            return sum(s.total_latency_ns for s in self._op_stats.values())
+
+    def average_latency_ns(self, op: str | None = None) -> float:
+        """Return mean latency in nanoseconds, optionally filtered by op."""
+        with self._lock:
+            if op is not None:
+                stats = self._op_stats.get(op)
+                if stats is None or stats.total_count == 0:
+                    return 0.0
+                return stats.total_latency_ns / stats.total_count
+            if self._total_ops == 0:
+                return 0.0
+            total_ns = sum(s.total_latency_ns for s in self._op_stats.values())
+            return total_ns / self._total_ops
