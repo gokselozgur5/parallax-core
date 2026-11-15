@@ -68,4 +68,19 @@ def test_parity_checker_unavailable_and_unsupported():
     assert report["unsupp"].status == "unsupported" and report["unsupp"].passed is True
 
 
+def test_parity_module_helpers_and_raise_on_error():
+    from parallax.core.parity import check_parity, parity_errors
+
+    bad = MockBackend("drift", offset=1.0)
+    ref = MockBackend("ref", offset=0.0)
+    reg = {"drift": bad, "ref": ref}
+    a = np.ones((2, 2), dtype=np.float32)
+    with pytest.raises(ParityError, match="parity check failed"):
+        check_parity("gemm", a, a, backends=["drift"], reference="ref", registry=reg, raise_on_error=True)
+
+    errs = parity_errors("gemm", a, a, backends=["ref"], reference="ref", registry=reg)
+    assert "ref" in errs and errs["ref"] == 0.0
+
+
+
 
