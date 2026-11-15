@@ -1,6 +1,10 @@
 """Cross-backend numerical parity validation framework."""
 from __future__ import annotations
 from dataclasses import dataclass
+from typing import Any, Sequence
+import numpy as np
+
+DEFAULT_PARITY_THRESHOLD: float = 1e-4
 
 class ParityError(RuntimeError):
     """Raised when numerical parity validation fails."""
@@ -27,3 +31,27 @@ class ParityReport(dict[str, ParityResult]):
     @property
     def max_errors(self) -> dict[str, float]:
         return {k: v.max_abs_error for k, v in self.items() if v.status == "ok"}
+
+
+def _to_numpy(val: Any) -> np.ndarray:
+    return np.asarray(getattr(val, "data", val))
+
+
+def _resolve_backend(registry: Any, target: Any) -> Any:
+    if not isinstance(target, str):
+        return target
+    if registry is not None:
+        getter = getattr(registry, "get", None) or (registry.get if isinstance(registry, dict) else None)
+        if getter is not None:
+            try:
+                b = getter(target)
+                if b is not None:
+                    return b() if callable(b) else b
+            except KeyError:
+                pass
+    if target == "numpy":
+        from parallax.backends.numpy_backend import NumpyBackend
+
+        return NumpyBackend()
+    raise ValueError(f"unknown backend: {target!r}")
+
