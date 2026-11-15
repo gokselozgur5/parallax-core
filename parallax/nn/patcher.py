@@ -11,13 +11,13 @@ def patch_linear() -> None:
     global _ORIG_LINEAR
     if _ORIG_LINEAR is None:
         _ORIG_LINEAR = nn.Linear
-        nn.Linear = DispatchedLinear
+        setattr(nn, "Linear", DispatchedLinear)  # noqa: B010
 
 
 def unpatch_linear() -> None:
     global _ORIG_LINEAR
     if _ORIG_LINEAR is not None:
-        nn.Linear = _ORIG_LINEAR
+        setattr(nn, "Linear", _ORIG_LINEAR)  # noqa: B010
         _ORIG_LINEAR = None
 
 
