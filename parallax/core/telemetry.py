@@ -113,3 +113,18 @@ def record(op: str, backend: str, latency_ns: int = 0) -> None:
 def get_op_count(op: str) -> int:
     """Return total count for an op on default telemetry."""
     return _DEFAULT_TELEMETRY.op_count(op)
+
+
+def get_backend_hit_rate(backend: str, op: str | None = None) -> float:
+    """Return backend hit rate on default telemetry."""
+    return _DEFAULT_TELEMETRY.backend_hit_rate(backend, op=op)
+
+
+def get_average_latency_ns(op: str | None = None) -> float:
+    """Return average latency on default telemetry."""
+    return _DEFAULT_TELEMETRY.average_latency_ns(op=op)
+
+
+def reset_telemetry() -> None:
+    """Reset default telemetry counters to zero."""
+    _DEFAULT_TELEMETRY.reset()
