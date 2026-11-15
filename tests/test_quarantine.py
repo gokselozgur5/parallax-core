@@ -95,6 +95,26 @@ def test_quarantine_thread_safety() -> None:
     assert q.is_quarantined("gemm", "metal")
 
 
+def test_module_level_quarantine_helpers() -> None:
+    from parallax.core.quarantine import (
+        get_default_quarantine,
+        is_quarantined,
+        record_failure,
+        reset_quarantine,
+    )
+
+    reset_quarantine()
+    assert isinstance(get_default_quarantine(), BackendQuarantine)
+    assert not is_quarantined("gemm", "metal")
+    record_failure("gemm", "metal")
+    record_failure("gemm", "metal")
+    record_failure("gemm", "metal")
+    assert is_quarantined("gemm", "metal")
+    reset_quarantine()
+    assert not is_quarantined("gemm", "metal")
+
+
+
 
 
 
