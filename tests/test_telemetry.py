@@ -19,3 +19,21 @@ def test_record_and_op_counts():
     assert tel.op_count("gemm") == 2
     assert tel.op_count("softmax") == 1
     assert tel.total_ops() == 3
+
+
+def test_backend_counts_and_hit_rates():
+    tel = DispatchTelemetry()
+    assert tel.backend_count("metal") == 0
+    assert tel.backend_hit_rate("metal") == 0.0
+
+    tel.record("gemm", "metal", 100)
+    tel.record("gemm", "metal", 100)
+    tel.record("gemm", "metal", 100)
+    tel.record("gemm", "numpy", 100)
+    tel.record("softmax", "c-neon", 100)
+
+    assert tel.backend_count("metal", "gemm") == 3
+    assert tel.backend_count("numpy", "gemm") == 1
+    assert tel.backend_hit_rate("metal", "gemm") == 0.75
+    assert tel.backend_hit_rate("numpy", "gemm") == 0.25
+    assert tel.backend_hit_rate("metal") == 0.6
