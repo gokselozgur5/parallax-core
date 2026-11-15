@@ -3,9 +3,20 @@
 import numpy as np
 import pytest
 
+from parallax.backends import registry
+from parallax.backends.numpy_backend import NumpyBackend
 from parallax.nn import Linear
 from parallax.nn.linear import DispatchedLinear
 from parallax.tensor import Tensor
+
+
+@pytest.fixture(autouse=True)
+def setup_backend():
+    registry.clear()
+    registry.register("numpy", NumpyBackend())
+    yield
+    registry.clear()
+
 
 
 def test_dispatched_linear_initialization():
