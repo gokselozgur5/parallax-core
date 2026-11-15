@@ -79,6 +79,24 @@ class BackendQuarantine:
                 self._quarantined.add(key)
                 self._quarantine_times[key] = time.monotonic()
                 return True
-
             return False
+
+
+_DEFAULT_QUARANTINE = BackendQuarantine()
+
+
+def get_default_quarantine() -> BackendQuarantine:
+    """Return the global default BackendQuarantine instance."""
+    return _DEFAULT_QUARANTINE
+
+
+def record_failure(op: str, backend: str) -> bool:
+    """Record an op failure on the default quarantine."""
+    return _DEFAULT_QUARANTINE.record_failure(op, backend)
+
+
+def record_success(op: str, backend: str) -> None:
+    """Record an op success on the default quarantine."""
+    _DEFAULT_QUARANTINE.record_success(op, backend)
+
 
