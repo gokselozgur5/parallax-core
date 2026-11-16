@@ -132,7 +132,10 @@ class FusedLayerNorm(Module):
 
     @classmethod
     def from_layernorm(cls, norm: Any) -> FusedLayerNorm:
-        shape = getattr(norm, "normalized_shape", getattr(norm, "dim", (0,)))
+        shape = getattr(norm, "normalized_shape", getattr(norm, "dim", None))
+        if shape is None and hasattr(norm, "weight") and norm.weight is not None:
+            shape = norm.weight.shape
+        shape = shape or (0,)
         eps = getattr(norm, "eps", 1e-5)
         affine = getattr(norm, "weight", None) is not None
         has_bias = getattr(norm, "bias", None) is not None
