@@ -122,3 +122,24 @@ def sdpa_backward(
         grad_key.astype(key.dtype),
         grad_value.astype(value.dtype),
     )
+
+
+class DispatchedSDPA(Module):
+    """Scaled Dot-Product Attention module using dispatch."""
+
+    def __init__(
+        self,
+        dropout_p: float = 0.0,
+        is_causal: bool = False,
+        scale: Optional[float] = None,
+    ) -> None:
+        super().__init__()
+        self.dropout_p = float(dropout_p)
+        self.is_causal = bool(is_causal)
+        self.scale = float(scale) if scale is not None else None
+
+    def extra_repr(self) -> str:
+        return f"dropout_p={self.dropout_p}, is_causal={self.is_causal}, scale={self.scale}"
+
+    def __repr__(self) -> str:
+        return f"DispatchedSDPA({self.extra_repr()})"
