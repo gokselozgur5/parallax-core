@@ -20,3 +20,13 @@ def test_precompute_freqs_validation() -> None:
         precompute_freqs(dim=16, max_seq_len=0)
     with pytest.raises(ValueError):
         precompute_freqs(dim=16, max_seq_len=32, theta=-1.0)
+
+
+def test_precompute_freqs_cis() -> None:
+    from python.parallax.dispatch.rope import precompute_freqs_cis
+
+    cis = precompute_freqs_cis(dim=8, max_seq_len=16, theta=10000.0)
+    assert cis.shape == (16, 4)
+    assert cis.dtype == np.complex64
+    np.testing.assert_allclose(cis[0].real, np.ones(4), atol=1e-6)
+    np.testing.assert_allclose(cis[0].imag, np.zeros(4), atol=1e-6)
