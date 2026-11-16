@@ -7,6 +7,7 @@ import pytest
 
 from parallax.tensor import Tensor
 from python.parallax.dispatch.rmsnorm_backward import (
+    dispatched_rmsnorm,
     fused_rmsnorm_backward,
     rmsnorm_backward,
     rmsnorm_backward_reference,
@@ -75,3 +76,15 @@ def test_fused_rmsnorm_backward():
     np.testing.assert_allclose(dx, dx_direct)
     np.testing.assert_allclose(dw, dw_direct)
     np.testing.assert_allclose(dres, dx_direct)
+
+
+def test_dispatched_rmsnorm_autograd():
+    x = Tensor(np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32), requires_grad=True)
+    w = Tensor(np.array([1.0, 2.0], dtype=np.float32), requires_grad=True)
+    out = dispatched_rmsnorm(x, w, eps=1e-5)
+    loss = out.sum()
+    loss.backward()
+    assert x.grad is not None
+    assert w.grad is not None
+    assert x.grad.shape == (2, 2)
+    assert w.grad.shape == (2,)
