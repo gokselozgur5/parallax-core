@@ -6,9 +6,11 @@ import numpy as np
 import pytest
 
 from python.parallax.dispatch.logit_cap import (
+    DispatchedLogitCap,
     logit_soft_cap,
     logit_soft_cap_backward,
 )
+
 
 
 def test_logit_soft_cap_forward_values() -> None:
@@ -60,6 +62,16 @@ def test_logit_soft_cap_finite_difference_gradient() -> None:
         diff = (logit_soft_cap(x_pos, cap=cap) - logit_soft_cap(x_neg, cap=cap)) * grad_out
         num_grad[i] = np.sum(diff) / (2 * eps)
     np.testing.assert_allclose(analytic_grad, num_grad, rtol=1e-5, atol=1e-5)
+
+
+def test_dispatched_logit_cap_module_init_and_forward() -> None:
+    mod = DispatchedLogitCap(cap=20.0)
+    assert mod.cap == 20.0
+    x = np.array([-5.0, 0.0, 5.0], dtype=np.float32)
+    out = mod(x)
+    expected = 20.0 * np.tanh(x / 20.0)
+    np.testing.assert_allclose(out.data, expected, rtol=1e-5, atol=1e-6)
+
 
 
 
