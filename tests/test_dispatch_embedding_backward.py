@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from python.parallax.dispatch.embedding_backward import (
+    DispatchedEmbeddingBackward,
     accumulate_embedding_backward,
     embedding_backward,
     sparse_embedding_backward,
@@ -95,3 +96,15 @@ def test_accumulate_embedding_backward():
     assert weight.grad is not None
     np.testing.assert_allclose(weight.grad[1], 2.0)
     np.testing.assert_allclose(weight.grad[2], 0.0)
+
+
+def test_dispatched_embedding_backward_class():
+    """Verify DispatchedEmbeddingBackward class wrapper interface."""
+    indices = np.array([0, 1, 0], dtype=np.int64)
+    grad_output = np.ones((3, 2), dtype=np.float32)
+    gw = DispatchedEmbeddingBackward.compute(grad_output, indices, 3, 2)
+    assert gw.shape == (3, 2)
+    np.testing.assert_allclose(gw[0], [2.0, 2.0])
+    np.testing.assert_allclose(gw[1], [1.0, 1.0])
+    inst = DispatchedEmbeddingBackward()
+    assert "DispatchedEmbeddingBackward" in repr(inst)
