@@ -91,6 +91,7 @@ from python.parallax.dispatch.swiglu import (
 )
 
 __all__ = [
+    "AlibiPositionalBias",
     "DispatchedSDPA",
     "SDPAModule",
     "dispatched_sdpa",
@@ -112,11 +113,14 @@ __all__ = [
     "RoPEFrequencyTable",
     "SlidingWindowAttention",
     "SwiGLUActivation",
+    "apply_alibi_bias",
     "apply_axial_rope",
     "apply_axial_rope_grid",
     "apply_rotary_emb",
+    "build_alibi_bias",
     "build_sliding_window_mask",
     "create_kv_cache",
+    "dispatch_alibi_bias",
     "dispatch_axial_rope",
     "dispatch_rope",
     "dispatched_gelu_fast",
@@ -134,6 +138,7 @@ __all__ = [
     "gelu_fast_dispatch",
     "gelu_fast_forward_np",
     "gelu_tanh",
+    "get_alibi_slopes",
     "get_sliding_window_bounds",
     "logit_soft_cap",
     "logit_soft_cap_backward",
