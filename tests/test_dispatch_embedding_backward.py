@@ -108,3 +108,17 @@ def test_dispatched_embedding_backward_class():
     np.testing.assert_allclose(gw[1], [1.0, 1.0])
     inst = DispatchedEmbeddingBackward()
     assert "DispatchedEmbeddingBackward" in repr(inst)
+
+
+def test_dispatch_embedding_backward_all():
+    """Verify __all__ contains public functions and class."""
+    import python.parallax.dispatch.embedding_backward as eb
+
+    assert hasattr(eb, "__all__")
+    expected = {
+        "DispatchedEmbeddingBackward",
+        "accumulate_embedding_backward",
+        "embedding_backward",
+        "sparse_embedding_backward",
+    }
+    assert expected.issubset(set(eb.__all__))
