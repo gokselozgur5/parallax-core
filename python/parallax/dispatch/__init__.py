@@ -66,6 +66,7 @@ from python.parallax.dispatch.sdpa import (
 )
 
 __all__ = [
+    "AlibiPositionalBias",
     "DispatchedSDPA",
     "SDPAModule",
     "dispatched_sdpa",
@@ -82,13 +83,16 @@ __all__ = [
     "KVCacheManager",
     "RoPEFrequencyTable",
     "SlidingWindowAttention",
+    "apply_alibi_bias",
     "apply_axial_rope",
     "apply_axial_rope_grid",
     "apply_rotary_emb",
+    "build_alibi_bias",
     "build_sliding_window_mask",
     "conv2d_backward",
     "conv2d_forward",
     "create_kv_cache",
+    "dispatch_alibi_bias",
     "dispatch_axial_rope",
     "dispatch_rope",
     "dispatched_conv2d",
@@ -100,6 +104,7 @@ __all__ = [
     "gelu_fast_dispatch",
     "gelu_fast_forward_np",
     "gelu_tanh",
+    "get_alibi_slopes",
     "get_sliding_window_bounds",
     "precompute_axial_freqs",
     "precompute_axial_freqs_cis",
