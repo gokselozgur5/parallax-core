@@ -49,3 +49,20 @@ def test_embedding_backward_padding_idx():
     np.testing.assert_allclose(grad_weight[0], 3.0)
     np.testing.assert_allclose(grad_weight[1], 0.0)
     np.testing.assert_allclose(grad_weight[2], 3.0)
+
+
+def test_embedding_backward_out_buffer():
+    """Verify in-place accumulation into preallocated out buffer."""
+    num_embeddings = 4
+    embedding_dim = 2
+    indices = np.array([0, 2], dtype=np.int64)
+    grad_output = np.ones((2, embedding_dim), dtype=np.float32)
+    buf = np.ones((num_embeddings, embedding_dim), dtype=np.float32)
+
+    res = embedding_backward(
+        grad_output, indices, num_embeddings, embedding_dim, out=buf
+    )
+    assert res is buf
+    np.testing.assert_allclose(buf[0], 2.0)
+    np.testing.assert_allclose(buf[1], 1.0)
+    np.testing.assert_allclose(buf[2], 2.0)
