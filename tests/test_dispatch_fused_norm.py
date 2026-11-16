@@ -107,6 +107,14 @@ def test_fused_rmsnorm_autograd_backward():
     np.testing.assert_allclose(x.grad, res.grad)
 
 
+def test_fused_norm_exports():
+    import parallax.dispatch.fused_norm as fn
+    assert hasattr(fn, "FusedRMSNorm")
+    assert hasattr(fn, "fused_rmsnorm")
+    assert hasattr(fn, "stabilize_epsilon")
+
+
+
 
 
 
