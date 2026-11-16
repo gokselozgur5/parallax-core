@@ -46,4 +46,17 @@ def test_dispatched_repeat_kv_autograd() -> None:
     np.testing.assert_allclose(x.grad, np.full((1, 2, 3, 4), 3.0, dtype=np.float32))
 
 
+def test_gqa_head_repeater_module() -> None:
+    from parallax.tensor import Tensor
+    from python.parallax.dispatch.gqa import GQAHeadRepeater
+
+    repeater = GQAHeadRepeater(n_rep=4)
+    assert repeater.n_rep == 4
+    assert "n_rep=4" in repeater.extra_repr()
+    x = Tensor(np.random.randn(2, 2, 8, 16).astype(np.float32))
+    out = repeater(x)
+    assert out.shape == (2, 8, 8, 16)
+
+
+
 
