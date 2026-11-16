@@ -56,3 +56,32 @@ def fused_layernorm(
     if return_residual:
         return out, fused
     return out
+
+
+def _backward_layernorm(
+    dout: np.ndarray,
+    fused: np.ndarray,
+    eps: float,
+    weight: Optional[Tensor],
+    bias: Optional[Tensor],
+    x: Optional[Tensor],
+    residual: Optional[Tensor],
+) -> None:
+    """Compute and accumulate gradients for LayerNorm operation."""
+    mean = np.mean(fused, axis=-1, keepdims=True)
+    var = np.var(fused, axis=-1, keepdims=True)
+    inv_std = 1.0 / np.sqrt(var + eps)
+    x_hat = (fused - mean) * inv_std
+    d = fused.shape[-1]
+    gw = dout * weight.data if weight is not None else dout
+    dvar = np.sum(gw * (fused - mean) * -0.5 * (inv_std ** 3), axis=-1, keepdims=True)
+    dmean = np.sum(gw * -inv_std, axis=-1, keepdims=True) + dvar * np.mean(-2.0 * (fused - mean), axis=-1, keepdims=True)
+    dx = gw * inv_std + dvar * 2.0 * (fused - mean) / d + dmean / d
+    if weight is not None and weight.requires_grad:
+        _accumulate_grad(weight, np.sum(dout * x_hat, axis=tuple(range(dout.ndim - 1))))
+    if bias is not None and bias.requires_grad:
+        _accumulate_grad(bias, np.sum(dout, axis=tuple(range(dout.ndim - 1))))
+    if isinstance(x, Tensor) and x.requires_grad:
+        _accumulate_grad(x, dx)
+    if isinstance(residual, Tensor) and residual.requires_grad:
+        _accumulate_grad(residual, dx)
