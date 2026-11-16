@@ -85,3 +85,28 @@ def _backward_conv2d(
         _accumulate_grad(weight, dw)
     if bias is not None and bias.requires_grad:
         _accumulate_grad(bias, np.sum(grad, axis=(0, 2, 3)))
+
+
+def dispatched_conv2d(
+    x: Tensor,
+    weight: Tensor,
+    bias: Tensor | None = None,
+    stride: Union[int, Tuple[int, int]] = 1,
+    padding: Union[int, Tuple[int, int]] = 0,
+) -> Tensor:
+    """Dispatched 2D convolution with autograd backward support."""
+    if not isinstance(x, Tensor) or not isinstance(weight, Tensor):
+        raise TypeError("dispatched_conv2d requires Tensor inputs for x and weight")
+    st = _pair(stride)
+    pd = _pair(padding)
+    b_data = bias.data if bias is not None else None
+    try:
+        out_data = dispatch("conv2d", x.data, weight.data, b_data, st, pd)
+    except Exception:
+        out_data = conv2d_forward(x.data, weight.data, b_data, st, pd)
+    parents = (x, weight) if bias is None else (x, weight, bias)
+    out = Tensor(out_data, parents, "dispatched_conv2d")
+    if not out.requires_grad:
+        return out
+    out._backward = lambda: _backward_conv2d(out.grad, x, weight, bias, st, pd) if out.grad is not None else None
+    return out
