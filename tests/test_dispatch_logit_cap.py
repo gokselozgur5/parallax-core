@@ -46,4 +46,21 @@ def test_logit_soft_cap_backward_values() -> None:
     np.testing.assert_allclose(grad_x, expected, rtol=1e-5, atol=1e-6)
 
 
+def test_logit_soft_cap_finite_difference_gradient() -> None:
+    x = np.array([-2.5, 0.5, 3.2], dtype=np.float64)
+    grad_out = np.array([0.8, -1.2, 0.5], dtype=np.float64)
+    cap = 15.0
+    analytic_grad = logit_soft_cap_backward(grad_out, x, cap=cap)
+    eps = 1e-6
+    num_grad = np.zeros_like(x)
+    for i in range(len(x)):
+        x_pos, x_neg = x.copy(), x.copy()
+        x_pos[i] += eps
+        x_neg[i] -= eps
+        diff = (logit_soft_cap(x_pos, cap=cap) - logit_soft_cap(x_neg, cap=cap)) * grad_out
+        num_grad[i] = np.sum(diff) / (2 * eps)
+    np.testing.assert_allclose(analytic_grad, num_grad, rtol=1e-5, atol=1e-5)
+
+
+
 
