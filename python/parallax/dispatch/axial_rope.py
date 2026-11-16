@@ -62,3 +62,19 @@ def apply_axial_rope_grid(
     h_coords = np.repeat(np.arange(height), width)
     w_coords = np.tile(np.arange(width), height)
     return apply_axial_rope(x, cos_h, sin_h, cos_w, sin_w, h_coords, w_coords)
+
+
+class AxialRoPEFrequencyTable:
+    """Precomputed 2D axial RoPE frequency table container."""
+
+    def __init__(self, dim: int, max_h: int, max_w: int, theta: float = 10000.0) -> None:
+        self.dim = dim
+        self.max_h = max_h
+        self.max_w = max_w
+        self.theta = theta
+        self.cos_h, self.sin_h, self.cos_w, self.sin_w = precompute_axial_freqs(
+            dim, max_h, max_w, theta=theta
+        )
+
+    def apply_to_grid(self, x: np.ndarray, height: int, width: int) -> np.ndarray:
+        return apply_axial_rope_grid(x, self.cos_h, self.sin_h, self.cos_w, self.sin_w, height, width)
