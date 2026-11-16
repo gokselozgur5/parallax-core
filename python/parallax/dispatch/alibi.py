@@ -63,3 +63,31 @@ def apply_alibi_bias(
         rel = k_pos - q_pos if causal else -np.abs(q_pos - k_pos)
         bias = (slopes[:, None, None] * rel[None, :, :]).astype(scores.dtype)
     return scores + bias
+
+
+class AlibiPositionalBias:
+    """Cached ALiBi positional bias generator for attention layers."""
+
+    def __init__(self, num_heads: int, causal: bool = True) -> None:
+        self.num_heads = int(num_heads)
+        self.causal = bool(causal)
+        self.slopes = get_alibi_slopes(self.num_heads)
+
+    def build_bias(
+        self, q_len: int, k_len: int | None = None, offset: int = 0
+    ) -> np.ndarray:
+        return build_alibi_bias(
+            self.num_heads, q_len, k_len, causal=self.causal, offset=offset
+        )
+
+    def apply(self, scores: np.ndarray, offset: int = 0) -> np.ndarray:
+        return apply_alibi_bias(
+            scores, slopes=self.slopes, causal=self.causal, offset=offset
+        )
+
+
+def dispatch_alibi_bias(
+    scores: np.ndarray, causal: bool = True, offset: int = 0
+) -> np.ndarray:
+    """Dispatched entry point to apply ALiBi bias to attention scores."""
+    return apply_alibi_bias(scores, causal=causal, offset=offset)
