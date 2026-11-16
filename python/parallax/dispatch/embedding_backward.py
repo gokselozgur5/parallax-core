@@ -73,3 +73,15 @@ def accumulate_embedding_backward(
     num_emb, emb_dim = weight.shape[:2]
     dw = embedding_backward(grad_arr, idx_arr, num_emb, emb_dim, padding_idx=padding_idx)
     _accumulate_grad(weight, dw)
+
+
+
+class DispatchedEmbeddingBackward:
+    """Dispatched embedding backward weight gradient accumulator."""
+
+    compute = staticmethod(embedding_backward)
+    accumulate = staticmethod(accumulate_embedding_backward)
+    sparse_compute = staticmethod(sparse_embedding_backward)
+
+    def __repr__(self) -> str:
+        return "DispatchedEmbeddingBackward()"
