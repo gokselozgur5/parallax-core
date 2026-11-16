@@ -23,3 +23,11 @@ class DispatchedEmbedding(Module):
         limit = 1.0 / np.sqrt(embedding_dim)
         data = np.random.uniform(-limit, limit, (num_embeddings, embedding_dim))
         self.weight = Parameter(data, label="Embedding.weight")
+
+    def forward(self, indices: Tensor | np.ndarray) -> Tensor:
+        raw_idx = indices.data if isinstance(indices, Tensor) else indices
+        idx_arr = np.asarray(raw_idx, dtype=np.int64)
+        out_data = self.weight.data[idx_arr]
+        parents = (self.weight,) if isinstance(indices, np.ndarray) else (indices, self.weight)
+        out = Tensor(out_data, parents, "Embedding")
+        return out
