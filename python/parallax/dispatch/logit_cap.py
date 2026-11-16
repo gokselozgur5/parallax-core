@@ -82,5 +82,16 @@ class DispatchedLogitCap(Module):
         return f"DispatchedLogitCap({self.extra_repr()})"
 
 
+LogitSoftCap = DispatchedLogitCap
+
+__all__ = [
+    "DispatchedLogitCap",
+    "LogitSoftCap",
+    "logit_soft_cap",
+    "logit_soft_cap_backward",
+]
+
+
+
 
 
