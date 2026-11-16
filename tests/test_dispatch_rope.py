@@ -53,3 +53,19 @@ def test_apply_rotary_emb_identity_at_pos0() -> None:
 
     out_int = apply_rotary_emb(x, cos, sin, offset=0, interleaved=True)
     np.testing.assert_allclose(out_int, x, atol=1e-6)
+
+
+def test_apply_rotary_emb_parity_with_reference() -> None:
+    from parallax.attention import apply_rope
+    from python.parallax.dispatch.rope import apply_rotary_emb, precompute_freqs
+
+    rng = np.random.default_rng(42)
+    x = rng.standard_normal((8, 2, 16)).astype(np.float32)
+    cos, sin = precompute_freqs(dim=16, max_seq_len=32, theta=10000.0)
+    act_int = apply_rotary_emb(x, cos, sin, offset=3, interleaved=True)
+    x_t = np.transpose(x, (1, 0, 2))
+    exp_int = np.transpose(apply_rope(x_t, seq_dim=1, offset=3, interleaved=True), (1, 0, 2))
+    np.testing.assert_allclose(act_int, exp_int, atol=1e-5, rtol=1e-5)
+    act_non = apply_rotary_emb(x, cos, sin, offset=3, interleaved=False)
+    exp_non = np.transpose(apply_rope(x_t, seq_dim=1, offset=3, interleaved=False), (1, 0, 2))
+    np.testing.assert_allclose(act_non, exp_non, atol=1e-5, rtol=1e-5)
