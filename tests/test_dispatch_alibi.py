@@ -40,3 +40,17 @@ def test_build_alibi_bias_causal_shape_and_values():
         np.testing.assert_allclose(np.diag(bias[h]), 0.0)
     assert bias[0, 1, 0] < 0.0
     assert bias[0, 2, 0] < bias[3, 2, 0]
+
+
+def test_build_alibi_bias_bidirectional():
+    bias = build_alibi_bias(num_heads=2, q_len=4, k_len=4, causal=False)
+    assert bias.shape == (2, 4, 4)
+    for h in range(2):
+        np.testing.assert_allclose(bias[h], bias[h].T)
+
+
+def test_build_alibi_bias_with_offset():
+    bias = build_alibi_bias(num_heads=2, q_len=1, k_len=5, offset=4)
+    assert bias.shape == (2, 1, 5)
+    assert bias[0, 0, 4] == 0.0
+    assert bias[0, 0, 0] < 0.0
