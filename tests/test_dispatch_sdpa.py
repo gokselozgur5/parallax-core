@@ -88,3 +88,20 @@ def test_sdpa_backward_finite_difference() -> None:
         o_neg = scaled_dot_product_attention(neg if arr is q else q, neg if arr is k else k, neg if arr is v else v)
         num = np.sum((o_pos - o_neg) * grad_out) / (2 * eps)
         assert np.isclose(grad[idx], num, rtol=1e-4, atol=1e-4)
+
+
+def test_dispatched_sdpa_module_and_autograd() -> None:
+    from parallax.tensor import Tensor
+    mod = DispatchedSDPA(is_causal=False)
+    assert "DispatchedSDPA" in repr(mod)
+    assert SDPAModule is DispatchedSDPA
+    q = Tensor(np.random.randn(1, 2, 4, 8).astype(np.float32), requires_grad=True)
+    k = Tensor(np.random.randn(1, 2, 4, 8).astype(np.float32), requires_grad=True)
+    v = Tensor(np.random.randn(1, 2, 4, 8).astype(np.float32), requires_grad=True)
+    out = mod(q, k, v)
+    loss = out.sum()
+    loss.backward()
+    assert q.grad is not None and k.grad is not None and v.grad is not None
+    assert q.grad.shape == q.shape
+    out2 = dispatched_sdpa(q, k, v)
+    assert out2.shape == q.shape
