@@ -6,6 +6,11 @@ from python.parallax.dispatch.conv2d import (
     conv2d_forward,
     dispatched_conv2d,
 )
+from python.parallax.dispatch.kv_cache import (
+    KVCacheBuffer,
+    KVCacheManager,
+    create_kv_cache,
+)
 from python.parallax.dispatch.rope import (
     RoPEFrequencyTable,
     apply_rotary_emb,
@@ -17,10 +22,13 @@ from python.parallax.dispatch.rope import (
 
 __all__ = [
     "DispatchedConv2d",
+    "KVCacheBuffer",
+    "KVCacheManager",
     "RoPEFrequencyTable",
     "apply_rotary_emb",
     "conv2d_backward",
     "conv2d_forward",
+    "create_kv_cache",
     "dispatch_rope",
     "dispatched_conv2d",
     "precompute_freqs",
