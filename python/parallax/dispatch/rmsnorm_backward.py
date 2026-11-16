@@ -51,3 +51,17 @@ def rmsnorm_backward(
     """Execute functional backward pass for RMSNorm layer."""
     eps_val = stabilize_epsilon(eps)
     return _dispatch_rmsnorm_backward(dout, x, weight, eps_val)
+
+
+def fused_rmsnorm_backward(
+    dout: np.ndarray,
+    x: np.ndarray,
+    weight: np.ndarray,
+    residual: Optional[np.ndarray] = None,
+    eps: float = 1e-6,
+) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
+    """Compute gradients for RMSNorm with optional fused residual."""
+    fused = x + residual if residual is not None else x
+    dx, dw = rmsnorm_backward(dout, fused, weight, eps=eps)
+    dres = dx.copy() if residual is not None else None
+    return dx, dw, dres
