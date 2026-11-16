@@ -7,10 +7,12 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+import parallax
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
-PYTHON_DIR = str(REPO_ROOT / "python")
-if PYTHON_DIR not in sys.path:
-    sys.path.insert(0, PYTHON_DIR)
+_dispatch_pkg = str(REPO_ROOT / "python" / "parallax")
+if _dispatch_pkg not in parallax.__path__:
+    parallax.__path__.append(_dispatch_pkg)
 
 from parallax.dispatch.kv_cache import KVCacheBuffer
 
@@ -23,3 +25,8 @@ def test_kv_cache_buffer_init_shapes():
     assert buf.head_dim == 16
     assert buf.k.shape == (2, 4, 64, 16)
     assert buf.v.shape == (2, 4, 64, 16)
+
+
+def test_kv_cache_memory_usage_bytes():
+    buf = KVCacheBuffer(batch_size=1, max_seq_len=128, num_heads=2, head_dim=64)
+    assert buf.memory_usage_bytes() == 131072
