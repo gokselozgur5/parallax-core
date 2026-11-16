@@ -76,3 +76,15 @@ def dispatched_gelu_fast(x: Tensor | np.ndarray) -> Tensor:
 
     out._backward = _backward
     return out
+
+
+class DispatchedGELUFast(Module):
+    """Fast GeLU activation module using optimal backend dispatch."""
+
+    def __init__(self, approximate: str = "tanh") -> None:
+        super().__init__()
+        self.approximate = str(approximate).lower()
+        if self.approximate not in {"tanh", "none"}:
+            raise ValueError(
+                f"Unsupported approximation mode: {approximate!r}. Must be 'tanh' or 'none'."
+            )
