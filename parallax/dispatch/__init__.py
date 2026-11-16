@@ -1,5 +1,10 @@
 """Dispatch subsystem modules and kernels."""
 
+from python.parallax.dispatch.fused_norm import (
+    FusedRMSNorm,
+    fused_rmsnorm,
+    stabilize_epsilon,
+)
 from python.parallax.dispatch.kv_cache import (
     KVCacheBuffer,
     KVCacheManager,
@@ -23,6 +28,7 @@ from python.parallax.dispatch.swiglu import (
 
 __all__ = [
     "DispatchedSwiGLU",
+    "FusedRMSNorm",
     "KVCacheBuffer",
     "KVCacheManager",
     "RoPEFrequencyTable",
@@ -31,9 +37,11 @@ __all__ = [
     "create_kv_cache",
     "dispatch_rope",
     "dispatched_swiglu",
+    "fused_rmsnorm",
     "precompute_freqs",
     "precompute_freqs_cis",
     "rotate_half",
+    "stabilize_epsilon",
     "swiglu_backward_dispatch",
     "swiglu_dispatch",
 ]
