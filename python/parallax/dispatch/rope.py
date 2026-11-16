@@ -20,3 +20,11 @@ def precompute_freqs(
     pos = np.arange(max_seq_len, dtype=np.float64)[:, None]
     angles = pos * freqs[None, :]
     return np.cos(angles).astype(np.float32), np.sin(angles).astype(np.float32)
+
+
+def precompute_freqs_cis(
+    dim: int, max_seq_len: int, theta: float = 10000.0
+) -> np.ndarray:
+    """Precompute complex exponential cis (cos + 1j*sin) frequency table."""
+    cos, sin = precompute_freqs(dim, max_seq_len, theta=theta)
+    return (cos + 1j * sin).astype(np.complex64)
