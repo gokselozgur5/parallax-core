@@ -100,3 +100,15 @@ def test_rmsnorm_backward_exports():
         "stabilize_epsilon",
     ):
         assert hasattr(rb, sym)
+
+
+def test_rmsnorm_backward_package_exports():
+    import parallax.dispatch as pd
+    for sym in (
+        "dispatched_rmsnorm",
+        "fused_rmsnorm_backward",
+        "rmsnorm_backward",
+        "rmsnorm_backward_reference",
+        "stabilize_epsilon",
+    ):
+        assert hasattr(pd, sym)
