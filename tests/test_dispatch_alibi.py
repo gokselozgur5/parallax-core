@@ -24,3 +24,19 @@ def test_get_alibi_slopes_validation():
         get_alibi_slopes(0)
     with pytest.raises(ValueError, match="num_heads must be positive"):
         get_alibi_slopes(-4)
+
+
+def test_get_alibi_slopes_non_power_of_two():
+    slopes = get_alibi_slopes(12)
+    assert slopes.shape == (12,)
+    assert slopes.dtype == np.float32
+    assert np.all(slopes > 0.0)
+
+
+def test_build_alibi_bias_causal_shape_and_values():
+    bias = build_alibi_bias(num_heads=4, q_len=3, k_len=3, causal=True)
+    assert bias.shape == (4, 3, 3)
+    for h in range(4):
+        np.testing.assert_allclose(np.diag(bias[h]), 0.0)
+    assert bias[0, 1, 0] < 0.0
+    assert bias[0, 2, 0] < bias[3, 2, 0]
