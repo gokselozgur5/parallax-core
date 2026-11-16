@@ -28,3 +28,14 @@ def precompute_freqs_cis(
     """Precompute complex exponential cis (cos + 1j*sin) frequency table."""
     cos, sin = precompute_freqs(dim, max_seq_len, theta=theta)
     return (cos + 1j * sin).astype(np.complex64)
+
+
+def rotate_half(x: np.ndarray, interleaved: bool = False) -> np.ndarray:
+    """Rotate half the hidden dimensions of x."""
+    if interleaved:
+        out = np.empty_like(x)
+        out[..., 0::2] = -x[..., 1::2]
+        out[..., 1::2] = x[..., 0::2]
+        return out
+    half = x.shape[-1] // 2
+    return np.concatenate((-x[..., half:], x[..., :half]), axis=-1)
