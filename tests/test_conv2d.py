@@ -77,3 +77,27 @@ def test_from_conv2d_copy():
     assert layer2.out_channels == layer1.out_channels
     assert layer2.weight is layer1.weight
     assert layer2.bias is layer1.bias
+
+
+def test_dispatched_conv2d_backward_gradients():
+    from parallax.tensor import Tensor
+
+    layer = DispatchedConv2d(in_channels=2, out_channels=3, kernel_size=3, padding=1)
+    x = Tensor(np.random.randn(2, 2, 4, 4).astype(np.float32), requires_grad=True)
+    out = layer(x)
+    loss = out.sum()
+    loss.backward()
+    assert x.grad is not None
+    assert x.grad.shape == (2, 2, 4, 4)
+    assert layer.weight.grad is not None
+    assert layer.weight.grad.shape == layer.weight.shape
+    if layer.bias is not None:
+        assert layer.bias.grad is not None
+        assert layer.bias.grad.shape == layer.bias.shape
+
+
+def test_dispatched_conv2d_type_validation():
+    with pytest.raises(TypeError):
+        from python.parallax.dispatch.conv2d import dispatched_conv2d
+
+        dispatched_conv2d(np.zeros((1, 1, 3, 3)), np.zeros((1, 1, 3, 3)))  # type: ignore
