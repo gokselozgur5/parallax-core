@@ -77,3 +77,14 @@ def test_kv_cache_manager_multi_layer():
     assert mgr.layers[1].seq_len == 1
     assert mgr.layers[0].seq_len == 0
     np.testing.assert_allclose(k_out, k_in)
+
+
+def test_kv_cache_reset_clears_positions():
+    buf = KVCacheBuffer(batch_size=1, max_seq_len=8, num_heads=2, head_dim=4)
+    k = np.ones((1, 2, 2, 4), dtype=np.float32)
+    buf.update(k, k)
+    assert buf.seq_len == 2
+    buf.reset()
+    assert buf.seq_len == 0
+    k_view, _ = buf.get_view()
+    assert k_view.shape[2] == 0
