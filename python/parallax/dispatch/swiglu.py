@@ -5,6 +5,8 @@ from __future__ import annotations
 import numpy as np
 
 from parallax.nn import Module
+from parallax.nn.linear import DispatchedLinear
+
 from parallax.tensor import Tensor, _accumulate_grad
 
 
@@ -64,6 +66,33 @@ class SwiGLUActivation(Module):
             g, u = np.split(gate.data, 2, axis=self.dim)
             return dispatched_swiglu(Tensor(g), Tensor(u))
         return dispatched_swiglu(gate, up)
+
+
+class DispatchedSwiGLU(Module):
+    """Dispatched SwiGLU FFN module: (silu(x @ W_gate^T) * (x @ W_up^T)) @ W_down^T."""
+
+    def __init__(
+        self,
+        embed_dim: int,
+        hidden_dim: int | None = None,
+        bias: bool = False,
+    ) -> None:
+        super().__init__()
+        self.embed_dim = embed_dim
+        if hidden_dim is None:
+            hidden_dim = int(2 * (4 * embed_dim) / 3)
+            hidden_dim = 64 * ((hidden_dim + 64 - 1) // 64)
+        self.hidden_dim = hidden_dim
+        self.w_gate = DispatchedLinear(embed_dim, hidden_dim, bias=bias)
+        self.w_up = DispatchedLinear(embed_dim, hidden_dim, bias=bias)
+        self.w_down = DispatchedLinear(hidden_dim, embed_dim, bias=bias)
+
+    def forward(self, x: Tensor) -> Tensor:
+        gate = self.w_gate(x)
+        up = self.w_up(x)
+        fused = dispatched_swiglu(gate, up)
+        return self.w_down(fused)
+
 
 
 
