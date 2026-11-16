@@ -69,3 +69,17 @@ def test_apply_rotary_emb_parity_with_reference() -> None:
     act_non = apply_rotary_emb(x, cos, sin, offset=3, interleaved=False)
     exp_non = np.transpose(apply_rope(x_t, seq_dim=1, offset=3, interleaved=False), (1, 0, 2))
     np.testing.assert_allclose(act_non, exp_non, atol=1e-5, rtol=1e-5)
+
+
+def test_rope_frequency_table_and_slice() -> None:
+    from python.parallax.dispatch.rope import RoPEFrequencyTable
+
+    table = RoPEFrequencyTable(dim=16, max_seq_len=64)
+    c, s = table.get_slice(seq_len=8, offset=4)
+    assert c.shape == (8, 8)
+    assert s.shape == (8, 8)
+    x = np.ones((8, 2, 16), dtype=np.float32)
+    out = table.rotate(x, offset=4, interleaved=True)
+    assert out.shape == x.shape
+    with pytest.raises(IndexError):
+        table.get_slice(seq_len=60, offset=10)
