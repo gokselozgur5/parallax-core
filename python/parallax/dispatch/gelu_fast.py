@@ -24,3 +24,20 @@ def gelu_fast_forward_np(x: np.ndarray) -> np.ndarray:
     res = np.where(x_f32 <= -10.0, 0.0, res)
     res = np.where(x_f32 >= 10.0, x_f32, res)
     return res.astype(x.dtype)
+
+
+def gelu_fast_dispatch(x: np.ndarray) -> np.ndarray:
+    """Compute fast GeLU activation via backend engine, native C, or NumPy."""
+    if np.iscomplexobj(x):
+        raise TypeError("Complex dtypes are not supported")
+    try:
+        from parallax.backends.dispatch import dispatch
+        return dispatch("gelu_fast", x)
+    except Exception:
+        pass
+    try:
+        from parallax.native.gelu import c_gelu
+        return c_gelu(x)
+    except Exception:
+        pass
+    return gelu_fast_forward_np(x)
