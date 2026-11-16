@@ -42,3 +42,18 @@ def test_kv_cache_single_step_update_and_view():
     assert v_out.shape == (1, 2, 1, 4)
     np.testing.assert_allclose(k_out, k_step)
     np.testing.assert_allclose(v_out, v_step)
+
+
+def test_kv_cache_prefill_and_decode_step():
+    buf = KVCacheBuffer(batch_size=1, max_seq_len=16, num_heads=2, head_dim=4)
+    k_pre = np.random.randn(1, 2, 4, 4).astype(np.float32)
+    v_pre = np.random.randn(1, 2, 4, 4).astype(np.float32)
+    k_out, v_out = buf.update(k_pre, v_pre)
+    assert buf.seq_len == 4
+    assert k_out.shape == (1, 2, 4, 4)
+    k_dec = np.random.randn(1, 2, 1, 4).astype(np.float32)
+    v_dec = np.random.randn(1, 2, 1, 4).astype(np.float32)
+    k_out2, v_out2 = buf.update(k_dec, v_dec)
+    assert buf.seq_len == 5
+    assert k_out2.shape == (1, 2, 5, 4)
+    np.testing.assert_allclose(k_out2[:, :, 4:5, :], k_dec)
