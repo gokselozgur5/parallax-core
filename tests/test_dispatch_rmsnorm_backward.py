@@ -88,3 +88,15 @@ def test_dispatched_rmsnorm_autograd():
     assert w.grad is not None
     assert x.grad.shape == (2, 2)
     assert w.grad.shape == (2,)
+
+
+def test_rmsnorm_backward_exports():
+    import python.parallax.dispatch.rmsnorm_backward as rb
+    for sym in (
+        "dispatched_rmsnorm",
+        "fused_rmsnorm_backward",
+        "rmsnorm_backward",
+        "rmsnorm_backward_reference",
+        "stabilize_epsilon",
+    ):
+        assert hasattr(rb, sym)
