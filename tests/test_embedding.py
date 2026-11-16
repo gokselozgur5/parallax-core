@@ -31,3 +31,12 @@ def test_dispatched_embedding_padding_idx():
     idx = Tensor(np.array([0, 1]))
     out = emb(idx)
     np.testing.assert_allclose(out.data[0], np.zeros(4))
+
+
+def test_dispatched_embedding_bounds_validation():
+    from parallax.nn.embedding import DispatchedEmbedding
+    emb = DispatchedEmbedding(5, 3)
+    with pytest.raises(IndexError):
+        emb(Tensor(np.array([5])))
+    with pytest.raises(IndexError):
+        emb(Tensor(np.array([-1])))
