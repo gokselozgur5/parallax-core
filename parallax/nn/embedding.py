@@ -48,3 +48,23 @@ class DispatchedEmbedding(Module):
 
         out._backward = _backward
         return out
+
+    @classmethod
+    def from_pretrained(
+        cls,
+        embeddings: Tensor | np.ndarray,
+        freeze: bool = True,
+        padding_idx: Optional[int] = None,
+    ) -> DispatchedEmbedding:
+        data = embeddings.data if isinstance(embeddings, Tensor) else np.asarray(embeddings)
+        num_emb, emb_dim = data.shape
+        mod = cls(num_emb, emb_dim, padding_idx=padding_idx)
+        mod.weight = Parameter(data.copy(), label="Embedding.weight")
+        mod.weight.requires_grad = not freeze
+        return mod
+
+    def extra_repr(self) -> str:
+        return f"num_embeddings={self.num_embeddings}, embedding_dim={self.embedding_dim}, padding_idx={self.padding_idx}"
+
+    def __repr__(self) -> str:
+        return f"DispatchedEmbedding({self.extra_repr()})"
