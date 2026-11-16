@@ -6,6 +6,7 @@ from python.parallax.dispatch.axial_rope import (
     AxialRoPEFrequencyTable,
     apply_axial_rope,
     apply_axial_rope_grid,
+    dispatch_axial_rope,
     precompute_axial_freqs,
     precompute_axial_freqs_cis,
 )
@@ -60,3 +61,9 @@ def test_axial_rope_frequency_table_container():
     x = np.random.randn(9, 32).astype(np.float32)
     out = table.apply_to_grid(x, height=3, width=3)
     assert out.shape == (9, 32)
+
+
+def test_dispatch_axial_rope_execution():
+    x = np.random.randn(6, 32).astype(np.float32)
+    out = dispatch_axial_rope(x, height=2, width=3)
+    assert out.shape == (6, 32)
