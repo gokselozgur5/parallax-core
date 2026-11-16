@@ -125,6 +125,16 @@ class DispatchedSwiGLU(Module):
         return f"DispatchedSwiGLU({self.extra_repr()})"
 
 
+__all__ = [
+    "DispatchedSwiGLU",
+    "SwiGLUActivation",
+    "dispatched_swiglu",
+    "swiglu_backward_dispatch",
+    "swiglu_dispatch",
+]
+
+
+
 
 
 
