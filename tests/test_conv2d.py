@@ -22,3 +22,19 @@ def test_dispatched_conv2d_initialization():
     assert layer.weight.shape == (16, 3, 3, 3)
     assert layer.bias is not None
     assert layer.bias.shape == (16,)
+
+
+def test_dispatched_conv2d_repr():
+    layer = DispatchedConv2d(in_channels=1, out_channels=4, kernel_size=(3, 5), bias=False)
+    assert layer.bias is None
+    expected_extra = "in_channels=1, out_channels=4, kernel_size=(3, 5), stride=(1, 1), padding=(0, 0), bias=False"
+    assert layer.extra_repr() == expected_extra
+    assert repr(layer) == f"DispatchedConv2d({expected_extra})"
+
+
+def test_dispatched_conv2d_package_exports():
+    from parallax.dispatch.conv2d import DispatchedConv2d as DC1
+    from python.parallax.dispatch import DispatchedConv2d as DC2
+
+    assert DC1 is DispatchedConv2d
+    assert DC2 is DispatchedConv2d
