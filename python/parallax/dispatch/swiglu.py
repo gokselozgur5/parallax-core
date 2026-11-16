@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 
+from parallax.nn import Module
 from parallax.tensor import Tensor, _accumulate_grad
+
 
 
 def swiglu_dispatch(a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -48,5 +50,20 @@ def dispatched_swiglu(gate: Tensor, up: Tensor) -> Tensor:
 
     out._backward = _backward
     return out
+
+
+class SwiGLUActivation(Module):
+    """SwiGLU activation layer: computes silu(gate) * up."""
+
+    def __init__(self, dim: int = -1) -> None:
+        super().__init__()
+        self.dim = dim
+
+    def forward(self, gate: Tensor, up: Tensor | None = None) -> Tensor:
+        if up is None:
+            g, u = np.split(gate.data, 2, axis=self.dim)
+            return dispatched_swiglu(Tensor(g), Tensor(u))
+        return dispatched_swiglu(gate, up)
+
 
 
