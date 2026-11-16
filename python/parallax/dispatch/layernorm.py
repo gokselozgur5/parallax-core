@@ -85,3 +85,25 @@ def _backward_layernorm(
         _accumulate_grad(x, dx)
     if isinstance(residual, Tensor) and residual.requires_grad:
         _accumulate_grad(residual, dx)
+
+
+class FusedLayerNorm(Module):
+    """LayerNorm layer supporting fused affine scaling and residual addition."""
+
+    def __init__(
+        self,
+        normalized_shape: Union[int, Tuple[int, ...]],
+        eps: float = 1e-5,
+        elementwise_affine: bool = True,
+        bias: bool = True,
+    ) -> None:
+        super().__init__()
+        self.normalized_shape = (normalized_shape,) if isinstance(normalized_shape, int) else tuple(normalized_shape)
+        self.eps = float(eps)
+        self.elementwise_affine = bool(elementwise_affine)
+        self.weight: Optional[Parameter] = None
+        self.bias: Optional[Parameter] = None
+        if self.elementwise_affine:
+            self.weight = Parameter(np.ones(self.normalized_shape, dtype=np.float32), label="LayerNorm.weight")
+            if bias:
+                self.bias = Parameter(np.zeros(self.normalized_shape, dtype=np.float32), label="LayerNorm.bias")
