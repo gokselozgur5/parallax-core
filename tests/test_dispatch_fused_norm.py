@@ -108,6 +108,14 @@ def test_fused_norm_exports():
     assert hasattr(fn, "stabilize_epsilon")
 
 
+def test_fused_norm_package_exports():
+    import parallax.dispatch as pd
+    assert hasattr(pd, "FusedRMSNorm")
+    assert hasattr(pd, "fused_rmsnorm")
+    assert hasattr(pd, "stabilize_epsilon")
+
+
+
 
 
 
