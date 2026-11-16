@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Optional
 import numpy as np
 from parallax.nn import Module, Parameter
-from parallax.tensor import Tensor
+from parallax.tensor import Tensor, _accumulate_grad
 
 
 class DispatchedEmbedding(Module):
@@ -34,4 +34,17 @@ class DispatchedEmbedding(Module):
         out_data = self.weight.data[idx_arr]
         parents = (self.weight,) if isinstance(indices, np.ndarray) else (indices, self.weight)
         out = Tensor(out_data, parents, "Embedding")
+        if not out.requires_grad:
+            return out
+
+        def _backward() -> None:
+            if out.grad is None or not self.weight.requires_grad:
+                return
+            grad_w = np.zeros_like(self.weight.data)
+            np.add.at(grad_w, idx_arr, out.grad)
+            if self.padding_idx is not None:
+                grad_w[self.padding_idx] = 0.0
+            _accumulate_grad(self.weight, grad_w)
+
+        out._backward = _backward
         return out
