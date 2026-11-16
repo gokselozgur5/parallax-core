@@ -96,3 +96,17 @@ def test_fused_layernorm_backward_gradients():
     assert norm.weight.grad.shape == (dim,)
     assert norm.bias.grad is not None
     assert norm.bias.grad.shape == (dim,)
+
+
+def test_from_layernorm_conversion():
+    from parallax.nn import LayerNorm
+
+    orig = LayerNorm(dim=12, eps=1e-4)
+    orig.weight.data = np.random.randn(12).astype(np.float32)
+    orig.bias.data = np.random.randn(12).astype(np.float32)
+
+    converted = FusedLayerNorm.from_layernorm(orig)
+    assert converted.normalized_shape == (12,)
+    assert converted.eps == 1e-4
+    assert np.allclose(converted.weight.data, orig.weight.data)
+    assert np.allclose(converted.bias.data, orig.bias.data)
