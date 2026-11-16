@@ -31,6 +31,12 @@ class KVCacheBuffer:
         """Return total memory allocated for key and value buffers in bytes."""
         return int(self.k.nbytes + self.v.nbytes)
 
+    def reset(self) -> None:
+        """Reset sequence position and zero out buffer contents."""
+        self.seq_len = 0
+        self.k.fill(0)
+        self.v.fill(0)
+
     def get_view(self, seq_len: Optional[int] = None) -> tuple[np.ndarray, np.ndarray]:
         """Return views of active key and value tensors up to seq_len."""
         length = self.seq_len if seq_len is None else seq_len
@@ -74,3 +80,8 @@ class KVCacheManager:
 
     def memory_usage_bytes(self) -> int:
         return sum(layer.memory_usage_bytes() for layer in self.layers)
+
+    def reset(self) -> None:
+        """Reset all managed layer buffers."""
+        for layer in self.layers:
+            layer.reset()
