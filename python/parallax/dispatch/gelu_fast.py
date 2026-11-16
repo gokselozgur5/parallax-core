@@ -41,3 +41,19 @@ def gelu_fast_dispatch(x: np.ndarray) -> np.ndarray:
     except Exception:
         pass
     return gelu_fast_forward_np(x)
+
+
+def gelu_fast_backward(grad_out: np.ndarray, x: np.ndarray) -> np.ndarray:
+    """Compute analytical backward pass gradient for GeLU tanh approximation."""
+    x_f32 = np.asarray(x, dtype=np.float32)
+    g_f32 = np.asarray(grad_out, dtype=np.float32)
+    with np.errstate(over="ignore", invalid="ignore"):
+        inner = SQRT_2_OVER_PI * (x_f32 + COEF * (x_f32**3))
+        tanh_inner = np.tanh(inner)
+        cdf = 0.5 * (1.0 + tanh_inner)
+        d_inner = SQRT_2_OVER_PI * (1.0 + 3.0 * COEF * (x_f32**2))
+        d_cdf = 0.5 * (1.0 - tanh_inner**2) * d_inner
+        dx = g_f32 * (cdf + x_f32 * d_cdf)
+    dx = np.where(x_f32 <= -10.0, 0.0, dx)
+    dx = np.where(x_f32 >= 10.0, g_f32, dx)
+    return dx.astype(x.dtype)
