@@ -48,3 +48,17 @@ def test_sliding_window_zero_window_identity() -> None:
     v = np.array([[[1.0, 2.0, 3.0, 4.0]], [[5.0, 6.0, 7.0, 8.0]], [[9.0, 10.0, 11.0, 12.0]]], dtype=np.float32)
     out = sliding_window_attention(q, k, v, window_size=0, causal=True)
     np.testing.assert_allclose(out, v, atol=1e-5)
+
+
+def test_flash_sliding_window_tile() -> None:
+    from python.parallax.dispatch.sliding_window import flash_sliding_window_tile
+
+    q_block = np.ones((2, 4), dtype=np.float32)
+    k_block = np.ones((2, 4), dtype=np.float32)
+    v_block = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    out, m, l = flash_sliding_window_tile(
+        q_block, k_block, v_block, q_start=0, k_start=0, window_size=1, scale=0.5
+    )
+    assert out.shape == (2, 2)
+    assert m.shape == (2, 1)
+    assert l.shape == (2, 1)
