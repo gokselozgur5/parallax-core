@@ -68,5 +68,18 @@ def test_swiglu_activation_module() -> None:
     np.testing.assert_allclose(out1.data, out2.data, atol=1e-5)
 
 
+def test_dispatched_swiglu_ffn_forward() -> None:
+    from python.parallax.dispatch.swiglu import DispatchedSwiGLU
+    from parallax.tensor import Tensor
+
+    layer = DispatchedSwiGLU(embed_dim=8, hidden_dim=16)
+    x = Tensor(np.random.randn(2, 4, 8).astype(np.float32), requires_grad=True)
+    out = layer(x)
+    assert out.shape == (2, 4, 8)
+    out.sum().backward()
+    assert x.grad is not None
+
+
+
 
 
