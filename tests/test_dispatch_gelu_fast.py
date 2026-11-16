@@ -58,3 +58,22 @@ def test_gelu_fast_backward_numerical() -> None:
         numerical[idx] = np.sum(grad_out * (f_pos - f_neg) / (2.0 * eps))
 
     assert np.allclose(analytical, numerical, rtol=1e-3, atol=1e-4)
+
+
+def test_dispatched_gelu_fast_autograd() -> None:
+    t = Tensor(np.array([-1.5, 0.0, 1.5], dtype=np.float32), requires_grad=True)
+    out = dispatched_gelu_fast(t)
+    loss = (out * 2.0).sum()
+    loss.backward()
+    assert t.grad is not None
+    assert t.grad.shape == t.shape
+
+
+def test_dispatched_gelu_fast_module() -> None:
+    mod = DispatchedGELUFast()
+    x = Tensor(np.array([[0.5, -0.5]], dtype=np.float32))
+    out = mod(x)
+    assert out.shape == (1, 2)
+    assert repr(mod) == "DispatchedGELUFast(approximate='tanh')"
+    with pytest.raises(ValueError, match="Unsupported approximation"):
+        DispatchedGELUFast(approximate="invalid")
