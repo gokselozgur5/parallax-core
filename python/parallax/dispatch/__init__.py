@@ -14,6 +14,10 @@ from python.parallax.dispatch.conv2d import (
     conv2d_forward,
     dispatched_conv2d,
 )
+from python.parallax.dispatch.layernorm import (
+    FusedLayerNorm,
+    fused_layernorm,
+)
 from python.parallax.dispatch.kv_cache import (
     KVCacheBuffer,
     KVCacheManager,
@@ -31,6 +35,8 @@ from python.parallax.dispatch.rope import (
 __all__ = [
     "AxialRoPEFrequencyTable",
     "DispatchedConv2d",
+    "FusedLayerNorm",
+    "fused_layernorm",
     "KVCacheBuffer",
     "KVCacheManager",
     "RoPEFrequencyTable",
