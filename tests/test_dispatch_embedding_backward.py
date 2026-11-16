@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from python.parallax.dispatch.embedding_backward import (
+    accumulate_embedding_backward,
     embedding_backward,
     sparse_embedding_backward,
 )
@@ -79,3 +80,18 @@ def test_sparse_embedding_backward():
     np.testing.assert_array_equal(uniq_idx, [2, 5])
     np.testing.assert_allclose(grad_slices[0], [6.0, 8.0])
     np.testing.assert_allclose(grad_slices[1], [3.0, 4.0])
+
+
+def test_accumulate_embedding_backward():
+    """Verify autograd gradient accumulation into Parameter tensor."""
+    from parallax.nn import Parameter
+    from parallax.tensor import Tensor
+
+    weight = Parameter(np.zeros((6, 3), dtype=np.float32))
+    indices = Tensor(np.array([1, 2, 1], dtype=np.int64))
+    grad_output = np.ones((3, 3), dtype=np.float32)
+
+    accumulate_embedding_backward(grad_output, indices, weight, padding_idx=2)
+    assert weight.grad is not None
+    np.testing.assert_allclose(weight.grad[1], 2.0)
+    np.testing.assert_allclose(weight.grad[2], 0.0)
