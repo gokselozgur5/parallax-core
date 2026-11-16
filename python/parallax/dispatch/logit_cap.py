@@ -58,5 +58,17 @@ class DispatchedLogitCap(Module):
         parents = (x,) if isinstance(x, Tensor) else ()
         return Tensor(out_data, parents, "DispatchedLogitCap")
 
+    @classmethod
+    def from_capper(cls, capper: Any) -> DispatchedLogitCap:
+        cap = getattr(capper, "soft_cap", getattr(capper, "cap", 30.0))
+        return cls(cap=cap)
+
+    def extra_repr(self) -> str:
+        return f"cap={self.cap}"
+
+    def __repr__(self) -> str:
+        return f"DispatchedLogitCap({self.extra_repr()})"
+
+
 
 
