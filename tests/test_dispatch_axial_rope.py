@@ -2,7 +2,10 @@
 
 import numpy as np
 import pytest
-from python.parallax.dispatch.axial_rope import precompute_axial_freqs
+from python.parallax.dispatch.axial_rope import (
+    precompute_axial_freqs,
+    precompute_axial_freqs_cis,
+)
 
 
 def test_precompute_axial_freqs_shapes():
@@ -14,7 +17,15 @@ def test_precompute_axial_freqs_shapes():
 
 
 def test_precompute_axial_freqs_validation():
-    with pytest.raises(ValueError, match="dim must be divisible by 4"):
+    with pytest.raises(ValueError, match="positive and divisible by 4"):
         precompute_axial_freqs(dim=18, max_h=8, max_w=8)
     with pytest.raises(ValueError, match="max_h and max_w must be positive"):
         precompute_axial_freqs(dim=32, max_h=0, max_w=8)
+
+
+def test_precompute_axial_freqs_cis():
+    cis_h, cis_w = precompute_axial_freqs_cis(dim=32, max_h=8, max_w=8)
+    assert cis_h.shape == (8, 8)
+    assert cis_w.shape == (8, 8)
+    assert cis_h.dtype == np.complex64
+    assert cis_w.dtype == np.complex64
