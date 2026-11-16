@@ -14,7 +14,7 @@ _dispatch_pkg = str(REPO_ROOT / "python" / "parallax")
 if _dispatch_pkg not in parallax.__path__:
     parallax.__path__.append(_dispatch_pkg)
 
-from parallax.dispatch.kv_cache import KVCacheBuffer, KVCacheManager
+from parallax.dispatch.kv_cache import KVCacheBuffer, KVCacheManager, create_kv_cache
 
 
 def test_kv_cache_buffer_init_shapes():
@@ -88,3 +88,11 @@ def test_kv_cache_reset_clears_positions():
     assert buf.seq_len == 0
     k_view, _ = buf.get_view()
     assert k_view.shape[2] == 0
+
+
+def test_create_kv_cache_factory_dispatch():
+    buf = create_kv_cache(batch_size=2, max_seq_len=32, num_heads=2, head_dim=8)
+    assert isinstance(buf, KVCacheBuffer)
+    mgr = create_kv_cache(batch_size=2, max_seq_len=32, num_heads=2, head_dim=8, num_layers=4)
+    assert isinstance(mgr, KVCacheManager)
+    assert mgr.num_layers == 4
