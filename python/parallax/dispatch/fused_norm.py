@@ -53,6 +53,18 @@ class FusedRMSNorm(Module):
         self.eps = float(eps)
         self.weight = Parameter(np.ones(self.dim, dtype=np.float32), label="RMSNorm.weight")
 
+    def forward(
+        self,
+        x: Tensor | np.ndarray,
+        residual: Optional[Tensor | np.ndarray] = None,
+    ) -> Tensor:
+        raw_x = x.data if isinstance(x, Tensor) else x
+        raw_res = residual.data if isinstance(residual, Tensor) else residual
+        out_data = fused_rmsnorm(raw_x, self.weight.data, residual=raw_res, eps=self.eps)
+        parents = [p for p in (x, residual, self.weight) if isinstance(p, Tensor)]
+        return Tensor(out_data, tuple(parents), "FusedRMSNorm")
+
+
 
 
 
