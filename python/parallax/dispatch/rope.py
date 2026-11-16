@@ -39,3 +39,20 @@ def rotate_half(x: np.ndarray, interleaved: bool = False) -> np.ndarray:
         return out
     half = x.shape[-1] // 2
     return np.concatenate((-x[..., half:], x[..., :half]), axis=-1)
+
+
+def apply_rotary_emb(
+    x: np.ndarray, cos: np.ndarray, sin: np.ndarray, offset: int = 0, interleaved: bool = False
+) -> np.ndarray:
+    """Apply precomputed RoPE tables to tensor x."""
+    t, half = x.shape[0], x.shape[-1] // 2
+    c = cos[offset : offset + t].reshape((t,) + (1,) * (x.ndim - 2) + (half,))
+    s = sin[offset : offset + t].reshape((t,) + (1,) * (x.ndim - 2) + (half,))
+    out = np.empty_like(x)
+    if interleaved:
+        x1, x2 = x[..., 0::2], x[..., 1::2]
+        out[..., 0::2], out[..., 1::2] = x1 * c - x2 * s, x1 * s + x2 * c
+    else:
+        x1, x2 = x[..., :half], x[..., half:]
+        out[..., :half], out[..., half:] = x1 * c - x2 * s, x1 * s + x2 * c
+    return out
