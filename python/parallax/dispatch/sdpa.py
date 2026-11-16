@@ -52,3 +52,24 @@ def _compute_sdpa_scores(
         else:
             scores = scores + attn_mask
     return scores, causal_mask, inv_scale
+
+
+def scaled_dot_product_attention(
+    query: np.ndarray,
+    key: np.ndarray,
+    value: np.ndarray,
+    attn_mask: Optional[np.ndarray] = None,
+    dropout_p: float = 0.0,
+    is_causal: bool = False,
+    scale: Optional[float] = None,
+) -> np.ndarray:
+    """Compute scaled dot-product attention."""
+    _validate_sdpa_inputs(query, key, value, attn_mask=attn_mask, is_causal=is_causal)
+    scores, _, _ = _compute_sdpa_scores(
+        query, key, scale=scale, attn_mask=attn_mask, is_causal=is_causal
+    )
+    scores_max = np.max(scores, axis=-1, keepdims=True)
+    exp_scores = np.exp(scores - scores_max)
+    attn_weights = exp_scores / np.sum(exp_scores, axis=-1, keepdims=True)
+    out = np.matmul(attn_weights, value)
+    return out.astype(query.dtype)
