@@ -52,4 +52,21 @@ def test_dispatched_swiglu_tensor_autograd() -> None:
     assert u.grad is not None
 
 
+def test_swiglu_activation_module() -> None:
+    from python.parallax.dispatch.swiglu import SwiGLUActivation
+    from parallax.tensor import Tensor
+
+    act = SwiGLUActivation()
+    g = Tensor(np.array([[1.0, 2.0]], dtype=np.float32))
+    u = Tensor(np.array([[0.5, -0.5]], dtype=np.float32))
+    out1 = act(g, u)
+    assert out1.shape == (1, 2)
+
+    x = Tensor(np.array([[1.0, 2.0, 0.5, -0.5]], dtype=np.float32))
+    out2 = act(x)
+    assert out2.shape == (1, 2)
+    np.testing.assert_allclose(out1.data, out2.data, atol=1e-5)
+
+
+
 
