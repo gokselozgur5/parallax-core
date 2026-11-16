@@ -30,3 +30,26 @@ def get_sliding_window_bounds(
     else:
         ends = np.minimum(seq_len_k, q_pos + window_size + 1)
     return starts, ends
+
+
+def sliding_window_attention(
+    q: np.ndarray,
+    k: np.ndarray,
+    v: np.ndarray,
+    window_size: int,
+    scale: float | None = None,
+    causal: bool = True,
+) -> np.ndarray:
+    """Compute scaled dot-product attention with sliding window masking."""
+    ndim3 = q.ndim == 3
+    q_b = q[None, ...] if ndim3 else q
+    k_b = k[None, ...] if ndim3 else k
+    v_b = v[None, ...] if ndim3 else v
+    inv_scale = float(scale) if scale is not None else 1.0 / np.sqrt(q_b.shape[-1])
+    mask = build_sliding_window_mask(q_b.shape[1], k_b.shape[1], window_size, causal=causal)
+    scores = np.einsum("bshd,bthd->bhst", q_b, k_b) * inv_scale
+    scores = np.where(mask[None, None, :, :], scores, -1e9)
+    probs = np.exp(scores - np.max(scores, axis=-1, keepdims=True))
+    probs = probs / np.maximum(np.sum(probs, axis=-1, keepdims=True), 1e-12)
+    out = np.einsum("bhst,bthd->bshd", probs, v_b).astype(q.dtype)
+    return out[0] if ndim3 else out
