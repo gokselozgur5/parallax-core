@@ -53,3 +53,26 @@ def sliding_window_attention(
     probs = probs / np.maximum(np.sum(probs, axis=-1, keepdims=True), 1e-12)
     out = np.einsum("bhst,bthd->bshd", probs, v_b).astype(q.dtype)
     return out[0] if ndim3 else out
+
+
+def flash_sliding_window_tile(
+    q: np.ndarray,
+    k: np.ndarray,
+    v: np.ndarray,
+    q_start: int,
+    k_start: int,
+    window_size: int,
+    scale: float,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Process a single FlashAttention tile with sliding window masking."""
+    scores = np.matmul(q, k.T) * scale
+    q_idx = np.arange(q_start, q_start + q.shape[0])[:, None]
+    k_idx = np.arange(k_start, k_start + k.shape[0])[None, :]
+    delta = q_idx - k_idx
+    mask = (delta >= 0) & (delta <= window_size)
+    scores = np.where(mask, scores, -1e9)
+    m = np.max(scores, axis=-1, keepdims=True)
+    p = np.exp(scores - m) * mask
+    l = np.sum(p, axis=-1, keepdims=True)
+    acc = np.matmul(p, v)
+    return acc, m, l
