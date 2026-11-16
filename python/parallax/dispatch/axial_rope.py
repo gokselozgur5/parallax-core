@@ -78,3 +78,12 @@ class AxialRoPEFrequencyTable:
 
     def apply_to_grid(self, x: np.ndarray, height: int, width: int) -> np.ndarray:
         return apply_axial_rope_grid(x, self.cos_h, self.sin_h, self.cos_w, self.sin_w, height, width)
+
+
+def dispatch_axial_rope(
+    x: np.ndarray, height: int, width: int, theta: float = 10000.0
+) -> np.ndarray:
+    """Dispatch 2D axial rotary embedding onto tensor x with grid (height, width)."""
+    dim = x.shape[-1]
+    cos_h, sin_h, cos_w, sin_w = precompute_axial_freqs(dim, height, width, theta=theta)
+    return apply_axial_rope_grid(x, cos_h, sin_h, cos_w, sin_w, height, width)
