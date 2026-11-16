@@ -68,3 +68,22 @@ def test_apply_alibi_bias_broadcast():
 def test_apply_alibi_bias_invalid_ndim():
     with pytest.raises(ValueError, match="at least 3 dims"):
         apply_alibi_bias(np.zeros((4, 4), dtype=np.float32))
+
+
+def test_alibi_positional_bias_class():
+    helper = AlibiPositionalBias(num_heads=4, causal=True)
+    assert helper.num_heads == 4
+    assert helper.causal is True
+    assert helper.slopes.shape == (4,)
+    bias = helper.build_bias(q_len=2, k_len=4, offset=2)
+    assert bias.shape == (4, 2, 4)
+    scores = np.ones((1, 4, 2, 4), dtype=np.float32)
+    res = helper.apply(scores, offset=2)
+    assert res.shape == (1, 4, 2, 4)
+
+
+def test_dispatch_alibi_bias():
+    scores = np.zeros((4, 6, 6), dtype=np.float32)
+    out = dispatch_alibi_bias(scores, causal=True)
+    assert out.shape == (4, 6, 6)
+    np.testing.assert_allclose(np.diag(out[0]), 0.0)
