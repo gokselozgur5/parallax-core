@@ -5,7 +5,15 @@ from python.parallax.dispatch.fused_norm import (
     fused_rmsnorm,
     stabilize_epsilon,
 )
+from python.parallax.dispatch.gqa import (
+    GQAHeadRepeater,
+    dispatched_repeat_kv,
+    reduce_kv_grad,
+    repeat_kv,
+    repeat_kv_pair,
+)
 from python.parallax.dispatch.kv_cache import (
+
     KVCacheBuffer,
     KVCacheManager,
     create_kv_cache,
@@ -29,6 +37,7 @@ from python.parallax.dispatch.swiglu import (
 __all__ = [
     "DispatchedSwiGLU",
     "FusedRMSNorm",
+    "GQAHeadRepeater",
     "KVCacheBuffer",
     "KVCacheManager",
     "RoPEFrequencyTable",
@@ -36,12 +45,17 @@ __all__ = [
     "apply_rotary_emb",
     "create_kv_cache",
     "dispatch_rope",
+    "dispatched_repeat_kv",
     "dispatched_swiglu",
     "fused_rmsnorm",
     "precompute_freqs",
     "precompute_freqs_cis",
+    "reduce_kv_grad",
+    "repeat_kv",
+    "repeat_kv_pair",
     "rotate_half",
     "stabilize_epsilon",
     "swiglu_backward_dispatch",
     "swiglu_dispatch",
 ]
+
