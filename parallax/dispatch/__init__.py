@@ -51,6 +51,13 @@ from python.parallax.dispatch.sliding_window import (
     get_sliding_window_bounds,
     sliding_window_attention,
 )
+from python.parallax.dispatch.sdpa import (
+    DispatchedSDPA,
+    SDPAModule,
+    dispatched_sdpa,
+    scaled_dot_product_attention,
+    sdpa_backward,
+)
 from python.parallax.dispatch.swiglu import (
     DispatchedSwiGLU,
     SwiGLUActivation,
@@ -60,6 +67,11 @@ from python.parallax.dispatch.swiglu import (
 )
 
 __all__ = [
+    "DispatchedSDPA",
+    "SDPAModule",
+    "dispatched_sdpa",
+    "scaled_dot_product_attention",
+    "sdpa_backward",
     "AxialRoPEFrequencyTable",
     "DispatchedSwiGLU",
     "FusedLayerNorm",
