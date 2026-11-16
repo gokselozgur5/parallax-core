@@ -88,3 +88,23 @@ class DispatchedGELUFast(Module):
             raise ValueError(
                 f"Unsupported approximation mode: {approximate!r}. Must be 'tanh' or 'none'."
             )
+
+    def forward(self, x: Tensor | np.ndarray) -> Tensor:
+        return dispatched_gelu_fast(x)
+
+    @classmethod
+    def from_module(cls, mod: Any) -> DispatchedGELUFast:
+        approx = getattr(mod, "approximate", "tanh")
+        return cls(approximate=approx)
+
+    def extra_repr(self) -> str:
+        return f"approximate='{self.approximate}'"
+
+    def __repr__(self) -> str:
+        return f"DispatchedGELUFast({self.extra_repr()})"
+
+
+GELUFast = DispatchedGELUFast
+FastGELU = DispatchedGELUFast
+gelu_fast = gelu_fast_dispatch
+gelu_tanh = gelu_fast_dispatch
