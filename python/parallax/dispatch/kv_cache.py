@@ -26,3 +26,7 @@ class KVCacheBuffer:
         self.k = np.zeros(shape, dtype=self.dtype)
         self.v = np.zeros(shape, dtype=self.dtype)
         self.seq_len = 0
+
+    def memory_usage_bytes(self) -> int:
+        """Return total memory allocated for key and value buffers in bytes."""
+        return int(self.k.nbytes + self.v.nbytes)
