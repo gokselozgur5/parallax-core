@@ -24,3 +24,17 @@ def test_gelu_fast_forward_parity() -> None:
     out_np = gelu_fast_forward_np(x)
     out_disp = gelu_fast_dispatch(x)
     assert np.allclose(out_np, out_disp, atol=1e-6)
+
+
+def test_gelu_fast_bounds_and_edges() -> None:
+    x = np.array([-20.0, -10.0, 0.0, 10.0, 20.0], dtype=np.float32)
+    out = gelu_fast_dispatch(x)
+    assert np.isclose(out[0], 0.0)
+    assert np.isclose(out[2], 0.0)
+    assert np.isclose(out[4], 20.0)
+
+    empty = np.empty((0, 8), dtype=np.float32)
+    assert gelu_fast_dispatch(empty).shape == (0, 8)
+
+    with pytest.raises(TypeError, match="Complex dtypes"):
+        gelu_fast_dispatch(np.array([1 + 2j], dtype=np.complex64))
