@@ -23,3 +23,13 @@ def precompute_axial_freqs(
     cos_w = np.cos(w_pos * freqs[None, :]).astype(np.float32)
     sin_w = np.sin(w_pos * freqs[None, :]).astype(np.float32)
     return cos_h, sin_h, cos_w, sin_w
+
+
+def precompute_axial_freqs_cis(
+    dim: int, max_h: int, max_w: int, theta: float = 10000.0
+) -> tuple[np.ndarray, np.ndarray]:
+    """Precompute complex exponential cis tables for vertical and horizontal dimensions."""
+    cos_h, sin_h, cos_w, sin_w = precompute_axial_freqs(dim, max_h, max_w, theta=theta)
+    cis_h = (cos_h + 1j * sin_h).astype(np.complex64)
+    cis_w = (cos_w + 1j * sin_w).astype(np.complex64)
+    return cis_h, cis_w
