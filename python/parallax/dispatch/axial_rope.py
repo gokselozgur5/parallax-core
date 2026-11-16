@@ -87,3 +87,13 @@ def dispatch_axial_rope(
     dim = x.shape[-1]
     cos_h, sin_h, cos_w, sin_w = precompute_axial_freqs(dim, height, width, theta=theta)
     return apply_axial_rope_grid(x, cos_h, sin_h, cos_w, sin_w, height, width)
+
+
+__all__ = [
+    "AxialRoPEFrequencyTable",
+    "apply_axial_rope",
+    "apply_axial_rope_grid",
+    "dispatch_axial_rope",
+    "precompute_axial_freqs",
+    "precompute_axial_freqs_cis",
+]
