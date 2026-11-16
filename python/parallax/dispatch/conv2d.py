@@ -67,3 +67,21 @@ def conv2d_backward(
             dx_pad[:, :, i * sh : i * sh + kh, j * sw : j * sw + kw] += np.tensordot(cur, weight, axes=(1, 0))
     dx = dx_pad[:, :, ph : ph + x.shape[2], pw : pw + x.shape[3]] if (ph or pw) else dx_pad
     return dx, dw
+
+
+def _backward_conv2d(
+    grad: np.ndarray,
+    x: Tensor,
+    weight: Tensor,
+    bias: Tensor | None,
+    stride: Tuple[int, int],
+    padding: Tuple[int, int],
+) -> None:
+    """Accumulate autograd gradients for conv2d inputs."""
+    dx, dw = conv2d_backward(grad, x.data, weight.data, stride, padding)
+    if x.requires_grad:
+        _accumulate_grad(x, dx)
+    if weight.requires_grad:
+        _accumulate_grad(weight, dw)
+    if bias is not None and bias.requires_grad:
+        _accumulate_grad(bias, np.sum(grad, axis=(0, 2, 3)))
