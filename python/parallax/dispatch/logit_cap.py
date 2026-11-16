@@ -9,5 +9,8 @@ import numpy as np
 def logit_soft_cap(x: np.ndarray, cap: float = 30.0) -> np.ndarray:
     """Apply hyperbolic tangent soft-capping to logits: cap * tanh(x / cap)."""
     cap_val = float(cap)
+    if cap_val <= 0.0:
+        raise ValueError("cap must be strictly positive")
     scaled = x / cap_val
     return (cap_val * np.tanh(scaled)).astype(x.dtype)
+
