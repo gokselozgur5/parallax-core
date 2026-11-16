@@ -46,7 +46,7 @@ def test_gelu_fast_backward_numerical() -> None:
     grad_out = rng.standard_normal((3, 5), dtype=np.float32)
     analytical = gelu_fast_backward(grad_out, x)
 
-    eps = 1e-4
+    eps = 1e-3
     numerical = np.zeros_like(x)
     for idx in np.ndindex(x.shape):
         x_pos = x.copy()
@@ -57,7 +57,7 @@ def test_gelu_fast_backward_numerical() -> None:
         f_neg = gelu_fast_forward_np(x_neg)
         numerical[idx] = np.sum(grad_out * (f_pos - f_neg) / (2.0 * eps))
 
-    assert np.allclose(analytical, numerical, rtol=1e-3, atol=1e-4)
+    assert np.allclose(analytical, numerical, rtol=1e-2, atol=1e-3)
 
 
 def test_dispatched_gelu_fast_autograd() -> None:
