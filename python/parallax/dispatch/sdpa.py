@@ -191,3 +191,29 @@ class DispatchedSDPA(Module):
 
     def __repr__(self) -> str:
         return f"DispatchedSDPA({self.extra_repr()})"
+
+
+SDPAModule = DispatchedSDPA
+
+
+def dispatched_sdpa(
+    query: Tensor | np.ndarray,
+    key: Tensor | np.ndarray,
+    value: Tensor | np.ndarray,
+    attn_mask: Optional[Tensor | np.ndarray] = None,
+    dropout_p: float = 0.0,
+    is_causal: bool = False,
+    scale: Optional[float] = None,
+) -> Tensor:
+    """Dispatched entry point routing SDPA computation with autograd support."""
+    mod = DispatchedSDPA(dropout_p=dropout_p, is_causal=is_causal, scale=scale)
+    return mod(query, key, value, attn_mask=attn_mask)
+
+
+__all__ = [
+    "DispatchedSDPA",
+    "SDPAModule",
+    "dispatched_sdpa",
+    "scaled_dot_product_attention",
+    "sdpa_backward",
+]
