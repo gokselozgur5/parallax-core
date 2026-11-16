@@ -239,9 +239,11 @@ class LayerNorm(Module):
         return out
 
 
+from parallax.nn.embedding import DispatchedEmbedding
 from parallax.nn.linear import DispatchedLinear
 
 __all__ = [
+    "DispatchedEmbedding",
     "DispatchedLinear",
     "LayerNorm",
     "Linear",
