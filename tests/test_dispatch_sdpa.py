@@ -105,3 +105,14 @@ def test_dispatched_sdpa_module_and_autograd() -> None:
     assert q.grad.shape == q.shape
     out2 = dispatched_sdpa(q, k, v)
     assert out2.shape == q.shape
+
+
+def test_sdpa_exports_and_bridge() -> None:
+    import python.parallax.dispatch.sdpa as psdpa
+    import parallax.dispatch.sdpa as bsdpa
+    import parallax.dispatch as pd
+    for mod in (psdpa, bsdpa, pd):
+        assert hasattr(mod, "scaled_dot_product_attention")
+        assert hasattr(mod, "sdpa_backward")
+        assert hasattr(mod, "DispatchedSDPA")
+        assert hasattr(mod, "dispatched_sdpa")
