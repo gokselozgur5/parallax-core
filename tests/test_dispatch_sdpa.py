@@ -54,3 +54,18 @@ def test_sdpa_custom_scale() -> None:
     out_default = scaled_dot_product_attention(q, k, v)
     out_custom = scaled_dot_product_attention(q, k, v, scale=0.5)
     np.testing.assert_allclose(out_default, out_custom)
+
+
+def test_sdpa_boolean_and_additive_masks() -> None:
+    q = np.random.randn(1, 1, 4, 8).astype(np.float64)
+    k = np.random.randn(1, 1, 4, 8).astype(np.float64)
+    v = np.random.randn(1, 1, 4, 8).astype(np.float64)
+    bool_mask = np.ones((4, 4), dtype=bool)
+    bool_mask[:, 2:] = False
+    out_bool = scaled_dot_product_attention(q, k, v, attn_mask=bool_mask)
+    assert out_bool.shape == (1, 1, 4, 8)
+
+    float_mask = np.zeros((4, 4), dtype=np.float64)
+    float_mask[:, 2:] = -1e9
+    out_float = scaled_dot_product_attention(q, k, v, attn_mask=float_mask)
+    np.testing.assert_allclose(out_bool, out_float, rtol=1e-5, atol=1e-6)
