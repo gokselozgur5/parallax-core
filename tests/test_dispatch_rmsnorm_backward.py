@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from parallax.tensor import Tensor
 from python.parallax.dispatch.rmsnorm_backward import (
