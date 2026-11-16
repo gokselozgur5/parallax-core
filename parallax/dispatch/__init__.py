@@ -20,6 +20,10 @@ from python.parallax.dispatch.gqa import (
     repeat_kv,
     repeat_kv_pair,
 )
+from python.parallax.dispatch.layernorm import (
+    FusedLayerNorm,
+    fused_layernorm,
+)
 from python.parallax.dispatch.kv_cache import (
 
     KVCacheBuffer,
@@ -45,8 +49,10 @@ from python.parallax.dispatch.swiglu import (
 __all__ = [
     "AxialRoPEFrequencyTable",
     "DispatchedSwiGLU",
+    "FusedLayerNorm",
     "FusedRMSNorm",
     "GQAHeadRepeater",
+    "fused_layernorm",
     "KVCacheBuffer",
     "KVCacheManager",
     "RoPEFrequencyTable",
