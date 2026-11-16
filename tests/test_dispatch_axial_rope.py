@@ -67,3 +67,20 @@ def test_dispatch_axial_rope_execution():
     x = np.random.randn(6, 32).astype(np.float32)
     out = dispatch_axial_rope(x, height=2, width=3)
     assert out.shape == (6, 32)
+
+
+def test_axial_rope_package_exports():
+    import parallax.dispatch as pd
+    import python.parallax.dispatch as ppd
+
+    symbols = [
+        "AxialRoPEFrequencyTable",
+        "apply_axial_rope",
+        "apply_axial_rope_grid",
+        "dispatch_axial_rope",
+        "precompute_axial_freqs",
+        "precompute_axial_freqs_cis",
+    ]
+    for mod in (pd, ppd):
+        for sym in symbols:
+            assert hasattr(mod, sym)
