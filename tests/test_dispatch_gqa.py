@@ -12,3 +12,14 @@ def test_repeat_kv_shape_and_values() -> None:
     assert out.shape == (1, 6, 1, 2)
     np.testing.assert_allclose(out[:, 0:3, :, :], np.repeat(x[:, 0:1, :, :], 3, axis=1))
     np.testing.assert_allclose(out[:, 3:6, :, :], np.repeat(x[:, 1:2, :, :], 3, axis=1))
+
+
+def test_repeat_kv_validation() -> None:
+    x = np.ones((1, 2, 4, 8), dtype=np.float32)
+    with pytest.raises(ValueError):
+        repeat_kv(x, n_rep=0)
+    with pytest.raises(ValueError):
+        repeat_kv(x, n_rep=-2)
+    with pytest.raises(ValueError):
+        repeat_kv(np.ones((4, 8)), n_rep=2)
+
