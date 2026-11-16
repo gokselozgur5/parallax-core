@@ -1,7 +1,6 @@
 """Tests for FusedLayerNorm layer and dispatch layernorm routines."""
 
 import numpy as np
-import pytest
 from python.parallax.dispatch.layernorm import FusedLayerNorm, stabilize_epsilon
 
 
