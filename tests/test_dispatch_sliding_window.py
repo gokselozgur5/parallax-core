@@ -85,3 +85,16 @@ def test_dispatched_sliding_window_attention() -> None:
     v = np.ones((2, 1, 4), dtype=np.float32)
     out = dispatched_sliding_window_attention(q, k, v, window_size=1)
     assert out.shape == q.shape
+
+
+def test_package_exports() -> None:
+    import parallax.dispatch as pd
+    import python.parallax.dispatch as ppd
+
+    for mod in (pd, ppd):
+        assert hasattr(mod, "SlidingWindowAttention")
+        assert hasattr(mod, "build_sliding_window_mask")
+        assert hasattr(mod, "dispatched_sliding_window_attention")
+        assert hasattr(mod, "flash_sliding_window_tile")
+        assert hasattr(mod, "get_sliding_window_bounds")
+        assert hasattr(mod, "sliding_window_attention")
