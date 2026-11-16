@@ -110,3 +110,30 @@ def dispatched_conv2d(
         return out
     out._backward = lambda: _backward_conv2d(out.grad, x, weight, bias, st, pd) if out.grad is not None else None
     return out
+
+
+class DispatchedConv2d(Module):
+    """Drop-in 2D convolution layer backed by backend dispatch."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: Union[int, Tuple[int, int]],
+        stride: Union[int, Tuple[int, int]] = 1,
+        padding: Union[int, Tuple[int, int]] = 0,
+        bias: bool = True,
+    ) -> None:
+        super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.kernel_size = _pair(kernel_size)
+        self.stride = _pair(stride)
+        self.padding = _pair(padding)
+        kh, kw = self.kernel_size
+        limit = 1.0 / np.sqrt(in_channels * kh * kw)
+        w_init = np.random.uniform(-limit, limit, (out_channels, in_channels, kh, kw)).astype(np.float32)
+        self.weight = Parameter(w_init, label="Conv2d.weight")
+        self.bias: Parameter | None = (
+            Parameter(np.zeros(out_channels, dtype=np.float32), label="Conv2d.bias") if bias else None
+        )
