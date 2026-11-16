@@ -54,3 +54,17 @@ def test_build_alibi_bias_with_offset():
     assert bias.shape == (2, 1, 5)
     assert bias[0, 0, 4] == 0.0
     assert bias[0, 0, 0] < 0.0
+
+
+def test_apply_alibi_bias_broadcast():
+    scores = np.zeros((2, 4, 8, 8), dtype=np.float32)
+    out = apply_alibi_bias(scores, causal=True)
+    assert out.shape == (2, 4, 8, 8)
+    for b in range(2):
+        for h in range(4):
+            np.testing.assert_allclose(np.diag(out[b, h]), 0.0)
+
+
+def test_apply_alibi_bias_invalid_ndim():
+    with pytest.raises(ValueError, match="at least 3 dims"):
+        apply_alibi_bias(np.zeros((4, 4), dtype=np.float32))
