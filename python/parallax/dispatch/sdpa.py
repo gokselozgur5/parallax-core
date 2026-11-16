@@ -138,6 +138,32 @@ class DispatchedSDPA(Module):
         self.is_causal = bool(is_causal)
         self.scale = float(scale) if scale is not None else None
 
+    def forward(
+        self,
+        query: Tensor | np.ndarray,
+        key: Tensor | np.ndarray,
+        value: Tensor | np.ndarray,
+        attn_mask: Optional[Tensor | np.ndarray] = None,
+    ) -> Tensor:
+        raw_q = query.data if isinstance(query, Tensor) else query
+        raw_k = key.data if isinstance(key, Tensor) else key
+        raw_v = value.data if isinstance(value, Tensor) else value
+        raw_mask = attn_mask.data if isinstance(attn_mask, Tensor) else attn_mask
+
+        out_data = scaled_dot_product_attention(
+            raw_q,
+            raw_k,
+            raw_v,
+            attn_mask=raw_mask,
+            dropout_p=self.dropout_p,
+            is_causal=self.is_causal,
+            scale=self.scale,
+        )
+        parents = tuple(p for p in (query, key, value) if isinstance(p, Tensor))
+        out = Tensor(out_data, parents, "DispatchedSDPA")
+        if not out.requires_grad:
+            return out
+
     def extra_repr(self) -> str:
         return f"dropout_p={self.dropout_p}, is_causal={self.is_causal}, scale={self.scale}"
 
