@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional, Tuple, Union
+from typing import Optional, Tuple
 import numpy as np
 from parallax.tensor import Tensor, _accumulate_grad
 
