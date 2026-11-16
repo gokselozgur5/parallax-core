@@ -1,5 +1,13 @@
 """Dispatch subsystem modules and kernels."""
 
+from python.parallax.dispatch.axial_rope import (
+    AxialRoPEFrequencyTable,
+    apply_axial_rope,
+    apply_axial_rope_grid,
+    dispatch_axial_rope,
+    precompute_axial_freqs,
+    precompute_axial_freqs_cis,
+)
 from python.parallax.dispatch.fused_norm import (
     FusedRMSNorm,
     fused_rmsnorm,
@@ -27,17 +35,23 @@ from python.parallax.dispatch.swiglu import (
 )
 
 __all__ = [
+    "AxialRoPEFrequencyTable",
     "DispatchedSwiGLU",
     "FusedRMSNorm",
     "KVCacheBuffer",
     "KVCacheManager",
     "RoPEFrequencyTable",
     "SwiGLUActivation",
+    "apply_axial_rope",
+    "apply_axial_rope_grid",
     "apply_rotary_emb",
     "create_kv_cache",
+    "dispatch_axial_rope",
     "dispatch_rope",
     "dispatched_swiglu",
     "fused_rmsnorm",
+    "precompute_axial_freqs",
+    "precompute_axial_freqs_cis",
     "precompute_freqs",
     "precompute_freqs_cis",
     "rotate_half",
