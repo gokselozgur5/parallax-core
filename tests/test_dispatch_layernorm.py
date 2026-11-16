@@ -73,3 +73,26 @@ def test_fused_layernorm_residual_addition():
     norm = FusedLayerNorm(dim)
     t_out = norm(Tensor(x), residual=Tensor(res))
     assert t_out.shape == (2, dim)
+
+
+def test_fused_layernorm_backward_gradients():
+    from parallax.tensor import Tensor
+
+    dim = 8
+    norm = FusedLayerNorm(dim)
+    x = Tensor(np.random.randn(2, 4, dim).astype(np.float32), requires_grad=True)
+    res = Tensor(np.random.randn(2, 4, dim).astype(np.float32), requires_grad=True)
+
+    out = norm(x, residual=res)
+    loss = out.sum()
+    loss.backward()
+
+    assert x.grad is not None
+    assert x.grad.shape == (2, 4, dim)
+    assert res.grad is not None
+    assert res.grad.shape == (2, 4, dim)
+    assert np.allclose(x.grad, res.grad)
+    assert norm.weight.grad is not None
+    assert norm.weight.grad.shape == (dim,)
+    assert norm.bias.grad is not None
+    assert norm.bias.grad.shape == (dim,)
