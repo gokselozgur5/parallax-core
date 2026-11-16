@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 
+from parallax.tensor import Tensor, _accumulate_grad
+
+
 
 def repeat_kv(x: np.ndarray, n_rep: int) -> np.ndarray:
     """Repeat key/value heads along axis 1 by n_rep times."""
@@ -30,4 +33,21 @@ def reduce_kv_grad(grad: np.ndarray, n_rep: int) -> np.ndarray:
         raise ValueError(f"total_heads ({total_heads}) must be divisible by n_rep ({n_rep})")
     n_kv = total_heads // n_rep
     return grad.reshape(b, n_kv, n_rep, s, d).sum(axis=2)
+
+
+def dispatched_repeat_kv(x: Tensor, n_rep: int) -> Tensor:
+    """Repeat key/value Tensor heads along axis 1 with autograd tracking."""
+    out_data = repeat_kv(x.data, n_rep)
+    out = Tensor(out_data, (x,), f"RepeatKV(n_rep={n_rep})")
+
+    def _backward() -> None:
+        if out.grad is None:
+            return
+        if x.requires_grad:
+            dx = reduce_kv_grad(out.grad, n_rep)
+            _accumulate_grad(x, dx)
+
+    out._backward = _backward
+    return out
+
 
