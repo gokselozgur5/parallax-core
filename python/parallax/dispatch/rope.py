@@ -56,3 +56,21 @@ def apply_rotary_emb(
         x1, x2 = x[..., :half], x[..., half:]
         out[..., :half], out[..., half:] = x1 * c - x2 * s, x1 * s + x2 * c
     return out
+
+
+class RoPEFrequencyTable:
+    """Precomputed RoPE frequency table container."""
+
+    def __init__(self, dim: int, max_seq_len: int, theta: float = 10000.0) -> None:
+        self.dim = dim
+        self.max_seq_len = max_seq_len
+        self.theta = theta
+        self.cos, self.sin = precompute_freqs(dim, max_seq_len, theta=theta)
+
+    def get_slice(self, seq_len: int, offset: int = 0) -> tuple[np.ndarray, np.ndarray]:
+        if offset < 0 or offset + seq_len > self.max_seq_len:
+            raise IndexError(f"Slice [{offset}:{offset + seq_len}] exceeds max {self.max_seq_len}")
+        return self.cos[offset : offset + seq_len], self.sin[offset : offset + seq_len]
+
+    def rotate(self, x: np.ndarray, offset: int = 0, interleaved: bool = False) -> np.ndarray:
+        return apply_rotary_emb(x, self.cos, self.sin, offset=offset, interleaved=interleaved)
