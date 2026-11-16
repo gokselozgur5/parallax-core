@@ -98,3 +98,12 @@ def test_package_exports() -> None:
         assert hasattr(mod, "flash_sliding_window_tile")
         assert hasattr(mod, "get_sliding_window_bounds")
         assert hasattr(mod, "sliding_window_attention")
+
+
+def test_sliding_window_validation() -> None:
+    from python.parallax.dispatch.sliding_window import build_sliding_window_mask, SlidingWindowAttention
+
+    with pytest.raises(ValueError):
+        build_sliding_window_mask(seq_len_q=4, seq_len_k=4, window_size=-1)
+    with pytest.raises(ValueError):
+        SlidingWindowAttention(window_size=-2)
