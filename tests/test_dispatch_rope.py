@@ -1,0 +1,22 @@
+"""Unit tests for precomputed RoPE tables and rotation dispatch helpers."""
+
+import numpy as np
+import pytest
+from python.parallax.dispatch.rope import precompute_freqs
+
+
+def test_precompute_freqs_shape_and_values() -> None:
+    cos, sin = precompute_freqs(dim=16, max_seq_len=32, theta=10000.0)
+    assert cos.shape == (32, 8)
+    assert sin.shape == (32, 8)
+    np.testing.assert_allclose(cos[0], np.ones(8, dtype=np.float32), atol=1e-6)
+    np.testing.assert_allclose(sin[0], np.zeros(8, dtype=np.float32), atol=1e-6)
+
+
+def test_precompute_freqs_validation() -> None:
+    with pytest.raises(ValueError):
+        precompute_freqs(dim=15, max_seq_len=32)
+    with pytest.raises(ValueError):
+        precompute_freqs(dim=16, max_seq_len=0)
+    with pytest.raises(ValueError):
+        precompute_freqs(dim=16, max_seq_len=32, theta=-1.0)
