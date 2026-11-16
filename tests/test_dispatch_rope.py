@@ -83,3 +83,12 @@ def test_rope_frequency_table_and_slice() -> None:
     assert out.shape == x.shape
     with pytest.raises(IndexError):
         table.get_slice(seq_len=60, offset=10)
+
+
+def test_dispatch_rope() -> None:
+    from python.parallax.dispatch.rope import dispatch_rope
+
+    x = np.ones((4, 2, 8), dtype=np.float32)
+    out = dispatch_rope(x, start_pos=0, interleaved=True)
+    assert out.shape == x.shape
+    assert out.dtype == np.float32
