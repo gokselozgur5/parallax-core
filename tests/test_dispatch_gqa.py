@@ -79,6 +79,15 @@ def test_dispatch_gqa_package_exports() -> None:
     assert hasattr(gqa, "repeat_kv_pair")
 
 
+def test_parallax_dispatch_gqa_export() -> None:
+    from parallax.dispatch import GQAHeadRepeater, dispatched_repeat_kv, repeat_kv
+
+    assert GQAHeadRepeater is not None
+    assert dispatched_repeat_kv is not None
+    assert repeat_kv is not None
+
+
+
 
 
 
