@@ -66,3 +66,32 @@ def fused_rmsnorm_backward(
     dx, dw = rmsnorm_backward(dout, fused, weight, eps=eps)
     dres = dx.copy() if residual is not None else None
     return dx, dw, dres
+
+
+def dispatched_rmsnorm(
+    x: Tensor | np.ndarray,
+    weight: Tensor | np.ndarray,
+    eps: float = 1e-6,
+) -> Tensor:
+    """Dispatched RMSNorm functional forward with backward autograd hook."""
+    eps_val = stabilize_epsilon(eps)
+    raw_x = x.data if isinstance(x, Tensor) else x
+    raw_w = weight.data if isinstance(weight, Tensor) else weight
+    rms = np.sqrt(np.mean(raw_x ** 2, axis=-1, keepdims=True) + eps_val)
+    out_data = (raw_x / rms) * raw_w
+    parents = [p for p in (x, weight) if isinstance(p, Tensor)]
+    out = Tensor(out_data, tuple(parents), "dispatched_rmsnorm")
+    if not out.requires_grad:
+        return out
+
+    def _backward() -> None:
+        if out.grad is None:
+            return
+        dx, dw = rmsnorm_backward(out.grad, raw_x, raw_w, eps=eps_val)
+        if isinstance(x, Tensor) and x.requires_grad:
+            _accumulate_grad(x, dx)
+        if isinstance(weight, Tensor) and weight.requires_grad:
+            _accumulate_grad(weight, dw)
+
+    out._backward = _backward
+    return out
