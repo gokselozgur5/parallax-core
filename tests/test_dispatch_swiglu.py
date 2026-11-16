@@ -103,6 +103,18 @@ def test_dispatched_swiglu_from_swiglu_and_repr() -> None:
     assert "embed_dim=8" in dispatched.extra_repr()
 
 
+def test_swiglu_dispatch_native_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    from python.parallax.dispatch import swiglu
+
+    a = np.array([0.5, -0.5], dtype=np.float32)
+    b = np.array([2.0, -2.0], dtype=np.float32)
+    monkeypatch.setattr(swiglu, "c_swiglu", None)
+    out = swiglu.swiglu_dispatch(a, b)
+    sig = 1.0 / (1.0 + np.exp(-a))
+    np.testing.assert_allclose(out, a * sig * b, atol=1e-5)
+
+
+
 
 
 
