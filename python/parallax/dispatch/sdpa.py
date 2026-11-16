@@ -99,3 +99,26 @@ def _compute_sdpa_backward_scores(
     elif attn_mask is not None and attn_mask.dtype == bool:
         grad_scores = np.where(attn_mask, grad_scores, 0.0)
     return grad_scores * inv_scale, grad_value
+
+
+def sdpa_backward(
+    grad_out: np.ndarray,
+    query: np.ndarray,
+    key: np.ndarray,
+    value: np.ndarray,
+    attn_mask: Optional[np.ndarray] = None,
+    is_causal: bool = False,
+    scale: Optional[float] = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Compute analytical backward pass gradients for SDPA."""
+    _validate_sdpa_inputs(query, key, value, attn_mask=attn_mask, is_causal=is_causal)
+    grad_scores, grad_value = _compute_sdpa_backward_scores(
+        grad_out, query, key, value, attn_mask=attn_mask, is_causal=is_causal, scale=scale
+    )
+    grad_query = np.matmul(grad_scores, key)
+    grad_key = np.matmul(grad_scores.swapaxes(-2, -1), query)
+    return (
+        grad_query.astype(query.dtype),
+        grad_key.astype(key.dtype),
+        grad_value.astype(value.dtype),
+    )
