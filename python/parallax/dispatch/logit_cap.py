@@ -56,7 +56,19 @@ class DispatchedLogitCap(Module):
         raw_x = x.data if isinstance(x, Tensor) else x
         out_data = logit_soft_cap(raw_x, cap=self.cap)
         parents = (x,) if isinstance(x, Tensor) else ()
-        return Tensor(out_data, parents, "DispatchedLogitCap")
+        out = Tensor(out_data, parents, "DispatchedLogitCap")
+        if not out.requires_grad:
+            return out
+
+        def _backward() -> None:
+            if out.grad is None or not isinstance(x, Tensor) or not x.requires_grad:
+                return
+            grad_x = logit_soft_cap_backward(out.grad, raw_x, cap=self.cap)
+            _accumulate_grad(x, grad_x)
+
+        out._backward = _backward
+        return out
+
 
     @classmethod
     def from_capper(cls, capper: Any) -> DispatchedLogitCap:
