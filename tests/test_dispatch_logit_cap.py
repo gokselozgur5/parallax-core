@@ -95,6 +95,15 @@ def test_dispatched_logit_cap_autograd_backward() -> None:
     np.testing.assert_allclose(x.grad, expected_grad, rtol=1e-5, atol=1e-6)
 
 
+def test_logit_cap_module_exports() -> None:
+    import python.parallax.dispatch.logit_cap as lc
+    assert hasattr(lc, "DispatchedLogitCap")
+    assert hasattr(lc, "LogitSoftCap")
+    assert hasattr(lc, "logit_soft_cap")
+    assert hasattr(lc, "logit_soft_cap_backward")
+
+
+
 
 
 
