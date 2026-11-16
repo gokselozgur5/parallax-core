@@ -61,3 +61,9 @@ def test_dispatched_embedding_from_pretrained_and_repr():
     assert not emb.weight.requires_grad
     assert "num_embeddings=4" in repr(emb)
     assert "embedding_dim=3" in repr(emb)
+
+
+def test_dispatched_embedding_package_export():
+    import parallax.nn as pnn
+    assert hasattr(pnn, "DispatchedEmbedding")
+    assert "DispatchedEmbedding" in pnn.__all__
