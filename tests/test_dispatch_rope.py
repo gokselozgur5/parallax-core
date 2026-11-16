@@ -92,3 +92,16 @@ def test_dispatch_rope() -> None:
     out = dispatch_rope(x, start_pos=0, interleaved=True)
     assert out.shape == x.shape
     assert out.dtype == np.float32
+
+
+def test_package_exports() -> None:
+    import parallax.dispatch as pd
+    import python.parallax.dispatch as ppd
+
+    for mod in (pd, ppd):
+        assert hasattr(mod, "RoPEFrequencyTable")
+        assert hasattr(mod, "apply_rotary_emb")
+        assert hasattr(mod, "dispatch_rope")
+        assert hasattr(mod, "precompute_freqs")
+        assert hasattr(mod, "precompute_freqs_cis")
+        assert hasattr(mod, "rotate_half")
