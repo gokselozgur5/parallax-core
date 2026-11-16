@@ -52,3 +52,12 @@ def test_dispatched_embedding_backward_grad():
     assert emb.weight.grad is not None
     np.testing.assert_allclose(emb.weight.grad[1], [2.0, 2.0])
     np.testing.assert_allclose(emb.weight.grad[0], [0.0, 0.0])
+
+
+def test_dispatched_embedding_from_pretrained_and_repr():
+    from parallax.nn.embedding import DispatchedEmbedding
+    weights = np.ones((4, 3))
+    emb = DispatchedEmbedding.from_pretrained(weights, freeze=True)
+    assert not emb.weight.requires_grad
+    assert "num_embeddings=4" in repr(emb)
+    assert "embedding_dim=3" in repr(emb)
