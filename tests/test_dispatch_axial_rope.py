@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 from python.parallax.dispatch.axial_rope import (
+    AxialRoPEFrequencyTable,
     apply_axial_rope,
     apply_axial_rope_grid,
     precompute_axial_freqs,
@@ -49,3 +50,13 @@ def test_apply_axial_rope_grid_patches():
     out = apply_axial_rope_grid(x, cos_h, sin_h, cos_w, sin_w, height=4, width=4)
     assert out.shape == (16, 32)
     np.testing.assert_allclose(out[0], x[0], rtol=1e-5)
+
+
+def test_axial_rope_frequency_table_container():
+    table = AxialRoPEFrequencyTable(dim=32, max_h=16, max_w=16)
+    assert table.dim == 32
+    assert table.max_h == 16
+    assert table.max_w == 16
+    x = np.random.randn(9, 32).astype(np.float32)
+    out = table.apply_to_grid(x, height=3, width=3)
+    assert out.shape == (9, 32)
