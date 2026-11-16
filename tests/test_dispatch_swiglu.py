@@ -92,6 +92,18 @@ def test_dispatched_swiglu_ffn_forward() -> None:
     assert x.grad is not None
 
 
+def test_dispatched_swiglu_from_swiglu_and_repr() -> None:
+    from parallax.models.gpt import SwiGLU
+    from python.parallax.dispatch.swiglu import DispatchedSwiGLU
+
+    orig = SwiGLU(embed_dim=8, hidden_dim=16)
+    dispatched = DispatchedSwiGLU.from_swiglu(orig)
+    assert dispatched.embed_dim == 8
+    assert dispatched.hidden_dim == 16
+    assert "embed_dim=8" in dispatched.extra_repr()
+
+
+
 
 
 
