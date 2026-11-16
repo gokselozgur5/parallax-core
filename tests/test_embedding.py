@@ -22,3 +22,12 @@ def test_dispatched_embedding_forward_shape():
     out = emb(idx)
     assert out.shape == (2, 3, 4)
     np.testing.assert_allclose(out.data[0, 0], emb.weight.data[1])
+
+
+def test_dispatched_embedding_padding_idx():
+    from parallax.nn.embedding import DispatchedEmbedding
+    emb = DispatchedEmbedding(10, 4, padding_idx=0)
+    np.testing.assert_allclose(emb.weight.data[0], np.zeros(4))
+    idx = Tensor(np.array([0, 1]))
+    out = emb(idx)
+    np.testing.assert_allclose(out.data[0], np.zeros(4))
