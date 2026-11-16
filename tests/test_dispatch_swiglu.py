@@ -124,6 +124,15 @@ def test_dispatch_swiglu_package_export() -> None:
     assert hasattr(swiglu_mod, "DispatchedSwiGLU")
 
 
+def test_parallax_dispatch_swiglu_export() -> None:
+    from parallax.dispatch import DispatchedSwiGLU, SwiGLUActivation, dispatched_swiglu
+
+    assert DispatchedSwiGLU is not None
+    assert SwiGLUActivation is not None
+    assert dispatched_swiglu is not None
+
+
+
 
 
 
