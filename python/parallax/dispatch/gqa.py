@@ -72,4 +72,10 @@ class GQAHeadRepeater(Module):
         return f"GQAHeadRepeater({self.extra_repr()})"
 
 
+def repeat_kv_pair(k: Tensor, v: Tensor, n_rep: int) -> tuple[Tensor, Tensor]:
+    """Repeat both key and value heads along axis 1 by n_rep times."""
+    return dispatched_repeat_kv(k, n_rep), dispatched_repeat_kv(v, n_rep)
+
+
+
 
