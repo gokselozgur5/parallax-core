@@ -35,3 +35,22 @@ def test_sdpa_invalid_dims_raise() -> None:
         scaled_dot_product_attention(q, k_bad_len, v_bad_len)
     with pytest.raises(ValueError, match="at least 2D"):
         scaled_dot_product_attention(np.ones(4), np.ones(4), np.ones(4))
+
+
+def test_sdpa_causal_masking() -> None:
+    q = np.ones((1, 1, 4, 4), dtype=np.float32)
+    k = np.ones((1, 1, 4, 4), dtype=np.float32)
+    v = np.arange(16, dtype=np.float32).reshape(1, 1, 4, 4)
+    out = scaled_dot_product_attention(q, k, v, is_causal=True)
+    np.testing.assert_allclose(out[0, 0, 0], v[0, 0, 0])
+    with pytest.raises(ValueError, match="Cannot specify both"):
+        scaled_dot_product_attention(q, k, v, attn_mask=np.ones((4, 4)), is_causal=True)
+
+
+def test_sdpa_custom_scale() -> None:
+    q = np.ones((1, 2, 2), dtype=np.float64)
+    k = np.ones((1, 2, 2), dtype=np.float64)
+    v = np.ones((1, 2, 2), dtype=np.float64)
+    out_default = scaled_dot_product_attention(q, k, v)
+    out_custom = scaled_dot_product_attention(q, k, v, scale=0.5)
+    np.testing.assert_allclose(out_default, out_custom)
