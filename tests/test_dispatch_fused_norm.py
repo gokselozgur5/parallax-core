@@ -9,18 +9,12 @@ import pytest
 
 from parallax.tensor import Tensor
 
-import parallax
-
-REPO_ROOT = Path(__file__).resolve().parent.parent
-_pkg = str(REPO_ROOT / "python" / "parallax")
-if _pkg not in parallax.__path__:
-    parallax.__path__.append(_pkg)
-
-from parallax.dispatch.fused_norm import (
+from python.parallax.dispatch.fused_norm import (
     FusedRMSNorm,
     fused_rmsnorm,
     stabilize_epsilon,
 )
+
 
 
 def test_stabilize_epsilon_positive_value():
@@ -108,10 +102,11 @@ def test_fused_rmsnorm_autograd_backward():
 
 
 def test_fused_norm_exports():
-    import parallax.dispatch.fused_norm as fn
+    import python.parallax.dispatch.fused_norm as fn
     assert hasattr(fn, "FusedRMSNorm")
     assert hasattr(fn, "fused_rmsnorm")
     assert hasattr(fn, "stabilize_epsilon")
+
 
 
 
