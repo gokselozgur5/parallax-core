@@ -69,6 +69,17 @@ def test_repeat_kv_pair() -> None:
     assert v_exp.shape == (1, 4, 4, 8)
 
 
+def test_dispatch_gqa_package_exports() -> None:
+    from python.parallax.dispatch import gqa
+
+    assert hasattr(gqa, "repeat_kv")
+    assert hasattr(gqa, "reduce_kv_grad")
+    assert hasattr(gqa, "dispatched_repeat_kv")
+    assert hasattr(gqa, "GQAHeadRepeater")
+    assert hasattr(gqa, "repeat_kv_pair")
+
+
+
 
 
 
