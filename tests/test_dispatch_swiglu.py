@@ -5,6 +5,18 @@ import pytest
 from python.parallax.dispatch.swiglu import swiglu_dispatch
 
 
+@pytest.fixture(autouse=True)
+def setup_backend():
+    from parallax.backends import registry
+    from parallax.backends.numpy_backend import NumpyBackend
+
+    registry.clear()
+    registry.register("numpy", NumpyBackend())
+    yield
+    registry.clear()
+
+
+
 def test_swiglu_dispatch_parity() -> None:
     a = np.array([-2.0, 0.0, 2.0], dtype=np.float32)
     b = np.array([1.0, 2.0, 3.0], dtype=np.float32)
