@@ -11,6 +11,7 @@ def embedding_backward(
     num_embeddings: int,
     embedding_dim: int,
     padding_idx: int | None = None,
+    out: np.ndarray | None = None,
 ) -> np.ndarray:
     """Accumulate incoming gradients into embedding weight gradient tensor."""
     if num_embeddings <= 0 or embedding_dim <= 0:
@@ -21,7 +22,12 @@ def embedding_backward(
         raise ValueError(f"grad_output shape {grad_arr.shape} incompatible with indices {idx_arr.shape}")
     if np.any(idx_arr < 0) or np.any(idx_arr >= num_embeddings):
         raise IndexError("indices out of range for num_embeddings")
-    grad_weight = np.zeros((num_embeddings, embedding_dim), dtype=grad_arr.dtype)
+    if out is not None:
+        if out.shape != (num_embeddings, embedding_dim):
+            raise ValueError(f"out shape {out.shape} != {(num_embeddings, embedding_dim)}")
+        grad_weight = out
+    else:
+        grad_weight = np.zeros((num_embeddings, embedding_dim), dtype=grad_arr.dtype)
     flat_indices = idx_arr.reshape(-1)
     flat_grad = grad_arr.reshape(-1, embedding_dim)
     np.add.at(grad_weight, flat_indices, flat_grad)
