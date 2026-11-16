@@ -87,3 +87,19 @@ def test_dispatch_alibi_bias():
     out = dispatch_alibi_bias(scores, causal=True)
     assert out.shape == (4, 6, 6)
     np.testing.assert_allclose(np.diag(out[0]), 0.0)
+
+
+def test_alibi_package_exports():
+    import parallax.dispatch as pd
+    import python.parallax.dispatch as ppd
+
+    symbols = [
+        "AlibiPositionalBias",
+        "apply_alibi_bias",
+        "build_alibi_bias",
+        "dispatch_alibi_bias",
+        "get_alibi_slopes",
+    ]
+    for mod in (pd, ppd):
+        for sym in symbols:
+            assert hasattr(mod, sym)
