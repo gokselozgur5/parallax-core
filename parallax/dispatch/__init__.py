@@ -21,7 +21,6 @@ from python.parallax.dispatch.gqa import (
     repeat_kv_pair,
 )
 from python.parallax.dispatch.kv_cache import (
-
     KVCacheBuffer,
     KVCacheManager,
     create_kv_cache,
@@ -33,6 +32,14 @@ from python.parallax.dispatch.rope import (
     precompute_freqs,
     precompute_freqs_cis,
     rotate_half,
+)
+from python.parallax.dispatch.sliding_window import (
+    SlidingWindowAttention,
+    build_sliding_window_mask,
+    dispatched_sliding_window_attention,
+    flash_sliding_window_tile,
+    get_sliding_window_bounds,
+    sliding_window_attention,
 )
 from python.parallax.dispatch.swiglu import (
     DispatchedSwiGLU,
@@ -50,16 +57,21 @@ __all__ = [
     "KVCacheBuffer",
     "KVCacheManager",
     "RoPEFrequencyTable",
+    "SlidingWindowAttention",
     "SwiGLUActivation",
     "apply_axial_rope",
     "apply_axial_rope_grid",
     "apply_rotary_emb",
+    "build_sliding_window_mask",
     "create_kv_cache",
     "dispatch_axial_rope",
     "dispatch_rope",
     "dispatched_repeat_kv",
+    "dispatched_sliding_window_attention",
     "dispatched_swiglu",
+    "flash_sliding_window_tile",
     "fused_rmsnorm",
+    "get_sliding_window_bounds",
     "precompute_axial_freqs",
     "precompute_axial_freqs_cis",
     "precompute_freqs",
@@ -68,8 +80,8 @@ __all__ = [
     "repeat_kv",
     "repeat_kv_pair",
     "rotate_half",
+    "sliding_window_attention",
     "stabilize_epsilon",
     "swiglu_backward_dispatch",
     "swiglu_dispatch",
 ]
-
