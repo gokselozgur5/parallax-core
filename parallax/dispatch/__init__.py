@@ -29,6 +29,12 @@ from python.parallax.dispatch.kv_cache import (
     KVCacheManager,
     create_kv_cache,
 )
+from python.parallax.dispatch.logit_cap import (
+    DispatchedLogitCap,
+    LogitSoftCap,
+    logit_soft_cap,
+    logit_soft_cap_backward,
+)
 from python.parallax.dispatch.rope import (
     RoPEFrequencyTable,
     apply_rotary_emb,
@@ -62,6 +68,8 @@ __all__ = [
     "fused_layernorm",
     "KVCacheBuffer",
     "KVCacheManager",
+    "LogitSoftCap",
+    "DispatchedLogitCap",
     "RoPEFrequencyTable",
     "SlidingWindowAttention",
     "SwiGLUActivation",
@@ -78,6 +86,8 @@ __all__ = [
     "flash_sliding_window_tile",
     "fused_rmsnorm",
     "get_sliding_window_bounds",
+    "logit_soft_cap",
+    "logit_soft_cap_backward",
     "precompute_axial_freqs",
     "precompute_axial_freqs_cis",
     "precompute_freqs",
