@@ -30,3 +30,22 @@ class KVCacheBuffer:
     def memory_usage_bytes(self) -> int:
         """Return total memory allocated for key and value buffers in bytes."""
         return int(self.k.nbytes + self.v.nbytes)
+
+    def get_view(self, seq_len: Optional[int] = None) -> tuple[np.ndarray, np.ndarray]:
+        """Return views of active key and value tensors up to seq_len."""
+        length = self.seq_len if seq_len is None else seq_len
+        return self.k[:, :, :length, :], self.v[:, :, :length, :]
+
+    def update(
+        self,
+        k_val: np.ndarray,
+        v_val: np.ndarray,
+        start_pos: Optional[int] = None,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Update buffer at start_pos and return active views."""
+        pos = self.seq_len if start_pos is None else start_pos
+        num_toks = k_val.shape[2]
+        self.k[:, :, pos : pos + num_toks, :] = k_val
+        self.v[:, :, pos : pos + num_toks, :] = v_val
+        self.seq_len = max(self.seq_len, pos + num_toks)
+        return self.get_view(self.seq_len)
