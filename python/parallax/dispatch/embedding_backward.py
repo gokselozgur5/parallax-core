@@ -36,3 +36,22 @@ def embedding_backward(
             raise IndexError("padding_idx out of range for num_embeddings")
         grad_weight[padding_idx] = 0.0
     return grad_weight
+
+
+
+def sparse_embedding_backward(
+    grad_output: np.ndarray,
+    indices: np.ndarray,
+    padding_idx: int | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute sparse unique index gradient representation."""
+    idx_arr = np.asarray(indices, dtype=np.int64).reshape(-1)
+    grad_arr = np.asarray(grad_output).reshape(idx_arr.shape[0], -1)
+    unique_idx, inv = np.unique(idx_arr, return_inverse=True)
+    accum_grad = np.zeros((len(unique_idx), grad_arr.shape[1]), dtype=grad_arr.dtype)
+    np.add.at(accum_grad, inv, grad_arr)
+    if padding_idx is not None:
+        mask = unique_idx == padding_idx
+        if np.any(mask):
+            accum_grad[mask] = 0.0
+    return unique_idx, accum_grad
