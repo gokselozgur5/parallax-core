@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 from python.parallax.dispatch.axial_rope import (
+    apply_axial_rope,
     precompute_axial_freqs,
     precompute_axial_freqs_cis,
 )
@@ -29,3 +30,13 @@ def test_precompute_axial_freqs_cis():
     assert cis_w.shape == (8, 8)
     assert cis_h.dtype == np.complex64
     assert cis_w.dtype == np.complex64
+
+
+def test_apply_axial_rope_norm_preservation():
+    cos_h, sin_h, cos_w, sin_w = precompute_axial_freqs(dim=32, max_h=8, max_w=8)
+    x = np.random.randn(2, 4, 32).astype(np.float32)
+    h_coords = np.array([2, 5], dtype=np.int64)
+    w_coords = np.array([3, 1], dtype=np.int64)
+    out = apply_axial_rope(x, cos_h, sin_h, cos_w, sin_w, h_coords, w_coords)
+    assert out.shape == x.shape
+    np.testing.assert_allclose(np.linalg.norm(out, axis=-1), np.linalg.norm(x, axis=-1), rtol=1e-5)
