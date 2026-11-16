@@ -114,6 +114,17 @@ def test_swiglu_dispatch_native_fallback(monkeypatch: pytest.MonkeyPatch) -> Non
     np.testing.assert_allclose(out, a * sig * b, atol=1e-5)
 
 
+def test_dispatch_swiglu_package_export() -> None:
+    from python.parallax.dispatch import swiglu as swiglu_mod
+
+    assert hasattr(swiglu_mod, "swiglu_dispatch")
+    assert hasattr(swiglu_mod, "swiglu_backward_dispatch")
+    assert hasattr(swiglu_mod, "dispatched_swiglu")
+    assert hasattr(swiglu_mod, "SwiGLUActivation")
+    assert hasattr(swiglu_mod, "DispatchedSwiGLU")
+
+
+
 
 
 
