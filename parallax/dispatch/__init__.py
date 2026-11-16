@@ -1,5 +1,12 @@
 """Dispatch subsystem modules and kernels."""
 
+from python.parallax.dispatch.alibi import (
+    AlibiPositionalBias,
+    apply_alibi_bias,
+    build_alibi_bias,
+    dispatch_alibi_bias,
+    get_alibi_slopes,
+)
 from python.parallax.dispatch.axial_rope import (
     AxialRoPEFrequencyTable,
     apply_axial_rope,
