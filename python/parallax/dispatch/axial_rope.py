@@ -33,3 +33,21 @@ def precompute_axial_freqs_cis(
     cis_h = (cos_h + 1j * sin_h).astype(np.complex64)
     cis_w = (cos_w + 1j * sin_w).astype(np.complex64)
     return cis_h, cis_w
+
+
+def _rot(sub_x: np.ndarray, c: np.ndarray, s: np.ndarray) -> np.ndarray:
+    half = sub_x.shape[-1] // 2
+    x1, x2 = sub_x[..., :half], sub_x[..., half:]
+    c = c.reshape((sub_x.shape[0],) + (1,) * (sub_x.ndim - 2) + (half,))
+    s = s.reshape((sub_x.shape[0],) + (1,) * (sub_x.ndim - 2) + (half,))
+    return np.concatenate((x1 * c - x2 * s, x1 * s + x2 * c), axis=-1)
+
+
+def apply_axial_rope(
+    x: np.ndarray, cos_h: np.ndarray, sin_h: np.ndarray, cos_w: np.ndarray, sin_w: np.ndarray, h_coords: np.ndarray, w_coords: np.ndarray
+) -> np.ndarray:
+    """Apply 2D axial rotary embedding to x along vertical and horizontal coordinates."""
+    axial_dim = x.shape[-1] // 2
+    x_h = _rot(x[..., :axial_dim], cos_h[h_coords], sin_h[h_coords])
+    x_w = _rot(x[..., axial_dim:], cos_w[w_coords], sin_w[w_coords])
+    return np.concatenate((x_h, x_w), axis=-1)
