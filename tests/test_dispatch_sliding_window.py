@@ -75,3 +75,13 @@ def test_sliding_window_attention_class() -> None:
     v = np.ones((4, 2, 8), dtype=np.float32)
     out = layer(q, k, v)
     assert out.shape == q.shape
+
+
+def test_dispatched_sliding_window_attention() -> None:
+    from python.parallax.dispatch.sliding_window import dispatched_sliding_window_attention
+
+    q = np.ones((2, 1, 4), dtype=np.float32)
+    k = np.ones((2, 1, 4), dtype=np.float32)
+    v = np.ones((2, 1, 4), dtype=np.float32)
+    out = dispatched_sliding_window_attention(q, k, v, window_size=1)
+    assert out.shape == q.shape
