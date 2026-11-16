@@ -57,3 +57,22 @@ def gelu_fast_backward(grad_out: np.ndarray, x: np.ndarray) -> np.ndarray:
     dx = np.where(x_f32 <= -10.0, 0.0, dx)
     dx = np.where(x_f32 >= 10.0, g_f32, dx)
     return dx.astype(x.dtype)
+
+
+def dispatched_gelu_fast(x: Tensor | np.ndarray) -> Tensor:
+    """Compute fast GeLU activation over Tensor or array with autograd tracking."""
+    raw_x = x.data if isinstance(x, Tensor) else x
+    out_data = gelu_fast_dispatch(raw_x)
+    parents = (x,) if isinstance(x, Tensor) else ()
+    out = Tensor(out_data, parents, "DispatchedGELUFast")
+    if not out.requires_grad:
+        return out
+
+    def _backward() -> None:
+        if out.grad is None or not isinstance(x, Tensor) or not x.requires_grad:
+            return
+        dx = gelu_fast_backward(out.grad, raw_x)
+        _accumulate_grad(x, dx)
+
+    out._backward = _backward
+    return out
