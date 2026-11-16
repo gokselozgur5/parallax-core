@@ -94,3 +94,17 @@ class SlidingWindowAttention:
         return sliding_window_attention(
             q, k, v, window_size=self.window_size, scale=self.scale, causal=self.causal
         )
+
+
+def dispatched_sliding_window_attention(
+    q: np.ndarray,
+    k: np.ndarray,
+    v: np.ndarray,
+    window_size: int,
+    scale: float | None = None,
+    causal: bool = True,
+) -> np.ndarray:
+    """Dispatched entry point routing sliding window attention computation."""
+    return sliding_window_attention(
+        q, k, v, window_size=window_size, scale=scale, causal=causal
+    )
