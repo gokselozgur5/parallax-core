@@ -39,8 +39,20 @@ from python.parallax.dispatch.sliding_window import (
     get_sliding_window_bounds,
     sliding_window_attention,
 )
+from python.parallax.dispatch.sdpa import (
+    DispatchedSDPA,
+    SDPAModule,
+    dispatched_sdpa,
+    scaled_dot_product_attention,
+    sdpa_backward,
+)
 
 __all__ = [
+    "DispatchedSDPA",
+    "SDPAModule",
+    "dispatched_sdpa",
+    "scaled_dot_product_attention",
+    "sdpa_backward",
     "AxialRoPEFrequencyTable",
     "DispatchedConv2d",
     "FusedLayerNorm",
