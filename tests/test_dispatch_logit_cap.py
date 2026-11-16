@@ -103,6 +103,15 @@ def test_logit_cap_module_exports() -> None:
     assert hasattr(lc, "logit_soft_cap_backward")
 
 
+def test_logit_cap_package_exports() -> None:
+    import parallax.dispatch as pd
+    assert hasattr(pd, "DispatchedLogitCap")
+    assert hasattr(pd, "LogitSoftCap")
+    assert hasattr(pd, "logit_soft_cap")
+    assert hasattr(pd, "logit_soft_cap_backward")
+
+
+
 
 
 
