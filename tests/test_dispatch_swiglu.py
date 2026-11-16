@@ -37,3 +37,19 @@ def test_swiglu_backward_dispatch() -> None:
     np.testing.assert_allclose(ga, grad * b * dsilu, atol=1e-5)
 
 
+def test_dispatched_swiglu_tensor_autograd() -> None:
+    from parallax.tensor import Tensor
+    from python.parallax.dispatch.swiglu import dispatched_swiglu
+
+    g_data = np.array([[1.0, -2.0], [0.5, 1.5]], dtype=np.float32)
+    u_data = np.array([[2.0, 3.0], [-1.0, 0.5]], dtype=np.float32)
+    g = Tensor(g_data, requires_grad=True)
+    u = Tensor(u_data, requires_grad=True)
+    out = dispatched_swiglu(g, u)
+    assert out.shape == (2, 2)
+    out.sum().backward()
+    assert g.grad is not None
+    assert u.grad is not None
+
+
+
