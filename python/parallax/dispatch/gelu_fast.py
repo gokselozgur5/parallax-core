@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import math
-from typing import Any, Optional
+from typing import Any
 import numpy as np
 
 from parallax.nn import Module
