@@ -45,6 +45,10 @@ class KVCacheBuffer:
         """Update buffer at start_pos and return active views."""
         pos = self.seq_len if start_pos is None else start_pos
         num_toks = k_val.shape[2]
+        if pos + num_toks > self.max_seq_len:
+            raise ValueError(
+                f"Update length {pos + num_toks} exceeds maximum sequence length {self.max_seq_len}"
+            )
         self.k[:, :, pos : pos + num_toks, :] = k_val
         self.v[:, :, pos : pos + num_toks, :] = v_val
         self.seq_len = max(self.seq_len, pos + num_toks)
