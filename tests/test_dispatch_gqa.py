@@ -58,5 +58,17 @@ def test_gqa_head_repeater_module() -> None:
     assert out.shape == (2, 8, 8, 16)
 
 
+def test_repeat_kv_pair() -> None:
+    from parallax.tensor import Tensor
+    from python.parallax.dispatch.gqa import repeat_kv_pair
+
+    k = Tensor(np.ones((1, 2, 4, 8), dtype=np.float32))
+    v = Tensor(np.full((1, 2, 4, 8), 2.0, dtype=np.float32))
+    k_exp, v_exp = repeat_kv_pair(k, v, n_rep=2)
+    assert k_exp.shape == (1, 4, 4, 8)
+    assert v_exp.shape == (1, 4, 4, 8)
+
+
+
 
 
