@@ -62,7 +62,29 @@ class FusedRMSNorm(Module):
         raw_res = residual.data if isinstance(residual, Tensor) else residual
         out_data = fused_rmsnorm(raw_x, self.weight.data, residual=raw_res, eps=self.eps)
         parents = [p for p in (x, residual, self.weight) if isinstance(p, Tensor)]
-        return Tensor(out_data, tuple(parents), "FusedRMSNorm")
+        raw_fused = raw_x + raw_res if raw_res is not None else raw_x
+        out = Tensor(out_data, tuple(parents), "FusedRMSNorm")
+        if not out.requires_grad:
+            return out
+
+        def _backward() -> None:
+            if out.grad is None:
+                return
+            rms = np.sqrt(np.mean(raw_fused ** 2, axis=-1, keepdims=True) + self.eps)
+            x_hat = raw_fused / rms
+            d_hat = out.grad * self.weight.data
+            grad_fused = (1.0 / rms) * (d_hat - x_hat * np.mean(d_hat * x_hat, axis=-1, keepdims=True))
+            if self.weight.requires_grad:
+                grad_w = np.sum(out.grad * x_hat, axis=tuple(range(out.grad.ndim - 1)))
+                _accumulate_grad(self.weight, grad_w)
+            if isinstance(x, Tensor) and x.requires_grad:
+                _accumulate_grad(x, grad_fused)
+            if isinstance(residual, Tensor) and residual.requires_grad:
+                _accumulate_grad(residual, grad_fused)
+
+        out._backward = _backward
+        return out
+
 
     @classmethod
     def from_norm(cls, norm: Any) -> FusedRMSNorm:
