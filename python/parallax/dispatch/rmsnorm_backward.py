@@ -26,3 +26,28 @@ def rmsnorm_backward_reference(
     reduce_axes = tuple(range(dout.ndim - 1))
     dw = np.sum(dout * x_hat, axis=reduce_axes) if reduce_axes else dout * x_hat
     return dx.astype(x.dtype), dw.astype(weight.dtype)
+
+
+def _dispatch_rmsnorm_backward(
+    dout: np.ndarray,
+    x: np.ndarray,
+    weight: np.ndarray,
+    eps: float,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Route RMSNorm backward through backend dispatch or fallback."""
+    try:
+        from parallax.backends.dispatch import dispatch
+        return dispatch("rmsnorm_backward", dout, x, weight, eps=eps)
+    except Exception:
+        return rmsnorm_backward_reference(dout, x, weight, eps=eps)
+
+
+def rmsnorm_backward(
+    dout: np.ndarray,
+    x: np.ndarray,
+    weight: np.ndarray,
+    eps: float = 1e-6,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Execute functional backward pass for RMSNorm layer."""
+    eps_val = stabilize_epsilon(eps)
+    return _dispatch_rmsnorm_backward(dout, x, weight, eps_val)
