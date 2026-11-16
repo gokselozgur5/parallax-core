@@ -85,3 +85,12 @@ class DispatchedEmbeddingBackward:
 
     def __repr__(self) -> str:
         return "DispatchedEmbeddingBackward()"
+
+
+
+__all__ = [
+    "DispatchedEmbeddingBackward",
+    "accumulate_embedding_backward",
+    "embedding_backward",
+    "sparse_embedding_backward",
+]
