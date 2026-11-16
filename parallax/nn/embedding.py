@@ -29,6 +29,8 @@ class DispatchedEmbedding(Module):
     def forward(self, indices: Tensor | np.ndarray) -> Tensor:
         raw_idx = indices.data if isinstance(indices, Tensor) else indices
         idx_arr = np.asarray(raw_idx, dtype=np.int64)
+        if np.any(idx_arr < 0) or np.any(idx_arr >= self.num_embeddings):
+            raise IndexError("Index out of range for DispatchedEmbedding")
         out_data = self.weight.data[idx_arr]
         parents = (self.weight,) if isinstance(indices, np.ndarray) else (indices, self.weight)
         out = Tensor(out_data, parents, "Embedding")
