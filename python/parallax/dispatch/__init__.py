@@ -14,6 +14,12 @@ from python.parallax.dispatch.conv2d import (
     conv2d_forward,
     dispatched_conv2d,
 )
+from python.parallax.dispatch.embedding_backward import (
+    DispatchedEmbeddingBackward,
+    accumulate_embedding_backward,
+    embedding_backward,
+    sparse_embedding_backward,
+)
 from python.parallax.dispatch.gelu_fast import (
     DispatchedGELUFast,
     FastGELU,
@@ -66,11 +72,15 @@ __all__ = [
     "sdpa_backward",
     "AxialRoPEFrequencyTable",
     "DispatchedConv2d",
+    "DispatchedEmbeddingBackward",
     "DispatchedGELUFast",
     "FastGELU",
     "FusedLayerNorm",
     "GELUFast",
+    "accumulate_embedding_backward",
+    "embedding_backward",
     "fused_layernorm",
+    "sparse_embedding_backward",
     "KVCacheBuffer",
     "KVCacheManager",
     "RoPEFrequencyTable",
