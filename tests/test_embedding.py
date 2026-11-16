@@ -40,3 +40,15 @@ def test_dispatched_embedding_bounds_validation():
         emb(Tensor(np.array([5])))
     with pytest.raises(IndexError):
         emb(Tensor(np.array([-1])))
+
+
+def test_dispatched_embedding_backward_grad():
+    from parallax.nn.embedding import DispatchedEmbedding
+    emb = DispatchedEmbedding(5, 2, padding_idx=0)
+    idx = Tensor(np.array([1, 1, 2]))
+    out = emb(idx)
+    loss = out.sum()
+    loss.backward()
+    assert emb.weight.grad is not None
+    np.testing.assert_allclose(emb.weight.grad[1], [2.0, 2.0])
+    np.testing.assert_allclose(emb.weight.grad[0], [0.0, 0.0])
