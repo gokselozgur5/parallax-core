@@ -34,3 +34,25 @@ def _dispatch_layernorm(
         if bias is not None:
             normed = normed + bias
         return normed
+
+
+def fused_layernorm(
+    x: np.ndarray,
+    weight: Optional[np.ndarray] = None,
+    bias: Optional[np.ndarray] = None,
+    residual: Optional[np.ndarray] = None,
+    eps: float = 1e-5,
+    return_residual: bool = False,
+) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
+    """Compute LayerNorm with optional fused residual and affine parameters."""
+    eps_val = stabilize_epsilon(eps)
+    fused = x + residual if residual is not None else x
+    orig_dtype = fused.dtype
+    acc = fused.astype(np.float32) if orig_dtype in (np.float16, np.int32) else fused
+    w_acc = weight.astype(acc.dtype) if weight is not None else None
+    b_acc = bias.astype(acc.dtype) if bias is not None else None
+    normed = _dispatch_layernorm(acc, w_acc, b_acc, eps_val)
+    out = normed.astype(orig_dtype)
+    if return_residual:
+        return out, fused
+    return out
