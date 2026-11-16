@@ -17,3 +17,16 @@ def build_sliding_window_mask(
     if causal:
         return (delta >= 0) & (delta <= window_size)
     return np.abs(delta) <= window_size
+
+
+def get_sliding_window_bounds(
+    seq_len_q: int, seq_len_k: int, window_size: int, causal: bool = True
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute per-query [start, end) key indices for sliding window attention."""
+    q_pos = np.arange(seq_len_q)
+    starts = np.maximum(0, q_pos - window_size)
+    if causal:
+        ends = np.minimum(seq_len_k, q_pos + 1)
+    else:
+        ends = np.minimum(seq_len_k, q_pos + window_size + 1)
+    return starts, ends
