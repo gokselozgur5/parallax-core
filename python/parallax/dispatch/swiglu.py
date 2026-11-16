@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from typing import Any
 import numpy as np
+
 
 from parallax.nn import Module
 from parallax.nn.linear import DispatchedLinear
@@ -92,6 +94,24 @@ class DispatchedSwiGLU(Module):
         up = self.w_up(x)
         fused = dispatched_swiglu(gate, up)
         return self.w_down(fused)
+
+    @classmethod
+    def from_swiglu(cls, swiglu: Any) -> DispatchedSwiGLU:
+        embed_dim = swiglu.w_gate.weight.shape[1]
+        hidden_dim = swiglu.w_gate.weight.shape[0]
+        has_bias = getattr(swiglu.w_gate, "bias", None) is not None
+        mod = cls(embed_dim, hidden_dim, bias=has_bias)
+        mod.w_gate = DispatchedLinear.from_linear(swiglu.w_gate)
+        mod.w_up = DispatchedLinear.from_linear(swiglu.w_up)
+        mod.w_down = DispatchedLinear.from_linear(swiglu.w_down)
+        return mod
+
+    def extra_repr(self) -> str:
+        return f"embed_dim={self.embed_dim}, hidden_dim={self.hidden_dim}"
+
+    def __repr__(self) -> str:
+        return f"DispatchedSwiGLU({self.extra_repr()})"
+
 
 
 
