@@ -30,3 +30,14 @@ def test_precompute_freqs_cis() -> None:
     assert cis.dtype == np.complex64
     np.testing.assert_allclose(cis[0].real, np.ones(4), atol=1e-6)
     np.testing.assert_allclose(cis[0].imag, np.zeros(4), atol=1e-6)
+
+
+def test_rotate_half() -> None:
+    from python.parallax.dispatch.rope import rotate_half
+
+    x = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
+    out_non = rotate_half(x, interleaved=False)
+    np.testing.assert_allclose(out_non, np.array([-3.0, -4.0, 1.0, 2.0]))
+
+    out_int = rotate_half(x, interleaved=True)
+    np.testing.assert_allclose(out_int, np.array([-2.0, 1.0, -4.0, 3.0]))
