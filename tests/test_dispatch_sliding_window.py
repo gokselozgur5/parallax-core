@@ -62,3 +62,16 @@ def test_flash_sliding_window_tile() -> None:
     assert out.shape == (2, 2)
     assert m.shape == (2, 1)
     assert l.shape == (2, 1)
+
+
+def test_sliding_window_attention_class() -> None:
+    from python.parallax.dispatch.sliding_window import SlidingWindowAttention
+
+    layer = SlidingWindowAttention(window_size=2, causal=True)
+    assert layer.window_size == 2
+    assert layer.causal is True
+    q = np.ones((4, 2, 8), dtype=np.float32)
+    k = np.ones((4, 2, 8), dtype=np.float32)
+    v = np.ones((4, 2, 8), dtype=np.float32)
+    out = layer(q, k, v)
+    assert out.shape == q.shape
