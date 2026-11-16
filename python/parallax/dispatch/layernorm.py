@@ -107,3 +107,25 @@ class FusedLayerNorm(Module):
             self.weight = Parameter(np.ones(self.normalized_shape, dtype=np.float32), label="LayerNorm.weight")
             if bias:
                 self.bias = Parameter(np.zeros(self.normalized_shape, dtype=np.float32), label="LayerNorm.bias")
+
+    def forward(
+        self,
+        x: Tensor | np.ndarray,
+        residual: Optional[Tensor | np.ndarray] = None,
+    ) -> Tensor:
+        raw_x = x.data if isinstance(x, Tensor) else x
+        raw_res = residual.data if isinstance(residual, Tensor) else residual
+        raw_w = self.weight.data if self.weight is not None else None
+        raw_b = self.bias.data if self.bias is not None else None
+        out_data = fused_layernorm(raw_x, raw_w, raw_b, residual=raw_res, eps=self.eps)
+        parents = [p for p in (x, residual, self.weight, self.bias) if isinstance(p, Tensor)]
+        out = Tensor(out_data, tuple(parents), "FusedLayerNorm")
+        if not out.requires_grad:
+            return out
+        raw_fused = raw_x + raw_res if raw_res is not None else raw_x
+        out._backward = lambda: _backward_layernorm(
+            out.grad, raw_fused, self.eps, self.weight, self.bias,
+            x if isinstance(x, Tensor) else None,
+            residual if isinstance(residual, Tensor) else None,
+        ) if out.grad is not None else None
+        return out
