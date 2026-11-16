@@ -91,3 +91,12 @@ def dispatch_alibi_bias(
 ) -> np.ndarray:
     """Dispatched entry point to apply ALiBi bias to attention scores."""
     return apply_alibi_bias(scores, causal=causal, offset=offset)
+
+
+__all__ = [
+    "AlibiPositionalBias",
+    "apply_alibi_bias",
+    "build_alibi_bias",
+    "dispatch_alibi_bias",
+    "get_alibi_slopes",
+]
