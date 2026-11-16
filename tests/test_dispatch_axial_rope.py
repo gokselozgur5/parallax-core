@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 from python.parallax.dispatch.axial_rope import (
     apply_axial_rope,
+    apply_axial_rope_grid,
     precompute_axial_freqs,
     precompute_axial_freqs_cis,
 )
@@ -40,3 +41,11 @@ def test_apply_axial_rope_norm_preservation():
     out = apply_axial_rope(x, cos_h, sin_h, cos_w, sin_w, h_coords, w_coords)
     assert out.shape == x.shape
     np.testing.assert_allclose(np.linalg.norm(out, axis=-1), np.linalg.norm(x, axis=-1), rtol=1e-5)
+
+
+def test_apply_axial_rope_grid_patches():
+    cos_h, sin_h, cos_w, sin_w = precompute_axial_freqs(dim=32, max_h=8, max_w=8)
+    x = np.random.randn(16, 32).astype(np.float32)
+    out = apply_axial_rope_grid(x, cos_h, sin_h, cos_w, sin_w, height=4, width=4)
+    assert out.shape == (16, 32)
+    np.testing.assert_allclose(out[0], x[0], rtol=1e-5)
