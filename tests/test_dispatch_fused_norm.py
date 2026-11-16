@@ -54,6 +54,16 @@ def test_fused_rmsnorm_dispatches_to_backend():
     np.testing.assert_allclose(out, np.full((2, 4), 2.0, dtype=np.float32), rtol=1e-4)
 
 
+def test_fused_rmsnorm_zero_inputs_stability():
+    x = np.zeros((2, 4), dtype=np.float32)
+    w = np.ones(4, dtype=np.float32)
+    out = fused_rmsnorm(x, w, eps=1e-5)
+    np.testing.assert_allclose(out, 0.0)
+    assert not np.any(np.isnan(out))
+    assert not np.any(np.isinf(out))
+
+
+
 
 
 
