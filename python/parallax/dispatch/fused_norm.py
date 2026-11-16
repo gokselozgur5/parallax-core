@@ -5,6 +5,9 @@ from __future__ import annotations
 from typing import Any, Optional, Tuple, Union
 import numpy as np
 
+from parallax.nn import Module, Parameter
+from parallax.tensor import Tensor, _accumulate_grad
+
 
 def stabilize_epsilon(eps: float, min_eps: float = 1e-12) -> float:
     """Stabilize epsilon parameter ensuring positive strictly-bounded value."""
@@ -39,6 +42,17 @@ def fused_rmsnorm(
     if return_residual:
         return out, fused
     return out
+
+
+class FusedRMSNorm(Module):
+    """Fused Root Mean Square Layer Normalization module."""
+
+    def __init__(self, dim: int, eps: float = 1e-6) -> None:
+        super().__init__()
+        self.dim = int(dim)
+        self.eps = float(eps)
+        self.weight = Parameter(np.ones(self.dim, dtype=np.float32), label="RMSNorm.weight")
+
 
 
 
