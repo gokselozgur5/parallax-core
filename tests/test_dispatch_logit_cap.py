@@ -23,3 +23,13 @@ def test_logit_soft_cap_invalid_cap_raises() -> None:
     with pytest.raises(ValueError, match="cap must be strictly positive"):
         logit_soft_cap(x, cap=-5.0)
 
+
+def test_logit_soft_cap_extreme_bounds_and_dtype() -> None:
+    x = np.array([-1e6, 0.0, 1e6], dtype=np.float32)
+    out = logit_soft_cap(x, cap=20.0)
+    assert out.dtype == np.float32
+    assert np.isclose(out[0], -20.0, atol=1e-5)
+    assert np.isclose(out[1], 0.0, atol=1e-5)
+    assert np.isclose(out[2], 20.0, atol=1e-5)
+
+
