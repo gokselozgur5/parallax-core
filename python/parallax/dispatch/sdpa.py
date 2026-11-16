@@ -73,3 +73,29 @@ def scaled_dot_product_attention(
     attn_weights = exp_scores / np.sum(exp_scores, axis=-1, keepdims=True)
     out = np.matmul(attn_weights, value)
     return out.astype(query.dtype)
+
+
+def _compute_sdpa_backward_scores(
+    grad_out: np.ndarray,
+    query: np.ndarray,
+    key: np.ndarray,
+    value: np.ndarray,
+    attn_mask: Optional[np.ndarray] = None,
+    is_causal: bool = False,
+    scale: Optional[float] = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    scores, causal_mask, inv_scale = _compute_sdpa_scores(
+        query, key, scale=scale, attn_mask=attn_mask, is_causal=is_causal
+    )
+    scores_max = np.max(scores, axis=-1, keepdims=True)
+    exp_scores = np.exp(scores - scores_max)
+    attn_weights = exp_scores / np.sum(exp_scores, axis=-1, keepdims=True)
+    grad_value = np.matmul(attn_weights.swapaxes(-2, -1), grad_out)
+    grad_attn = np.matmul(grad_out, value.swapaxes(-2, -1))
+    sum_grad_attn = np.sum(grad_attn * attn_weights, axis=-1, keepdims=True)
+    grad_scores = attn_weights * (grad_attn - sum_grad_attn)
+    if is_causal and causal_mask is not None:
+        grad_scores = np.where(causal_mask, grad_scores, 0.0)
+    elif attn_mask is not None and attn_mask.dtype == bool:
+        grad_scores = np.where(attn_mask, grad_scores, 0.0)
+    return grad_scores * inv_scale, grad_value
