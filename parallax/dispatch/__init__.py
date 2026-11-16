@@ -1,5 +1,10 @@
 """Dispatch subsystem modules and kernels."""
 
+from python.parallax.dispatch.kv_cache import (
+    KVCacheBuffer,
+    KVCacheManager,
+    create_kv_cache,
+)
 from python.parallax.dispatch.rope import (
     RoPEFrequencyTable,
     apply_rotary_emb,
@@ -18,9 +23,12 @@ from python.parallax.dispatch.swiglu import (
 
 __all__ = [
     "DispatchedSwiGLU",
+    "KVCacheBuffer",
+    "KVCacheManager",
     "RoPEFrequencyTable",
     "SwiGLUActivation",
     "apply_rotary_emb",
+    "create_kv_cache",
     "dispatch_rope",
     "dispatched_swiglu",
     "precompute_freqs",
@@ -29,4 +37,3 @@ __all__ = [
     "swiglu_backward_dispatch",
     "swiglu_dispatch",
 ]
-
