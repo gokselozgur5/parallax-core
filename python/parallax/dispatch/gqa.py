@@ -77,5 +77,15 @@ def repeat_kv_pair(k: Tensor, v: Tensor, n_rep: int) -> tuple[Tensor, Tensor]:
     return dispatched_repeat_kv(k, n_rep), dispatched_repeat_kv(v, n_rep)
 
 
+__all__ = [
+    "GQAHeadRepeater",
+    "dispatched_repeat_kv",
+    "reduce_kv_grad",
+    "repeat_kv",
+    "repeat_kv_pair",
+]
+
+
+
 
 
