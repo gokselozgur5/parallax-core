@@ -14,7 +14,11 @@ _pkg = str(REPO_ROOT / "python" / "parallax")
 if _pkg not in parallax.__path__:
     parallax.__path__.append(_pkg)
 
-from parallax.dispatch.fused_norm import fused_rmsnorm, stabilize_epsilon
+from parallax.dispatch.fused_norm import (
+    FusedRMSNorm,
+    fused_rmsnorm,
+    stabilize_epsilon,
+)
 
 
 def test_stabilize_epsilon_positive_value():
@@ -61,6 +65,15 @@ def test_fused_rmsnorm_zero_inputs_stability():
     np.testing.assert_allclose(out, 0.0)
     assert not np.any(np.isnan(out))
     assert not np.any(np.isinf(out))
+
+
+def test_fused_rmsnorm_module_init_and_params():
+    norm = FusedRMSNorm(dim=16, eps=1e-5)
+    assert norm.dim == 16
+    assert norm.eps == 1e-5
+    assert norm.weight.shape == (16,)
+    np.testing.assert_allclose(norm.weight.data, 1.0)
+
 
 
 
