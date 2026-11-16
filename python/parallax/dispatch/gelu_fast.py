@@ -108,3 +108,16 @@ GELUFast = DispatchedGELUFast
 FastGELU = DispatchedGELUFast
 gelu_fast = gelu_fast_dispatch
 gelu_tanh = gelu_fast_dispatch
+
+
+__all__ = [
+    "DispatchedGELUFast",
+    "FastGELU",
+    "GELUFast",
+    "dispatched_gelu_fast",
+    "gelu_fast",
+    "gelu_fast_backward",
+    "gelu_fast_dispatch",
+    "gelu_fast_forward_np",
+    "gelu_tanh",
+]
