@@ -38,3 +38,13 @@ def test_sliding_window_attention_shapes_and_values() -> None:
     out = sliding_window_attention(q, k, v, window_size=1, causal=True)
     assert out.shape == q.shape
     assert out.dtype == np.float32
+
+
+def test_sliding_window_zero_window_identity() -> None:
+    from python.parallax.dispatch.sliding_window import sliding_window_attention
+
+    q = np.ones((3, 1, 4), dtype=np.float32)
+    k = np.ones((3, 1, 4), dtype=np.float32)
+    v = np.array([[[1.0, 2.0, 3.0, 4.0]], [[5.0, 6.0, 7.0, 8.0]], [[9.0, 10.0, 11.0, 12.0]]], dtype=np.float32)
+    out = sliding_window_attention(q, k, v, window_size=0, causal=True)
+    np.testing.assert_allclose(out, v, atol=1e-5)
