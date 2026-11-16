@@ -3,7 +3,10 @@
 import numpy as np
 import pytest
 
-from python.parallax.dispatch.embedding_backward import embedding_backward
+from python.parallax.dispatch.embedding_backward import (
+    embedding_backward,
+    sparse_embedding_backward,
+)
 
 
 def test_embedding_backward_basic():
@@ -66,3 +69,13 @@ def test_embedding_backward_out_buffer():
     np.testing.assert_allclose(buf[0], 2.0)
     np.testing.assert_allclose(buf[1], 1.0)
     np.testing.assert_allclose(buf[2], 2.0)
+
+
+def test_sparse_embedding_backward():
+    """Verify sparse unique indices and gradient accumulation."""
+    indices = np.array([2, 5, 2], dtype=np.int64)
+    grad_output = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], dtype=np.float32)
+    uniq_idx, grad_slices = sparse_embedding_backward(grad_output, indices)
+    np.testing.assert_array_equal(uniq_idx, [2, 5])
+    np.testing.assert_allclose(grad_slices[0], [6.0, 8.0])
+    np.testing.assert_allclose(grad_slices[1], [3.0, 4.0])
