@@ -7,6 +7,7 @@ import pytest
 
 from parallax.tensor import Tensor
 from python.parallax.dispatch.rmsnorm_backward import (
+    fused_rmsnorm_backward,
     rmsnorm_backward,
     rmsnorm_backward_reference,
     stabilize_epsilon,
@@ -62,3 +63,15 @@ def test_rmsnorm_backward_numerical_finite_difference():
             x_neg = x.copy(); x_neg[i, j] -= h
             num_dx[i, j] = np.sum((f(x_pos, w) - f(x_neg, w)) / (2 * h) * dout)
     np.testing.assert_allclose(dx, num_dx, rtol=1e-4, atol=1e-5)
+
+
+def test_fused_rmsnorm_backward():
+    x = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    res = np.array([[0.5, -0.5], [1.0, -1.0]], dtype=np.float32)
+    w = np.ones(2, dtype=np.float32)
+    dout = np.ones_like(x)
+    dx, dw, dres = fused_rmsnorm_backward(dout, x, w, residual=res, eps=1e-5)
+    dx_direct, dw_direct = rmsnorm_backward(dout, x + res, w, eps=1e-5)
+    np.testing.assert_allclose(dx, dx_direct)
+    np.testing.assert_allclose(dw, dw_direct)
+    np.testing.assert_allclose(dres, dx_direct)
