@@ -34,3 +34,18 @@ def test_embedding_backward_validation():
 
     with pytest.raises(ValueError, match="shape"):
         embedding_backward(np.zeros((2, 4)), np.array([0, 1]), 5, 3)
+
+
+def test_embedding_backward_padding_idx():
+    """Verify that padding_idx rows receive zero gradients."""
+    num_embeddings = 5
+    embedding_dim = 3
+    indices = np.array([0, 1, 2, 1], dtype=np.int64)
+    grad_output = np.full((4, embedding_dim), 3.0, dtype=np.float32)
+
+    grad_weight = embedding_backward(
+        grad_output, indices, num_embeddings, embedding_dim, padding_idx=1
+    )
+    np.testing.assert_allclose(grad_weight[0], 3.0)
+    np.testing.assert_allclose(grad_weight[1], 0.0)
+    np.testing.assert_allclose(grad_weight[2], 3.0)
