@@ -51,3 +51,14 @@ def apply_axial_rope(
     x_h = _rot(x[..., :axial_dim], cos_h[h_coords], sin_h[h_coords])
     x_w = _rot(x[..., axial_dim:], cos_w[w_coords], sin_w[w_coords])
     return np.concatenate((x_h, x_w), axis=-1)
+
+
+def apply_axial_rope_grid(
+    x: np.ndarray, cos_h: np.ndarray, sin_h: np.ndarray, cos_w: np.ndarray, sin_w: np.ndarray, height: int, width: int
+) -> np.ndarray:
+    """Apply 2D axial rotary embedding to a flattened grid sequence."""
+    if x.shape[0] != height * width:
+        raise ValueError(f"Sequence length {x.shape[0]} does not match grid {height}x{width}")
+    h_coords = np.repeat(np.arange(height), width)
+    w_coords = np.tile(np.arange(width), height)
+    return apply_axial_rope(x, cos_h, sin_h, cos_w, sin_w, h_coords, w_coords)
