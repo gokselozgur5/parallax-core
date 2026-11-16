@@ -30,3 +30,15 @@ def test_kv_cache_buffer_init_shapes():
 def test_kv_cache_memory_usage_bytes():
     buf = KVCacheBuffer(batch_size=1, max_seq_len=128, num_heads=2, head_dim=64)
     assert buf.memory_usage_bytes() == 131072
+
+
+def test_kv_cache_single_step_update_and_view():
+    buf = KVCacheBuffer(batch_size=1, max_seq_len=16, num_heads=2, head_dim=4)
+    k_step = np.ones((1, 2, 1, 4), dtype=np.float32) * 3.0
+    v_step = np.ones((1, 2, 1, 4), dtype=np.float32) * 5.0
+    k_out, v_out = buf.update(k_step, v_step)
+    assert buf.seq_len == 1
+    assert k_out.shape == (1, 2, 1, 4)
+    assert v_out.shape == (1, 2, 1, 4)
+    np.testing.assert_allclose(k_out, k_step)
+    np.testing.assert_allclose(v_out, v_step)
