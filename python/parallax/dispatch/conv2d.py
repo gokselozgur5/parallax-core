@@ -42,3 +42,28 @@ def conv2d_forward(
     if bias is not None:
         out += bias[None, :, None, None]
     return out
+
+
+def conv2d_backward(
+    dout: np.ndarray,
+    x: np.ndarray,
+    weight: np.ndarray,
+    stride: Tuple[int, int],
+    padding: Tuple[int, int],
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Compute gradients w.r.t input and weight for 2D convolution."""
+    sh, sw = stride
+    ph, pw = padding
+    x_pad = np.pad(x, ((0, 0), (0, 0), (ph, ph), (pw, pw))) if (ph or pw) else x.copy()
+    dx_pad = np.zeros_like(x_pad)
+    dw = np.zeros_like(weight)
+    h_out, w_out = dout.shape[2], dout.shape[3]
+    for i in range(h_out):
+        for j in range(w_out):
+            cur = dout[:, :, i, j]
+            kh, kw = weight.shape[2], weight.shape[3]
+            patch = x_pad[:, :, i * sh : i * sh + kh, j * sw : j * sw + kw]
+            dw += np.tensordot(cur, patch, axes=(0, 0))
+            dx_pad[:, :, i * sh : i * sh + kh, j * sw : j * sw + kw] += np.tensordot(cur, weight, axes=(1, 0))
+    dx = dx_pad[:, :, ph : ph + x.shape[2], pw : pw + x.shape[3]] if (ph or pw) else dx_pad
+    return dx, dw
