@@ -26,3 +26,15 @@ def test_get_sliding_window_bounds() -> None:
     starts_nc, ends_nc = get_sliding_window_bounds(seq_len_q=4, seq_len_k=4, window_size=1, causal=False)
     np.testing.assert_array_equal(starts_nc, np.array([0, 0, 1, 2]))
     np.testing.assert_array_equal(ends_nc, np.array([2, 3, 4, 4]))
+
+
+def test_sliding_window_attention_shapes_and_values() -> None:
+    from python.parallax.dispatch.sliding_window import sliding_window_attention
+
+    rng = np.random.default_rng(42)
+    q = rng.standard_normal((4, 2, 8)).astype(np.float32)
+    k = rng.standard_normal((4, 2, 8)).astype(np.float32)
+    v = rng.standard_normal((4, 2, 8)).astype(np.float32)
+    out = sliding_window_attention(q, k, v, window_size=1, causal=True)
+    assert out.shape == q.shape
+    assert out.dtype == np.float32
