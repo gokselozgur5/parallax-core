@@ -53,3 +53,24 @@ class KVCacheBuffer:
         self.v[:, :, pos : pos + num_toks, :] = v_val
         self.seq_len = max(self.seq_len, pos + num_toks)
         return self.get_view(self.seq_len)
+
+
+class KVCacheManager:
+    """Manages multi-layer key-value cache tensor buffers."""
+
+    def __init__(
+        self, num_layers: int, batch_size: int, max_seq_len: int, num_heads: int, head_dim: int, dtype: np.dtype | type = np.float32
+    ) -> None:
+        self.num_layers = num_layers
+        self.layers = [
+            KVCacheBuffer(batch_size, max_seq_len, num_heads, head_dim, dtype=dtype)
+            for _ in range(num_layers)
+        ]
+
+    def update(
+        self, layer_idx: int, k_val: np.ndarray, v_val: np.ndarray, start_pos: Optional[int] = None
+    ) -> tuple[np.ndarray, np.ndarray]:
+        return self.layers[layer_idx].update(k_val, v_val, start_pos=start_pos)
+
+    def memory_usage_bytes(self) -> int:
+        return sum(layer.memory_usage_bytes() for layer in self.layers)
