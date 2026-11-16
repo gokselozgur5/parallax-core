@@ -76,3 +76,21 @@ def flash_sliding_window_tile(
     l = np.sum(p, axis=-1, keepdims=True)
     acc = np.matmul(p, v)
     return acc, m, l
+
+
+class SlidingWindowAttention:
+    """Sliding Window Attention layer with optional causal masking."""
+
+    def __init__(
+        self, window_size: int, scale: float | None = None, causal: bool = True
+    ) -> None:
+        if window_size < 0:
+            raise ValueError(f"window_size must be >= 0, got {window_size}")
+        self.window_size = int(window_size)
+        self.scale = scale
+        self.causal = causal
+
+    def __call__(self, q: np.ndarray, k: np.ndarray, v: np.ndarray) -> np.ndarray:
+        return sliding_window_attention(
+            q, k, v, window_size=self.window_size, scale=self.scale, causal=self.causal
+        )
