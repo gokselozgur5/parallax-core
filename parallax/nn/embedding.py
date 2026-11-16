@@ -22,6 +22,8 @@ class DispatchedEmbedding(Module):
         self.padding_idx = padding_idx
         limit = 1.0 / np.sqrt(embedding_dim)
         data = np.random.uniform(-limit, limit, (num_embeddings, embedding_dim))
+        if padding_idx is not None:
+            data[padding_idx] = 0.0
         self.weight = Parameter(data, label="Embedding.weight")
 
     def forward(self, indices: Tensor | np.ndarray) -> Tensor:
