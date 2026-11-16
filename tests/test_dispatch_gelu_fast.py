@@ -38,3 +38,23 @@ def test_gelu_fast_bounds_and_edges() -> None:
 
     with pytest.raises(TypeError, match="Complex dtypes"):
         gelu_fast_dispatch(np.array([1 + 2j], dtype=np.complex64))
+
+
+def test_gelu_fast_backward_numerical() -> None:
+    rng = np.random.default_rng(123)
+    x = rng.uniform(-4.0, 4.0, size=(3, 5)).astype(np.float32)
+    grad_out = rng.standard_normal((3, 5), dtype=np.float32)
+    analytical = gelu_fast_backward(grad_out, x)
+
+    eps = 1e-4
+    numerical = np.zeros_like(x)
+    for idx in np.ndindex(x.shape):
+        x_pos = x.copy()
+        x_neg = x.copy()
+        x_pos[idx] += eps
+        x_neg[idx] -= eps
+        f_pos = gelu_fast_forward_np(x_pos)
+        f_neg = gelu_fast_forward_np(x_neg)
+        numerical[idx] = np.sum(grad_out * (f_pos - f_neg) / (2.0 * eps))
+
+    assert np.allclose(analytical, numerical, rtol=1e-3, atol=1e-4)
