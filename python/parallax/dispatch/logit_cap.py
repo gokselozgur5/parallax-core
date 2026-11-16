@@ -5,6 +5,10 @@ from __future__ import annotations
 from typing import Any, Optional
 import numpy as np
 
+from parallax.nn import Module
+from parallax.tensor import Tensor, _accumulate_grad
+
+
 
 def _dispatch_logit_cap(x: np.ndarray, cap: float) -> np.ndarray:
     """Route logit soft capping through backend dispatch engine if available."""
@@ -37,5 +41,22 @@ def logit_soft_cap_backward(
     t = np.tanh(x / cap_val)
     grad_x = grad_out * (1.0 - t * t)
     return grad_x.astype(x.dtype)
+
+
+class DispatchedLogitCap(Module):
+    """Logit soft-capping module using optimal backend dispatch."""
+
+    def __init__(self, cap: float = 30.0) -> None:
+        super().__init__()
+        self.cap = float(cap)
+        if self.cap <= 0.0:
+            raise ValueError("cap must be strictly positive")
+
+    def forward(self, x: Tensor | np.ndarray) -> Tensor:
+        raw_x = x.data if isinstance(x, Tensor) else x
+        out_data = logit_soft_cap(raw_x, cap=self.cap)
+        parents = (x,) if isinstance(x, Tensor) else ()
+        return Tensor(out_data, parents, "DispatchedLogitCap")
+
 
 
