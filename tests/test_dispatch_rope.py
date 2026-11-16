@@ -41,3 +41,15 @@ def test_rotate_half() -> None:
 
     out_int = rotate_half(x, interleaved=True)
     np.testing.assert_allclose(out_int, np.array([-2.0, 1.0, -4.0, 3.0]))
+
+
+def test_apply_rotary_emb_identity_at_pos0() -> None:
+    from python.parallax.dispatch.rope import apply_rotary_emb, precompute_freqs
+
+    cos, sin = precompute_freqs(dim=4, max_seq_len=8)
+    x = np.array([[[1.0, 2.0, 3.0, 4.0]]], dtype=np.float32)
+    out = apply_rotary_emb(x, cos, sin, offset=0, interleaved=False)
+    np.testing.assert_allclose(out, x, atol=1e-6)
+
+    out_int = apply_rotary_emb(x, cos, sin, offset=0, interleaved=True)
+    np.testing.assert_allclose(out_int, x, atol=1e-6)
