@@ -163,6 +163,28 @@ class DispatchedSDPA(Module):
         out = Tensor(out_data, parents, "DispatchedSDPA")
         if not out.requires_grad:
             return out
+        def _backward() -> None:
+            if out.grad is None:
+                return
+            gq, gk, gv = sdpa_backward(
+                out.grad,
+                raw_q,
+                raw_k,
+                raw_v,
+                attn_mask=raw_mask,
+                is_causal=self.is_causal,
+                scale=self.scale,
+            )
+            if isinstance(query, Tensor) and query.requires_grad:
+                _accumulate_grad(query, gq)
+            if isinstance(key, Tensor) and key.requires_grad:
+                _accumulate_grad(key, gk)
+            if isinstance(value, Tensor) and value.requires_grad:
+                _accumulate_grad(value, gv)
+
+        out._backward = _backward
+        return out
+
 
     def extra_repr(self) -> str:
         return f"dropout_p={self.dropout_p}, is_causal={self.is_causal}, scale={self.scale}"
