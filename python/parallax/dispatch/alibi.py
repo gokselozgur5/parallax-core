@@ -41,3 +41,25 @@ def build_alibi_bias(
     k_pos = np.arange(k_len, dtype=np.float32)[None, :]
     rel_pos = k_pos - q_pos if causal else -np.abs(q_pos - k_pos)
     return (slopes[:, None, None] * rel_pos[None, :, :]).astype(np.float32)
+
+
+def apply_alibi_bias(
+    scores: np.ndarray,
+    bias: np.ndarray | None = None,
+    slopes: np.ndarray | None = None,
+    causal: bool = True,
+    offset: int = 0,
+) -> np.ndarray:
+    """Add ALiBi positional bias to pre-softmax attention score tensor."""
+    if scores.ndim < 3:
+        raise ValueError(f"scores tensor must have at least 3 dims, got {scores.ndim}")
+    num_heads = scores.shape[-3]
+    q_len, k_len = scores.shape[-2], scores.shape[-1]
+    if bias is None:
+        if slopes is None:
+            slopes = get_alibi_slopes(num_heads)
+        q_pos = (np.arange(q_len, dtype=np.float32) + offset)[:, None]
+        k_pos = np.arange(k_len, dtype=np.float32)[None, :]
+        rel = k_pos - q_pos if causal else -np.abs(q_pos - k_pos)
+        bias = (slopes[:, None, None] * rel[None, :, :]).astype(scores.dtype)
+    return scores + bias
