@@ -129,3 +129,25 @@ class FusedLayerNorm(Module):
             residual if isinstance(residual, Tensor) else None,
         ) if out.grad is not None else None
         return out
+
+    @classmethod
+    def from_layernorm(cls, norm: Any) -> FusedLayerNorm:
+        shape = getattr(norm, "normalized_shape", getattr(norm, "dim", (0,)))
+        eps = getattr(norm, "eps", 1e-5)
+        affine = getattr(norm, "weight", None) is not None
+        has_bias = getattr(norm, "bias", None) is not None
+        mod = cls(shape, eps=eps, elementwise_affine=affine, bias=has_bias)
+        if affine and hasattr(norm, "weight") and norm.weight is not None:
+            mod.weight = Parameter(np.asarray(getattr(norm.weight, "data", norm.weight)).copy())
+        if has_bias and hasattr(norm, "bias") and norm.bias is not None:
+            mod.bias = Parameter(np.asarray(getattr(norm.bias, "data", norm.bias)).copy())
+        return mod
+
+    def extra_repr(self) -> str:
+        return f"normalized_shape={self.normalized_shape}, eps={self.eps}, elementwise_affine={self.elementwise_affine}"
+
+    def __repr__(self) -> str:
+        return f"FusedLayerNorm({self.extra_repr()})"
+
+
+__all__ = ["FusedLayerNorm", "fused_layernorm", "stabilize_epsilon"]
