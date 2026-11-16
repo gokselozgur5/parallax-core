@@ -12,6 +12,16 @@ def stabilize_epsilon(eps: float, min_eps: float = 1e-12) -> float:
     return max(eps_val, min_eps)
 
 
+def _dispatch_rmsnorm(x: np.ndarray, weight: np.ndarray, eps: float) -> np.ndarray:
+    try:
+        from parallax.backends.dispatch import dispatch
+        return dispatch("rmsnorm", x, weight, eps=eps)
+    except Exception:
+        variance = np.mean(x * x, axis=-1, keepdims=True)
+        inv_rms = 1.0 / np.sqrt(np.maximum(variance, 0.0) + eps)
+        return (x * inv_rms) * weight
+
+
 def fused_rmsnorm(
     x: np.ndarray,
     weight: np.ndarray,
@@ -24,12 +34,11 @@ def fused_rmsnorm(
     fused = x + residual if residual is not None else x
     orig_dtype = fused.dtype
     acc = fused.astype(np.float32) if orig_dtype in (np.float16, np.int32) else fused
-    variance = np.mean(acc * acc, axis=-1, keepdims=True)
-    inv_rms = 1.0 / np.sqrt(np.maximum(variance, 0.0) + eps_val)
-    normed = (fused * inv_rms) * weight
+    normed = _dispatch_rmsnorm(acc, weight.astype(acc.dtype), eps_val)
     out = normed.astype(orig_dtype)
     if return_residual:
         return out, fused
     return out
+
 
 
