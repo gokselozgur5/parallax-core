@@ -112,8 +112,9 @@ def test_dispatched_embedding_backward_class():
 
 def test_dispatch_embedding_backward_all():
     """Verify __all__ contains public functions and class."""
-    import python.parallax.dispatch.embedding_backward as eb
+    import sys
 
+    eb = sys.modules["python.parallax.dispatch.embedding_backward"]
     assert hasattr(eb, "__all__")
     expected = {
         "DispatchedEmbeddingBackward",
