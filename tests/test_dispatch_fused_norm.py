@@ -37,3 +37,14 @@ def test_fused_rmsnorm_forward_numpy_parity():
     np.testing.assert_allclose(out, expected, rtol=1e-5, atol=1e-6)
 
 
+def test_fused_rmsnorm_with_residual_addition():
+    x = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    res = np.array([[0.5, -0.5], [1.0, -1.0]], dtype=np.float32)
+    w = np.ones(2, dtype=np.float32)
+    normed, fused = fused_rmsnorm(x, w, residual=res, return_residual=True)
+    np.testing.assert_allclose(fused, x + res)
+    expected = fused_rmsnorm(x + res, w)
+    np.testing.assert_allclose(normed, expected)
+
+
+
