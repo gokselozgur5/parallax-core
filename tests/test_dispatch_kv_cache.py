@@ -57,3 +57,11 @@ def test_kv_cache_prefill_and_decode_step():
     assert buf.seq_len == 5
     assert k_out2.shape == (1, 2, 5, 4)
     np.testing.assert_allclose(k_out2[:, :, 4:5, :], k_dec)
+
+
+def test_kv_cache_overflow_raises_value_error():
+    buf = KVCacheBuffer(batch_size=1, max_seq_len=4, num_heads=2, head_dim=4)
+    k_overflow = np.ones((1, 2, 5, 4), dtype=np.float32)
+    v_overflow = np.ones((1, 2, 5, 4), dtype=np.float32)
+    with pytest.raises(ValueError, match="exceeds maximum sequence length"):
+        buf.update(k_overflow, v_overflow)
