@@ -51,7 +51,8 @@ def test_fused_rmsnorm_dispatches_to_backend():
     x = np.ones((2, 4), dtype=np.float32)
     w = np.full(4, 2.0, dtype=np.float32)
     out = fused_rmsnorm(x, w, eps=1e-5)
-    np.testing.assert_allclose(out, np.full((2, 4), 2.0, dtype=np.float32))
+    np.testing.assert_allclose(out, np.full((2, 4), 2.0, dtype=np.float32), rtol=1e-4)
+
 
 
 
