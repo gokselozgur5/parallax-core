@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+from parallax.tensor import Tensor, _accumulate_grad
 
 
 def embedding_backward(
@@ -55,3 +56,20 @@ def sparse_embedding_backward(
         if np.any(mask):
             accum_grad[mask] = 0.0
     return unique_idx, accum_grad
+
+
+
+def accumulate_embedding_backward(
+    grad_output: Tensor | np.ndarray,
+    indices: Tensor | np.ndarray,
+    weight: Tensor,
+    padding_idx: int | None = None,
+) -> None:
+    """Accumulate backward gradients into weight Tensor with autograd support."""
+    if not getattr(weight, "requires_grad", True):
+        return
+    grad_arr = grad_output.data if isinstance(grad_output, Tensor) else np.asarray(grad_output)
+    idx_arr = indices.data if isinstance(indices, Tensor) else np.asarray(indices)
+    num_emb, emb_dim = weight.shape[:2]
+    dw = embedding_backward(grad_arr, idx_arr, num_emb, emb_dim, padding_idx=padding_idx)
+    _accumulate_grad(weight, dw)
