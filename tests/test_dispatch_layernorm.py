@@ -20,3 +20,20 @@ def test_fused_layernorm_initialization():
     assert norm.weight.shape == (64,)
     assert norm.bias is not None
     assert norm.bias.shape == (64,)
+
+
+def test_fused_layernorm_repr():
+    norm = FusedLayerNorm(normalized_shape=(16, 32), eps=1e-6, elementwise_affine=False)
+    assert norm.weight is None
+    assert norm.bias is None
+    expected_extra = "normalized_shape=(16, 32), eps=1e-06, elementwise_affine=False"
+    assert norm.extra_repr() == expected_extra
+    assert repr(norm) == f"FusedLayerNorm({expected_extra})"
+
+
+def test_fused_layernorm_package_exports():
+    from parallax.dispatch.layernorm import FusedLayerNorm as LN1
+    from python.parallax.dispatch import FusedLayerNorm as LN2
+
+    assert LN1 is FusedLayerNorm
+    assert LN2 is FusedLayerNorm
