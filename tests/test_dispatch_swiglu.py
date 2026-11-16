@@ -22,3 +22,18 @@ def test_swiglu_dispatch_validation() -> None:
     with pytest.raises(TypeError):
         swiglu_dispatch(np.array([1 + 2j]), np.array([2 + 3j]))
 
+
+def test_swiglu_backward_dispatch() -> None:
+    from python.parallax.dispatch.swiglu import swiglu_backward_dispatch
+
+    a = np.array([1.0, -1.0], dtype=np.float32)
+    b = np.array([2.0, 3.0], dtype=np.float32)
+    grad = np.array([1.0, 1.0], dtype=np.float32)
+    ga, gb = swiglu_backward_dispatch(grad, a, b)
+    sig = 1.0 / (1.0 + np.exp(-a))
+    silu = a * sig
+    dsilu = sig * (1.0 + a * (1.0 - sig))
+    np.testing.assert_allclose(gb, grad * silu, atol=1e-5)
+    np.testing.assert_allclose(ga, grad * b * dsilu, atol=1e-5)
+
+
