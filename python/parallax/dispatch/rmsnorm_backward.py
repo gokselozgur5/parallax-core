@@ -95,3 +95,12 @@ def dispatched_rmsnorm(
 
     out._backward = _backward
     return out
+
+
+__all__ = [
+    "dispatched_rmsnorm",
+    "fused_rmsnorm_backward",
+    "rmsnorm_backward",
+    "rmsnorm_backward_reference",
+    "stabilize_epsilon",
+]
