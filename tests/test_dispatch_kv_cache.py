@@ -7,14 +7,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-import parallax
-
-REPO_ROOT = Path(__file__).resolve().parent.parent
-_dispatch_pkg = str(REPO_ROOT / "python" / "parallax")
-if _dispatch_pkg not in parallax.__path__:
-    parallax.__path__.append(_dispatch_pkg)
-
-from parallax.dispatch.kv_cache import KVCacheBuffer, KVCacheManager, create_kv_cache
+from python.parallax.dispatch.kv_cache import (
+    KVCacheBuffer,
+    KVCacheManager,
+    create_kv_cache,
+)
 
 
 def test_kv_cache_buffer_init_shapes():
