@@ -5,7 +5,10 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from python.parallax.dispatch.logit_cap import logit_soft_cap
+from python.parallax.dispatch.logit_cap import (
+    logit_soft_cap,
+    logit_soft_cap_backward,
+)
 
 
 def test_logit_soft_cap_forward_values() -> None:
@@ -31,5 +34,16 @@ def test_logit_soft_cap_extreme_bounds_and_dtype() -> None:
     assert np.isclose(out[0], -20.0, atol=1e-5)
     assert np.isclose(out[1], 0.0, atol=1e-5)
     assert np.isclose(out[2], 20.0, atol=1e-5)
+
+
+def test_logit_soft_cap_backward_values() -> None:
+    x = np.array([-10.0, 0.0, 10.0], dtype=np.float32)
+    grad_out = np.ones_like(x)
+    cap = 30.0
+    grad_x = logit_soft_cap_backward(grad_out, x, cap=cap)
+    t = np.tanh(x / cap)
+    expected = grad_out * (1.0 - t * t)
+    np.testing.assert_allclose(grad_x, expected, rtol=1e-5, atol=1e-6)
+
 
 
