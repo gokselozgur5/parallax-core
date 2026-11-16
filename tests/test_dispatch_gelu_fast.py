@@ -75,5 +75,8 @@ def test_dispatched_gelu_fast_module() -> None:
     out = mod(x)
     assert out.shape == (1, 2)
     assert repr(mod) == "DispatchedGELUFast(approximate='tanh')"
+    assert FastGELU is DispatchedGELUFast
+    assert GELUFast is DispatchedGELUFast
+    assert gelu_fast is gelu_fast_dispatch
     with pytest.raises(ValueError, match="Unsupported approximation"):
         DispatchedGELUFast(approximate="invalid")
