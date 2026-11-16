@@ -75,6 +75,15 @@ def test_fused_rmsnorm_module_init_and_params():
     np.testing.assert_allclose(norm.weight.data, 1.0)
 
 
+def test_fused_rmsnorm_module_forward():
+    norm = FusedRMSNorm(dim=4, eps=1e-5)
+    x = np.ones((2, 4), dtype=np.float32)
+    out = norm(x)
+    assert out.shape == (2, 4)
+    np.testing.assert_allclose(out.data, np.full((2, 4), 1.0, dtype=np.float32), rtol=1e-4)
+
+
+
 
 
 
