@@ -74,3 +74,16 @@ class RoPEFrequencyTable:
 
     def rotate(self, x: np.ndarray, offset: int = 0, interleaved: bool = False) -> np.ndarray:
         return apply_rotary_emb(x, self.cos, self.sin, offset=offset, interleaved=interleaved)
+
+
+def dispatch_rope(
+    x: np.ndarray,
+    start_pos: int = 0,
+    theta: float = 10000.0,
+    interleaved: bool = True,
+) -> np.ndarray:
+    """Dispatch RoPE operation to native kernel if available, otherwise numpy."""
+    dim = x.shape[-1]
+    seq_len = x.shape[0]
+    cos, sin = precompute_freqs(dim, max_seq_len=start_pos + seq_len, theta=theta)
+    return apply_rotary_emb(x, cos, sin, offset=start_pos, interleaved=interleaved)
