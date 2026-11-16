@@ -69,3 +69,22 @@ def test_sdpa_boolean_and_additive_masks() -> None:
     float_mask[:, 2:] = -1e9
     out_float = scaled_dot_product_attention(q, k, v, attn_mask=float_mask)
     np.testing.assert_allclose(out_bool, out_float, rtol=1e-5, atol=1e-6)
+
+
+def test_sdpa_backward_finite_difference() -> None:
+    rng = np.random.RandomState(42)
+    q = rng.randn(1, 2, 3, 4).astype(np.float64)
+    k = rng.randn(1, 2, 3, 4).astype(np.float64)
+    v = rng.randn(1, 2, 3, 4).astype(np.float64)
+    grad_out = rng.randn(1, 2, 3, 4).astype(np.float64)
+    gq, gk, gv = sdpa_backward(grad_out, q, k, v)
+    eps = 1e-6
+    for arr, grad in [(q, gq), (k, gk), (v, gv)]:
+        idx = (0, 1, 1, 2)
+        pos, neg = arr.copy(), arr.copy()
+        pos[idx] += eps
+        neg[idx] -= eps
+        o_pos = scaled_dot_product_attention(pos if arr is q else q, pos if arr is k else k, pos if arr is v else v)
+        o_neg = scaled_dot_product_attention(neg if arr is q else q, neg if arr is k else k, neg if arr is v else v)
+        num = np.sum((o_pos - o_neg) * grad_out) / (2 * eps)
+        assert np.isclose(grad[idx], num, rtol=1e-4, atol=1e-4)
