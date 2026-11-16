@@ -38,3 +38,22 @@ def test_dispatched_conv2d_package_exports():
 
     assert DC1 is DispatchedConv2d
     assert DC2 is DispatchedConv2d
+
+
+def test_dispatched_conv2d_forward_shape():
+    from parallax.tensor import Tensor
+
+    layer = DispatchedConv2d(in_channels=2, out_channels=4, kernel_size=3, stride=1, padding=1)
+    x = Tensor(np.random.randn(2, 2, 8, 8).astype(np.float32))
+    out = layer(x)
+    assert out.shape == (2, 4, 8, 8)
+    assert isinstance(out, Tensor)
+
+
+def test_dispatched_conv2d_strided_forward():
+    from parallax.tensor import Tensor
+
+    layer = DispatchedConv2d(in_channels=3, out_channels=6, kernel_size=(3, 3), stride=(2, 2), padding=(0, 0))
+    x = Tensor(np.random.randn(1, 3, 10, 10).astype(np.float32))
+    out = layer(x)
+    assert out.shape == (1, 6, 4, 4)
