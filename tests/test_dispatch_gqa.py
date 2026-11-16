@@ -23,3 +23,13 @@ def test_repeat_kv_validation() -> None:
     with pytest.raises(ValueError):
         repeat_kv(np.ones((4, 8)), n_rep=2)
 
+
+def test_reduce_kv_grad() -> None:
+    from python.parallax.dispatch.gqa import reduce_kv_grad
+
+    grad = np.ones((2, 6, 4, 8), dtype=np.float32)
+    reduced = reduce_kv_grad(grad, n_rep=3)
+    assert reduced.shape == (2, 2, 4, 8)
+    np.testing.assert_allclose(reduced, np.full((2, 2, 4, 8), 3.0, dtype=np.float32))
+
+
