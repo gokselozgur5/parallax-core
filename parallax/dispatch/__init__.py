@@ -35,6 +35,12 @@ from python.parallax.dispatch.logit_cap import (
     logit_soft_cap,
     logit_soft_cap_backward,
 )
+from python.parallax.dispatch.rmsnorm_backward import (
+    dispatched_rmsnorm,
+    fused_rmsnorm_backward,
+    rmsnorm_backward,
+    rmsnorm_backward_reference,
+)
 from python.parallax.dispatch.rope import (
     RoPEFrequencyTable,
     apply_rotary_emb,
@@ -81,6 +87,10 @@ __all__ = [
     "dispatch_axial_rope",
     "dispatch_rope",
     "dispatched_repeat_kv",
+    "dispatched_rmsnorm",
+    "fused_rmsnorm_backward",
+    "rmsnorm_backward",
+    "rmsnorm_backward_reference",
     "dispatched_sliding_window_attention",
     "dispatched_swiglu",
     "flash_sliding_window_tile",
