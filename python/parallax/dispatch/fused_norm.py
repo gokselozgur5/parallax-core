@@ -17,7 +17,8 @@ def fused_rmsnorm(
     weight: np.ndarray,
     residual: Optional[np.ndarray] = None,
     eps: float = 1e-6,
-) -> np.ndarray:
+    return_residual: bool = False,
+) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
     """Compute RMSNorm with fused residual addition and epsilon stabilization."""
     eps_val = stabilize_epsilon(eps)
     fused = x + residual if residual is not None else x
@@ -26,5 +27,9 @@ def fused_rmsnorm(
     variance = np.mean(acc * acc, axis=-1, keepdims=True)
     inv_rms = 1.0 / np.sqrt(np.maximum(variance, 0.0) + eps_val)
     normed = (fused * inv_rms) * weight
-    return normed.astype(orig_dtype)
+    out = normed.astype(orig_dtype)
+    if return_residual:
+        return out, fused
+    return out
+
 
