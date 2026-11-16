@@ -83,6 +83,16 @@ def test_fused_rmsnorm_module_forward():
     np.testing.assert_allclose(out.data, np.full((2, 4), 1.0, dtype=np.float32), rtol=1e-4)
 
 
+def test_fused_rmsnorm_repr_and_from_norm():
+    norm = FusedRMSNorm(dim=32, eps=1e-6)
+    assert "dim=32" in repr(norm)
+    assert "eps=1e-06" in repr(norm)
+    cloned = FusedRMSNorm.from_norm(norm)
+    assert cloned.dim == 32
+    assert cloned.eps == 1e-6
+
+
+
 
 
 
