@@ -73,6 +73,16 @@ def test_dispatched_logit_cap_module_init_and_forward() -> None:
     np.testing.assert_allclose(out.data, expected, rtol=1e-5, atol=1e-6)
 
 
+def test_dispatched_logit_cap_repr_and_from_capper() -> None:
+    mod = DispatchedLogitCap(cap=45.0)
+    assert "cap=45.0" in repr(mod)
+    from parallax.soft_capping import LogitSoftCapper
+    capper = LogitSoftCapper(soft_cap=25.0)
+    adapted = DispatchedLogitCap.from_capper(capper)
+    assert adapted.cap == 25.0
+
+
+
 
 
 
