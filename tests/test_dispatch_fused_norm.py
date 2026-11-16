@@ -7,6 +7,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from parallax.tensor import Tensor
+
 import parallax
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -90,6 +92,20 @@ def test_fused_rmsnorm_repr_and_from_norm():
     cloned = FusedRMSNorm.from_norm(norm)
     assert cloned.dim == 32
     assert cloned.eps == 1e-6
+
+
+def test_fused_rmsnorm_autograd_backward():
+    norm = FusedRMSNorm(dim=4, eps=1e-5)
+    x = Tensor(np.array([[1.0, 2.0, 3.0, 4.0]], dtype=np.float32), requires_grad=True)
+    res = Tensor(np.array([[0.5, 0.5, 0.5, 0.5]], dtype=np.float32), requires_grad=True)
+    out = norm(x, residual=res)
+    loss = out.sum()
+    loss.backward()
+    assert x.grad is not None
+    assert res.grad is not None
+    assert norm.weight.grad is not None
+    np.testing.assert_allclose(x.grad, res.grad)
+
 
 
 
