@@ -122,3 +122,13 @@ def test_dispatch_embedding_backward_all():
         "sparse_embedding_backward",
     }
     assert expected.issubset(set(eb.__all__))
+
+
+def test_dispatch_package_exports():
+    """Verify symbols are exposed via python.parallax.dispatch package."""
+    import python.parallax.dispatch as pd
+
+    assert hasattr(pd, "DispatchedEmbeddingBackward")
+    assert hasattr(pd, "accumulate_embedding_backward")
+    assert hasattr(pd, "embedding_backward")
+    assert hasattr(pd, "sparse_embedding_backward")
