@@ -85,3 +85,19 @@ class KVCacheManager:
         """Reset all managed layer buffers."""
         for layer in self.layers:
             layer.reset()
+
+
+def create_kv_cache(
+    batch_size: int,
+    max_seq_len: int,
+    num_heads: int,
+    head_dim: int,
+    num_layers: int = 1,
+    dtype: np.dtype | type = np.float32,
+) -> KVCacheBuffer | KVCacheManager:
+    """Create a single-layer buffer or multi-layer cache manager."""
+    if num_layers > 1:
+        return KVCacheManager(
+            num_layers, batch_size, max_seq_len, num_heads, head_dim, dtype=dtype
+        )
+    return KVCacheBuffer(batch_size, max_seq_len, num_heads, head_dim, dtype=dtype)
