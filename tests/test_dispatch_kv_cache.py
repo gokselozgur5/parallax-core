@@ -14,7 +14,7 @@ _dispatch_pkg = str(REPO_ROOT / "python" / "parallax")
 if _dispatch_pkg not in parallax.__path__:
     parallax.__path__.append(_dispatch_pkg)
 
-from parallax.dispatch.kv_cache import KVCacheBuffer
+from parallax.dispatch.kv_cache import KVCacheBuffer, KVCacheManager
 
 
 def test_kv_cache_buffer_init_shapes():
@@ -65,3 +65,15 @@ def test_kv_cache_overflow_raises_value_error():
     v_overflow = np.ones((1, 2, 5, 4), dtype=np.float32)
     with pytest.raises(ValueError, match="exceeds maximum sequence length"):
         buf.update(k_overflow, v_overflow)
+
+
+def test_kv_cache_manager_multi_layer():
+    mgr = KVCacheManager(num_layers=3, batch_size=1, max_seq_len=16, num_heads=2, head_dim=4)
+    assert len(mgr.layers) == 3
+    assert mgr.memory_usage_bytes() == 3 * mgr.layers[0].memory_usage_bytes()
+    k_in = np.ones((1, 2, 1, 4), dtype=np.float32)
+    v_in = np.ones((1, 2, 1, 4), dtype=np.float32) * 2.0
+    k_out, v_out = mgr.update(layer_idx=1, k_val=k_in, v_val=v_in)
+    assert mgr.layers[1].seq_len == 1
+    assert mgr.layers[0].seq_len == 0
+    np.testing.assert_allclose(k_out, k_in)
