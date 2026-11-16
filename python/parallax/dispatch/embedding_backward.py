@@ -10,6 +10,7 @@ def embedding_backward(
     indices: np.ndarray,
     num_embeddings: int,
     embedding_dim: int,
+    padding_idx: int | None = None,
 ) -> np.ndarray:
     """Accumulate incoming gradients into embedding weight gradient tensor."""
     if num_embeddings <= 0 or embedding_dim <= 0:
@@ -24,4 +25,8 @@ def embedding_backward(
     flat_indices = idx_arr.reshape(-1)
     flat_grad = grad_arr.reshape(-1, embedding_dim)
     np.add.at(grad_weight, flat_indices, flat_grad)
+    if padding_idx is not None:
+        if padding_idx < 0 or padding_idx >= num_embeddings:
+            raise IndexError("padding_idx out of range for num_embeddings")
+        grad_weight[padding_idx] = 0.0
     return grad_weight
