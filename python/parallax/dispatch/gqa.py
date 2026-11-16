@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 
+from parallax.nn import Module
 from parallax.tensor import Tensor, _accumulate_grad
+
 
 
 
@@ -49,5 +51,25 @@ def dispatched_repeat_kv(x: Tensor, n_rep: int) -> Tensor:
 
     out._backward = _backward
     return out
+
+
+class GQAHeadRepeater(Module):
+    """Module repeating key/value heads for Grouped-Query Attention."""
+
+    def __init__(self, n_rep: int) -> None:
+        super().__init__()
+        if n_rep <= 0:
+            raise ValueError(f"n_rep must be positive, got {n_rep}")
+        self.n_rep = n_rep
+
+    def forward(self, x: Tensor) -> Tensor:
+        return dispatched_repeat_kv(x, self.n_rep)
+
+    def extra_repr(self) -> str:
+        return f"n_rep={self.n_rep}"
+
+    def __repr__(self) -> str:
+        return f"GQAHeadRepeater({self.extra_repr()})"
+
 
 
