@@ -5,6 +5,12 @@ from __future__ import annotations
 from typing import Any
 import numpy as np
 
+try:
+    from parallax.native.swiglu import c_swiglu
+except ImportError:
+    c_swiglu = None
+
+
 
 from parallax.nn import Module
 from parallax.nn.linear import DispatchedLinear
@@ -21,7 +27,13 @@ def swiglu_dispatch(a: np.ndarray, b: np.ndarray) -> np.ndarray:
         raise ValueError(f"Shape mismatch: {a.shape} vs {b.shape}")
     a_f32 = np.asarray(a, dtype=np.float32)
     b_f32 = np.asarray(b, dtype=np.float32)
+    if c_swiglu is not None:
+        try:
+            return c_swiglu(a_f32, b_f32)
+        except Exception:
+            pass
     sig = 1.0 / (1.0 + np.exp(-np.clip(a_f32, -50.0, 50.0)))
+
     return (a_f32 * sig * b_f32).astype(np.float32)
 
 
