@@ -82,6 +82,20 @@ def test_dispatched_logit_cap_repr_and_from_capper() -> None:
     assert adapted.cap == 25.0
 
 
+def test_dispatched_logit_cap_autograd_backward() -> None:
+    from parallax.tensor import Tensor
+    mod = DispatchedLogitCap(cap=10.0)
+    x = Tensor(np.array([-2.0, 0.0, 2.0], dtype=np.float32), requires_grad=True)
+    out = mod(x)
+    loss = out.sum()
+    loss.backward()
+    assert x.grad is not None
+    t = np.tanh(x.data / 10.0)
+    expected_grad = 1.0 - t * t
+    np.testing.assert_allclose(x.grad, expected_grad, rtol=1e-5, atol=1e-6)
+
+
+
 
 
 
