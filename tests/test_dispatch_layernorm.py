@@ -54,3 +54,22 @@ def test_fused_layernorm_forward_parity():
     out1 = ref_norm(x1)
     out2 = fused(x2)
     assert np.allclose(out1.data, out2.data, atol=1e-5)
+
+
+def test_fused_layernorm_residual_addition():
+    from parallax.tensor import Tensor
+    from python.parallax.dispatch.layernorm import fused_layernorm
+
+    dim = 8
+    x = np.random.randn(2, dim).astype(np.float32)
+    res = np.random.randn(2, dim).astype(np.float32)
+    w = np.ones(dim, dtype=np.float32)
+    b = np.zeros(dim, dtype=np.float32)
+
+    out, residual_out = fused_layernorm(x, w, b, residual=res, return_residual=True)
+    assert np.allclose(residual_out, x + res)
+    assert out.shape == x.shape
+
+    norm = FusedLayerNorm(dim)
+    t_out = norm(Tensor(x), residual=Tensor(res))
+    assert t_out.shape == (2, dim)
