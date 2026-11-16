@@ -93,3 +93,13 @@ def test_create_kv_cache_factory_dispatch():
     mgr = create_kv_cache(batch_size=2, max_seq_len=32, num_heads=2, head_dim=8, num_layers=4)
     assert isinstance(mgr, KVCacheManager)
     assert mgr.num_layers == 4
+
+
+def test_dispatch_kv_cache_package_exports():
+    import parallax.dispatch as pd
+    import python.parallax.dispatch as ppd
+
+    for mod in (pd, ppd):
+        assert hasattr(mod, "KVCacheBuffer")
+        assert hasattr(mod, "KVCacheManager")
+        assert hasattr(mod, "create_kv_cache")
