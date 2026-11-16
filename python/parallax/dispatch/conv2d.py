@@ -137,3 +137,24 @@ class DispatchedConv2d(Module):
         self.bias: Parameter | None = (
             Parameter(np.zeros(out_channels, dtype=np.float32), label="Conv2d.bias") if bias else None
         )
+
+    def forward(self, x: Tensor) -> Tensor:
+        return dispatched_conv2d(x, self.weight, self.bias, stride=self.stride, padding=self.padding)
+
+    @classmethod
+    def from_conv2d(cls, conv: Any) -> DispatchedConv2d:
+        bias_present = getattr(conv, "bias", None) is not None
+        mod = cls(conv.in_channels, conv.out_channels, conv.kernel_size, conv.stride, conv.padding, bias=bias_present)
+        mod.weight = conv.weight
+        mod.bias = conv.bias
+        return mod
+
+    def extra_repr(self) -> str:
+        return (
+            f"in_channels={self.in_channels}, out_channels={self.out_channels}, "
+            f"kernel_size={self.kernel_size}, stride={self.stride}, padding={self.padding}, "
+            f"bias={self.bias is not None}"
+        )
+
+    def __repr__(self) -> str:
+        return f"DispatchedConv2d({self.extra_repr()})"
