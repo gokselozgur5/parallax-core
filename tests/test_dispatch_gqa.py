@@ -33,3 +33,17 @@ def test_reduce_kv_grad() -> None:
     np.testing.assert_allclose(reduced, np.full((2, 2, 4, 8), 3.0, dtype=np.float32))
 
 
+def test_dispatched_repeat_kv_autograd() -> None:
+    from parallax.tensor import Tensor
+    from python.parallax.dispatch.gqa import dispatched_repeat_kv
+
+    x = Tensor(np.ones((1, 2, 3, 4), dtype=np.float32), requires_grad=True)
+    out = dispatched_repeat_kv(x, n_rep=3)
+    assert out.shape == (1, 6, 3, 4)
+    out.sum().backward()
+    assert x.grad is not None
+    assert x.grad.shape == (1, 2, 3, 4)
+    np.testing.assert_allclose(x.grad, np.full((1, 2, 3, 4), 3.0, dtype=np.float32))
+
+
+
