@@ -37,3 +37,20 @@ def test_fused_layernorm_package_exports():
 
     assert LN1 is FusedLayerNorm
     assert LN2 is FusedLayerNorm
+
+
+def test_fused_layernorm_forward_parity():
+    from parallax.nn import LayerNorm
+    from parallax.tensor import Tensor
+
+    dim = 16
+    ref_norm = LayerNorm(dim=dim, eps=1e-5)
+    fused = FusedLayerNorm(normalized_shape=dim, eps=1e-5)
+    fused.weight.data = ref_norm.weight.data.copy()
+    fused.bias.data = ref_norm.bias.data.copy()
+
+    x_np = np.random.randn(2, 4, dim).astype(np.float32)
+    x1, x2 = Tensor(x_np.copy()), Tensor(x_np.copy())
+    out1 = ref_norm(x1)
+    out2 = fused(x2)
+    assert np.allclose(out1.data, out2.data, atol=1e-5)
