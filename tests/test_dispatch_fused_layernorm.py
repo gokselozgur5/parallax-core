@@ -124,3 +124,17 @@ def test_fused_layernorm_backward_analytical_params():
             f_m = fused_layernorm_forward(x, w, b_m, eps=1e-5, rms_scale=rms)
             num_db[i] = np.sum((f_p - f_m) / (2 * h) * dout)
         np.testing.assert_allclose(db_ana, num_db, rtol=1e-5, atol=1e-6)
+
+
+def test_dispatched_fused_layernorm_autograd():
+    x = Tensor(np.random.randn(2, 4).astype(np.float32), requires_grad=True)
+    res = Tensor(np.random.randn(2, 4).astype(np.float32), requires_grad=True)
+    w = Tensor(np.ones(4, dtype=np.float32), requires_grad=True)
+    b = Tensor(np.zeros(4, dtype=np.float32), requires_grad=True)
+    out = dispatched_fused_layernorm(x, weight=w, bias=b, residual=res, rms_scale=True)
+    loss = out.sum()
+    loss.backward()
+    assert x.grad is not None and x.grad.shape == (2, 4)
+    assert res.grad is not None and res.grad.shape == (2, 4)
+    assert w.grad is not None and w.grad.shape == (4,)
+    assert b.grad is not None and b.grad.shape == (4,)
