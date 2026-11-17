@@ -111,3 +111,26 @@ def dispatched_gelu_backward(
             _accumulate_grad(x, dx)
         return out
     return dx
+
+
+class DispatchedGELUBackward:
+    """Dispatched GeLU backward gradient computation interface."""
+
+    compute = staticmethod(gelu_backward)
+    fused = staticmethod(fused_gelu_backward)
+    reference = staticmethod(gelu_backward_reference)
+    dispatch = staticmethod(dispatched_gelu_backward)
+
+    def __repr__(self) -> str:
+        return "DispatchedGELUBackward()"
+
+
+__all__ = [
+    "COEF",
+    "DispatchedGELUBackward",
+    "SQRT_2_OVER_PI",
+    "dispatched_gelu_backward",
+    "fused_gelu_backward",
+    "gelu_backward",
+    "gelu_backward_reference",
+]
