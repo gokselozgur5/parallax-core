@@ -179,3 +179,17 @@ def test_fused_layernorm_alias_exports():
         "stabilize_epsilon",
     ):
         assert hasattr(fl, sym)
+
+
+def test_fused_layernorm_package_exports():
+    import parallax.dispatch as pd
+    for sym in (
+        "DispatchedFusedLayerNorm",
+        "FusedLayerNormRMS",
+        "dispatched_fused_layernorm",
+        "fused_layernorm_backward",
+        "fused_layernorm_forward",
+        "rms_weight_scale",
+        "rms_weight_scale_backward",
+    ):
+        assert hasattr(pd, sym)
