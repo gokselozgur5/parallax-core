@@ -70,3 +70,21 @@ def cross_entropy_forward_reference(
     valid = _validate_targets(targets_flat, C, ignore_index)
     lse_flat, _, _ = online_logsumexp(logits_flat, chunk_size=chunk_size, axis=-1)
     lse = lse_flat.reshape(N)
+    losses = np.zeros(N, dtype=logits.dtype)
+    valid_indices = np.where(valid)[0]
+    for i in valid_indices:
+        tgt = targets_flat[i]
+        nll = lse[i] - logits_flat[i, tgt]
+        if label_smoothing > 0.0:
+            smooth_loss = lse[i] - np.mean(logits_flat[i])
+            losses[i] = (1.0 - label_smoothing) * nll + label_smoothing * smooth_loss
+        else:
+            losses[i] = nll
+    if reduction == "mean":
+        total_valid = np.sum(valid)
+        loss = np.sum(losses) / max(total_valid, 1) if total_valid > 0 else np.array(0.0, dtype=logits.dtype)
+    elif reduction == "sum":
+        loss = np.sum(losses)
+    else:
+        loss = losses.reshape(targets.shape)
+    return np.asarray(loss), lse, valid
