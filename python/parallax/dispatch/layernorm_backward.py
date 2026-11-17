@@ -78,3 +78,22 @@ def _make_layernorm_backward_fn(
         if isinstance(weight, Tensor) and weight.requires_grad and dw is not None: _accumulate_grad(weight, dw)
         if isinstance(bias, Tensor) and bias.requires_grad and db is not None: _accumulate_grad(bias, db)
     return _backward
+
+
+def dispatched_layernorm(
+    x: Tensor | np.ndarray, weight: Optional[Tensor | np.ndarray] = None,
+    bias: Optional[Tensor | np.ndarray] = None, eps: float = 1e-5
+) -> Tensor:
+    """Dispatched LayerNorm functional forward with backward autograd hook."""
+    eps_val = stabilize_epsilon(eps)
+    rx = x.data if isinstance(x, Tensor) else x
+    rw = weight.data if isinstance(weight, Tensor) else weight
+    rb = bias.data if isinstance(bias, Tensor) else bias
+    m, v = np.mean(rx, axis=-1, keepdims=True), np.var(rx, axis=-1, keepdims=True)
+    out_d = ((rx - m) / np.sqrt(v + eps_val)) * rw if rw is not None else (rx - m) / np.sqrt(v + eps_val)
+    out_d = out_d + rb if rb is not None else out_d
+    parents = [p for p in (x, weight, bias) if isinstance(p, Tensor)]
+    out = Tensor(out_d, tuple(parents), "dispatched_layernorm")
+    if out.requires_grad:
+        out._backward = _make_layernorm_backward_fn(out, x, weight, bias, rx, rw, rb, eps_val)
+    return out
