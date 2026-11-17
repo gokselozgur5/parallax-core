@@ -69,3 +69,15 @@ def test_dispatched_dropout_autograd():
     assert x.grad is not None
     assert x.grad.shape == (2, 2)
     np.testing.assert_allclose(x.grad, np.ones((2, 2), dtype=np.float32))
+
+
+def test_dispatched_dropout_module():
+    mod = DispatchedDropout(p=0.5, training=True)
+    assert isinstance(mod, DropoutModule)
+    mod.eval()
+    assert not mod.training
+    x = Tensor(np.array([[1.0, 2.0]], dtype=np.float32), requires_grad=True)
+    out = mod(x)
+    np.testing.assert_allclose(out.data, x.data)
+    mod.train(True)
+    assert mod.training
