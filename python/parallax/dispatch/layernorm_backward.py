@@ -31,3 +31,21 @@ def layernorm_backward_reference(
     dw = np.sum(dout * x_hat, axis=reduce_axes) if weight is not None else None
     db = np.sum(dout, axis=reduce_axes) if bias is not None else None
     return dx.astype(x.dtype), dw if dw is None else dw.astype(weight.dtype), db if db is None else db.astype(bias.dtype)
+
+
+def _dispatch_layernorm_backward(
+    dout: np.ndarray, x: np.ndarray, weight: Optional[np.ndarray], bias: Optional[np.ndarray], eps: float
+) -> Tuple[np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
+    try:
+        from parallax.backends.dispatch import dispatch
+        return dispatch("layernorm_backward", dout, x, weight=weight, bias=bias, eps=eps)
+    except Exception:
+        return layernorm_backward_reference(dout, x, weight=weight, bias=bias, eps=eps)
+
+
+def layernorm_backward(
+    dout: np.ndarray, x: np.ndarray, weight: Optional[np.ndarray] = None,
+    bias: Optional[np.ndarray] = None, eps: float = 1e-5
+) -> Tuple[np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
+    """Execute functional backward pass for LayerNorm."""
+    return _dispatch_layernorm_backward(dout, x, weight, bias, stabilize_epsilon(eps))
