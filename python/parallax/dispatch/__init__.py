@@ -125,6 +125,15 @@ from python.parallax.dispatch.softmax_backward import (
     softmax_forward_reference,
 )
 
+from python.parallax.dispatch.fused_rmsnorm_residual import (
+    FusedRMSNormResidual,
+    dispatched_fused_rmsnorm_residual,
+    fused_rmsnorm_residual_backward,
+    fused_rmsnorm_residual_backward_reference,
+    fused_rmsnorm_residual_forward,
+    fused_rmsnorm_residual_forward_reference,
+)
+
 __all__ = [
     "MQAHeadBroadcaster",
     "broadcast_kv",
