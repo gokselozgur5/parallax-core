@@ -31,3 +31,20 @@ def reduce_mqa_grad(grad: np.ndarray, original_ndim: int = 4) -> np.ndarray:
     if original_ndim == 4:
         return summed
     raise ValueError(f"Expected original_ndim 3 or 4, got {original_ndim}")
+
+
+def dispatched_broadcast_kv(x: Tensor, num_heads: int) -> Tensor:
+    """Broadcast KV Tensor to num_heads with autograd tracking."""
+    orig_ndim = x.data.ndim
+    out_data = broadcast_kv(x.data, num_heads)
+    out = Tensor(out_data, (x,), f"BroadcastKV(num_heads={num_heads})")
+
+    def _backward() -> None:
+        if out.grad is None:
+            return
+        if x.requires_grad:
+            dx = reduce_mqa_grad(out.grad, original_ndim=orig_ndim)
+            _accumulate_grad(x, dx)
+
+    out._backward = _backward
+    return out
