@@ -93,3 +93,27 @@ def test_dispatched_rope_backward_container() -> None:
     dx = container.backward(dout)
     assert dx.shape == dout.shape
     assert not np.isnan(dx).any()
+
+
+def test_rope_backward_exports() -> None:
+    import python.parallax.dispatch.rope_backward as rb
+    for sym in (
+        "DispatchedRoPEBackward",
+        "dispatched_rope",
+        "rope_backward",
+        "rope_backward_reference",
+        "stabilize_theta",
+    ):
+        assert hasattr(rb, sym)
+
+
+def test_rope_backward_package_exports() -> None:
+    import parallax.dispatch as pd
+    for sym in (
+        "DispatchedRoPEBackward",
+        "dispatched_rope",
+        "rope_backward",
+        "rope_backward_reference",
+        "stabilize_theta",
+    ):
+        assert hasattr(pd, sym)
