@@ -74,3 +74,27 @@ def test_fused_rmsnorm_residual_backward_dispatch():
     np.testing.assert_allclose(dx, dx_ref, rtol=1e-6, atol=1e-6)
     np.testing.assert_allclose(dw, dw_ref, rtol=1e-6, atol=1e-6)
     np.testing.assert_allclose(dres, dres_ref, rtol=1e-6, atol=1e-6)
+
+
+def test_fused_rmsnorm_residual_backward_numerical():
+    np.random.seed(99)
+    x = np.random.randn(2, 4).astype(np.float64)
+    res = np.random.randn(2, 4).astype(np.float64)
+    w = np.random.randn(4).astype(np.float64)
+    dout = np.random.randn(2, 4).astype(np.float64)
+    eps = 1e-5
+    fused = x + res
+    dx, dw, _ = fused_rmsnorm_residual_backward(dout, fused, w, eps=eps)
+    h = 1e-6
+
+    def f(xi, wi):
+        rms = np.sqrt(np.mean(xi ** 2, axis=-1, keepdims=True) + eps)
+        return (xi / rms) * wi
+
+    num_dx = np.zeros_like(x)
+    for i in range(x.shape[0]):
+        for j in range(x.shape[1]):
+            fp = fused.copy(); fp[i, j] += h
+            fn = fused.copy(); fn[i, j] -= h
+            num_dx[i, j] = np.sum((f(fp, w) - f(fn, w)) / (2 * h) * dout)
+    np.testing.assert_allclose(dx, num_dx, rtol=1e-4, atol=1e-5)
