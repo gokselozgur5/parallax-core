@@ -116,3 +116,22 @@ def _layernorm_param_grads(
     if bias is not None:
         db = np.sum(dout, axis=tuple(range(dout.ndim - bias.ndim)))
     return dw, db
+
+
+def fused_layernorm_backward(
+    dout: np.ndarray,
+    x: np.ndarray,
+    weight: Optional[np.ndarray] = None,
+    bias: Optional[np.ndarray] = None,
+    residual: Optional[np.ndarray] = None,
+    eps: float = 1e-5,
+    rms_scale: bool = False,
+) -> Tuple[np.ndarray, Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]:
+    """Compute analytical backward pass for fused LayerNorm."""
+    eps_val = stabilize_epsilon(eps)
+    fused = x + residual if residual is not None else x
+    w_eff = rms_weight_scale(weight, eps=eps_val) if weight is not None and rms_scale else weight
+    dx, x_hat = _layernorm_dx(dout, fused, w_eff, eps_val)
+    dw, db = _layernorm_param_grads(dout, x_hat, weight, bias, eps_val, rms_scale)
+    dres = dx if residual is not None else None
+    return dx, dw, db, dres
