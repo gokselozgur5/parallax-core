@@ -44,3 +44,19 @@ def test_fused_rmsnorm_residual_forward_dispatch():
     normed, fused = fused_rmsnorm_residual_forward(x, res, w, eps=1e-5)
     np.testing.assert_allclose(normed, normed_ref, rtol=1e-6, atol=1e-6)
     np.testing.assert_allclose(fused, fused_ref, rtol=1e-6, atol=1e-6)
+
+
+def test_fused_rmsnorm_residual_backward_shapes():
+    np.random.seed(77)
+    x = np.random.randn(2, 4, 8).astype(np.float32)
+    res = np.random.randn(2, 4, 8).astype(np.float32)
+    w = np.ones(8, dtype=np.float32)
+    dout = np.ones_like(x)
+    fused = x + res
+    dx, dw, dres = fused_rmsnorm_residual_backward_reference(dout, fused, w, eps=1e-5)
+    assert dx.shape == x.shape
+    assert dw.shape == w.shape
+    assert dres.shape == res.shape
+    assert not np.isnan(dx).any()
+    assert not np.isnan(dw).any()
+    assert not np.isnan(dres).any()
