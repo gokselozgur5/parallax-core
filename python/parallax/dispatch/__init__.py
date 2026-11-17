@@ -129,4 +129,9 @@ __all__ = [
     "precompute_freqs_cis",
     "rotate_half",
     "sliding_window_attention",
+    "FusedSwiGLUBackward",
+    "dispatched_swiglu_backward",
+    "gated_mlp_backward",
+    "swiglu_backward",
+    "swiglu_backward_reference",
 ]
