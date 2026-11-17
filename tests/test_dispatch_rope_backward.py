@@ -74,3 +74,22 @@ def test_rope_backward_numerical_finite_difference() -> None:
         ym = apply_rotary_emb(xm, cos, sin, offset=1, interleaved=False)
         num_dx[idx] = np.sum((yp - ym) / (2 * h) * dout)
     np.testing.assert_allclose(dx, num_dx, rtol=1e-5, atol=1e-5)
+
+
+def test_dispatched_rope_autograd() -> None:
+    x_data = np.array([[[1.0, 2.0], [3.0, 4.0]]], dtype=np.float32)
+    x = Tensor(x_data, requires_grad=True)
+    out = dispatched_rope(x, offset=0, interleaved=False)
+    loss = out.sum()
+    loss.backward()
+    assert x.grad is not None
+    assert x.grad.shape == x_data.shape
+    assert not np.isnan(x.grad).any()
+
+
+def test_dispatched_rope_backward_container() -> None:
+    dout = np.ones((2, 2, 4), dtype=np.float32)
+    container = DispatchedRoPEBackward(offset=0, interleaved=True)
+    dx = container.backward(dout)
+    assert dx.shape == dout.shape
+    assert not np.isnan(dx).any()
