@@ -253,3 +253,19 @@ class DispatchedFusedLayerNorm(Module):
 
     def __repr__(self) -> str:
         return f"DispatchedFusedLayerNorm({self.extra_repr()})"
+
+    @classmethod
+    def from_layernorm(cls, norm: Any, rms_scale: bool = False) -> DispatchedFusedLayerNorm:
+        shape = getattr(norm, "normalized_shape", getattr(norm, "dim", None))
+        if shape is None and hasattr(norm, "weight") and norm.weight is not None:
+            shape = norm.weight.shape
+        shape = shape or (0,)
+        eps = getattr(norm, "eps", 1e-5)
+        affine = getattr(norm, "weight", None) is not None
+        has_bias = getattr(norm, "bias", None) is not None
+        mod = cls(shape, eps=eps, elementwise_affine=affine, bias=has_bias, rms_scale=rms_scale)
+        if affine and hasattr(norm, "weight") and norm.weight is not None:
+            mod.weight = Parameter(np.asarray(getattr(norm.weight, "data", norm.weight)).copy())
+        if has_bias and hasattr(norm, "bias") and norm.bias is not None:
+            mod.bias = Parameter(np.asarray(getattr(norm.bias, "data", norm.bias)).copy())
+        return mod
