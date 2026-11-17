@@ -96,7 +96,8 @@ def test_dispatched_rope_backward_container() -> None:
 
 
 def test_rope_backward_exports() -> None:
-    import python.parallax.dispatch.rope_backward as rb
+    import importlib
+    rb = importlib.import_module("python.parallax.dispatch.rope_backward")
     for sym in (
         "DispatchedRoPEBackward",
         "dispatched_rope",
