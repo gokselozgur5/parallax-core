@@ -59,3 +59,13 @@ def test_cross_entropy_label_smoothing_and_ignore_index():
     )
     assert valid[0] and not valid[1]
     assert float(loss_smooth) > float(loss_raw)
+
+
+def test_cross_entropy_backward_shapes_and_masking():
+    logits = np.array([[2.0, 1.0, -1.0], [0.0, 3.0, 1.0]], dtype=np.float32)
+    targets = np.array([0, -100], dtype=np.int64)
+    _, lse, _ = cross_entropy_forward_reference(logits, targets, ignore_index=-100)
+    grad = cross_entropy_backward_reference(1.0, logits, targets, lse, ignore_index=-100)
+    assert grad.shape == logits.shape
+    np.testing.assert_allclose(grad[1], np.zeros(3), atol=1e-6)
+    np.testing.assert_allclose(np.sum(grad[0]), 0.0, atol=1e-6)
