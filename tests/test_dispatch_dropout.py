@@ -40,3 +40,13 @@ def test_dropout_forward_scale_expectation():
     x = np.ones((200, 200), dtype=np.float32)
     out, mask = dropout_forward_reference(x, p=0.4, training=True, seed=123)
     np.testing.assert_allclose(np.mean(out), 1.0, atol=0.03)
+
+
+def test_dropout_backward_reference_gradient():
+    dout = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    mask = np.array([[True, False], [False, True]], dtype=bool)
+    dx = dropout_backward_reference(dout, mask, p=0.5, training=True)
+    expected = np.array([[2.0, 0.0], [0.0, 8.0]], dtype=np.float32)
+    np.testing.assert_allclose(dx, expected)
+    dx_eval = dropout_backward_reference(dout, mask, p=0.5, training=False)
+    np.testing.assert_allclose(dx_eval, dout)
