@@ -90,3 +90,20 @@ def dispatched_swiglu_backward(
     if up.requires_grad:
         _accumulate_grad(up, dup)
     return Tensor(dgate), Tensor(dup)
+
+
+class FusedSwiGLUBackward:
+    """Dispatched backward helper and gradient accumulator for SwiGLU."""
+
+    backward = staticmethod(swiglu_backward)
+    mlp_backward = staticmethod(gated_mlp_backward)
+    reference = staticmethod(swiglu_backward_reference)
+
+
+__all__ = [
+    "FusedSwiGLUBackward",
+    "dispatched_swiglu_backward",
+    "gated_mlp_backward",
+    "swiglu_backward",
+    "swiglu_backward_reference",
+]
