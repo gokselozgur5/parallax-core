@@ -51,3 +51,28 @@ def fused_rmsnorm_residual_backward_reference(
     reduce_axes = tuple(range(dout.ndim - 1)) if dout.ndim > 1 else None
     dw = np.sum(dout * x_hat, axis=reduce_axes) if reduce_axes is not None else (dout * x_hat)
     return dx, dw.astype(weight.dtype), dres
+
+
+def _dispatch_fused_rmsnorm_residual_forward(
+    x: np.ndarray,
+    residual: np.ndarray,
+    weight: np.ndarray,
+    eps: float,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Route fused RMSNorm forward through backend dispatch or fallback."""
+    try:
+        from parallax.backends.dispatch import dispatch
+        return dispatch("fused_rmsnorm_residual_forward", x, residual, weight, eps=eps)
+    except Exception:
+        return fused_rmsnorm_residual_forward_reference(x, residual, weight, eps=eps)
+
+
+def fused_rmsnorm_residual_forward(
+    x: np.ndarray,
+    residual: np.ndarray,
+    weight: np.ndarray,
+    eps: float = 1e-6,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Execute functional fused residual addition and RMSNorm forward pass."""
+    eps_val = stabilize_epsilon(eps)
+    return _dispatch_fused_rmsnorm_residual_forward(x, residual, weight, eps_val)
