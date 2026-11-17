@@ -48,3 +48,8 @@ def dispatched_broadcast_kv(x: Tensor, num_heads: int) -> Tensor:
 
     out._backward = _backward
     return out
+
+
+def broadcast_mqa_pair(k: Tensor, v: Tensor, num_heads: int) -> tuple[Tensor, Tensor]:
+    """Broadcast both key and value heads to num_heads."""
+    return dispatched_broadcast_kv(k, num_heads), dispatched_broadcast_kv(v, num_heads)
