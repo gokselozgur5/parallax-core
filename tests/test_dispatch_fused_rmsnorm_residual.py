@@ -33,3 +33,14 @@ def test_fused_rmsnorm_residual_forward_shapes():
     np.testing.assert_allclose(fused, x + res)
     assert not np.isnan(normed).any()
     assert not np.isnan(fused).any()
+
+
+def test_fused_rmsnorm_residual_forward_dispatch():
+    np.random.seed(123)
+    x = np.random.randn(3, 16).astype(np.float32)
+    res = np.random.randn(3, 16).astype(np.float32)
+    w = np.random.randn(16).astype(np.float32)
+    normed_ref, fused_ref = fused_rmsnorm_residual_forward_reference(x, res, w, eps=1e-5)
+    normed, fused = fused_rmsnorm_residual_forward(x, res, w, eps=1e-5)
+    np.testing.assert_allclose(normed, normed_ref, rtol=1e-6, atol=1e-6)
+    np.testing.assert_allclose(fused, fused_ref, rtol=1e-6, atol=1e-6)
