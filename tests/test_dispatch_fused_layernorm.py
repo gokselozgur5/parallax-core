@@ -167,6 +167,7 @@ def test_dispatched_fused_layernorm_from_layernorm():
 
 
 def test_fused_layernorm_alias_exports():
+    assert FusedLayerNormRMS is DispatchedFusedLayerNorm
     import parallax.dispatch.fused_layernorm as fl
     for sym in (
         "DispatchedFusedLayerNorm",
