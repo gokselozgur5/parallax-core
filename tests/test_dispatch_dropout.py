@@ -81,3 +81,18 @@ def test_dispatched_dropout_module():
     np.testing.assert_allclose(out.data, x.data)
     mod.train(True)
     assert mod.training
+
+
+def test_dropout_module_exports():
+    import parallax.dispatch.dropout as dd
+    for sym in (
+        "DispatchedDropout",
+        "DropoutModule",
+        "dispatched_dropout",
+        "dropout_backward",
+        "dropout_backward_reference",
+        "dropout_forward",
+        "dropout_forward_reference",
+        "dropout_mask_generator",
+    ):
+        assert hasattr(dd, sym)
