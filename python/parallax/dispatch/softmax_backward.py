@@ -111,3 +111,23 @@ def dispatched_softmax(
 
     out._backward = _backward
     return out
+
+
+class DispatchedSoftmax(Module):
+    """Softmax activation module using dispatch autograd kernel."""
+
+    def __init__(self, axis: int = -1) -> None:
+        super().__init__()
+        self.axis = int(axis)
+
+    def forward(self, x: Tensor | np.ndarray) -> Tensor:
+        return dispatched_softmax(x, axis=self.axis)
+
+    def extra_repr(self) -> str:
+        return f"axis={self.axis}"
+
+    def __repr__(self) -> str:
+        return f"DispatchedSoftmax({self.extra_repr()})"
+
+
+SoftmaxModule = DispatchedSoftmax
