@@ -208,3 +208,14 @@ class FusedRMSNormResidual(Module):
 
     def extra_repr(self) -> str:
         return f"dim={self.dim}, eps={self.eps}"
+
+
+__all__ = [
+    "FusedRMSNormResidual",
+    "dispatched_fused_rmsnorm_residual",
+    "fused_rmsnorm_residual_backward",
+    "fused_rmsnorm_residual_backward_reference",
+    "fused_rmsnorm_residual_forward",
+    "fused_rmsnorm_residual_forward_reference",
+    "stabilize_epsilon",
+]
