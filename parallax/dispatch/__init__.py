@@ -155,6 +155,12 @@ from python.parallax.dispatch.fused_rmsnorm_residual import (
 )
 
 __all__ = [
+    "CrossEntropyLossModule",
+    "DispatchedCrossEntropyLoss",
+    "cross_entropy_backward_reference",
+    "cross_entropy_forward_reference",
+    "fast_cross_entropy",
+    "online_logsumexp",
     "FusedRMSNormResidual",
     "dispatched_fused_rmsnorm_residual",
     "fused_rmsnorm_residual_backward",
