@@ -38,6 +38,11 @@ from python.parallax.dispatch.gelu_fast import (
     gelu_fast_forward_np,
     gelu_tanh,
 )
+from python.parallax.dispatch.layernorm_backward import (
+    DispatchedLayerNormBackward,
+    layernorm_backward,
+    layernorm_backward_reference,
+)
 from python.parallax.dispatch.layernorm import (
     FusedLayerNorm,
     fused_layernorm,
@@ -83,10 +88,13 @@ __all__ = [
     "DispatchedEmbeddingBackward",
     "DispatchedGELUFast",
     "FastGELU",
+    "DispatchedLayerNormBackward",
     "FusedLayerNorm",
     "GELUFast",
     "accumulate_embedding_backward",
     "embedding_backward",
+    "layernorm_backward",
+    "layernorm_backward_reference",
     "fused_layernorm",
     "sparse_embedding_backward",
     "KVCacheBuffer",
