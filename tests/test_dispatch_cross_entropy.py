@@ -37,3 +37,14 @@ def test_target_validation_out_of_bounds():
         cross_entropy_forward_reference(logits, np.array([-1, 0]))
     with pytest.raises(ValueError):
         cross_entropy_forward_reference(logits, np.array([0, 4]))
+
+
+def test_cross_entropy_forward_reductions():
+    logits = np.array([[2.0, 1.0], [0.5, 2.5]], dtype=np.float32)
+    targets = np.array([0, 1], dtype=np.int64)
+    loss_mean, _, _ = cross_entropy_forward_reference(logits, targets, reduction="mean")
+    loss_sum, _, _ = cross_entropy_forward_reference(logits, targets, reduction="sum")
+    loss_none, _, _ = cross_entropy_forward_reference(logits, targets, reduction="none")
+    assert loss_none.shape == (2,)
+    np.testing.assert_allclose(loss_mean, np.mean(loss_none), rtol=1e-6)
+    np.testing.assert_allclose(loss_sum, np.sum(loss_none), rtol=1e-6)
