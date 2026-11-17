@@ -6,6 +6,8 @@ import numpy as np
 import pytest
 
 from python.parallax.dispatch.swiglu_backward import (
+    gated_mlp_backward,
+    swiglu_backward,
     swiglu_backward_reference,
 )
 
@@ -34,3 +36,21 @@ def test_swiglu_backward_validation() -> None:
         swiglu_backward_reference(np.ones((2, 4), dtype=np.float32), g, g)
     with pytest.raises(TypeError, match="Complex"):
         swiglu_backward_reference(dout, g + 1j, g)
+
+
+def test_gated_mlp_backward_shapes_and_values() -> None:
+    np.random.seed(42)
+    x = np.random.randn(2, 4, 8).astype(np.float32)
+    w_gate = np.random.randn(16, 8).astype(np.float32)
+    w_up = np.random.randn(16, 8).astype(np.float32)
+    w_down = np.random.randn(8, 16).astype(np.float32)
+    gate = x @ w_gate.T
+    up = x @ w_up.T
+    dout = np.ones_like(x)
+    dx, dw_gate, dw_up, dw_down = gated_mlp_backward(
+        dout, x, gate, up, w_gate, w_up, w_down
+    )
+    assert dx.shape == x.shape
+    assert dw_gate.shape == w_gate.shape
+    assert dw_up.shape == w_up.shape
+    assert dw_down.shape == w_down.shape
