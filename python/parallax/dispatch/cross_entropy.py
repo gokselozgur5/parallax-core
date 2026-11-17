@@ -169,3 +169,17 @@ def fast_cross_entropy(
     out = Tensor(loss_val, parents, "fast_cross_entropy")
     if not out.requires_grad:
         return out
+    def _backward() -> None:
+        if out.grad is None:
+            return
+        d_logits = cross_entropy_backward_reference(
+            out.grad, raw_logits, raw_targets, lse,
+            ignore_index=ignore_index,
+            label_smoothing=label_smoothing,
+            reduction=reduction,
+        )
+        if isinstance(logits, Tensor) and logits.requires_grad:
+            _accumulate_grad(logits, d_logits)
+
+    out._backward = _backward
+    return out
