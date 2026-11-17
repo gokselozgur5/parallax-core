@@ -199,11 +199,11 @@ def dispatched_fused_layernorm(
     if not any(isinstance(p, Tensor) for p in (x, residual, weight, bias)):
         return res_fwd
 
-    out_arr = res_fwd[0] if return_residual else res_fwd
+    out_arr: np.ndarray = res_fwd[0] if isinstance(res_fwd, tuple) else res_fwd
     parents = tuple(p for p in (x, residual, weight, bias) if isinstance(p, Tensor))
     out_t = Tensor(out_arr, parents, "DispatchedFusedLayerNorm")
     _attach_fused_layernorm_backward(out_t, x, weight, bias, residual, eps, rms_scale)
-    if return_residual:
+    if return_residual and isinstance(res_fwd, tuple):
         return out_t, Tensor(res_fwd[1], parents, "ResidualFused")
     return out_t
 
@@ -236,7 +236,7 @@ class DispatchedFusedLayerNorm(Module):
         x: Tensor | np.ndarray,
         residual: Optional[Tensor | np.ndarray] = None,
     ) -> Tensor:
-        return dispatched_fused_layernorm(
+        res = dispatched_fused_layernorm(
             x,
             weight=self.weight,
             bias=self.bias,
@@ -244,6 +244,7 @@ class DispatchedFusedLayerNorm(Module):
             eps=self.eps,
             rms_scale=self.rms_scale,
         )
+        return res if isinstance(res, Tensor) else Tensor(res)
 
     def extra_repr(self) -> str:
         return (
