@@ -64,3 +64,17 @@ def fused_layernorm_backward(
     dx, dw, db = layernorm_backward(dout, fused, weight, bias, eps=eps)
     dres = dx.copy() if residual is not None else None
     return dx, dw, db, dres
+
+
+def _make_layernorm_backward_fn(
+    out: Tensor, x: Tensor | np.ndarray, weight: Optional[Tensor | np.ndarray],
+    bias: Optional[Tensor | np.ndarray], raw_x: np.ndarray, raw_w: Optional[np.ndarray],
+    raw_b: Optional[np.ndarray], eps: float
+):
+    def _backward() -> None:
+        if out.grad is None: return
+        dx, dw, db = layernorm_backward(out.grad, raw_x, raw_w, raw_b, eps=eps)
+        if isinstance(x, Tensor) and x.requires_grad: _accumulate_grad(x, dx)
+        if isinstance(weight, Tensor) and weight.requires_grad and dw is not None: _accumulate_grad(weight, dw)
+        if isinstance(bias, Tensor) and bias.requires_grad and db is not None: _accumulate_grad(bias, db)
+    return _backward
