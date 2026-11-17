@@ -97,3 +97,16 @@ def dispatched_layernorm(
     if out.requires_grad:
         out._backward = _make_layernorm_backward_fn(out, x, weight, bias, rx, rw, rb, eps_val)
     return out
+
+
+class DispatchedLayerNormBackward:
+    """Dispatched LayerNorm backward callable operator."""
+
+    def __init__(self, eps: float = 1e-5) -> None:
+        self.eps = stabilize_epsilon(eps)
+
+    def __call__(
+        self, dout: np.ndarray, x: np.ndarray,
+        weight: Optional[np.ndarray] = None, bias: Optional[np.ndarray] = None
+    ) -> Tuple[np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
+        return layernorm_backward(dout, x, weight=weight, bias=bias, eps=self.eps)
