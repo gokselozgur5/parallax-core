@@ -75,6 +75,13 @@ from python.parallax.dispatch.sdpa import (
     scaled_dot_product_attention,
     sdpa_backward,
 )
+from python.parallax.dispatch.swiglu_backward import (
+    FusedSwiGLUBackward,
+    dispatched_swiglu_backward,
+    gated_mlp_backward,
+    swiglu_backward,
+    swiglu_backward_reference,
+)
 
 __all__ = [
     "AlibiPositionalBias",
