@@ -153,3 +153,17 @@ class DispatchedDropout(Module):
 
     def __repr__(self) -> str:
         return f"DispatchedDropout(p={self.p}, training={self.training})"
+
+
+DropoutModule = DispatchedDropout
+
+__all__ = [
+    "DispatchedDropout",
+    "DropoutModule",
+    "dispatched_dropout",
+    "dropout_backward",
+    "dropout_backward_reference",
+    "dropout_forward",
+    "dropout_forward_reference",
+    "dropout_mask_generator",
+]
