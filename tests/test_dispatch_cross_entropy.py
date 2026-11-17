@@ -87,3 +87,17 @@ def test_cross_entropy_backward_finite_difference():
             ln, _, _ = cross_entropy_forward_reference(x_neg, targets, label_smoothing=0.1)
             num_grad[i, j] = (lp - ln) / (2 * h)
     np.testing.assert_allclose(grad, num_grad, rtol=1e-5, atol=1e-6)
+
+
+def test_fast_cross_entropy_autograd_and_module():
+    x = Tensor(np.array([[2.0, 1.0], [0.5, 2.5]], dtype=np.float32), requires_grad=True)
+    targets = np.array([0, 1], dtype=np.int64)
+    loss = fast_cross_entropy(x, targets)
+    loss.backward()
+    assert x.grad is not None
+    assert x.grad.shape == (2, 2)
+    assert not np.isnan(x.grad).any()
+    mod = DispatchedCrossEntropyLoss(label_smoothing=0.05)
+    assert isinstance(mod, CrossEntropyLossModule)
+    out = mod(x, targets)
+    assert out.shape == ()
