@@ -49,3 +49,18 @@ def layernorm_backward(
 ) -> Tuple[np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
     """Execute functional backward pass for LayerNorm."""
     return _dispatch_layernorm_backward(dout, x, weight, bias, stabilize_epsilon(eps))
+
+
+def fused_layernorm_backward(
+    dout: np.ndarray,
+    x: np.ndarray,
+    weight: Optional[np.ndarray] = None,
+    bias: Optional[np.ndarray] = None,
+    residual: Optional[np.ndarray] = None,
+    eps: float = 1e-5,
+) -> Tuple[np.ndarray, Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]:
+    """Compute gradients for LayerNorm with optional fused residual."""
+    fused = x + residual if residual is not None else x
+    dx, dw, db = layernorm_backward(dout, fused, weight, bias, eps=eps)
+    dres = dx.copy() if residual is not None else None
+    return dx, dw, db, dres
