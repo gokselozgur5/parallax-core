@@ -135,3 +135,22 @@ def fused_layernorm_backward(
     dw, db = _layernorm_param_grads(dout, x_hat, weight, bias, eps_val, rms_scale)
     dres = dx if residual is not None else None
     return dx, dw, db, dres
+
+
+def _accumulate_norm_grads(
+    x: Any,
+    residual: Any,
+    weight: Any,
+    bias: Any,
+    grads: Tuple[np.ndarray, Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]],
+) -> None:
+    """Accumulate computed gradients into Tensor operands."""
+    dx, dw, db, dres = grads
+    if isinstance(x, Tensor) and x.requires_grad:
+        _accumulate_grad(x, dx)
+    if isinstance(residual, Tensor) and residual.requires_grad and dres is not None:
+        _accumulate_grad(residual, dres)
+    if isinstance(weight, Tensor) and weight.requires_grad and dw is not None:
+        _accumulate_grad(weight, dw)
+    if isinstance(bias, Tensor) and bias.requires_grad and db is not None:
+        _accumulate_grad(bias, db)
