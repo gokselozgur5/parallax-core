@@ -59,6 +59,13 @@ from python.parallax.dispatch.kv_cache import (
     KVCacheManager,
     create_kv_cache,
 )
+from python.parallax.dispatch.mqa import (
+    MQAHeadBroadcaster,
+    broadcast_kv,
+    broadcast_mqa_pair,
+    dispatched_broadcast_kv,
+    reduce_mqa_grad,
+)
 from python.parallax.dispatch.logit_cap import (
     DispatchedLogitCap,
     LogitSoftCap,
