@@ -130,3 +130,26 @@ def test_dispatched_layernorm_backward_class():
     assert dx.shape == x.shape
     assert dw.shape == w.shape
     assert db.shape == b.shape
+
+
+def test_layernorm_backward_exports():
+    import python.parallax.dispatch.layernorm_backward as lb
+    for sym in (
+        "DispatchedLayerNormBackward",
+        "dispatched_layernorm",
+        "fused_layernorm_backward",
+        "layernorm_backward",
+        "layernorm_backward_reference",
+        "stabilize_epsilon",
+    ):
+        assert hasattr(lb, sym)
+
+
+def test_layernorm_backward_package_exports():
+    import parallax.dispatch as pd
+    for sym in (
+        "DispatchedLayerNormBackward",
+        "layernorm_backward",
+        "layernorm_backward_reference",
+    ):
+        assert hasattr(pd, sym)
