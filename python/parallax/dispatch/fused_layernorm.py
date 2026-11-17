@@ -79,3 +79,21 @@ def fused_layernorm_forward(
     if return_residual:
         return out, fused
     return out
+
+
+def _layernorm_dx(
+    dout: np.ndarray,
+    fused: np.ndarray,
+    w_eff: Optional[np.ndarray],
+    eps: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute LayerNorm input gradient and normalized activations."""
+    mean = np.mean(fused, axis=-1, keepdims=True)
+    var = np.var(fused, axis=-1, keepdims=True)
+    inv_std = 1.0 / np.sqrt(var + eps)
+    x_hat = (fused - mean) * inv_std
+    d_xhat = dout * w_eff if w_eff is not None else dout
+    mean_d = np.mean(d_xhat, axis=-1, keepdims=True)
+    mean_dxhat = np.mean(d_xhat * x_hat, axis=-1, keepdims=True)
+    dx = inv_std * (d_xhat - mean_d - x_hat * mean_dxhat)
+    return dx, x_hat
