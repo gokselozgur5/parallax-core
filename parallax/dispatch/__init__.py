@@ -38,6 +38,11 @@ from python.parallax.dispatch.gqa import (
     repeat_kv,
     repeat_kv_pair,
 )
+from python.parallax.dispatch.layernorm_backward import (
+    DispatchedLayerNormBackward,
+    layernorm_backward,
+    layernorm_backward_reference,
+)
 from python.parallax.dispatch.layernorm import (
     FusedLayerNorm,
     fused_layernorm,
@@ -101,6 +106,7 @@ __all__ = [
     "DispatchedGELUFast",
     "DispatchedSwiGLU",
     "FastGELU",
+    "DispatchedLayerNormBackward",
     "FusedLayerNorm",
     "FusedRMSNorm",
     "GELUFast",
@@ -132,6 +138,8 @@ __all__ = [
     "dispatched_sliding_window_attention",
     "dispatched_swiglu",
     "flash_sliding_window_tile",
+    "layernorm_backward",
+    "layernorm_backward_reference",
     "fused_rmsnorm",
     "gelu_fast",
     "gelu_fast_backward",
