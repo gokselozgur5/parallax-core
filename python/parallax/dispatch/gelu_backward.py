@@ -90,3 +90,24 @@ def gelu_backward(
 ) -> np.ndarray:
     """Execute functional backward pass for GeLU activation."""
     return _dispatch_gelu_backward(dout, x, tanh_out=tanh_out, approximate=approximate)
+
+
+def dispatched_gelu_backward(
+    dout: Any,
+    x: Any,
+    tanh_out: Any | None = None,
+    approximate: str = "tanh",
+) -> Any:
+    """Dispatched GeLU backward helper supporting Tensor and ndarray inputs."""
+    from parallax.tensor import Tensor, _accumulate_grad
+
+    raw_dout = dout.data if isinstance(dout, Tensor) else np.asarray(dout)
+    raw_x = x.data if isinstance(x, Tensor) else np.asarray(x)
+    raw_tanh = tanh_out.data if isinstance(tanh_out, Tensor) else tanh_out
+    dx = gelu_backward(raw_dout, raw_x, tanh_out=raw_tanh, approximate=approximate)
+    if isinstance(x, Tensor):
+        out = Tensor(dx, (x,), "dispatched_gelu_backward")
+        if x.requires_grad:
+            _accumulate_grad(x, dx)
+        return out
+    return dx
