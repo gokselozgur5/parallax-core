@@ -55,3 +55,27 @@ def _dispatch_fused_layernorm(
         if bias is not None:
             normed = normed + bias
         return normed
+
+
+def fused_layernorm_forward(
+    x: np.ndarray,
+    weight: Optional[np.ndarray] = None,
+    bias: Optional[np.ndarray] = None,
+    residual: Optional[np.ndarray] = None,
+    eps: float = 1e-5,
+    rms_scale: bool = False,
+    return_residual: bool = False,
+) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
+    """Compute LayerNorm forward pass with residual addition and bias fusion."""
+    eps_val = stabilize_epsilon(eps)
+    fused = x + residual if residual is not None else x
+    orig_dtype = fused.dtype
+    acc = fused.astype(np.float32) if orig_dtype in (np.float16, np.int32) else fused
+    w_eff = rms_weight_scale(weight, eps=eps_val) if weight is not None and rms_scale else weight
+    w_acc = w_eff.astype(acc.dtype) if w_eff is not None else None
+    b_acc = bias.astype(acc.dtype) if bias is not None else None
+    normed = _dispatch_fused_layernorm(acc, w_acc, b_acc, eps_val)
+    out = normed.astype(orig_dtype)
+    if return_residual:
+        return out, fused
+    return out
