@@ -21,3 +21,19 @@ def test_online_logsumexp_numerical_stability():
     lse, m, s = online_logsumexp(x, axis=-1)
     assert not np.isnan(lse).any()
     assert not np.isinf(lse).any()
+
+
+def test_online_logsumexp_chunked_parity():
+    np.random.seed(42)
+    x = np.random.randn(4, 128).astype(np.float32)
+    lse_full, _, _ = online_logsumexp(x, chunk_size=None, axis=-1)
+    lse_chunked, _, _ = online_logsumexp(x, chunk_size=16, axis=-1)
+    np.testing.assert_allclose(lse_full, lse_chunked, rtol=1e-5, atol=1e-5)
+
+
+def test_target_validation_out_of_bounds():
+    logits = np.zeros((2, 4), dtype=np.float32)
+    with pytest.raises(ValueError):
+        cross_entropy_forward_reference(logits, np.array([-1, 0]))
+    with pytest.raises(ValueError):
+        cross_entropy_forward_reference(logits, np.array([0, 4]))
