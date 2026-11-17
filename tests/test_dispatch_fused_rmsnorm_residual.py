@@ -60,3 +60,17 @@ def test_fused_rmsnorm_residual_backward_shapes():
     assert not np.isnan(dx).any()
     assert not np.isnan(dw).any()
     assert not np.isnan(dres).any()
+
+
+def test_fused_rmsnorm_residual_backward_dispatch():
+    np.random.seed(88)
+    x = np.random.randn(3, 16).astype(np.float32)
+    res = np.random.randn(3, 16).astype(np.float32)
+    w = np.random.randn(16).astype(np.float32)
+    dout = np.random.randn(3, 16).astype(np.float32)
+    fused = x + res
+    dx_ref, dw_ref, dres_ref = fused_rmsnorm_residual_backward_reference(dout, fused, w, eps=1e-5)
+    dx, dw, dres = fused_rmsnorm_residual_backward(dout, fused, w, eps=1e-5)
+    np.testing.assert_allclose(dx, dx_ref, rtol=1e-6, atol=1e-6)
+    np.testing.assert_allclose(dw, dw_ref, rtol=1e-6, atol=1e-6)
+    np.testing.assert_allclose(dres, dres_ref, rtol=1e-6, atol=1e-6)
