@@ -48,3 +48,14 @@ def test_cross_entropy_forward_reductions():
     assert loss_none.shape == (2,)
     np.testing.assert_allclose(loss_mean, np.mean(loss_none), rtol=1e-6)
     np.testing.assert_allclose(loss_sum, np.sum(loss_none), rtol=1e-6)
+
+
+def test_cross_entropy_label_smoothing_and_ignore_index():
+    logits = np.array([[3.0, 1.0, 0.0], [0.0, 2.0, 1.0]], dtype=np.float32)
+    targets = np.array([0, -100], dtype=np.int64)
+    loss_raw, _, valid = cross_entropy_forward_reference(logits, targets, ignore_index=-100)
+    loss_smooth, _, _ = cross_entropy_forward_reference(
+        logits, targets, ignore_index=-100, label_smoothing=0.1
+    )
+    assert valid[0] and not valid[1]
+    assert float(loss_smooth) > float(loss_raw)
