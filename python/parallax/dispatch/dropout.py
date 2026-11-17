@@ -84,3 +84,23 @@ def _dispatch_dropout_backward(
         return dispatch("dropout_backward", dout, mask, p=p, training=training)
     except Exception:
         return dropout_backward_reference(dout, mask, p=p, training=training)
+
+
+def dropout_forward(
+    x: np.ndarray,
+    p: float = 0.5,
+    training: bool = True,
+    seed: Optional[int] = None,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Execute functional forward pass for Dropout layer."""
+    return _dispatch_dropout_forward(x, p=p, training=training, seed=seed)
+
+
+def dropout_backward(
+    dout: np.ndarray,
+    mask: np.ndarray,
+    p: float = 0.5,
+    training: bool = True,
+) -> np.ndarray:
+    """Execute functional backward pass for Dropout layer."""
+    return _dispatch_dropout_backward(dout, mask, p=p, training=training)
