@@ -69,3 +69,21 @@ def test_cross_entropy_backward_shapes_and_masking():
     assert grad.shape == logits.shape
     np.testing.assert_allclose(grad[1], np.zeros(3), atol=1e-6)
     np.testing.assert_allclose(np.sum(grad[0]), 0.0, atol=1e-6)
+
+
+def test_cross_entropy_backward_finite_difference():
+    np.random.seed(99)
+    x = np.random.randn(2, 4).astype(np.float64)
+    targets = np.array([1, 2], dtype=np.int64)
+    _, lse, _ = cross_entropy_forward_reference(x, targets, label_smoothing=0.1)
+    grad = cross_entropy_backward_reference(1.0, x, targets, lse, label_smoothing=0.1)
+    h = 1e-6
+    num_grad = np.zeros_like(x)
+    for i in range(x.shape[0]):
+        for j in range(x.shape[1]):
+            x_pos = x.copy(); x_pos[i, j] += h
+            x_neg = x.copy(); x_neg[i, j] -= h
+            lp, _, _ = cross_entropy_forward_reference(x_pos, targets, label_smoothing=0.1)
+            ln, _, _ = cross_entropy_forward_reference(x_neg, targets, label_smoothing=0.1)
+            num_grad[i, j] = (lp - ln) / (2 * h)
+    np.testing.assert_allclose(grad, num_grad, rtol=1e-5, atol=1e-6)
