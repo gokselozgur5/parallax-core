@@ -187,3 +187,24 @@ class FusedRMSNormResidual(Module):
         return dispatched_fused_rmsnorm_residual(
             x, residual, self.weight, eps=self.eps
         )
+
+    @classmethod
+    def from_norm(cls, norm: Any) -> FusedRMSNormResidual:
+        """Create FusedRMSNormResidual instance from standard norm layer."""
+        dim = getattr(
+            norm,
+            "dim",
+            getattr(norm, "normalized_shape", (0,))[0]
+            if hasattr(norm, "normalized_shape")
+            else 0,
+        )
+        eps = getattr(norm, "eps", 1e-6)
+        mod = cls(dim=dim, eps=eps)
+        if hasattr(norm, "weight") and norm.weight is not None:
+            mod.weight = Parameter(
+                np.asarray(getattr(norm.weight, "data", norm.weight)).copy()
+            )
+        return mod
+
+    def extra_repr(self) -> str:
+        return f"dim={self.dim}, eps={self.eps}"
