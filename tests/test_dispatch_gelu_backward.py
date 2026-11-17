@@ -66,3 +66,21 @@ def test_gelu_backward_none_approximation():
     dx_erf = gelu_backward_reference(dout, x, approximate="none")
     assert dx_erf.shape == x.shape
     assert not np.isnan(dx_erf).any()
+
+
+def test_dispatched_gelu_backward_tensor():
+    x = Tensor(np.array([-1.0, 0.5, 2.0], dtype=np.float32), requires_grad=True)
+    dout = Tensor(np.array([1.0, 1.0, 1.0], dtype=np.float32))
+    out = dispatched_gelu_backward(dout, x)
+    assert isinstance(out, Tensor)
+    assert x.grad is not None
+    assert x.grad.shape == x.shape
+
+
+def test_dispatched_gelu_backward_interface_and_errors():
+    inst = DispatchedGELUBackward()
+    assert repr(inst) == "DispatchedGELUBackward()"
+    with pytest.raises(TypeError, match="Complex dtypes"):
+        gelu_backward(np.array([1.0], dtype=np.float32), np.array([1.0 + 1.0j]))
+    with pytest.raises(ValueError, match="Unsupported mode"):
+        gelu_backward_reference(np.array([1.0]), np.array([1.0]), approximate="invalid")
