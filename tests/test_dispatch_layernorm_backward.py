@@ -113,3 +113,20 @@ def test_dispatched_layernorm_autograd():
     assert x.grad.shape == (2, 2)
     assert w.grad.shape == (2,)
     assert b.grad.shape == (2,)
+
+
+from python.parallax.dispatch.layernorm_backward import (
+    DispatchedLayerNormBackward,
+)
+
+
+def test_dispatched_layernorm_backward_class():
+    op = DispatchedLayerNormBackward(eps=1e-5)
+    x = np.random.randn(2, 4).astype(np.float32)
+    w = np.ones(4, dtype=np.float32)
+    b = np.zeros(4, dtype=np.float32)
+    dout = np.ones_like(x)
+    dx, dw, db = op(dout, x, w, b)
+    assert dx.shape == x.shape
+    assert dw.shape == w.shape
+    assert db.shape == b.shape
