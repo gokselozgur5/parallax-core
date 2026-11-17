@@ -57,3 +57,20 @@ def test_rope_backward_invertibility() -> None:
     rotated = apply_rotary_emb(x, cos, sin, offset=0, interleaved=False)
     restored = rope_backward(rotated, cos, sin, offset=0, interleaved=False)
     np.testing.assert_allclose(restored, x, rtol=1e-5, atol=1e-5)
+
+
+def test_rope_backward_numerical_finite_difference() -> None:
+    rng = np.random.default_rng(2024)
+    x = rng.standard_normal((2, 2, 4)).astype(np.float64)
+    dout = rng.standard_normal((2, 2, 4)).astype(np.float64)
+    cos, sin = precompute_freqs(dim=4, max_seq_len=4)
+    dx = rope_backward(dout, cos, sin, offset=1, interleaved=False)
+    h = 1e-6
+    num_dx = np.zeros_like(x)
+    for idx in np.ndindex(x.shape):
+        xp = x.copy(); xp[idx] += h
+        xm = x.copy(); xm[idx] -= h
+        yp = apply_rotary_emb(xp, cos, sin, offset=1, interleaved=False)
+        ym = apply_rotary_emb(xm, cos, sin, offset=1, interleaved=False)
+        num_dx[idx] = np.sum((yp - ym) / (2 * h) * dout)
+    np.testing.assert_allclose(dx, num_dx, rtol=1e-5, atol=1e-5)
