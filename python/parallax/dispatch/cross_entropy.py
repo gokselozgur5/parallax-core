@@ -209,3 +209,25 @@ class DispatchedCrossEntropyLoss(Module):
             reduction=self.reduction,
             chunk_size=self.chunk_size,
         )
+    def extra_repr(self) -> str:
+        return (
+            f"ignore_index={self.ignore_index}, "
+            f"label_smoothing={self.label_smoothing}, "
+            f"reduction={self.reduction!r}"
+        )
+
+    def __repr__(self) -> str:
+        return f"DispatchedCrossEntropyLoss({self.extra_repr()})"
+
+
+CrossEntropyLossModule = DispatchedCrossEntropyLoss
+
+
+__all__ = [
+    "CrossEntropyLossModule",
+    "DispatchedCrossEntropyLoss",
+    "cross_entropy_backward_reference",
+    "cross_entropy_forward_reference",
+    "fast_cross_entropy",
+    "online_logsumexp",
+]
