@@ -79,3 +79,20 @@ def rope_backward(
         interleaved=interleaved,
         theta=theta_val,
     )
+
+
+def dispatched_rope(
+    x: Tensor | np.ndarray,
+    offset: int = 0,
+    interleaved: bool = False,
+    theta: float = 10000.0,
+) -> Tensor:
+    """Dispatched RoPE functional forward with autograd backward hook."""
+    theta_val = stabilize_theta(theta)
+    raw_x = x.data if isinstance(x, Tensor) else x
+    t = raw_x.shape[0]
+    dim = raw_x.shape[-1]
+    cos, sin = precompute_freqs(dim, max_seq_len=offset + t, theta=theta_val)
+    out_data = apply_rotary_emb(raw_x, cos, sin, offset=offset, interleaved=interleaved)
+    parents = (x,) if isinstance(x, Tensor) else ()
+    out = Tensor(out_data, parents, "dispatched_rope")
