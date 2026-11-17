@@ -88,3 +88,22 @@ def cross_entropy_forward_reference(
     else:
         loss = losses.reshape(targets.shape)
     return np.asarray(loss), lse, valid
+
+
+def cross_entropy_backward_reference(
+    grad_out: np.ndarray | float,
+    logits: np.ndarray,
+    targets: np.ndarray,
+    lse: np.ndarray,
+    ignore_index: int = -100,
+    label_smoothing: float = 0.0,
+    reduction: str = "mean",
+) -> np.ndarray:
+    """Compute analytical gradient of cross-entropy with respect to logits."""
+    N = targets.size
+    C = logits.shape[-1]
+    logits_flat = logits.reshape(N, C)
+    targets_flat = targets.reshape(N)
+    valid = (targets_flat != ignore_index) & (targets_flat >= 0) & (targets_flat < C)
+    probs = np.exp(logits_flat - lse.reshape(N, 1))
+    grad = np.zeros_like(logits_flat)
