@@ -129,3 +129,17 @@ def test_dispatched_fused_rmsnorm_residual_autograd():
     assert x.grad.shape == (2, 2)
     assert res.grad.shape == (2, 2)
     assert w.grad.shape == (2,)
+
+
+def test_fused_rmsnorm_residual_module():
+    mod = FusedRMSNormResidual(dim=4, eps=1e-5)
+    assert "dim=4" in mod.extra_repr()
+    x = Tensor(np.ones((2, 4), dtype=np.float32), requires_grad=True)
+    res = Tensor(np.ones((2, 4), dtype=np.float32), requires_grad=True)
+    out, out_res = mod(x, res)
+    assert out.shape == (2, 4)
+    assert out_res.shape == (2, 4)
+    from types import SimpleNamespace
+    dummy = SimpleNamespace(dim=4, eps=1e-5, weight=np.ones(4))
+    cloned = FusedRMSNormResidual.from_norm(dummy)
+    assert cloned.dim == 4
