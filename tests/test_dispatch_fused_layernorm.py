@@ -21,3 +21,20 @@ def test_stabilize_epsilon():
     assert stabilize_epsilon(1e-5) == 1e-5
     assert stabilize_epsilon(0.0) == 1e-12
     assert stabilize_epsilon(-2.0) == 1e-12
+
+
+def test_rms_weight_scale_and_backward():
+    np.random.seed(42)
+    w = np.random.randn(8).astype(np.float64)
+    dout = np.random.randn(8).astype(np.float64)
+    scaled = rms_weight_scale(w)
+    expected_scale = w / np.sqrt(np.mean(w ** 2) + 1e-6)
+    np.testing.assert_allclose(scaled, expected_scale, rtol=1e-5)
+    ana_dw = rms_weight_scale_backward(dout, w)
+    h = 1e-6
+    num_dw = np.zeros_like(w)
+    for i in range(len(w)):
+        w_p = w.copy(); w_p[i] += h
+        w_m = w.copy(); w_m[i] -= h
+        num_dw[i] = np.sum((rms_weight_scale(w_p) - rms_weight_scale(w_m)) / (2 * h) * dout)
+    np.testing.assert_allclose(ana_dw, num_dw, rtol=1e-5, atol=1e-6)
