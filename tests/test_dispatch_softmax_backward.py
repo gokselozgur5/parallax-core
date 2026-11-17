@@ -23,3 +23,22 @@ def test_softmax_forward_numerical_stability():
     probs = softmax_forward_reference(x, axis=-1)
     assert not np.isnan(probs).any()
     np.testing.assert_allclose(np.sum(probs, axis=-1), np.ones(2), rtol=1e-5)
+
+
+def test_softmax_backward_shapes_and_values():
+    x = np.array([[1.0, 2.0, 3.0], [0.5, -0.5, 1.0]], dtype=np.float32)
+    probs = softmax_forward_reference(x)
+    dout = np.ones_like(probs)
+    dx = softmax_backward_reference(dout, probs)
+    assert dx.shape == x.shape
+    np.testing.assert_allclose(np.sum(dx, axis=-1), np.zeros(2), atol=1e-6)
+
+
+def test_softmax_backward_matches_reference():
+    np.random.seed(42)
+    x = np.random.randn(4, 8).astype(np.float32)
+    dout = np.random.randn(4, 8).astype(np.float32)
+    probs = softmax_forward_reference(x)
+    dx_ref = softmax_backward_reference(dout, probs)
+    dx = softmax_backward(dout, probs)
+    np.testing.assert_allclose(dx, dx_ref, rtol=1e-6, atol=1e-6)
