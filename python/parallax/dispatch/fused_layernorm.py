@@ -154,3 +154,27 @@ def _accumulate_norm_grads(
         _accumulate_grad(weight, dw)
     if isinstance(bias, Tensor) and bias.requires_grad and db is not None:
         _accumulate_grad(bias, db)
+
+
+def _attach_fused_layernorm_backward(
+    out_t: Tensor,
+    x: Any,
+    weight: Any,
+    bias: Any,
+    residual: Any,
+    eps: float,
+    rms_scale: bool,
+) -> None:
+    """Attach autograd backward callback to output Tensor."""
+    raw_x = x.data if isinstance(x, Tensor) else x
+    raw_w = weight.data if isinstance(weight, Tensor) else weight
+    raw_b = bias.data if isinstance(bias, Tensor) else bias
+    raw_r = residual.data if isinstance(residual, Tensor) else residual
+
+    def _backward() -> None:
+        if out_t.grad is None:
+            return
+        grads = fused_layernorm_backward(out_t.grad, raw_x, raw_w, raw_b, residual=raw_r, eps=eps, rms_scale=rms_scale)
+        _accumulate_norm_grads(x, residual, weight, bias, grads)
+
+    out_t._backward = _backward
