@@ -38,3 +38,16 @@ def test_rms_weight_scale_and_backward():
         w_m = w.copy(); w_m[i] -= h
         num_dw[i] = np.sum((rms_weight_scale(w_p) - rms_weight_scale(w_m)) / (2 * h) * dout)
     np.testing.assert_allclose(ana_dw, num_dw, rtol=1e-5, atol=1e-6)
+
+
+def test_fused_layernorm_forward_shapes_and_parity():
+    np.random.seed(99)
+    x = np.random.randn(2, 4, 16).astype(np.float32)
+    w = np.ones(16, dtype=np.float32)
+    b = np.zeros(16, dtype=np.float32)
+    out = fused_layernorm_forward(x, w, b, eps=1e-5)
+    assert out.shape == (2, 4, 16)
+    mean = np.mean(out, axis=-1)
+    std = np.std(out, axis=-1)
+    np.testing.assert_allclose(mean, np.zeros((2, 4)), atol=1e-5)
+    np.testing.assert_allclose(std, np.ones((2, 4)), atol=1e-3)
