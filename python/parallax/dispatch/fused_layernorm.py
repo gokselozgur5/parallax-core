@@ -97,3 +97,22 @@ def _layernorm_dx(
     mean_dxhat = np.mean(d_xhat * x_hat, axis=-1, keepdims=True)
     dx = inv_std * (d_xhat - mean_d - x_hat * mean_dxhat)
     return dx, x_hat
+
+
+def _layernorm_param_grads(
+    dout: np.ndarray,
+    x_hat: np.ndarray,
+    weight: Optional[np.ndarray],
+    bias: Optional[np.ndarray],
+    eps: float,
+    rms_scale: bool,
+) -> tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+    """Compute gradients for weight and bias with optional RMS scale."""
+    dw: Optional[np.ndarray] = None
+    if weight is not None:
+        dw_eff = np.sum(dout * x_hat, axis=tuple(range(dout.ndim - weight.ndim)))
+        dw = rms_weight_scale_backward(dw_eff, weight, eps=eps) if rms_scale else dw_eff
+    db: Optional[np.ndarray] = None
+    if bias is not None:
+        db = np.sum(dout, axis=tuple(range(dout.ndim - bias.ndim)))
+    return dw, db
