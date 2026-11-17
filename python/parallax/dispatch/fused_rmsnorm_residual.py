@@ -100,3 +100,17 @@ def _dispatch_fused_rmsnorm_residual_backward(
         return fused_rmsnorm_residual_backward_reference(
             dout, fused, weight, eps=eps, dresidual=dresidual
         )
+
+
+def fused_rmsnorm_residual_backward(
+    dout: np.ndarray,
+    fused: np.ndarray,
+    weight: np.ndarray,
+    eps: float = 1e-6,
+    dresidual: Optional[np.ndarray] = None,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Execute functional fused residual RMSNorm backward pass."""
+    eps_val = stabilize_epsilon(eps)
+    return _dispatch_fused_rmsnorm_residual_backward(
+        dout, fused, weight, eps_val, dresidual=dresidual
+    )
