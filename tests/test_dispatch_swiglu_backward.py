@@ -22,3 +22,15 @@ def test_swiglu_backward_reference_numerical() -> None:
     num_du = (f(g, u + h) - f(g, u - h)) / (2 * h) * dout
     np.testing.assert_allclose(dg, num_dg, rtol=1e-5, atol=1e-5)
     np.testing.assert_allclose(du, num_du, rtol=1e-5, atol=1e-5)
+
+
+def test_swiglu_backward_validation() -> None:
+    g = np.ones((2, 3), dtype=np.float32)
+    u = np.ones((2, 4), dtype=np.float32)
+    dout = np.ones((2, 3), dtype=np.float32)
+    with pytest.raises(ValueError, match="Shape mismatch"):
+        swiglu_backward_reference(dout, g, u)
+    with pytest.raises(ValueError, match="Grad shape mismatch"):
+        swiglu_backward_reference(np.ones((2, 4), dtype=np.float32), g, g)
+    with pytest.raises(TypeError, match="Complex"):
+        swiglu_backward_reference(dout, g + 1j, g)
