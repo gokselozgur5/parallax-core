@@ -59,3 +59,13 @@ def test_dropout_forward_backward_dispatch_entrypoints():
     dout = np.ones_like(out)
     dx = dropout_backward(dout, mask, p=0.0, training=True)
     np.testing.assert_allclose(dx, dout)
+
+
+def test_dispatched_dropout_autograd():
+    x = Tensor(np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32), requires_grad=True)
+    out = dispatched_dropout(x, p=0.0, training=True)
+    loss = out.sum()
+    loss.backward()
+    assert x.grad is not None
+    assert x.grad.shape == (2, 2)
+    np.testing.assert_allclose(x.grad, np.ones((2, 2), dtype=np.float32))
