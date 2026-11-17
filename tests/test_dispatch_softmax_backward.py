@@ -80,3 +80,22 @@ def test_fused_masked_softmax_backward():
     dout_eff = np.array([[1.0, 0.0], [3.0, 4.0]], dtype=np.float32)
     dx_ref = softmax_backward_reference(dout_eff, probs)
     np.testing.assert_allclose(dx_masked, dx_ref)
+
+
+def test_dispatched_softmax_autograd():
+    x = Tensor(np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32), requires_grad=True)
+    out = dispatched_softmax(x, axis=-1)
+    loss = out.sum()
+    loss.backward()
+    assert x.grad is not None
+    assert x.grad.shape == (2, 2)
+    assert not np.isnan(x.grad).any()
+
+
+def test_dispatched_softmax_module():
+    mod = DispatchedSoftmax(axis=-1)
+    assert isinstance(mod, SoftmaxModule)
+    x = Tensor(np.array([[0.0, 1.0]], dtype=np.float32), requires_grad=True)
+    out = mod(x)
+    assert out.shape == (1, 2)
+    np.testing.assert_allclose(out.data.sum(axis=-1), np.ones(1), rtol=1e-5)
