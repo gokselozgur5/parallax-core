@@ -128,6 +128,11 @@ from python.parallax.dispatch.softmax_backward import (
 )
 
 __all__ = [
+    "MQAHeadBroadcaster",
+    "broadcast_kv",
+    "broadcast_mqa_pair",
+    "dispatched_broadcast_kv",
+    "reduce_mqa_grad",
     "AlibiPositionalBias",
     "DispatchedSDPA",
     "SDPAModule",
