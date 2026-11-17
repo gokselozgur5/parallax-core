@@ -56,3 +56,31 @@ def dropout_backward_reference(
     scale = 1.0 / (1.0 - p)
     dx = (dout * mask * scale).astype(dout.dtype)
     return dx
+
+
+def _dispatch_dropout_forward(
+    x: np.ndarray,
+    p: float = 0.5,
+    training: bool = True,
+    seed: Optional[int] = None,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Route dropout forward through backend dispatch or fallback."""
+    try:
+        from parallax.backends.dispatch import dispatch
+        return dispatch("dropout_forward", x, p=p, training=training, seed=seed)
+    except Exception:
+        return dropout_forward_reference(x, p=p, training=training, seed=seed)
+
+
+def _dispatch_dropout_backward(
+    dout: np.ndarray,
+    mask: np.ndarray,
+    p: float = 0.5,
+    training: bool = True,
+) -> np.ndarray:
+    """Route dropout backward through backend dispatch or fallback."""
+    try:
+        from parallax.backends.dispatch import dispatch
+        return dispatch("dropout_backward", dout, mask, p=p, training=training)
+    except Exception:
+        return dropout_backward_reference(dout, mask, p=p, training=training)
