@@ -133,7 +133,8 @@ def test_dispatched_layernorm_backward_class():
 
 
 def test_layernorm_backward_exports():
-    import python.parallax.dispatch.layernorm_backward as lb
+    import sys
+    lb = sys.modules["python.parallax.dispatch.layernorm_backward"]
     for sym in (
         "DispatchedLayerNormBackward",
         "dispatched_layernorm",
