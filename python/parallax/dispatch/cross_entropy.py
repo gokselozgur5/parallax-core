@@ -37,3 +37,18 @@ def online_logsumexp(
         m = new_m
     lse = m + np.log(s)
     return lse, m, s
+
+
+def _validate_targets(
+    targets: np.ndarray,
+    num_classes: int,
+    ignore_index: int,
+) -> np.ndarray:
+    """Validate target shape and value bounds against class count."""
+    flat = targets.ravel()
+    for val in flat:
+        if val != ignore_index and (val < 0 or val >= num_classes):
+            raise ValueError(
+                f"Target index {val} out of bounds for {num_classes} classes"
+            )
+    return (flat != ignore_index) & (flat >= 0) & (flat < num_classes)
