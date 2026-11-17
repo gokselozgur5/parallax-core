@@ -147,6 +147,12 @@ from python.parallax.dispatch.fused_rmsnorm_residual import (
 )
 
 __all__ = [
+    "FusedRMSNormResidual",
+    "dispatched_fused_rmsnorm_residual",
+    "fused_rmsnorm_residual_backward",
+    "fused_rmsnorm_residual_backward_reference",
+    "fused_rmsnorm_residual_forward",
+    "fused_rmsnorm_residual_forward_reference",
     "MQAHeadBroadcaster",
     "broadcast_kv",
     "broadcast_mqa_pair",
