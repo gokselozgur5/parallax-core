@@ -149,3 +149,23 @@ def _dispatch_cross_entropy(
         return cross_entropy_forward_reference(
             logits, targets, ignore_index, label_smoothing, reduction, chunk_size
         )
+
+
+def fast_cross_entropy(
+    logits: Tensor | np.ndarray,
+    targets: Tensor | np.ndarray,
+    ignore_index: int = -100,
+    label_smoothing: float = 0.0,
+    reduction: str = "mean",
+    chunk_size: Optional[int] = None,
+) -> Tensor:
+    """Dispatched fast Cross-Entropy loss with autograd backward hook."""
+    raw_logits = logits.data if isinstance(logits, Tensor) else np.asarray(logits)
+    raw_targets = targets.data if isinstance(targets, Tensor) else np.asarray(targets)
+    loss_val, lse, _ = _dispatch_cross_entropy(
+        raw_logits, raw_targets, ignore_index, label_smoothing, reduction, chunk_size
+    )
+    parents = (logits,) if isinstance(logits, Tensor) else ()
+    out = Tensor(loss_val, parents, "fast_cross_entropy")
+    if not out.requires_grad:
+        return out
