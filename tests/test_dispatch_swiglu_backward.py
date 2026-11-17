@@ -5,7 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from parallax.tensor import Tensor
 from python.parallax.dispatch.swiglu_backward import (
+    dispatched_swiglu_backward,
     gated_mlp_backward,
     swiglu_backward,
     swiglu_backward_reference,
@@ -54,3 +56,14 @@ def test_gated_mlp_backward_shapes_and_values() -> None:
     assert dw_gate.shape == w_gate.shape
     assert dw_up.shape == w_up.shape
     assert dw_down.shape == w_down.shape
+
+
+def test_dispatched_swiglu_backward_autograd() -> None:
+    g = Tensor(np.array([[1.0, -2.0], [0.5, 1.5]], dtype=np.float32), requires_grad=True)
+    u = Tensor(np.array([[2.0, 3.0], [-1.0, 0.5]], dtype=np.float32), requires_grad=True)
+    dout = Tensor(np.ones((2, 2), dtype=np.float32))
+    dg, du = dispatched_swiglu_backward(dout, g, u)
+    assert g.grad is not None
+    assert u.grad is not None
+    assert g.grad.shape == g.shape
+    assert u.grad.shape == u.shape
