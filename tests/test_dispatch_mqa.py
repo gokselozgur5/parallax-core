@@ -70,3 +70,28 @@ def test_dispatched_broadcast_kv_autograd() -> None:
     assert x3.grad is not None
     assert x3.grad.shape == (2, 3, 4)
     np.testing.assert_allclose(x3.grad, np.full((2, 3, 4), 3.0, dtype=np.float32))
+
+
+def test_mqa_head_broadcaster_module() -> None:
+    from parallax.tensor import Tensor
+    from python.parallax.dispatch.mqa import MQAHeadBroadcaster
+
+    broadcaster = MQAHeadBroadcaster(num_heads=8)
+    assert broadcaster.num_heads == 8
+    assert "num_heads=8" in broadcaster.extra_repr()
+    x = Tensor(np.random.randn(2, 1, 8, 16).astype(np.float32))
+    out = broadcaster(x)
+    assert out.shape == (2, 8, 8, 16)
+    with pytest.raises(ValueError):
+        MQAHeadBroadcaster(num_heads=0)
+
+
+def test_broadcast_mqa_pair() -> None:
+    from parallax.tensor import Tensor
+    from python.parallax.dispatch.mqa import broadcast_mqa_pair
+
+    k = Tensor(np.ones((1, 1, 4, 8), dtype=np.float32))
+    v = Tensor(np.full((1, 1, 4, 8), 2.0, dtype=np.float32))
+    k_exp, v_exp = broadcast_mqa_pair(k, v, num_heads=4)
+    assert k_exp.shape == (1, 4, 4, 8)
+    assert v_exp.shape == (1, 4, 4, 8)
