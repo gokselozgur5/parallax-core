@@ -115,3 +115,29 @@ def dispatched_rope(
 
     out._backward = _backward
     return out
+
+
+class DispatchedRoPEBackward:
+    """Helper container for executing RoPE backward operations."""
+
+    def __init__(
+        self, offset: int = 0, interleaved: bool = False, theta: float = 10000.0
+    ) -> None:
+        self.offset = offset
+        self.interleaved = interleaved
+        self.theta = theta
+
+    def backward(
+        self,
+        dout: np.ndarray,
+        cos: Optional[np.ndarray] = None,
+        sin: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
+        return rope_backward(
+            dout,
+            cos=cos,
+            sin=sin,
+            offset=self.offset,
+            interleaved=self.interleaved,
+            theta=self.theta,
+        )
