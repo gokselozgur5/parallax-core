@@ -59,3 +59,23 @@ def _dispatch_rope_backward(
         return rope_backward_reference(
             dout, cos=cos, sin=sin, offset=offset, interleaved=interleaved, theta=theta
         )
+
+
+def rope_backward(
+    dout: np.ndarray,
+    cos: Optional[np.ndarray] = None,
+    sin: Optional[np.ndarray] = None,
+    offset: int = 0,
+    interleaved: bool = False,
+    theta: float = 10000.0,
+) -> np.ndarray:
+    """Execute functional backward pass for Rotary Positional Embedding."""
+    theta_val = stabilize_theta(theta)
+    return _dispatch_rope_backward(
+        dout,
+        cos=cos,
+        sin=sin,
+        offset=offset,
+        interleaved=interleaved,
+        theta=theta_val,
+    )
