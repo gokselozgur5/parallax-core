@@ -115,3 +115,19 @@ def test_softmax_backward_exports():
         "softmax_forward_reference",
     ):
         assert hasattr(sb, sym)
+
+
+def test_softmax_backward_package_exports():
+    import parallax.dispatch as pd
+    for sym in (
+        "DispatchedSoftmax",
+        "SoftmaxModule",
+        "dispatched_softmax",
+        "fused_masked_softmax_backward",
+        "softmax_backward",
+        "softmax_backward_from_logits",
+        "softmax_backward_jvp",
+        "softmax_backward_reference",
+        "softmax_forward_reference",
+    ):
+        assert hasattr(pd, sym)
