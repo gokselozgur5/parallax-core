@@ -140,3 +140,28 @@ def dispatched_fused_rmsnorm_residual(
 
     if not (out_norm.requires_grad or out_res.requires_grad):
         return out_norm, out_res
+
+    def _backward_norm() -> None:
+        if out_norm.grad is None:
+            return
+        dx, dw, dres = fused_rmsnorm_residual_backward(
+            out_norm.grad, fused_data, raw_w, eps=eps_val
+        )
+        if isinstance(weight, Tensor) and weight.requires_grad:
+            _accumulate_grad(weight, dw)
+        if isinstance(x, Tensor) and x.requires_grad:
+            _accumulate_grad(x, dx)
+        if isinstance(residual, Tensor) and residual.requires_grad:
+            _accumulate_grad(residual, dres)
+
+    def _backward_res() -> None:
+        if out_res.grad is None:
+            return
+        if isinstance(x, Tensor) and x.requires_grad:
+            _accumulate_grad(x, out_res.grad)
+        if isinstance(residual, Tensor) and residual.requires_grad:
+            _accumulate_grad(residual, out_res.grad)
+
+    out_norm._backward = _backward_norm
+    out_res._backward = _backward_res
+    return out_norm, out_res
