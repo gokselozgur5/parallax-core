@@ -178,3 +178,31 @@ def _attach_fused_layernorm_backward(
         _accumulate_norm_grads(x, residual, weight, bias, grads)
 
     out_t._backward = _backward
+
+
+def dispatched_fused_layernorm(
+    x: Tensor | np.ndarray,
+    weight: Optional[Tensor | np.ndarray] = None,
+    bias: Optional[Tensor | np.ndarray] = None,
+    residual: Optional[Tensor | np.ndarray] = None,
+    eps: float = 1e-5,
+    rms_scale: bool = False,
+    return_residual: bool = False,
+) -> Tensor | Tuple[Tensor, Tensor] | np.ndarray | Tuple[np.ndarray, np.ndarray]:
+    """Execute dispatched LayerNorm with residual, bias, and optional RMS scale."""
+    raw_x = x.data if isinstance(x, Tensor) else x
+    raw_w = weight.data if isinstance(weight, Tensor) else weight
+    raw_b = bias.data if isinstance(bias, Tensor) else bias
+    raw_r = residual.data if isinstance(residual, Tensor) else residual
+
+    res_fwd = fused_layernorm_forward(raw_x, raw_w, raw_b, residual=raw_r, eps=eps, rms_scale=rms_scale, return_residual=return_residual)
+    if not any(isinstance(p, Tensor) for p in (x, residual, weight, bias)):
+        return res_fwd
+
+    out_arr = res_fwd[0] if return_residual else res_fwd
+    parents = tuple(p for p in (x, residual, weight, bias) if isinstance(p, Tensor))
+    out_t = Tensor(out_arr, parents, "DispatchedFusedLayerNorm")
+    _attach_fused_layernorm_backward(out_t, x, weight, bias, residual, eps, rms_scale)
+    if return_residual:
+        return out_t, Tensor(res_fwd[1], parents, "ResidualFused")
+    return out_t
