@@ -59,3 +59,24 @@ def test_softmax_backward_finite_difference():
             f_neg = softmax_forward_reference(x_neg)
             num_dx[i, j] = np.sum((f_pos - f_neg) / (2 * h) * dout)
     np.testing.assert_allclose(dx, num_dx, rtol=1e-5, atol=1e-6)
+
+
+def test_softmax_backward_jvp():
+    probs = np.array([0.2, 0.5, 0.3], dtype=np.float64)
+    v = np.array([1.0, -1.0, 2.0], dtype=np.float64)
+    jvp = softmax_backward_jvp(probs, v)
+    diag_p = np.diag(probs)
+    outer_p = np.outer(probs, probs)
+    jacobian = diag_p - outer_p
+    expected = jacobian @ v
+    np.testing.assert_allclose(jvp, expected, rtol=1e-6, atol=1e-6)
+
+
+def test_fused_masked_softmax_backward():
+    probs = np.array([[0.5, 0.5], [0.3, 0.7]], dtype=np.float32)
+    dout = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    mask = np.array([[False, True], [False, False]], dtype=bool)
+    dx_masked = fused_masked_softmax_backward(dout, probs, mask=mask)
+    dout_eff = np.array([[1.0, 0.0], [3.0, 4.0]], dtype=np.float32)
+    dx_ref = softmax_backward_reference(dout_eff, probs)
+    np.testing.assert_allclose(dx_masked, dx_ref)
