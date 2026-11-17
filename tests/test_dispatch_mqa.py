@@ -33,3 +33,19 @@ def test_broadcast_kv_validation() -> None:
         broadcast_kv(x, num_heads=-1)
     with pytest.raises(ValueError):
         broadcast_kv(np.ones((4, 8)), num_heads=2)
+
+
+def test_reduce_mqa_grad() -> None:
+    grad = np.ones((2, 4, 3, 6), dtype=np.float32)
+    red4 = reduce_mqa_grad(grad, original_ndim=4)
+    assert red4.shape == (2, 1, 3, 6)
+    np.testing.assert_allclose(red4, np.full((2, 1, 3, 6), 4.0, dtype=np.float32))
+
+    red3 = reduce_mqa_grad(grad, original_ndim=3)
+    assert red3.shape == (2, 3, 6)
+    np.testing.assert_allclose(red3, np.full((2, 3, 6), 4.0, dtype=np.float32))
+
+    with pytest.raises(ValueError):
+        reduce_mqa_grad(grad, original_ndim=2)
+    with pytest.raises(ValueError):
+        reduce_mqa_grad(np.ones((4, 3, 6), dtype=np.float32))
