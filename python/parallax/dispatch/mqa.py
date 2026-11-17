@@ -16,3 +16,18 @@ def broadcast_kv(x: np.ndarray, num_heads: int) -> np.ndarray:
         x = np.expand_dims(x, axis=1)
     elif x.ndim != 4:
         raise ValueError(f"Expected 3D or 4D tensor, got ndim={x.ndim}")
+    if x.shape[1] != 1:
+        raise ValueError(f"MQA requires single KV head, got shape[1]={x.shape[1]}")
+    return np.repeat(x, repeats=num_heads, axis=1)
+
+
+def reduce_mqa_grad(grad: np.ndarray, original_ndim: int = 4) -> np.ndarray:
+    """Accumulate broadcast query head gradients back to KV head dimensions."""
+    if grad.ndim != 4:
+        raise ValueError(f"Expected 4D grad, got ndim={grad.ndim}")
+    summed = grad.sum(axis=1, keepdims=True)
+    if original_ndim == 3:
+        return np.squeeze(summed, axis=1)
+    if original_ndim == 4:
+        return summed
+    raise ValueError(f"Expected original_ndim 3 or 4, got {original_ndim}")
