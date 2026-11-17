@@ -74,3 +74,26 @@ def test_fused_layernorm_rms_weight_scale():
     expected_w = w / np.sqrt(np.mean(w ** 2) + 1e-5)
     np.testing.assert_allclose(expected_w, np.array([1.0, 1.0], dtype=np.float32), rtol=1e-3)
     np.testing.assert_allclose(out_rms * 2.0, out_std, rtol=1e-3)
+
+
+def test_fused_layernorm_backward_analytical_dx():
+    np.random.seed(123)
+    x = np.random.randn(2, 3, 4).astype(np.float64)
+    res = np.random.randn(2, 3, 4).astype(np.float64)
+    w = np.random.randn(4).astype(np.float64)
+    b = np.random.randn(4).astype(np.float64)
+    dout = np.random.randn(2, 3, 4).astype(np.float64)
+    for rms in (False, True):
+        dx_ana, _, _, dres_ana = fused_layernorm_backward(dout, x, w, b, res, eps=1e-5, rms_scale=rms)
+        h = 1e-6
+        num_dx = np.zeros_like(x)
+        for i in range(x.shape[0]):
+            for j in range(x.shape[1]):
+                for k in range(x.shape[2]):
+                    x_p = x.copy(); x_p[i, j, k] += h
+                    x_m = x.copy(); x_m[i, j, k] -= h
+                    f_p = fused_layernorm_forward(x_p, w, b, res, eps=1e-5, rms_scale=rms)
+                    f_m = fused_layernorm_forward(x_m, w, b, res, eps=1e-5, rms_scale=rms)
+                    num_dx[i, j, k] = np.sum((f_p - f_m) / (2 * h) * dout)
+        np.testing.assert_allclose(dx_ana, num_dx, rtol=1e-5, atol=1e-6)
+        np.testing.assert_allclose(dres_ana, num_dx, rtol=1e-5, atol=1e-6)
