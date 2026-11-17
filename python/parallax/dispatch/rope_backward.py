@@ -30,3 +30,12 @@ def rope_backward_reference(
     c = cos[offset : offset + t].reshape((t,) + (1,) * (dout.ndim - 2) + (half,))
     s = sin[offset : offset + t].reshape((t,) + (1,) * (dout.ndim - 2) + (half,))
     dx = np.empty_like(dout)
+    if interleaved:
+        d1, d2 = dout[..., 0::2], dout[..., 1::2]
+        dx[..., 0::2] = d1 * c + d2 * s
+        dx[..., 1::2] = -d1 * s + d2 * c
+    else:
+        d1, d2 = dout[..., :half], dout[..., half:]
+        dx[..., :half] = d1 * c + d2 * s
+        dx[..., half:] = -d1 * s + d2 * c
+    return dx.astype(dout.dtype)
