@@ -27,3 +27,27 @@ def fused_rmsnorm_residual_forward_reference(
     inv_rms = 1.0 / np.sqrt(variance + eps_val)
     normed = (fused * inv_rms) * weight
     return normed.astype(fused.dtype), fused
+
+
+def fused_rmsnorm_residual_backward_reference(
+    dout: np.ndarray,
+    fused: np.ndarray,
+    weight: np.ndarray,
+    eps: float = 1e-6,
+    dresidual: Optional[np.ndarray] = None,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Compute analytical gradients for fused residual RMSNorm."""
+    eps_val = stabilize_epsilon(eps)
+    variance = np.mean(fused * fused, axis=-1, keepdims=True)
+    inv_rms = 1.0 / np.sqrt(variance + eps_val)
+    x_hat = fused * inv_rms
+    d_hat = dout * weight
+    mean_term = np.mean(d_hat * x_hat, axis=-1, keepdims=True)
+    dfused = inv_rms * (d_hat - x_hat * mean_term)
+    if dresidual is not None:
+        dfused = dfused + dresidual
+    dx = dfused.astype(fused.dtype)
+    dres = dfused.astype(fused.dtype)
+    reduce_axes = tuple(range(dout.ndim - 1)) if dout.ndim > 1 else None
+    dw = np.sum(dout * x_hat, axis=reduce_axes) if reduce_axes is not None else (dout * x_hat)
+    return dx, dw.astype(weight.dtype), dres
