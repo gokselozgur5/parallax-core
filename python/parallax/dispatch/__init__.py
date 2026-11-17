@@ -27,6 +27,13 @@ from python.parallax.dispatch.embedding_backward import (
     embedding_backward,
     sparse_embedding_backward,
 )
+from python.parallax.dispatch.gelu_backward import (
+    DispatchedGELUBackward,
+    dispatched_gelu_backward,
+    fused_gelu_backward,
+    gelu_backward,
+    gelu_backward_reference,
+)
 from python.parallax.dispatch.gelu_fast import (
     DispatchedGELUFast,
     FastGELU,
@@ -100,6 +107,7 @@ __all__ = [
     "AxialRoPEFrequencyTable",
     "DispatchedConv2d",
     "DispatchedEmbeddingBackward",
+    "DispatchedGELUBackward",
     "DispatchedGELUFast",
     "DispatchedRoPEBackward",
     "FastGELU",
@@ -129,10 +137,14 @@ __all__ = [
     "dispatch_axial_rope",
     "dispatch_rope",
     "dispatched_conv2d",
+    "dispatched_gelu_backward",
     "dispatched_gelu_fast",
     "dispatched_rope",
     "dispatched_sliding_window_attention",
     "flash_sliding_window_tile",
+    "fused_gelu_backward",
+    "gelu_backward",
+    "gelu_backward_reference",
     "gelu_fast",
     "gelu_fast_backward",
     "gelu_fast_dispatch",
