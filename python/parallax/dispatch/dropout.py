@@ -21,3 +21,22 @@ def dropout_mask_generator(
         return np.zeros(shape, dtype=bool)
     rng = np.random.default_rng(seed)
     return rng.uniform(0.0, 1.0, size=shape) >= p
+
+
+def dropout_forward_reference(
+    x: np.ndarray,
+    p: float = 0.5,
+    training: bool = True,
+    seed: Optional[int] = None,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Execute reference inverted dropout forward pass."""
+    if not training or p <= 0.0:
+        mask = np.ones(x.shape, dtype=bool)
+        return x.copy().astype(x.dtype), mask
+    if p >= 1.0:
+        mask = np.zeros(x.shape, dtype=bool)
+        return np.zeros_like(x), mask
+    mask = dropout_mask_generator(x.shape, p=p, seed=seed)
+    scale = 1.0 / (1.0 - p)
+    out = (x * mask * scale).astype(x.dtype)
+    return out, mask
