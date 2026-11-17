@@ -52,3 +52,26 @@ def swiglu_backward(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Compute fused SwiGLU backward gradients for gate and up tensors."""
     return _dispatch_swiglu_backward(grad, gate, up)
+
+
+def gated_mlp_backward(
+    dout: np.ndarray,
+    x: np.ndarray,
+    gate: np.ndarray,
+    up: np.ndarray,
+    w_gate: np.ndarray,
+    w_up: np.ndarray,
+    w_down: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Compute backward gradients for gated MLP projections."""
+    dh = dout @ w_down
+    dgate, dup = swiglu_backward(dh, gate, up)
+    dx = dgate @ w_gate + dup @ w_up
+    x_2d = x.reshape(-1, x.shape[-1])
+    sig = 1.0 / (1.0 + np.exp(-np.clip(gate, -50.0, 50.0)))
+    h_2d = (gate * sig * up).reshape(-1, gate.shape[-1])
+    dout_2d = dout.reshape(-1, dout.shape[-1])
+    dw_gate = (dgate.reshape(-1, dgate.shape[-1]).T @ x_2d).astype(w_gate.dtype)
+    dw_up = (dup.reshape(-1, dup.shape[-1]).T @ x_2d).astype(w_up.dtype)
+    dw_down = (dout_2d.T @ h_2d).astype(w_down.dtype)
+    return dx.astype(x.dtype), dw_gate, dw_up, dw_down
