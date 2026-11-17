@@ -64,3 +64,13 @@ def test_fused_layernorm_residual_and_bias():
     var = np.var(fused, axis=-1, keepdims=True)
     expected = (fused - mean) / np.sqrt(var + 1e-5) + b
     np.testing.assert_allclose(out, expected, rtol=1e-5)
+
+
+def test_fused_layernorm_rms_weight_scale():
+    x = np.array([[2.0, 4.0], [1.0, 3.0]], dtype=np.float32)
+    w = np.array([2.0, 2.0], dtype=np.float32)
+    out_std = fused_layernorm_forward(x, weight=w, rms_scale=False)
+    out_rms = fused_layernorm_forward(x, weight=w, rms_scale=True)
+    expected_w = w / np.sqrt(np.mean(w ** 2) + 1e-5)
+    np.testing.assert_allclose(expected_w, np.array([1.0, 1.0], dtype=np.float32), rtol=1e-3)
+    np.testing.assert_allclose(out_rms * 2.0, out_std, rtol=1e-3)
