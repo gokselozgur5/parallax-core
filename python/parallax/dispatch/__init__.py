@@ -196,4 +196,12 @@ __all__ = [
     "softmax_backward_jvp",
     "softmax_backward_reference",
     "softmax_forward_reference",
+    "DispatchedDropout",
+    "DropoutModule",
+    "dispatched_dropout",
+    "dropout_backward",
+    "dropout_backward_reference",
+    "dropout_forward",
+    "dropout_forward_reference",
+    "dropout_mask_generator",
 ]
