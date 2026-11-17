@@ -7,3 +7,8 @@ import numpy as np
 
 from parallax.nn import Module, Parameter
 from parallax.tensor import Tensor, _accumulate_grad
+
+
+def stabilize_epsilon(eps: float, min_eps: float = 1e-12) -> float:
+    """Stabilize epsilon parameter ensuring strictly positive bounded value."""
+    return max(float(eps), min_eps)
