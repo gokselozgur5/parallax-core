@@ -114,3 +114,29 @@ def fused_rmsnorm_residual_backward(
     return _dispatch_fused_rmsnorm_residual_backward(
         dout, fused, weight, eps_val, dresidual=dresidual
     )
+
+
+def dispatched_fused_rmsnorm_residual(
+    x: Tensor | np.ndarray,
+    residual: Tensor | np.ndarray,
+    weight: Tensor | np.ndarray,
+    eps: float = 1e-6,
+) -> Tuple[Tensor, Tensor]:
+    """Dispatched fused RMSNorm residual with bidirectional autograd tracking."""
+    eps_val = stabilize_epsilon(eps)
+    raw_x = x.data if isinstance(x, Tensor) else x
+    raw_res = residual.data if isinstance(residual, Tensor) else residual
+    raw_w = weight.data if isinstance(weight, Tensor) else weight
+
+    normed_data, fused_data = fused_rmsnorm_residual_forward(
+        raw_x, raw_res, raw_w, eps=eps_val
+    )
+
+    parents_norm = tuple(p for p in (x, residual, weight) if isinstance(p, Tensor))
+    parents_res = tuple(p for p in (x, residual) if isinstance(p, Tensor))
+
+    out_norm = Tensor(normed_data, parents_norm, "dispatched_fused_rmsnorm")
+    out_res = Tensor(fused_data, parents_res, "dispatched_fused_residual")
+
+    if not (out_norm.requires_grad or out_res.requires_grad):
+        return out_norm, out_res
