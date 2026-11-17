@@ -81,3 +81,13 @@ def test_fused_swiglu_backward_exports() -> None:
     assert callable(fb.backward)
     assert callable(fb.mlp_backward)
     assert callable(fb.reference)
+
+
+def test_swiglu_backward_parity() -> None:
+    g = np.array([1.0, -1.0], dtype=np.float32)
+    u = np.array([2.0, 3.0], dtype=np.float32)
+    dout = np.array([0.5, -0.5], dtype=np.float32)
+    dg, du = swiglu_backward(dout, g, u)
+    dg_ref, du_ref = swiglu_backward_reference(dout, g, u)
+    np.testing.assert_allclose(dg, dg_ref)
+    np.testing.assert_allclose(du, du_ref)
