@@ -66,3 +66,27 @@ def fused_gelu_backward(
     dx = np.where(x_f32 <= -10.0, 0.0, dx)
     dx = np.where(x_f32 >= 10.0, g_f32, dx)
     return dx.astype(x.dtype)
+
+
+def _dispatch_gelu_backward(
+    dout: np.ndarray,
+    x: np.ndarray,
+    tanh_out: np.ndarray | None = None,
+    approximate: str = "tanh",
+) -> np.ndarray:
+    """Route GeLU backward through backend dispatch or fallback."""
+    try:
+        from parallax.backends.dispatch import dispatch
+        return dispatch("gelu_backward", dout, x, tanh_out=tanh_out, approximate=approximate)
+    except Exception:
+        return fused_gelu_backward(dout, x, tanh_out=tanh_out, approximate=approximate)
+
+
+def gelu_backward(
+    dout: np.ndarray,
+    x: np.ndarray,
+    tanh_out: np.ndarray | None = None,
+    approximate: str = "tanh",
+) -> np.ndarray:
+    """Execute functional backward pass for GeLU activation."""
+    return _dispatch_gelu_backward(dout, x, tanh_out=tanh_out, approximate=approximate)
