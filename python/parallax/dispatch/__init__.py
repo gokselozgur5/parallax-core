@@ -96,6 +96,16 @@ from python.parallax.dispatch.swiglu_backward import (
     swiglu_backward,
     swiglu_backward_reference,
 )
+from python.parallax.dispatch.dropout import (
+    DispatchedDropout,
+    DropoutModule,
+    dispatched_dropout,
+    dropout_backward,
+    dropout_backward_reference,
+    dropout_forward,
+    dropout_forward_reference,
+    dropout_mask_generator,
+)
 from python.parallax.dispatch.softmax_backward import (
     DispatchedSoftmax,
     SoftmaxModule,
