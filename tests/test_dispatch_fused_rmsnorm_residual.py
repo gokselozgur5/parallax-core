@@ -114,3 +114,18 @@ def test_fused_rmsnorm_residual_incoming_dres():
     np.testing.assert_allclose(dw, dw_base)
     np.testing.assert_allclose(dx, dx_base + dres_in)
     np.testing.assert_allclose(dres, dx_base + dres_in)
+
+
+def test_dispatched_fused_rmsnorm_residual_autograd():
+    x = Tensor(np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32), requires_grad=True)
+    res = Tensor(np.array([[0.5, 0.5], [1.0, 1.0]], dtype=np.float32), requires_grad=True)
+    w = Tensor(np.array([1.0, 2.0], dtype=np.float32), requires_grad=True)
+    normed, new_res = dispatched_fused_rmsnorm_residual(x, res, w, eps=1e-5)
+    loss = normed.sum() + new_res.sum()
+    loss.backward()
+    assert x.grad is not None
+    assert res.grad is not None
+    assert w.grad is not None
+    assert x.grad.shape == (2, 2)
+    assert res.grad.shape == (2, 2)
+    assert w.grad.shape == (2,)
