@@ -101,3 +101,19 @@ def test_fast_cross_entropy_autograd_and_module():
     assert isinstance(mod, CrossEntropyLossModule)
     out = mod(x, targets)
     assert out.shape == ()
+
+
+def test_cross_entropy_exports():
+    import parallax.dispatch.cross_entropy as ce
+    import parallax.dispatch as pd
+    expected = (
+        "CrossEntropyLossModule",
+        "DispatchedCrossEntropyLoss",
+        "cross_entropy_backward_reference",
+        "cross_entropy_forward_reference",
+        "fast_cross_entropy",
+        "online_logsumexp",
+    )
+    for sym in expected:
+        assert hasattr(ce, sym)
+        assert hasattr(pd, sym)
