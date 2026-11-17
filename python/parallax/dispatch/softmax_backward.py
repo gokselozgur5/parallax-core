@@ -29,3 +29,24 @@ def softmax_backward_reference(
     sum_dout_probs = np.sum(dout * probs, axis=axis, keepdims=True)
     dx = probs * (dout - sum_dout_probs)
     return dx.astype(dout.dtype)
+
+
+def softmax_backward_jvp(
+    probs: np.ndarray,
+    v: np.ndarray,
+    axis: int = -1,
+) -> np.ndarray:
+    """Evaluate Jacobian-vector product J(p) * v for softmax."""
+    v_dot_p = np.sum(v * probs, axis=axis, keepdims=True)
+    return (probs * (v - v_dot_p)).astype(v.dtype)
+
+
+def softmax_backward_from_logits(
+    dout: np.ndarray,
+    x: np.ndarray,
+    axis: int = -1,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Compute softmax probabilities and input gradient directly from logits."""
+    probs = softmax_forward_reference(x, axis=axis)
+    dx = softmax_backward_reference(dout, probs, axis=axis)
+    return probs, dx
