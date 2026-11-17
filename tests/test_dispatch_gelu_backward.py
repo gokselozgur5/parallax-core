@@ -84,3 +84,27 @@ def test_dispatched_gelu_backward_interface_and_errors():
         gelu_backward(np.array([1.0], dtype=np.float32), np.array([1.0 + 1.0j]))
     with pytest.raises(ValueError, match="Unsupported mode"):
         gelu_backward_reference(np.array([1.0]), np.array([1.0]), approximate="invalid")
+
+
+def test_gelu_backward_package_exports():
+    import python.parallax.dispatch as pd
+    for sym in (
+        "DispatchedGELUBackward",
+        "dispatched_gelu_backward",
+        "fused_gelu_backward",
+        "gelu_backward",
+        "gelu_backward_reference",
+    ):
+        assert hasattr(pd, sym)
+
+
+def test_gelu_backward_bridge_exports():
+    import parallax.dispatch as pd
+    for sym in (
+        "DispatchedGELUBackward",
+        "dispatched_gelu_backward",
+        "fused_gelu_backward",
+        "gelu_backward",
+        "gelu_backward_reference",
+    ):
+        assert hasattr(pd, sym)
