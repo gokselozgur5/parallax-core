@@ -269,3 +269,17 @@ class DispatchedFusedLayerNorm(Module):
         if has_bias and hasattr(norm, "bias") and norm.bias is not None:
             mod.bias = Parameter(np.asarray(getattr(norm.bias, "data", norm.bias)).copy())
         return mod
+
+
+FusedLayerNormRMS = DispatchedFusedLayerNorm
+
+__all__ = [
+    "DispatchedFusedLayerNorm",
+    "FusedLayerNormRMS",
+    "dispatched_fused_layernorm",
+    "fused_layernorm_backward",
+    "fused_layernorm_forward",
+    "rms_weight_scale",
+    "rms_weight_scale_backward",
+    "stabilize_epsilon",
+]
