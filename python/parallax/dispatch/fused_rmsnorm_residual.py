@@ -165,3 +165,25 @@ def dispatched_fused_rmsnorm_residual(
     out_norm._backward = _backward_norm
     out_res._backward = _backward_res
     return out_norm, out_res
+
+
+class FusedRMSNormResidual(Module):
+    """Fused RMSNorm with residual connection module."""
+
+    def __init__(self, dim: int, eps: float = 1e-6) -> None:
+        super().__init__()
+        self.dim = int(dim)
+        self.eps = float(eps)
+        self.weight = Parameter(
+            np.ones(self.dim, dtype=np.float32), label="RMSNorm.weight"
+        )
+
+    def forward(
+        self,
+        x: Tensor | np.ndarray,
+        residual: Tensor | np.ndarray,
+    ) -> Tuple[Tensor, Tensor]:
+        """Forward pass computing normalized output and updated residual."""
+        return dispatched_fused_rmsnorm_residual(
+            x, residual, self.weight, eps=self.eps
+        )
