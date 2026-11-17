@@ -164,3 +164,18 @@ def test_dispatched_fused_layernorm_from_layernorm():
     assert conv.rms_scale is True
     assert np.allclose(conv.weight.data, orig.weight.data)
     assert np.allclose(conv.bias.data, orig.bias.data)
+
+
+def test_fused_layernorm_alias_exports():
+    import parallax.dispatch.fused_layernorm as fl
+    for sym in (
+        "DispatchedFusedLayerNorm",
+        "FusedLayerNormRMS",
+        "dispatched_fused_layernorm",
+        "fused_layernorm_backward",
+        "fused_layernorm_forward",
+        "rms_weight_scale",
+        "rms_weight_scale_backward",
+        "stabilize_epsilon",
+    ):
+        assert hasattr(fl, sym)
