@@ -67,3 +67,17 @@ def test_dispatched_swiglu_backward_autograd() -> None:
     assert u.grad is not None
     assert g.grad.shape == g.shape
     assert u.grad.shape == u.shape
+
+
+def test_fused_swiglu_backward_exports() -> None:
+    import python.parallax.dispatch as pd
+
+    assert hasattr(pd, "FusedSwiGLUBackward")
+    assert hasattr(pd, "dispatched_swiglu_backward")
+    assert hasattr(pd, "gated_mlp_backward")
+    assert hasattr(pd, "swiglu_backward")
+    assert hasattr(pd, "swiglu_backward_reference")
+    fb = pd.FusedSwiGLUBackward
+    assert callable(fb.backward)
+    assert callable(fb.mlp_backward)
+    assert callable(fb.reference)
