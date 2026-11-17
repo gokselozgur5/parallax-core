@@ -98,3 +98,19 @@ def test_fused_rmsnorm_residual_backward_numerical():
             fn = fused.copy(); fn[i, j] -= h
             num_dx[i, j] = np.sum((f(fp, w) - f(fn, w)) / (2 * h) * dout)
     np.testing.assert_allclose(dx, num_dx, rtol=1e-4, atol=1e-5)
+
+
+def test_fused_rmsnorm_residual_incoming_dres():
+    x = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    res = np.array([[0.5, -0.5], [1.0, -1.0]], dtype=np.float32)
+    w = np.ones(2, dtype=np.float32)
+    dout = np.ones_like(x)
+    dres_in = np.full_like(x, 2.0)
+    fused = x + res
+    dx_base, dw_base, _ = fused_rmsnorm_residual_backward(dout, fused, w, eps=1e-5)
+    dx, dw, dres = fused_rmsnorm_residual_backward(
+        dout, fused, w, eps=1e-5, dresidual=dres_in
+    )
+    np.testing.assert_allclose(dw, dw_base)
+    np.testing.assert_allclose(dx, dx_base + dres_in)
+    np.testing.assert_allclose(dres, dx_base + dres_in)
