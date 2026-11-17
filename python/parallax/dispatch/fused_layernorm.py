@@ -230,3 +230,26 @@ class DispatchedFusedLayerNorm(Module):
             self.weight = Parameter(np.ones(self.normalized_shape, dtype=np.float32), label="FusedLN.weight")
             if bias:
                 self.bias = Parameter(np.zeros(self.normalized_shape, dtype=np.float32), label="FusedLN.bias")
+
+    def forward(
+        self,
+        x: Tensor | np.ndarray,
+        residual: Optional[Tensor | np.ndarray] = None,
+    ) -> Tensor:
+        return dispatched_fused_layernorm(
+            x,
+            weight=self.weight,
+            bias=self.bias,
+            residual=residual,
+            eps=self.eps,
+            rms_scale=self.rms_scale,
+        )
+
+    def extra_repr(self) -> str:
+        return (
+            f"normalized_shape={self.normalized_shape}, eps={self.eps}, "
+            f"elementwise_affine={self.elementwise_affine}, rms_scale={self.rms_scale}"
+        )
+
+    def __repr__(self) -> str:
+        return f"DispatchedFusedLayerNorm({self.extra_repr()})"
