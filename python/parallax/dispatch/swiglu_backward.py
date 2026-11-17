@@ -75,3 +75,18 @@ def gated_mlp_backward(
     dw_up = (dup.reshape(-1, dup.shape[-1]).T @ x_2d).astype(w_up.dtype)
     dw_down = (dout_2d.T @ h_2d).astype(w_down.dtype)
     return dx.astype(x.dtype), dw_gate, dw_up, dw_down
+
+
+def dispatched_swiglu_backward(
+    grad_output: Tensor | np.ndarray,
+    gate: Tensor,
+    up: Tensor,
+) -> Tuple[Tensor, Tensor]:
+    """Propagate backward gradients to gate and up Tensors."""
+    g_arr = grad_output.data if isinstance(grad_output, Tensor) else grad_output
+    dgate, dup = swiglu_backward(g_arr, gate.data, up.data)
+    if gate.requires_grad:
+        _accumulate_grad(gate, dgate)
+    if up.requires_grad:
+        _accumulate_grad(up, dup)
+    return Tensor(dgate), Tensor(dup)
