@@ -29,3 +29,26 @@ def swiglu_backward_reference(
     dgate = (dout_f32 * u_f32 * dsilu).astype(np.float32)
     dup = (dout_f32 * silu).astype(np.float32)
     return dgate, dup
+
+
+def _dispatch_swiglu_backward(
+    grad: np.ndarray,
+    gate: np.ndarray,
+    up: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Route SwiGLU backward through backend dispatch or fallback."""
+    try:
+        from parallax.backends.dispatch import dispatch
+
+        return dispatch("swiglu_backward", grad, gate, up)
+    except Exception:
+        return swiglu_backward_reference(grad, gate, up)
+
+
+def swiglu_backward(
+    grad: np.ndarray,
+    gate: np.ndarray,
+    up: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Compute fused SwiGLU backward gradients for gate and up tensors."""
+    return _dispatch_swiglu_backward(grad, gate, up)
