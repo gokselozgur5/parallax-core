@@ -96,3 +96,18 @@ def test_dropout_module_exports():
         "dropout_mask_generator",
     ):
         assert hasattr(dd, sym)
+
+
+def test_dropout_package_exports():
+    import parallax.dispatch as pd
+    for sym in (
+        "DispatchedDropout",
+        "DropoutModule",
+        "dispatched_dropout",
+        "dropout_backward",
+        "dropout_backward_reference",
+        "dropout_forward",
+        "dropout_forward_reference",
+        "dropout_mask_generator",
+    ):
+        assert hasattr(pd, sym)
