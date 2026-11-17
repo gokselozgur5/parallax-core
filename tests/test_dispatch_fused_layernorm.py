@@ -151,3 +151,16 @@ def test_dispatched_fused_layernorm_module():
     assert x.grad is not None
     assert mod.weight is not None and mod.weight.grad is not None
     assert mod.bias is not None and mod.bias.grad is not None
+
+
+def test_dispatched_fused_layernorm_from_layernorm():
+    from parallax.nn import LayerNorm
+    orig = LayerNorm(dim=10, eps=1e-4)
+    orig.weight.data = np.random.randn(10).astype(np.float32)
+    orig.bias.data = np.random.randn(10).astype(np.float32)
+    conv = DispatchedFusedLayerNorm.from_layernorm(orig, rms_scale=True)
+    assert conv.normalized_shape == (10,)
+    assert conv.eps == 1e-4
+    assert conv.rms_scale is True
+    assert np.allclose(conv.weight.data, orig.weight.data)
+    assert np.allclose(conv.bias.data, orig.bias.data)
