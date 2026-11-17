@@ -60,6 +60,13 @@ from python.parallax.dispatch.rope import (
     precompute_freqs_cis,
     rotate_half,
 )
+from python.parallax.dispatch.rope_backward import (
+    DispatchedRoPEBackward,
+    dispatched_rope,
+    rope_backward,
+    rope_backward_reference,
+    stabilize_theta,
+)
 from python.parallax.dispatch.sliding_window import (
     SlidingWindowAttention,
     build_sliding_window_mask,
@@ -94,6 +101,7 @@ __all__ = [
     "DispatchedConv2d",
     "DispatchedEmbeddingBackward",
     "DispatchedGELUFast",
+    "DispatchedRoPEBackward",
     "FastGELU",
     "DispatchedLayerNormBackward",
     "FusedLayerNorm",
@@ -122,6 +130,7 @@ __all__ = [
     "dispatch_rope",
     "dispatched_conv2d",
     "dispatched_gelu_fast",
+    "dispatched_rope",
     "dispatched_sliding_window_attention",
     "flash_sliding_window_tile",
     "gelu_fast",
@@ -135,11 +144,14 @@ __all__ = [
     "precompute_axial_freqs_cis",
     "precompute_freqs",
     "precompute_freqs_cis",
+    "rope_backward",
+    "rope_backward_reference",
     "rotate_half",
     "sliding_window_attention",
     "FusedSwiGLUBackward",
     "dispatched_swiglu_backward",
     "gated_mlp_backward",
+    "stabilize_theta",
     "swiglu_backward",
     "swiglu_backward_reference",
 ]
