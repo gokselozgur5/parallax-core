@@ -50,3 +50,19 @@ def softmax_backward_from_logits(
     probs = softmax_forward_reference(x, axis=axis)
     dx = softmax_backward_reference(dout, probs, axis=axis)
     return probs, dx
+
+
+def fused_masked_softmax_backward(
+    dout: np.ndarray,
+    probs: np.ndarray,
+    mask: Optional[np.ndarray] = None,
+    axis: int = -1,
+) -> np.ndarray:
+    """Compute softmax backward pass with optional boolean gradient mask."""
+    effective_dout = dout
+    if mask is not None:
+        if mask.dtype == bool:
+            effective_dout = np.where(mask, 0.0, dout)
+        else:
+            effective_dout = dout * mask
+    return softmax_backward_reference(effective_dout, probs, axis=axis)
