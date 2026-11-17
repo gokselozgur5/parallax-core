@@ -42,3 +42,20 @@ def test_softmax_backward_matches_reference():
     dx_ref = softmax_backward_reference(dout, probs)
     dx = softmax_backward(dout, probs)
     np.testing.assert_allclose(dx, dx_ref, rtol=1e-6, atol=1e-6)
+
+
+def test_softmax_backward_finite_difference():
+    np.random.seed(99)
+    x = np.random.randn(2, 4).astype(np.float64)
+    dout = np.random.randn(2, 4).astype(np.float64)
+    probs, dx = softmax_backward_from_logits(dout, x)
+    h = 1e-6
+    num_dx = np.zeros_like(x)
+    for i in range(x.shape[0]):
+        for j in range(x.shape[1]):
+            x_pos = x.copy(); x_pos[i, j] += h
+            x_neg = x.copy(); x_neg[i, j] -= h
+            f_pos = softmax_forward_reference(x_pos)
+            f_neg = softmax_forward_reference(x_neg)
+            num_dx[i, j] = np.sum((f_pos - f_neg) / (2 * h) * dout)
+    np.testing.assert_allclose(dx, num_dx, rtol=1e-5, atol=1e-6)
