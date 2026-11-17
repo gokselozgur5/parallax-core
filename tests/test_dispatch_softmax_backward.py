@@ -99,3 +99,19 @@ def test_dispatched_softmax_module():
     out = mod(x)
     assert out.shape == (1, 2)
     np.testing.assert_allclose(out.data.sum(axis=-1), np.ones(1), rtol=1e-5)
+
+
+def test_softmax_backward_exports():
+    import parallax.dispatch.softmax_backward as sb
+    for sym in (
+        "DispatchedSoftmax",
+        "SoftmaxModule",
+        "dispatched_softmax",
+        "fused_masked_softmax_backward",
+        "softmax_backward",
+        "softmax_backward_from_logits",
+        "softmax_backward_jvp",
+        "softmax_backward_reference",
+        "softmax_forward_reference",
+    ):
+        assert hasattr(sb, sym)
