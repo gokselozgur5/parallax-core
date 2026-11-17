@@ -96,3 +96,22 @@ def dispatched_rope(
     out_data = apply_rotary_emb(raw_x, cos, sin, offset=offset, interleaved=interleaved)
     parents = (x,) if isinstance(x, Tensor) else ()
     out = Tensor(out_data, parents, "dispatched_rope")
+    if not out.requires_grad:
+        return out
+
+    def _backward() -> None:
+        if out.grad is None:
+            return
+        dx = rope_backward(
+            out.grad,
+            cos=cos,
+            sin=sin,
+            offset=offset,
+            interleaved=interleaved,
+            theta=theta_val,
+        )
+        if isinstance(x, Tensor) and x.requires_grad:
+            _accumulate_grad(x, dx)
+
+    out._backward = _backward
+    return out
