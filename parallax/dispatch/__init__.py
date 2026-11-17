@@ -20,6 +20,13 @@ from python.parallax.dispatch.fused_norm import (
     fused_rmsnorm,
     stabilize_epsilon,
 )
+from python.parallax.dispatch.gelu_backward import (
+    DispatchedGELUBackward,
+    dispatched_gelu_backward,
+    fused_gelu_backward,
+    gelu_backward,
+    gelu_backward_reference,
+)
 from python.parallax.dispatch.gelu_fast import (
     DispatchedGELUFast,
     FastGELU,
@@ -103,6 +110,7 @@ __all__ = [
     "scaled_dot_product_attention",
     "sdpa_backward",
     "AxialRoPEFrequencyTable",
+    "DispatchedGELUBackward",
     "DispatchedGELUFast",
     "DispatchedSwiGLU",
     "FastGELU",
@@ -129,6 +137,7 @@ __all__ = [
     "dispatch_alibi_bias",
     "dispatch_axial_rope",
     "dispatch_rope",
+    "dispatched_gelu_backward",
     "dispatched_gelu_fast",
     "dispatched_repeat_kv",
     "dispatched_rmsnorm",
@@ -138,9 +147,12 @@ __all__ = [
     "dispatched_sliding_window_attention",
     "dispatched_swiglu",
     "flash_sliding_window_tile",
+    "fused_gelu_backward",
     "layernorm_backward",
     "layernorm_backward_reference",
     "fused_rmsnorm",
+    "gelu_backward",
+    "gelu_backward_reference",
     "gelu_fast",
     "gelu_fast_backward",
     "gelu_fast_dispatch",
