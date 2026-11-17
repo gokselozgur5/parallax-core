@@ -39,3 +39,23 @@ def rope_backward_reference(
         dx[..., :half] = d1 * c + d2 * s
         dx[..., half:] = -d1 * s + d2 * c
     return dx.astype(dout.dtype)
+
+
+def _dispatch_rope_backward(
+    dout: np.ndarray,
+    cos: Optional[np.ndarray],
+    sin: Optional[np.ndarray],
+    offset: int,
+    interleaved: bool,
+    theta: float,
+) -> np.ndarray:
+    """Route RoPE backward through backend dispatch or fallback."""
+    try:
+        from parallax.backends.dispatch import dispatch
+        return dispatch(
+            "rope_backward", dout, cos=cos, sin=sin, offset=offset, interleaved=interleaved, theta=theta
+        )
+    except Exception:
+        return rope_backward_reference(
+            dout, cos=cos, sin=sin, offset=offset, interleaved=interleaved, theta=theta
+        )
