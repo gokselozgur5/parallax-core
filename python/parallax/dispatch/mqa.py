@@ -53,3 +53,22 @@ def dispatched_broadcast_kv(x: Tensor, num_heads: int) -> Tensor:
 def broadcast_mqa_pair(k: Tensor, v: Tensor, num_heads: int) -> tuple[Tensor, Tensor]:
     """Broadcast both key and value heads to num_heads."""
     return dispatched_broadcast_kv(k, num_heads), dispatched_broadcast_kv(v, num_heads)
+
+
+class MQAHeadBroadcaster(Module):
+    """Module broadcasting key/value head for Multi-Query Attention."""
+
+    def __init__(self, num_heads: int) -> None:
+        super().__init__()
+        if num_heads <= 0:
+            raise ValueError(f"num_heads must be positive, got {num_heads}")
+        self.num_heads = num_heads
+
+    def forward(self, x: Tensor) -> Tensor:
+        return dispatched_broadcast_kv(x, self.num_heads)
+
+    def extra_repr(self) -> str:
+        return f"num_heads={self.num_heads}"
+
+    def __repr__(self) -> str:
+        return f"MQAHeadBroadcaster({self.extra_repr()})"
