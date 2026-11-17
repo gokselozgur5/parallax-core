@@ -95,3 +95,21 @@ def test_broadcast_mqa_pair() -> None:
     k_exp, v_exp = broadcast_mqa_pair(k, v, num_heads=4)
     assert k_exp.shape == (1, 4, 4, 8)
     assert v_exp.shape == (1, 4, 4, 8)
+
+
+def test_dispatch_mqa_package_exports() -> None:
+    from python.parallax.dispatch import mqa
+
+    assert hasattr(mqa, "broadcast_kv")
+    assert hasattr(mqa, "reduce_mqa_grad")
+    assert hasattr(mqa, "dispatched_broadcast_kv")
+    assert hasattr(mqa, "MQAHeadBroadcaster")
+    assert hasattr(mqa, "broadcast_mqa_pair")
+
+
+def test_parallax_dispatch_mqa_export() -> None:
+    from parallax.dispatch import MQAHeadBroadcaster, broadcast_kv, dispatched_broadcast_kv
+
+    assert MQAHeadBroadcaster is not None
+    assert broadcast_kv is not None
+    assert dispatched_broadcast_kv is not None
