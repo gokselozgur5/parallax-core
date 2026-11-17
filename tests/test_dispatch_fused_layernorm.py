@@ -138,3 +138,16 @@ def test_dispatched_fused_layernorm_autograd():
     assert res.grad is not None and res.grad.shape == (2, 4)
     assert w.grad is not None and w.grad.shape == (4,)
     assert b.grad is not None and b.grad.shape == (4,)
+
+
+def test_dispatched_fused_layernorm_module():
+    mod = DispatchedFusedLayerNorm(normalized_shape=8, eps=1e-5, rms_scale=True)
+    assert repr(mod).startswith("DispatchedFusedLayerNorm(")
+    x = Tensor(np.random.randn(2, 8).astype(np.float32), requires_grad=True)
+    res = Tensor(np.random.randn(2, 8).astype(np.float32), requires_grad=True)
+    out = mod(x, residual=res)
+    assert out.shape == (2, 8)
+    out.sum().backward()
+    assert x.grad is not None
+    assert mod.weight is not None and mod.weight.grad is not None
+    assert mod.bias is not None and mod.bias.grad is not None
