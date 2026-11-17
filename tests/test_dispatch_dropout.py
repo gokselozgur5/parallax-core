@@ -50,3 +50,12 @@ def test_dropout_backward_reference_gradient():
     np.testing.assert_allclose(dx, expected)
     dx_eval = dropout_backward_reference(dout, mask, p=0.5, training=False)
     np.testing.assert_allclose(dx_eval, dout)
+
+
+def test_dropout_forward_backward_dispatch_entrypoints():
+    x = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    out, mask = dropout_forward(x, p=0.0, training=True)
+    np.testing.assert_allclose(out, x)
+    dout = np.ones_like(out)
+    dx = dropout_backward(dout, mask, p=0.0, training=True)
+    np.testing.assert_allclose(dx, dout)
