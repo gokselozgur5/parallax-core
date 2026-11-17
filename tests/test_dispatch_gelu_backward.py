@@ -48,3 +48,21 @@ def test_gelu_backward_finite_difference():
         fm = 0.5 * xm * (1.0 + np.tanh(um))
         numerical[idx] = np.sum(dout * (fp - fm) / (2.0 * eps))
     np.testing.assert_allclose(analytical, numerical, rtol=1e-3, atol=1e-4)
+
+
+def test_fused_gelu_backward_with_tanh_cache():
+    x = np.array([-1.0, 0.0, 1.5, 2.0], dtype=np.float32)
+    dout = np.ones_like(x)
+    inner = SQRT_2_OVER_PI * (x + COEF * (x**3))
+    cached_tanh = np.tanh(inner)
+    dx_cached = fused_gelu_backward(dout, x, tanh_out=cached_tanh)
+    dx_direct = fused_gelu_backward(dout, x)
+    np.testing.assert_allclose(dx_cached, dx_direct, rtol=1e-6)
+
+
+def test_gelu_backward_none_approximation():
+    x = np.array([-0.5, 0.0, 0.5], dtype=np.float32)
+    dout = np.ones_like(x)
+    dx_erf = gelu_backward_reference(dout, x, approximate="none")
+    assert dx_erf.shape == x.shape
+    assert not np.isnan(dx_erf).any()
