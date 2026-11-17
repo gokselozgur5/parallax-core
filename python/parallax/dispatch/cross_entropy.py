@@ -183,3 +183,29 @@ def fast_cross_entropy(
 
     out._backward = _backward
     return out
+
+
+class DispatchedCrossEntropyLoss(Module):
+    """Dispatched fast cross-entropy loss module with online log-sum-exp."""
+
+    def __init__(
+        self,
+        ignore_index: int = -100,
+        label_smoothing: float = 0.0,
+        reduction: str = "mean",
+        chunk_size: Optional[int] = None,
+    ) -> None:
+        super().__init__()
+        self.ignore_index = int(ignore_index)
+        self.label_smoothing = float(label_smoothing)
+        self.reduction = str(reduction)
+        self.chunk_size = chunk_size
+
+    def forward(self, logits: Tensor | np.ndarray, targets: Tensor | np.ndarray) -> Tensor:
+        return fast_cross_entropy(
+            logits, targets,
+            ignore_index=self.ignore_index,
+            label_smoothing=self.label_smoothing,
+            reduction=self.reduction,
+            chunk_size=self.chunk_size,
+        )
