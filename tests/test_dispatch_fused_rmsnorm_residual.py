@@ -143,3 +143,19 @@ def test_fused_rmsnorm_residual_module():
     dummy = SimpleNamespace(dim=4, eps=1e-5, weight=np.ones(4))
     cloned = FusedRMSNormResidual.from_norm(dummy)
     assert cloned.dim == 4
+
+
+def test_fused_rmsnorm_residual_exports():
+    import parallax.dispatch as pd
+    import python.parallax.dispatch as ppd
+    expected = [
+        "FusedRMSNormResidual",
+        "dispatched_fused_rmsnorm_residual",
+        "fused_rmsnorm_residual_backward",
+        "fused_rmsnorm_residual_backward_reference",
+        "fused_rmsnorm_residual_forward",
+        "fused_rmsnorm_residual_forward_reference",
+    ]
+    for name in expected:
+        assert hasattr(pd, name), f"Missing {name} in parallax.dispatch"
+        assert hasattr(ppd, name), f"Missing {name} in python.parallax.dispatch"
