@@ -73,3 +73,22 @@ def test_layernorm_backward_numerical_finite_difference():
             xp[i, j] += h; xm[i, j] -= h
             num_dx[i, j] = np.sum((f(xp, w, b) - f(xm, w, b)) / (2 * h) * dout)
     np.testing.assert_allclose(dx, num_dx, rtol=1e-4, atol=1e-5)
+
+
+from python.parallax.dispatch.layernorm_backward import (
+    fused_layernorm_backward,
+)
+
+
+def test_fused_layernorm_backward():
+    x = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    res = np.array([[0.5, -0.5], [1.0, -1.0]], dtype=np.float32)
+    w = np.ones(2, dtype=np.float32)
+    b = np.zeros(2, dtype=np.float32)
+    dout = np.ones_like(x)
+    dx, dw, db, dres = fused_layernorm_backward(dout, x, w, b, residual=res, eps=1e-5)
+    dx_d, dw_d, db_d = layernorm_backward(dout, x + res, w, b, eps=1e-5)
+    np.testing.assert_allclose(dx, dx_d)
+    np.testing.assert_allclose(dw, dw_d)
+    np.testing.assert_allclose(db, db_d)
+    np.testing.assert_allclose(dres, dx_d)
