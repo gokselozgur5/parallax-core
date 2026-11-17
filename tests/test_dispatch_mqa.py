@@ -49,3 +49,24 @@ def test_reduce_mqa_grad() -> None:
         reduce_mqa_grad(grad, original_ndim=2)
     with pytest.raises(ValueError):
         reduce_mqa_grad(np.ones((4, 3, 6), dtype=np.float32))
+
+
+def test_dispatched_broadcast_kv_autograd() -> None:
+    from parallax.tensor import Tensor
+    from python.parallax.dispatch.mqa import dispatched_broadcast_kv
+
+    x = Tensor(np.ones((1, 1, 3, 4), dtype=np.float32), requires_grad=True)
+    out = dispatched_broadcast_kv(x, num_heads=4)
+    assert out.shape == (1, 4, 3, 4)
+    out.sum().backward()
+    assert x.grad is not None
+    assert x.grad.shape == (1, 1, 3, 4)
+    np.testing.assert_allclose(x.grad, np.full((1, 1, 3, 4), 4.0, dtype=np.float32))
+
+    x3 = Tensor(np.ones((2, 3, 4), dtype=np.float32), requires_grad=True)
+    out3 = dispatched_broadcast_kv(x3, num_heads=3)
+    assert out3.shape == (2, 3, 3, 4)
+    out3.sum().backward()
+    assert x3.grad is not None
+    assert x3.grad.shape == (2, 3, 4)
+    np.testing.assert_allclose(x3.grad, np.full((2, 3, 4), 3.0, dtype=np.float32))
