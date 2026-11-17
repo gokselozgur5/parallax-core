@@ -40,3 +40,19 @@ def dropout_forward_reference(
     scale = 1.0 / (1.0 - p)
     out = (x * mask * scale).astype(x.dtype)
     return out, mask
+
+
+def dropout_backward_reference(
+    dout: np.ndarray,
+    mask: np.ndarray,
+    p: float = 0.5,
+    training: bool = True,
+) -> np.ndarray:
+    """Execute reference inverted dropout backward gradient pass."""
+    if not training or p <= 0.0:
+        return dout.copy().astype(dout.dtype)
+    if p >= 1.0:
+        return np.zeros_like(dout)
+    scale = 1.0 / (1.0 - p)
+    dx = (dout * mask * scale).astype(dout.dtype)
+    return dx
