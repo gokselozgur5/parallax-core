@@ -19,3 +19,17 @@ def rms_weight_scale(weight: np.ndarray, eps: float = 1e-6) -> np.ndarray:
     eps_val = stabilize_epsilon(eps)
     rms = np.sqrt(np.mean(weight * weight, axis=-1, keepdims=True) + eps_val)
     return weight / rms
+
+
+def rms_weight_scale_backward(
+    dout: np.ndarray,
+    weight: np.ndarray,
+    eps: float = 1e-6,
+) -> np.ndarray:
+    """Compute gradient with respect to original unscaled weight."""
+    eps_val = stabilize_epsilon(eps)
+    mean_sq = np.mean(weight * weight, axis=-1, keepdims=True)
+    rms = np.sqrt(mean_sq + eps_val)
+    w_hat = weight / rms
+    dot = np.mean(dout * w_hat, axis=-1, keepdims=True)
+    return (dout - w_hat * dot) / rms
