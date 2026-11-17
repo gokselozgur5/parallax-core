@@ -129,3 +129,27 @@ def dispatched_dropout(
 
     out._backward = _backward
     return out
+
+
+class DispatchedDropout(Module):
+    """Dropout regularization module using dispatch autograd kernel."""
+
+    def __init__(self, p: float = 0.5, training: bool = True, seed: Optional[int] = None) -> None:
+        super().__init__()
+        if not (0.0 <= p <= 1.0):
+            raise ValueError(f"Dropout probability p must be in [0, 1], got {p}")
+        self.p = float(p)
+        self.training = bool(training)
+        self.seed = seed
+
+    def forward(self, x: Tensor | np.ndarray) -> Tensor:
+        return dispatched_dropout(x, p=self.p, training=self.training, seed=self.seed)
+
+    def train(self, mode: bool = True) -> None:
+        self.training = bool(mode)
+
+    def eval(self) -> None:
+        self.training = False
+
+    def __repr__(self) -> str:
+        return f"DispatchedDropout(p={self.p}, training={self.training})"
