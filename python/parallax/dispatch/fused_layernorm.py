@@ -244,7 +244,11 @@ class DispatchedFusedLayerNorm(Module):
             eps=self.eps,
             rms_scale=self.rms_scale,
         )
-        return res if isinstance(res, Tensor) else Tensor(res)
+        if isinstance(res, Tensor):
+            return res
+        if isinstance(res, np.ndarray):
+            return Tensor(res)
+        raise TypeError("Unexpected return type from dispatched_fused_layernorm")
 
     def extra_repr(self) -> str:
         return (
