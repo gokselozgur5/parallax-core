@@ -104,3 +104,28 @@ def dropout_backward(
 ) -> np.ndarray:
     """Execute functional backward pass for Dropout layer."""
     return _dispatch_dropout_backward(dout, mask, p=p, training=training)
+
+
+def dispatched_dropout(
+    x: Tensor | np.ndarray,
+    p: float = 0.5,
+    training: bool = True,
+    seed: Optional[int] = None,
+) -> Tensor:
+    """Dispatched Dropout forward function with autograd backward hook."""
+    raw_x = x.data if isinstance(x, Tensor) else x
+    out_arr, mask = dropout_forward(raw_x, p=p, training=training, seed=seed)
+    parents = (x,) if isinstance(x, Tensor) else ()
+    out = Tensor(out_arr, parents, "dispatched_dropout")
+    if not out.requires_grad:
+        return out
+
+    def _backward() -> None:
+        if out.grad is None:
+            return
+        dx = dropout_backward(out.grad, mask, p=p, training=training)
+        if isinstance(x, Tensor) and x.requires_grad:
+            _accumulate_grad(x, dx)
+
+    out._backward = _backward
+    return out
