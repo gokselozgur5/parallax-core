@@ -51,3 +51,16 @@ def test_fused_layernorm_forward_shapes_and_parity():
     std = np.std(out, axis=-1)
     np.testing.assert_allclose(mean, np.zeros((2, 4)), atol=1e-5)
     np.testing.assert_allclose(std, np.ones((2, 4)), atol=1e-3)
+
+
+def test_fused_layernorm_residual_and_bias():
+    x = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    res = np.array([[0.5, 0.5], [1.0, 1.0]], dtype=np.float32)
+    b = np.array([0.1, -0.1], dtype=np.float32)
+    out, out_res = fused_layernorm_forward(x, bias=b, residual=res, return_residual=True)
+    np.testing.assert_allclose(out_res, x + res)
+    fused = x + res
+    mean = np.mean(fused, axis=-1, keepdims=True)
+    var = np.var(fused, axis=-1, keepdims=True)
+    expected = (fused - mean) / np.sqrt(var + 1e-5) + b
+    np.testing.assert_allclose(out, expected, rtol=1e-5)
