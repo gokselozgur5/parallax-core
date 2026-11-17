@@ -141,3 +141,12 @@ class DispatchedRoPEBackward:
             interleaved=self.interleaved,
             theta=self.theta,
         )
+
+
+__all__ = [
+    "DispatchedRoPEBackward",
+    "dispatched_rope",
+    "rope_backward",
+    "rope_backward_reference",
+    "stabilize_theta",
+]
