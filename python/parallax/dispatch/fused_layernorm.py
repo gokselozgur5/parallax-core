@@ -206,3 +206,27 @@ def dispatched_fused_layernorm(
     if return_residual:
         return out_t, Tensor(res_fwd[1], parents, "ResidualFused")
     return out_t
+
+
+class DispatchedFusedLayerNorm(Module):
+    """Dispatched LayerNorm with RMSNorm weight scaling and bias fusion."""
+
+    def __init__(
+        self,
+        normalized_shape: Union[int, Tuple[int, ...]],
+        eps: float = 1e-5,
+        elementwise_affine: bool = True,
+        bias: bool = True,
+        rms_scale: bool = False,
+    ) -> None:
+        super().__init__()
+        self.normalized_shape = (normalized_shape,) if isinstance(normalized_shape, int) else tuple(normalized_shape)
+        self.eps = float(eps)
+        self.elementwise_affine = bool(elementwise_affine)
+        self.rms_scale = bool(rms_scale)
+        self.weight: Optional[Parameter] = None
+        self.bias: Optional[Parameter] = None
+        if self.elementwise_affine:
+            self.weight = Parameter(np.ones(self.normalized_shape, dtype=np.float32), label="FusedLN.weight")
+            if bias:
+                self.bias = Parameter(np.zeros(self.normalized_shape, dtype=np.float32), label="FusedLN.bias")
