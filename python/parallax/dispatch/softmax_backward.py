@@ -88,3 +88,26 @@ def softmax_backward(
 ) -> np.ndarray:
     """Execute functional backward pass for Softmax layer."""
     return _dispatch_softmax_backward(dout, probs, axis=axis)
+
+
+def dispatched_softmax(
+    x: Tensor | np.ndarray,
+    axis: int = -1,
+) -> Tensor:
+    """Dispatched Softmax forward function with autograd backward hook."""
+    raw_x = x.data if isinstance(x, Tensor) else x
+    probs = softmax_forward_reference(raw_x, axis=axis)
+    parents = (x,) if isinstance(x, Tensor) else ()
+    out = Tensor(probs, parents, "dispatched_softmax")
+    if not out.requires_grad:
+        return out
+
+    def _backward() -> None:
+        if out.grad is None:
+            return
+        dx = softmax_backward(out.grad, probs, axis=axis)
+        if isinstance(x, Tensor) and x.requires_grad:
+            _accumulate_grad(x, dx)
+
+    out._backward = _backward
+    return out
