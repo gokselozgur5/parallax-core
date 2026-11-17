@@ -33,3 +33,25 @@ def rms_weight_scale_backward(
     w_hat = weight / rms
     dot = np.mean(dout * w_hat, axis=-1, keepdims=True)
     return (dout - w_hat * dot) / rms
+
+
+def _dispatch_fused_layernorm(
+    x: np.ndarray,
+    weight: Optional[np.ndarray],
+    bias: Optional[np.ndarray],
+    eps: float,
+) -> np.ndarray:
+    """Route fused layernorm to backend dispatcher or fallback to numpy."""
+    try:
+        from parallax.backends.dispatch import dispatch
+        return dispatch("layernorm", x, weight=weight, bias=bias, eps=eps)
+    except Exception:
+        mean = np.mean(x, axis=-1, keepdims=True)
+        var = np.var(x, axis=-1, keepdims=True)
+        inv_std = 1.0 / np.sqrt(var + eps)
+        normed = (x - mean) * inv_std
+        if weight is not None:
+            normed = normed * weight
+        if bias is not None:
+            normed = normed + bias
+        return normed
