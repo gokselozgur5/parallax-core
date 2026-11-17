@@ -92,3 +92,24 @@ def test_fused_layernorm_backward():
     np.testing.assert_allclose(dw, dw_d)
     np.testing.assert_allclose(db, db_d)
     np.testing.assert_allclose(dres, dx_d)
+
+
+from parallax.tensor import Tensor
+from python.parallax.dispatch.layernorm_backward import (
+    dispatched_layernorm,
+)
+
+
+def test_dispatched_layernorm_autograd():
+    x = Tensor(np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32), requires_grad=True)
+    w = Tensor(np.array([1.0, 2.0], dtype=np.float32), requires_grad=True)
+    b = Tensor(np.array([0.5, -0.5], dtype=np.float32), requires_grad=True)
+    out = dispatched_layernorm(x, w, b, eps=1e-5)
+    loss = out.sum()
+    loss.backward()
+    assert x.grad is not None
+    assert w.grad is not None
+    assert b.grad is not None
+    assert x.grad.shape == (2, 2)
+    assert w.grad.shape == (2,)
+    assert b.grad.shape == (2,)
