@@ -1,6 +1,6 @@
 """Direct dispatch softmax backward compatibility alias."""
 
-from python.parallax.dispatch.softmax_backward import (
+from parallax.dispatch.softmax_backward import (
     DispatchedSoftmax,
     SoftmaxModule,
     dispatched_softmax,
