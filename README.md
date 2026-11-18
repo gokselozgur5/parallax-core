@@ -103,7 +103,7 @@ Tested on Apple M2 (`arm64`), FP32 precision:
 ```
 parallax-core/
 ├── parallax/
-│   ├── autograd/           # Scalar & Tensor autograd DAG engine
+│   ├── tensor.py           # Scalar & Tensor autograd DAG engine
 │   ├── attention/          # MHA, GQA, RoPE, YaRN, ALiBi, Sliding Window
 │   ├── flash_attn.py       # FlashAttention-2 online softmax kernel
 │   ├── flash_decoding_v2.py# Dynamic Split-K decoding with logsumexp reduction
