@@ -1,6 +1,6 @@
 """Bridge module re-exporting gelu_backward dispatch symbols."""
 
-from python.parallax.dispatch.gelu_backward import (
+from parallax.dispatch.gelu_backward import (
     COEF,
     DispatchedGELUBackward,
     SQRT_2_OVER_PI,
