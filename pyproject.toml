@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "parallax"
@@ -27,12 +27,12 @@ parallax-quantize = "scripts.quantize_model:main"
 parallax-infer = "scripts.run_inference:main"
 parallax-serve = "scripts.serve_openai:main"
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["parallax*", "scripts*"]
+[tool.hatch.build.targets.wheel]
+packages = ["parallax", "scripts"]
 
-[tool.setuptools.package-data]
-parallax = ["csrc/Makefile", "csrc/*.c", "csrc/*.h", "webui/*.html"]
+[tool.hatch.build.targets.wheel.shared-data]
+"parallax/csrc" = "parallax/csrc"
+"parallax/webui" = "parallax/webui"
 
 [tool.ruff]
 line-length = 100

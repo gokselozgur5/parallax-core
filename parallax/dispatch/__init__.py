@@ -1,6 +1,6 @@
 """Dispatch subsystem modules and kernels."""
 
-from parallax.dispatch.cross_entropy import (
+from parallax.dispatch.cross_entropy_alias import (
     CrossEntropyLossModule,
     DispatchedCrossEntropyLoss,
     cross_entropy_backward_reference,
