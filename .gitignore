@@ -30,9 +30,11 @@ venv/
 ENV/
 
 # Testing & Coverage
-.pytest_cache/
 .coverage
 htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # IDE & OS
 .vscode/
@@ -46,8 +48,3 @@ Cargo.lock
 # Workspace artifacts & downloads
 models/
 uv.lock
-
-.mypy_cache/
-.pytest_cache/
-.ruff_cache/
-.venv/
