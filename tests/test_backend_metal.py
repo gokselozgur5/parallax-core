@@ -25,6 +25,7 @@ def test_metal_backend_probe():
 
 def test_metal_backend_supports(monkeypatch):
     backend = MetalBackend()
+    monkeypatch.setattr(backend, "available", lambda: False)
     assert not backend.supports("gemm", np.float32, (2, 2))
     monkeypatch.setattr(backend, "available", lambda: True)
     assert backend.supports("gemm", np.float32, (2, 2))
