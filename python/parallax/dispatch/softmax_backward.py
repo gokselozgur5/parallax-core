@@ -61,10 +61,7 @@ def fused_masked_softmax_backward(
     """Compute softmax backward pass with optional boolean gradient mask."""
     effective_dout = dout
     if mask is not None:
-        if mask.dtype == bool:
-            effective_dout = np.where(mask, 0.0, dout)
-        else:
-            effective_dout = dout * mask
+        effective_dout = dout * mask
     return softmax_backward_reference(effective_dout, probs, axis=axis)
 
 
