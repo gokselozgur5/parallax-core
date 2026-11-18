@@ -1,6 +1,6 @@
 """Direct dispatch fused layernorm compatibility alias."""
 
-from python.parallax.dispatch.fused_layernorm import (
+from parallax.dispatch.fused_layernorm import (
     DispatchedFusedLayerNorm,
     FusedLayerNormRMS,
     dispatched_fused_layernorm,
