@@ -8,14 +8,14 @@ from parallax.dispatch.cross_entropy import (
     fast_cross_entropy,
     online_logsumexp,
 )
-from python.parallax.dispatch.alibi import (
+from parallax.dispatch.alibi import (
     AlibiPositionalBias,
     apply_alibi_bias,
     build_alibi_bias,
     dispatch_alibi_bias,
     get_alibi_slopes,
 )
-from python.parallax.dispatch.axial_rope import (
+from parallax.dispatch.axial_rope import (
     AxialRoPEFrequencyTable,
     apply_axial_rope,
     apply_axial_rope_grid,
@@ -23,19 +23,19 @@ from python.parallax.dispatch.axial_rope import (
     precompute_axial_freqs,
     precompute_axial_freqs_cis,
 )
-from python.parallax.dispatch.fused_norm import (
+from parallax.dispatch.fused_norm import (
     FusedRMSNorm,
     fused_rmsnorm,
     stabilize_epsilon,
 )
-from python.parallax.dispatch.gelu_backward import (
+from parallax.dispatch.gelu_backward import (
     DispatchedGELUBackward,
     dispatched_gelu_backward,
     fused_gelu_backward,
     gelu_backward,
     gelu_backward_reference,
 )
-from python.parallax.dispatch.gelu_fast import (
+from parallax.dispatch.gelu_fast import (
     DispatchedGELUFast,
     FastGELU,
     GELUFast,
@@ -46,23 +46,23 @@ from python.parallax.dispatch.gelu_fast import (
     gelu_fast_forward_np,
     gelu_tanh,
 )
-from python.parallax.dispatch.gqa import (
+from parallax.dispatch.gqa import (
     GQAHeadRepeater,
     dispatched_repeat_kv,
     reduce_kv_grad,
     repeat_kv,
     repeat_kv_pair,
 )
-from python.parallax.dispatch.layernorm_backward import (
+from parallax.dispatch.layernorm_backward import (
     DispatchedLayerNormBackward,
     layernorm_backward,
     layernorm_backward_reference,
 )
-from python.parallax.dispatch.layernorm import (
+from parallax.dispatch.layernorm import (
     FusedLayerNorm,
     fused_layernorm,
 )
-from python.parallax.dispatch.fused_layernorm import (
+from parallax.dispatch.fused_layernorm import (
     DispatchedFusedLayerNorm,
     FusedLayerNormRMS,
     dispatched_fused_layernorm,
@@ -71,31 +71,31 @@ from python.parallax.dispatch.fused_layernorm import (
     rms_weight_scale,
     rms_weight_scale_backward,
 )
-from python.parallax.dispatch.kv_cache import (
+from parallax.dispatch.kv_cache import (
     KVCacheBuffer,
     KVCacheManager,
     create_kv_cache,
 )
-from python.parallax.dispatch.mqa import (
+from parallax.dispatch.mqa import (
     MQAHeadBroadcaster,
     broadcast_kv,
     broadcast_mqa_pair,
     dispatched_broadcast_kv,
     reduce_mqa_grad,
 )
-from python.parallax.dispatch.logit_cap import (
+from parallax.dispatch.logit_cap import (
     DispatchedLogitCap,
     LogitSoftCap,
     logit_soft_cap,
     logit_soft_cap_backward,
 )
-from python.parallax.dispatch.rmsnorm_backward import (
+from parallax.dispatch.rmsnorm_backward import (
     dispatched_rmsnorm,
     fused_rmsnorm_backward,
     rmsnorm_backward,
     rmsnorm_backward_reference,
 )
-from python.parallax.dispatch.rope import (
+from parallax.dispatch.rope import (
     RoPEFrequencyTable,
     apply_rotary_emb,
     dispatch_rope,
@@ -103,14 +103,14 @@ from python.parallax.dispatch.rope import (
     precompute_freqs_cis,
     rotate_half,
 )
-from python.parallax.dispatch.rope_backward import (
+from parallax.dispatch.rope_backward import (
     DispatchedRoPEBackward,
     dispatched_rope,
     rope_backward,
     rope_backward_reference,
     stabilize_theta,
 )
-from python.parallax.dispatch.sliding_window import (
+from parallax.dispatch.sliding_window import (
     SlidingWindowAttention,
     build_sliding_window_mask,
     dispatched_sliding_window_attention,
@@ -118,21 +118,21 @@ from python.parallax.dispatch.sliding_window import (
     get_sliding_window_bounds,
     sliding_window_attention,
 )
-from python.parallax.dispatch.sdpa import (
+from parallax.dispatch.sdpa import (
     DispatchedSDPA,
     SDPAModule,
     dispatched_sdpa,
     scaled_dot_product_attention,
     sdpa_backward,
 )
-from python.parallax.dispatch.swiglu import (
+from parallax.dispatch.swiglu import (
     DispatchedSwiGLU,
     SwiGLUActivation,
     dispatched_swiglu,
     swiglu_backward_dispatch,
     swiglu_dispatch,
 )
-from python.parallax.dispatch.dropout import (
+from parallax.dispatch.dropout import (
     DispatchedDropout,
     DropoutModule,
     dispatched_dropout,
@@ -142,7 +142,7 @@ from python.parallax.dispatch.dropout import (
     dropout_forward_reference,
     dropout_mask_generator,
 )
-from python.parallax.dispatch.softmax_backward import (
+from parallax.dispatch.softmax_backward import (
     DispatchedSoftmax,
     SoftmaxModule,
     dispatched_softmax,
@@ -154,7 +154,7 @@ from python.parallax.dispatch.softmax_backward import (
     softmax_forward_reference,
 )
 
-from python.parallax.dispatch.fused_rmsnorm_residual import (
+from parallax.dispatch.fused_rmsnorm_residual import (
     FusedRMSNormResidual,
     dispatched_fused_rmsnorm_residual,
     fused_rmsnorm_residual_backward,
