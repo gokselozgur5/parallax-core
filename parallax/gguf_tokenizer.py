@@ -46,9 +46,11 @@ class GGUFTokenizer:
         unk_token_id: Optional[int] = None,
         model_type: Optional[str] = None,
         token_types: Optional[List[int]] = None,
+        scores: Optional[List[float]] = None,
     ):
         self.raw_tokens = tokens
         self.vocab_size = len(tokens)
+        self.scores = [float(s) for s in scores] if scores is not None else None
         self.bos_token_id = bos_token_id if (bos_token_id is not None and 0 <= bos_token_id < self.vocab_size) else None
         self.eos_token_id = eos_token_id if (eos_token_id is not None and 0 <= eos_token_id < self.vocab_size) else None
         self.pad_token_id = pad_token_id if (pad_token_id is not None and 0 <= pad_token_id < self.vocab_size) else None
@@ -240,4 +242,5 @@ def load_gguf_tokenizer(source: Union[str, GGUFFile]) -> GGUFTokenizer:
         unk_token_id=unk_token_id,
         model_type=model_type,
         token_types=metadata.get("tokenizer.ggml.token_type"),
+        scores=metadata.get("tokenizer.ggml.scores"),
     )
