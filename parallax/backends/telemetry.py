@@ -19,9 +19,12 @@ class CallStats:
 class DispatchTelemetry:
     """Thread-safe call counters keyed by (op, backend)."""
 
+    _shared_lock = threading.Lock()
+    _shared_stats: dict[tuple[str, str], CallStats] = {}
+
     def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self._stats: dict[tuple[str, str], CallStats] = {}
+        self._lock = self._shared_lock
+        self._stats = self._shared_stats
 
     def record(self, op: str, backend: str, elapsed_ns: int) -> None:
         """Add one call of ``elapsed_ns`` nanoseconds."""
