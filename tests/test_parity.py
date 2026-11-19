@@ -94,6 +94,26 @@ def test_parity_real_numpy_backend():
     assert report["numpy"].max_abs_error == 0.0
 
 
+def test_parity_errors_includes_flagged_backends():
+    from parallax.backends import registry
+    from parallax.backends.base import Backend
+    from parallax.backends.parity import parity_errors
+
+    class MockBackendB(MockBackend, Backend):
+        pass
+
+    drift = MockBackendB("drift", offset=1e-3)
+    registry.register("drift", drift)
+    try:
+        a = np.eye(2, dtype=np.float32)
+        errs = parity_errors("gemm", a, a, backends=["drift"], reference=MockBackendB("ref"))
+        assert "drift" in errs
+        assert abs(errs["drift"] - 1e-3) < 1e-6
+    finally:
+        registry.unregister("drift")
+
+
+
 
 
 
