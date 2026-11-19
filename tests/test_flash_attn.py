@@ -206,6 +206,17 @@ def test_flash_attention_asymmetric_sequence_lengths_backward():
     np.testing.assert_allclose(dk_flash[0, 0, 2, 2], num_grad_k, atol=1e-5, rtol=1e-4)
 
 
+def test_flash_attn_scale_correction_requires_multikey():
+    """Verify f16 scale correction equivalence test uses at least two keys."""
+    import re
+    from pathlib import Path
 
-
-
+    rs_path = Path(__file__).resolve().parent.parent / "crates" / "parallax-rs" / "src" / "flash_attn.rs"
+    match = re.search(
+        r"fn test_flash_attn_f16_scale_correction_equivalence\(\)[^{]*\{(.*?)\n    \}",
+        rs_path.read_text(),
+        re.DOTALL,
+    )
+    assert match is not None, "test_flash_attn_f16_scale_correction_equivalence not found"
+    seq_lens = [int(s) for s in re.findall(r"flash_attn\([^)]*,\s*(\d+)\s*,\s*\d+\s*,", match.group(1))]
+    assert seq_lens and all(s >= 2 for s in seq_lens), f"equivalence test must use seq_len >= 2, got {seq_lens}"
