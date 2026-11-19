@@ -17,6 +17,7 @@ import numpy as np
 from parallax.checkpoint import save_checkpoint
 from parallax.loss import cross_entropy_loss, perplexity_from_loss
 from parallax.models.gpt import ParallaxLM
+from parallax.moe import SparseMoE
 from parallax.optim import AdamW, LRScheduler, clip_grad_norm_
 
 
