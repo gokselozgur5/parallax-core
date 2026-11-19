@@ -33,8 +33,12 @@ def _collect_gpt_tensors(
     cfg = model.config
     arch = architecture.lower()
 
+    if getattr(cfg, "use_rope", True) is False:
+        raise NotImplementedError("Exporting models with use_rope=False is not supported in GGUF format.")
+
     if (
         hasattr(cfg, "num_experts")
+
         and cfg.num_experts is not None
         and cfg.num_experts > 1
     ) or any(
@@ -68,8 +72,13 @@ def _collect_gpt_tensors(
         f"{arch}.rope.interleaved": bool(cfg.rope_interleaved),
         f"{arch}.use_swiglu": bool(cfg.use_swiglu),
     }
+    if getattr(cfg, "head_dim", None) is not None:
+        metadata[f"{arch}.attention.key_length"] = int(cfg.head_dim)
+    if cfg.sliding_window is not None:
+        metadata[f"{arch}.attention.sliding_window"] = int(cfg.sliding_window)
 
     tensors: Dict[str, np.ndarray] = {
+
         "token_embd.weight": model.token_embeddings.weight.data.astype(np.float32),
         "output_norm.weight": model.final_norm.weight.data.astype(np.float32),
     }
@@ -86,8 +95,12 @@ def _collect_gpt_tensors(
         tensors[f"blk.{i}.attn_k.weight"] = block.attn.k_proj.weight.data.astype(np.float32)
         tensors[f"blk.{i}.attn_v.weight"] = block.attn.v_proj.weight.data.astype(np.float32)
         tensors[f"blk.{i}.attn_output.weight"] = block.attn.out_proj.weight.data.astype(np.float32)
+        if getattr(block.attn, "q_norm", None) is not None and getattr(block.attn, "k_norm", None) is not None:
+            tensors[f"blk.{i}.attn_q_norm.weight"] = block.attn.q_norm.weight.data.astype(np.float32)
+            tensors[f"blk.{i}.attn_k_norm.weight"] = block.attn.k_norm.weight.data.astype(np.float32)
 
         if block.attn.q_proj.bias is not None:
+
             tensors[f"blk.{i}.attn_q.bias"] = block.attn.q_proj.bias.data.astype(np.float32)
         elif cfg.qkv_bias:
             tensors[f"blk.{i}.attn_q.bias"] = np.zeros(block.attn.q_proj.out_features, dtype=np.float32)
