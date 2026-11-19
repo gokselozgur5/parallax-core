@@ -173,3 +173,28 @@ def fast_cross_entropy(
         if out.grad is None:
             return
         d_logits = cross_entropy_backward_reference(
+            out.grad, raw_logits, raw_targets, lse,
+            ignore_index=ignore_index,
+            label_smoothing=label_smoothing,
+            reduction=reduction,
+        )
+        if isinstance(logits, Tensor) and logits.requires_grad:
+            _accumulate_grad(logits, d_logits)
+
+    out._backward = _backward
+    return out
+
+
+class DispatchedCrossEntropyLoss(Module):
+    """Dispatched fast cross-entropy loss module with online log-sum-exp."""
+
+    def __init__(
+        self,
+        ignore_index: int = -100,
+        label_smoothing: float = 0.0,
+        reduction: str = "mean",
+        chunk_size: Optional[int] = None,
+    ) -> None:
+        super().__init__()
+        self.ignore_index = int(ignore_index)
+        self.label_smoothing = float(label_smoothing)
