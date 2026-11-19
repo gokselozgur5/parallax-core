@@ -83,7 +83,9 @@ class DispatchedGELUFast(Module):
     def __init__(self, approximate: str = "tanh") -> None:
         super().__init__()
         self.approximate = str(approximate).lower()
-        if self.approximate not in {"tanh", "none"}:
+        if self.approximate == "none":
+            raise ValueError("Exact GELU is not implemented")
+        if self.approximate != "tanh":
             raise ValueError(
                 f"Unsupported approximation mode: {approximate!r}. Must be 'tanh' or 'none'."
             )
