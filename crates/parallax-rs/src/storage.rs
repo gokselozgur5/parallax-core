@@ -180,7 +180,7 @@ impl<'a> StorageReader<'a> {
             numel = numel.checked_mul(d).ok_or(StorageError::DimensionOverflow)?;
         }
         let byte_len = numel.checked_mul(dtype.element_size()).ok_or(StorageError::DimensionOverflow)?;
-        if data_offset % STORAGE_ALIGNMENT != 0 {
+        if !data_offset.is_multiple_of(STORAGE_ALIGNMENT) {
             return Err(StorageError::UnalignedTensorData);
         }
         let data_end = data_offset.checked_add(byte_len).ok_or(StorageError::OffsetOutOfBounds)?;
