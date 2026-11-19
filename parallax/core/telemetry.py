@@ -5,6 +5,8 @@ from __future__ import annotations
 import threading
 from dataclasses import dataclass, field
 
+from parallax.backends.telemetry import DispatchTelemetry as BackendTelemetry
+
 
 @dataclass
 class OpStats:
@@ -47,6 +49,7 @@ class DispatchTelemetry:
             stats.total_count += 1
             stats.backend_counts[backend] = stats.backend_counts.get(backend, 0) + 1
             stats.total_latency_ns += latency_ns
+        BackendTelemetry().record(op, backend, latency_ns)
 
     def backend_count(self, backend: str, op: str | None = None) -> int:
         """Return total calls executed on backend, optionally filtered by op."""
@@ -95,6 +98,7 @@ class DispatchTelemetry:
         with self._lock:
             self._op_stats.clear()
             self._total_ops = 0
+        BackendTelemetry().reset()
 
 
 _DEFAULT_TELEMETRY = DispatchTelemetry()
