@@ -95,6 +95,10 @@ class Trainer:
                     y_batch,
                     label_smoothing=cfg.label_smoothing,
                 )
+                for block in getattr(model, "blocks", []):
+                    mlp = getattr(block, "mlp", None)
+                    if isinstance(mlp, SparseMoE) and getattr(mlp, "aux_loss", None) is not None:
+                        loss = loss + mlp.aux_loss
                 # Scale loss by 1 / grad_accum_steps for accumulation
                 scaled_loss = loss * (1.0 / cfg.grad_accum_steps)
                 scaled_loss.backward()
