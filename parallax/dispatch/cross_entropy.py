@@ -73,3 +73,28 @@ def cross_entropy_forward_reference(
     losses = np.zeros(N, dtype=logits.dtype)
     valid_indices = np.where(valid)[0]
     for i in valid_indices:
+        tgt = targets_flat[i]
+        nll = lse[i] - logits_flat[i, tgt]
+        if label_smoothing > 0.0:
+            smooth_loss = lse[i] - np.mean(logits_flat[i])
+            losses[i] = (1.0 - label_smoothing) * nll + label_smoothing * smooth_loss
+        else:
+            losses[i] = nll
+    if reduction == "mean":
+        total_valid = np.sum(valid)
+        loss = np.sum(losses) / max(total_valid, 1) if total_valid > 0 else np.array(0.0, dtype=logits.dtype)
+    elif reduction == "sum":
+        loss = np.sum(losses)
+    else:
+        loss = losses.reshape(targets.shape)
+    return np.asarray(loss), lse, valid
+
+
+def cross_entropy_backward_reference(
+    grad_out: np.ndarray | float,
+    logits: np.ndarray,
+    targets: np.ndarray,
+    lse: np.ndarray,
+    ignore_index: int = -100,
+    label_smoothing: float = 0.0,
+    reduction: str = "mean",
