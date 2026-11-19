@@ -135,3 +135,18 @@ def test_check_backend_protocol_invalid_types():
 
 
 
+
+
+def test_query_backend_capabilities_duplicate_op():
+    from parallax.core.protocol import OpQuery, query_backend_capabilities
+
+    class ShapeBackend:
+        name = "shape"
+        def available(self) -> bool: return True
+        def supports(self, op: str, dtype: Any = None, shape: tuple[int, ...] = ()) -> bool:
+            return op == "gemm" and shape == (2, 2)
+
+    b = ShapeBackend()
+    queries = [OpQuery("gemm", shape=(2, 2)), OpQuery("gemm", shape=(3, 3))]
+    with pytest.raises(ValueError, match="duplicate op"):
+        query_backend_capabilities(b, queries)
