@@ -108,8 +108,15 @@ def prune_model(
     target_modules: Optional[List[str]] = None,
 ) -> Dict[str, float]:
     """Prunes all target linear layers in a ParallaxLM model."""
+    valid_methods = {"2:4", "magnitude"}
+    if method not in valid_methods:
+        raise ValueError(f"Unknown pruning method: {method}. Valid methods: {sorted(valid_methods)}")
+
     valid_targets = {"attn", "mlp"}
-    targets = set(target_modules) if target_modules else valid_targets
+    targets = set(target_modules) if target_modules is not None else valid_targets
+    unknown_targets = targets - valid_targets
+    if unknown_targets:
+        raise ValueError(f"Unknown target modules: {sorted(unknown_targets)}. Valid targets: {sorted(valid_targets)}")
 
     pruned_layers_count = 0
     model_masks: Dict[str, np.ndarray] = {}

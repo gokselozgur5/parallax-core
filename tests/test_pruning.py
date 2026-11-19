@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.prune import (
@@ -69,3 +70,10 @@ def test_prune_model_end_to_end():
     logits = model(idx)
     assert logits.shape == (1, 3, 32)
     assert not np.isnan(logits.data).any()
+
+
+def test_prune_model_rejects_unknown_target_module():
+    model = ParallaxLM(ParallaxLMConfig(vocab_size=32, embed_dim=16, num_heads=2, num_layers=1))
+    with pytest.raises(ValueError):
+        prune_model(model, method="magnitude", sparsity=0.5, target_modules=["attention"])
+
