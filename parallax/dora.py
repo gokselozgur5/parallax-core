@@ -160,7 +160,7 @@ class DoRAModule(Module):
         x_in = x_data if not was_1d else x_data[np.newaxis, :]
 
         delta_V = self.scaling * np.dot(self.lora_B.data, self.lora_A.data)
-        V_total = self.base_V + delta_V
+        V_total = self.base_layer.weight.data + delta_V
         norms = np.linalg.norm(V_total, axis=1, keepdims=True) + 1e-8
         V_norm = V_total / norms
         m_col = self.m.data[:, np.newaxis]
