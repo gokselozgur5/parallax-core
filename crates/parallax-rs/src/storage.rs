@@ -355,7 +355,7 @@ mod tests {
 
     #[test]
     fn test_storage_roundtrip() {
-        let data = vec![1.0f32, 2.0, 3.0, 4.0];
+        let data = [1.0f32, 2.0, 3.0, 4.0];
         let bytes = unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 4) };
         let entries = [TensorEntryBuilder {
             name: "weight",
