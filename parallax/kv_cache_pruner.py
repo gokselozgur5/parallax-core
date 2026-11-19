@@ -67,11 +67,21 @@ class KVCachePruner:
 
         # Cumulative attention scores per layer: list of np.ndarray [B, H, current_seq_len] or None
         self._accumulated_scores: List[Optional[np.ndarray]] = []
+        self._prev_len: int = 0
         self.metrics = PruningMetrics()
+
+    def _update_seen(self, seq_len: int) -> None:
+        if self.metrics.total_tokens_seen == 0:
+            delta = seq_len
+        else:
+            delta = max(0, seq_len - self._prev_len)
+        self.metrics.total_tokens_seen += delta
+        self._prev_len = min(seq_len, self.budget)
 
     def reset(self) -> None:
         """Reset internal accumulator and metrics."""
         self._accumulated_scores = []
+        self._prev_len = 0
         self.metrics = PruningMetrics()
 
     def update_attention_scores(
@@ -213,7 +223,7 @@ class KVCachePruner:
         """
         seq_len = k_cache.shape[2]
         if update_metrics:
-            self.metrics.total_tokens_seen = max(self.metrics.total_tokens_seen, seq_len)
+            self._update_seen(seq_len)
 
         if seq_len <= self.budget:
             if update_metrics:
@@ -253,9 +263,6 @@ class KVCachePruner:
         """Apply pruning across all layer KV caches."""
         if not kv_caches:
             return kv_caches
-
-        seq_len = kv_caches[0][0].shape[2]
-        self.metrics.total_tokens_seen = max(self.metrics.total_tokens_seen, seq_len)
 
         pruned = []
         for i, (k, v) in enumerate(kv_caches):
