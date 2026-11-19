@@ -151,18 +151,18 @@ class QGaLoreAdamW:
             if pid in self.projectors:
                 proj = self.projectors[pid]
                 q_sub, scale = proj.project_and_quantize(grad)
-                effective_grad = proj.deproject(q_sub, scale)
+                projected_grad = q_sub.astype(np.float32) * scale
+                self.m[i] = self.beta1 * self.m[i] + (1.0 - self.beta1) * projected_grad
+                self.v[i] = self.beta2 * self.v[i] + (1.0 - self.beta2) * (projected_grad**2)
+                m_hat = self.m[i] / bias_corr1
+                v_hat = self.v[i] / bias_corr2
+                low_rank_update = lr_t * m_hat / (np.sqrt(v_hat) + self.eps)
+                step_update = proj.deproject(low_rank_update, 1.0)
             else:
-                effective_grad = grad
+                self.m[i] = self.beta1 * self.m[i] + (1.0 - self.beta1) * grad
+                self.v[i] = self.beta2 * self.v[i] + (1.0 - self.beta2) * (grad**2)
+                m_hat = self.m[i] / bias_corr1
+                v_hat = self.v[i] / bias_corr2
+                step_update = lr_t * m_hat / (np.sqrt(v_hat) + self.eps)
 
-            if self.weight_decay > 0.0 and p.data.ndim >= 2:
-                p.data -= lr_t * self.weight_decay * p.data
-
-            self.m[i] = self.beta1 * self.m[i] + (1.0 - self.beta1) * effective_grad
-            self.v[i] = self.beta2 * self.v[i] + (1.0 - self.beta2) * (effective_grad**2)
-
-            m_hat = self.m[i] / bias_corr1
-            v_hat = self.v[i] / bias_corr2
-
-            step_update = lr_t * m_hat / (np.sqrt(v_hat) + self.eps)
             p.data -= step_update
