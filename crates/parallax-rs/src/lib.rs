@@ -192,6 +192,12 @@ unsafe fn validate_flash_attn_ptrs(
     }
     STATUS_OK
 }
+/// C-ABI export for single-head flash attention f32.
+///
+/// # Safety
+///
+/// Pointers `q`, `k`, `v`, and `out` must be valid, 4-byte aligned, non-null,
+/// and reference at least `seq_len * head_dim` elements.
 #[no_mangle]
 pub unsafe extern "C" fn parallax_flash_attn_f32(
     q: *const f32, k: *const f32, v: *const f32, out: *mut f32,
