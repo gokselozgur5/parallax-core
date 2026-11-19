@@ -223,3 +223,11 @@ class DispatchedCrossEntropyLoss(Module):
 CrossEntropyLossModule = DispatchedCrossEntropyLoss
 
 
+__all__ = [
+    "CrossEntropyLossModule",
+    "DispatchedCrossEntropyLoss",
+    "cross_entropy_backward_reference",
+    "cross_entropy_forward_reference",
+    "fast_cross_entropy",
+    "online_logsumexp",
+]
