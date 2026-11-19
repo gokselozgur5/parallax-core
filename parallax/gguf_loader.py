@@ -98,6 +98,12 @@ def gguf_metadata_to_parallax(
     else:
         rope_interleaved = arch in ("llama", "mistral")
 
+    sliding_window = None
+    if f"{arch}.attention.sliding_window" in metadata:
+        sliding_window = int(metadata[f"{arch}.attention.sliding_window"])
+    elif f"{arch}.sliding_window" in metadata:
+        sliding_window = int(metadata[f"{arch}.sliding_window"])
+
     return ParallaxLMConfig(
         vocab_size=vocab_size,
         embed_dim=embed_dim,
@@ -115,7 +121,9 @@ def gguf_metadata_to_parallax(
         qkv_bias=qkv_bias,
         head_dim=int(metadata[f"{arch}.attention.key_length"]) if f"{arch}.attention.key_length" in metadata else None,
         qk_norm=bool(arch == "qwen3" or (tensors is not None and "blk.0.attn_q_norm.weight" in tensors)),
+        sliding_window=sliding_window,
     )
+
 
 
 def load_gguf_weights_into_model(
@@ -259,7 +267,11 @@ def save_parallax_to_gguf(
     """Serializes a ParallaxLM model and optional tokenizer into a standard GGUF v3 file."""
     cfg = model.config
 
+    if getattr(cfg, "use_rope", True) is False:
+        raise NotImplementedError("Exporting models with use_rope=False is not supported in GGUF format.")
+
     if (
+
         hasattr(cfg, "num_experts")
         and cfg.num_experts is not None
         and cfg.num_experts > 1
@@ -298,8 +310,13 @@ def save_parallax_to_gguf(
         f"{arch}.rope.interleaved": bool(cfg.rope_interleaved),
         f"{arch}.use_swiglu": bool(cfg.use_swiglu),
     }
+    if getattr(cfg, "head_dim", None) is not None:
+        metadata[f"{arch}.attention.key_length"] = int(cfg.head_dim)
+    if cfg.sliding_window is not None:
+        metadata[f"{arch}.attention.sliding_window"] = int(cfg.sliding_window)
 
     # Populate tokenizer metadata if provided
+
     if tokenizer is not None:
         if hasattr(tokenizer, "raw_tokens"):
             metadata["tokenizer.ggml.tokens"] = list(tokenizer.raw_tokens)
@@ -340,8 +357,12 @@ def save_parallax_to_gguf(
         tensors[f"blk.{i}.attn_k.weight"] = block.attn.k_proj.weight.data.astype(np.float32)
         tensors[f"blk.{i}.attn_v.weight"] = block.attn.v_proj.weight.data.astype(np.float32)
         tensors[f"blk.{i}.attn_output.weight"] = block.attn.out_proj.weight.data.astype(np.float32)
+        if getattr(block.attn, "q_norm", None) is not None and getattr(block.attn, "k_norm", None) is not None:
+            tensors[f"blk.{i}.attn_q_norm.weight"] = block.attn.q_norm.weight.data.astype(np.float32)
+            tensors[f"blk.{i}.attn_k_norm.weight"] = block.attn.k_norm.weight.data.astype(np.float32)
 
         if block.attn.q_proj.bias is not None:
+
             tensors[f"blk.{i}.attn_q.bias"] = block.attn.q_proj.bias.data.astype(np.float32)
         elif cfg.qkv_bias:
             tensors[f"blk.{i}.attn_q.bias"] = np.zeros(block.attn.q_proj.out_features, dtype=np.float32)
