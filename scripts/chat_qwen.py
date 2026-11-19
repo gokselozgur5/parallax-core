@@ -87,11 +87,11 @@ def main():
                             current_logits[t] *= 1.2
 
                 next_token = int(np.argmax(current_logits))
-                
+
                 # Stop tokens (<|im_end|>, <|endoftext|>)
-                if next_token in [151645, 151643]:
+                if next_token in stop_tokens:
                     break
-                    
+
                 piece = tokenizer.decode([next_token])
                 print(piece, end="", flush=True)
 
@@ -100,7 +100,7 @@ def main():
             print()
 
         except (KeyboardInterrupt, EOFError):
-            print("\nÇıkış yapıldı.")
+            print("\nExiting.")
             break
 
 if __name__ == "__main__":
