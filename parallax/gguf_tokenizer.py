@@ -123,6 +123,23 @@ class GGUFTokenizer:
             symbols = new_syms
         return [self.token_to_id[s] for s in symbols if s in self.token_to_id]
 
+    def _spm_score_merge(self, symbols: List[str]) -> List[int]:
+        while len(symbols) >= 2:
+            best_idx = None
+            best_score = float("-inf")
+            for idx in range(len(symbols) - 1):
+                pair_str = symbols[idx] + symbols[idx + 1]
+                if pair_str in self.token_to_id:
+                    tid = self.token_to_id[pair_str]
+                    score = self.scores[tid] if self.scores and tid < len(self.scores) else 0.0
+                    if score > best_score:
+                        best_score = score
+                        best_idx = idx
+            if best_idx is None:
+                break
+            symbols = symbols[:best_idx] + [symbols[best_idx] + symbols[best_idx + 1]] + symbols[best_idx + 2:]
+        return [self.token_to_id[s] for s in symbols if s in self.token_to_id]
+
     def encode(self, text: str) -> List[int]:
         """Encodes text to token IDs using byte-fallback and vocabulary matching."""
         if not text:
