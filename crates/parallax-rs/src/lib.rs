@@ -312,6 +312,11 @@ mod tests {
 }
 
 /// C-ABI export to find bucket boundary for given sequence length.
+///
+/// # Safety
+///
+/// `buckets_ptr` must reference at least `buckets_len` valid `usize` values.
+/// `out_bucket` must be a valid, aligned, non-null pointer to a `usize`.
 #[no_mangle]
 pub unsafe extern "C" fn parallax_find_bucket(
     seq_len: usize, buckets_ptr: *const usize, buckets_len: usize, out_bucket: *mut usize,
