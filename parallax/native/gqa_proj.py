@@ -20,7 +20,15 @@ def c_gqa_proj(x, wq, wk, wv, n_heads: int, n_kv: int, head_dim: int):
     if _c_gqa is None:
         raise RuntimeError("c_gqa_proj_f32 is not available")
     arrs = [np.ascontiguousarray(a, dtype=np.float32) for a in (x, wq, wk, wv)]
+    if arrs[0].ndim != 2:
+        raise ValueError("x must be a 2D tensor [rows, dim]")
     rows, dim = arrs[0].shape
+    if arrs[1].shape != (dim, n_heads * head_dim):
+        raise ValueError(f"wq shape {arrs[1].shape} does not match (dim, n_heads * head_dim)")
+    if arrs[2].shape != (dim, n_kv * head_dim):
+        raise ValueError(f"wk shape {arrs[2].shape} does not match (dim, n_kv * head_dim)")
+    if arrs[3].shape != (dim, n_kv * head_dim):
+        raise ValueError(f"wv shape {arrs[3].shape} does not match (dim, n_kv * head_dim)")
     out_cols = n_heads * head_dim
     q, k, v = (np.empty((rows, out_cols), dtype=np.float32) for _ in range(3))
     tmp = np.empty((rows, n_kv * head_dim), dtype=np.float32)
