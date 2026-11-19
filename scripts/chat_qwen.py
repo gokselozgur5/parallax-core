@@ -44,18 +44,25 @@ def main():
     print("Ready to chat! Type 'q' or 'exit' to quit.")
     print("-" * 65)
 
+    stop_tokens = {
+        tok_id for tok, tok_id in tokenizer.added_tokens.items()
+        if tok in ("<|im_end|>", "<|endoftext|>")
+    }
+    if tokenizer.eos_token_id is not None:
+        stop_tokens.add(tokenizer.eos_token_id)
+
     while True:
         try:
-            prompt = input("\nSen: ").strip()
+            prompt = input("\nYou: ").strip()
             if not prompt:
                 continue
             if prompt.lower() in ["q", "exit", "quit"]:
-                print("\nParallax: Görüşmek üzere kankam!")
+                print("\nParallax: Goodbye!")
                 break
 
             # Qwen2.5 Chat format with System Prompt
             formatted_prompt = (
-                "<|im_start|>system\nSen yardımsever, zeki ve samimi bir Türkçe yapay zeka asistanısın.<|im_end|>\n"
+                "<|im_start|>system\nYou are a helpful and direct AI assistant.<|im_end|>\n"
                 f"<|im_start|>user\n{prompt}<|im_end|>\n"
                 "<|im_start|>assistant\n"
             )
