@@ -53,9 +53,6 @@ class MoDRouter:
             # Causal per-token threshold routing: token t depends only on scores[t] <= t
             selected_mask = scores >= self.threshold
             selected_indices = np.where(selected_mask)[0]
-            if len(selected_indices) == 0:
-                # Fallback to token with highest score so far to guarantee at least 1 token
-                selected_indices = np.array([int(np.argmax(scores))], dtype=int)
             selected_weights = scores[selected_indices, np.newaxis]
             return selected_indices, selected_weights, scores
 
