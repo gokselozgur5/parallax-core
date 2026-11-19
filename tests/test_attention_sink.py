@@ -151,3 +151,21 @@ def test_generate_stream_rope_offsets_do_not_collapse(monkeypatch):
     step_offsets = recorded_offsets[::2]
     expected_offsets = [0, 8, 9, 10, 11, 12, 13, 14, 15, 16]
     assert step_offsets == expected_offsets
+
+
+def test_reused_rolling_cache_resets_seen_in_generator():
+    config = ParallaxLMConfig(
+        vocab_size=32,
+        embed_dim=16,
+        num_layers=1,
+        num_heads=2,
+        max_seq_len=64,
+        use_swiglu=False,
+    )
+    model = ParallaxLM(config)
+    sink = RollingKVCache(sink_tokens=2, window_size=4)
+    list(generate_stream(model, [1, 2, 3], max_new_tokens=15, rolling_cache=sink))
+    assert sink.total_seen == 17
+    list(generate_stream(model, [1, 2, 3], max_new_tokens=2, rolling_cache=sink))
+    assert sink.total_seen == 4
+
