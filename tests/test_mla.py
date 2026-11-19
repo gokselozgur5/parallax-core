@@ -91,3 +91,24 @@ def test_mla_infinite_mask_safe_softmax():
     x = Tensor(np.random.randn(2, 16).astype(np.float32))
     out = mla(x, causal=True)
     assert np.all(np.isfinite(out.data))
+
+
+def test_mla_module_gradients_finite_diff():
+    np.random.seed(0)
+    mla = MLAModule(embed_dim=8, num_heads=2, latent_dim=4, rope_dim=4)
+    x = Tensor(np.random.randn(1, 4, 8))
+    w = np.random.randn(1, 4, 8)
+    loss = lambda: float((mla(x).data * w).sum())
+    (mla(x) * w).sum().backward()
+    for p in (mla.w_uv, mla.w_dkv, mla.w_uk, mla.w_kr, mla.w_qr, x):
+        assert p.grad is not None
+        idx = (0,) * p.data.ndim
+        old = p.data[idx]
+        p.data[idx] = old + 1e-6
+        up = loss()
+        p.data[idx] = old - 1e-6
+        down = loss()
+        p.data[idx] = old
+        numeric = (up - down) / 2e-6
+        assert abs(p.grad[idx] - numeric) < 1e-5
+
