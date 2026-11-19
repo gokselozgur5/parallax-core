@@ -235,6 +235,33 @@ class MLAModule(Module):
         if not out_tensor.requires_grad:
             return (out_tensor, new_kv) if use_cache else out_tensor
 
+        def _bwd_c(g_ctx, g_sc):
+            c_2d = c_kv.reshape(B * S, self.latent_dim)
+            g_vc = np.matmul(weights.swapaxes(-1, -2), g_ctx).swapaxes(1, 2).reshape(B * S, -1)
+            g_kc = np.matmul(g_sc.swapaxes(-1, -2), q_c).swapaxes(1, 2).reshape(B * S, -1)
+            g_ckv = np.matmul(g_vc, self.w_uv.data.T) + np.matmul(g_kc, self.w_uk.data.T)
+            g_ckv_step = g_ckv.reshape(B, S, -1)[:, past_len:].reshape(B * T, -1)
+            x_2d = x_in.reshape(B * T, -1)
+            return (
+                np.matmul(c_2d.T, g_vc),
+                np.matmul(c_2d.T, g_kc),
+                np.matmul(x_2d.T, g_ckv_step),
+                np.matmul(g_ckv_step, self.w_dkv.data.T).reshape(B, T, -1),
+            )
+
+        def _bwd_r(g_sc):
+            x_2d = x_in.reshape(B * T, -1)
+            g_qr_rot = np.matmul(g_sc, k_r_rot_heads).swapaxes(1, 2)
+            g_qr = apply_rope(g_qr_rot, seq_dim=1, offset=past_len, conjugate=True, theta=self.theta, interleaved=True).reshape(B * T, -1)
+            g_kr_rot = np.sum(np.matmul(g_sc.swapaxes(-1, -2), q_r_rot), axis=1)[:, past_len:]
+            g_kr = apply_rope(g_kr_rot, seq_dim=1, offset=past_len, conjugate=True, theta=self.theta, interleaved=True).reshape(B * T, -1)
+            return (
+                np.matmul(x_2d.T, g_qr),
+                np.matmul(x_2d.T, g_kr),
+                np.matmul(g_qr, self.w_qr.data.T).reshape(B, T, -1),
+                np.matmul(g_kr, self.w_kr.data.T).reshape(B, T, -1),
+            )
+
         def _backward() -> None:
             if out_tensor.grad is None:
                 return
