@@ -123,3 +123,28 @@ def cross_entropy_backward_reference(
         grad = grad * scale
     elif reduction == "sum":
         grad = grad * grad_out
+    else:
+        grad = grad * np.asarray(grad_out).reshape(N, 1)
+    return grad.reshape(logits.shape)
+
+
+def _dispatch_cross_entropy(
+    logits: np.ndarray,
+    targets: np.ndarray,
+    ignore_index: int = -100,
+    label_smoothing: float = 0.0,
+    reduction: str = "mean",
+    chunk_size: Optional[int] = None,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Route cross entropy calculation through dispatch engine or fallback."""
+    try:
+        from parallax.backends.dispatch import dispatch
+        return dispatch(
+            "cross_entropy", logits, targets,
+            ignore_index=ignore_index,
+            label_smoothing=label_smoothing,
+            reduction=reduction,
+        )
+    except Exception:
+        return cross_entropy_forward_reference(
+            logits, targets, ignore_index, label_smoothing, reduction, chunk_size
