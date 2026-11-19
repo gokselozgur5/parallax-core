@@ -98,3 +98,28 @@ def cross_entropy_backward_reference(
     ignore_index: int = -100,
     label_smoothing: float = 0.0,
     reduction: str = "mean",
+) -> np.ndarray:
+    """Compute analytical gradient of cross-entropy with respect to logits."""
+    N = targets.size
+    C = logits.shape[-1]
+    logits_flat = logits.reshape(N, C)
+    targets_flat = targets.reshape(N)
+    valid = (targets_flat != ignore_index) & (targets_flat >= 0) & (targets_flat < C)
+    probs = np.exp(logits_flat - lse.reshape(N, 1))
+    grad = np.zeros_like(logits_flat)
+    for i in range(N):
+        if not valid[i]:
+            continue
+        tgt = targets_flat[i]
+        if label_smoothing > 0.0:
+            target_dist = np.full(C, label_smoothing / C, dtype=logits.dtype)
+            target_dist[tgt] += (1.0 - label_smoothing)
+            grad[i] = probs[i] - target_dist
+        else:
+            grad[i] = probs[i].copy()
+            grad[i, tgt] -= 1.0
+    if reduction == "mean":
+        scale = grad_out / max(np.sum(valid), 1)
+        grad = grad * scale
+    elif reduction == "sum":
+        grad = grad * grad_out
