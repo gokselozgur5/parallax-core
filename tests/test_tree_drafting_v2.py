@@ -231,3 +231,13 @@ def test_tree_speculative_generator_verify_integration():
     )
     assert accepted == [10, 20, 30]
     assert stats["accepted_count"] == 3
+
+
+def test_tree_speculative_generator_generate_checks_node_bound_before_building():
+    from unittest.mock import patch
+    gen = TreeSpeculativeGenerator(max_draft_tokens=64)
+    with patch("parallax.tree_drafting_v2.generate_dynamic_eagle_tree") as mock_gen:
+        with pytest.raises(ValueError, match="exceeds max_draft_tokens"):
+            gen.generate(root_token_id=1, depth=12, top_k_per_node=2)
+        assert not mock_gen.called
+
