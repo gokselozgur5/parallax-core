@@ -440,6 +440,11 @@ class TreeSpeculativeGenerator:
         """Generate speculative tree enforcing node and successor bounds."""
         if top_k_per_node > self.max_successors_per_node:
             raise ValueError(f"top_k_per_node {top_k_per_node} exceeds {self.max_successors_per_node}")
+        if depth < 0 or top_k_per_node < 0:
+            raise ValueError("depth and top_k_per_node must be non-negative")
+        expected_nodes = 1 if depth == 0 or top_k_per_node == 0 else (1 + depth if top_k_per_node == 1 else (top_k_per_node ** (depth + 1) - 1) // (top_k_per_node - 1))
+        if expected_nodes > self.max_draft_tokens:
+            raise ValueError(f"Draft token length {expected_nodes} exceeds max_draft_tokens {self.max_draft_tokens}")
         topo = generate_dynamic_eagle_tree(root_token_id, depth=depth, top_k_per_node=top_k_per_node, predict_fn=predict_fn)
         self.validate_configuration(topo.tokens, topo.parent_indices)
         return topo
