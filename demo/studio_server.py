@@ -142,6 +142,7 @@ sys.modules[__name__].__class__ = _StudioModule
 
 
 class StudioHandler(http.server.SimpleHTTPRequestHandler):
+    timeout = 10.0
     def __init__(self, *args, **kwargs):
         init_default_state()
         super().__init__(*args, directory=STATIC_DIR, **kwargs)
@@ -644,8 +645,8 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
 
 def run_server(port: int = PORT, host: str = HOST):
     os.makedirs(STATIC_DIR, exist_ok=True)
-    socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer((host, port), StudioHandler) as httpd:
+    socketserver.ThreadingTCPServer.allow_reuse_address = True
+    with socketserver.ThreadingTCPServer((host, port), StudioHandler) as httpd:
         print(f"Parallax Studio running at http://{host}:{port}")
         httpd.serve_forever()
 
