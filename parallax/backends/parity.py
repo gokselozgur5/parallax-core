@@ -33,7 +33,7 @@ class ParityReport(dict[str, ParityResult]):
 
     @property
     def max_errors(self) -> dict[str, float]:
-        return {k: v.max_abs_error for k, v in self.items() if v.status == "ok"}
+        return {k: v.max_abs_error for k, v in self.items() if v.status in ("ok", "flagged")}
 
     @property
     def flagged_backends(self) -> list[str]:
