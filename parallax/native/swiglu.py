@@ -35,8 +35,10 @@ def swiglu_numpy(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     b_f32 = np.asarray(b, dtype=np.float32)
     with np.errstate(over="ignore", invalid="ignore"):
         sig = np.float32(1.0) / (np.float32(1.0) + np.exp(-a_f32))
-        res = a_f32 * sig * b_f32
-    res = np.where(np.isnan(res), np.float32(0.0), res)
+        silu = a_f32 * sig
+        silu = np.where(a_f32 <= np.float32(-88.0), np.float32(0.0), silu)
+        silu = np.where(a_f32 >= np.float32(88.0), a_f32, silu)
+        res = silu * b_f32
     return res
 
 
