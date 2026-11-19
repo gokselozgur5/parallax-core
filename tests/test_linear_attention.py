@@ -124,3 +124,16 @@ def test_linear_attention_parallel_autograd_finite_differences():
         abs_err = np.max(np.abs(num_grad - auto_grad))
         rel_err = np.max(np.abs(num_grad - auto_grad) / (np.abs(num_grad) + np.abs(auto_grad) + 1e-8))
         assert abs_err < 1e-5 or rel_err < 1e-4, f"Gradcheck failed for {name}: abs={abs_err}, rel={rel_err}"
+
+
+def test_linear_attention_recurrent_path_keeps_or_refuses_autograd():
+    np.random.seed(0)
+    attn = LinearAttention(embed_dim=8, num_heads=2)
+    try:
+        out, _ = attn(Tensor(np.random.randn(1, 4, 8)), return_state=True)
+    except RuntimeError:
+        return
+    out.sum().backward()
+    assert attn.q_proj.weight.grad is not None, "q_proj silently received no gradient"
+    assert attn.v_proj.weight.grad is not None, "v_proj silently received no gradient"
+
