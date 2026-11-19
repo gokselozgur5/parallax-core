@@ -98,6 +98,9 @@ pub fn verify_candidate_stochastic(
     }
     let p_target = target_probs[cand_idx];
     let ratio = p_target / draft_prob;
+    if ratio.is_nan() {
+        return false;
+    }
     roll < ratio.min(1.0)
 }
 
@@ -133,7 +136,7 @@ pub fn sample_token_from_probs(probs: &[f32], roll: f32) -> Result<u32, Speculat
     let mut acc = 0.0f32;
     for (idx, &p) in probs.iter().enumerate() {
         acc += p;
-        if roll <= acc { return Ok(idx as u32); }
+        if roll < acc { return Ok(idx as u32); }
     }
     Ok((probs.len() - 1) as u32)
 }
