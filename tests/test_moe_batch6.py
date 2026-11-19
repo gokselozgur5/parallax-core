@@ -114,9 +114,10 @@ def test_mod_causal_routing_no_future_leakage():
 
 def test_mod_block_forward_causal():
     """Verify mod_block_forward supports causal mode and identity bypass (#284)."""
+    np.random.seed(42)
     seq_len, hidden_dim = 6, 4
     x = np.random.randn(seq_len, hidden_dim).astype(np.float32)
-    router = MoDRouter(hidden_dim=hidden_dim, capacity_factor=0.5, threshold=0.4)
+    router = MoDRouter(hidden_dim=hidden_dim, capacity_factor=0.5, threshold=0.6)
 
     def dummy_block(h):
         return h * 2.0
@@ -125,6 +126,7 @@ def test_mod_block_forward_causal():
 
     assert output.shape == x.shape
     unselected = [i for i in range(seq_len) if i not in selected_indices]
+    assert len(unselected) > 0
     for idx in unselected:
         assert np.allclose(output[idx], x[idx])
 
