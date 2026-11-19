@@ -41,3 +41,23 @@ def test_mod_block_forward_identity_bypass_for_unselected():
     unselected = [i for i in range(seq_len) if i not in selected_indices]
     for idx in unselected:
         assert np.allclose(output[idx], x[idx])
+
+
+def test_causal_routing_output_at_t_ignores_later_tokens():
+    rng = np.random.default_rng(0)
+    router = MoDRouter(hidden_dim=4, threshold=0.99)
+    router.weight = np.full((4, 1), 0.1)
+    x_low = rng.standard_normal((6, 4))
+    x_high = x_low.copy()
+    x_low[3:] -= 5.0
+    x_high[3:] += 5.0
+
+    def block(h: np.ndarray) -> np.ndarray:
+        return h + 10.0
+
+    out_low, picked_low = mod_block_forward(x_low, router, block, causal=True)
+    out_high, picked_high = mod_block_forward(x_high, router, block, causal=True)
+    assert np.all(router.route_tokens(x_high, causal=True)[2] < 0.99)
+    np.testing.assert_allclose(
+        out_low[:3], out_high[:3], err_msg=f"{picked_low} vs {picked_high}"
+    )
