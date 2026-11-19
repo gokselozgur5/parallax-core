@@ -88,3 +88,18 @@ def test_orpo_step_finite_difference_gradcheck() -> None:
     assert np.allclose(grad_w, num_grad_w, atol=1e-4)
     assert np.allclose(grad_l, num_grad_l, atol=1e-4)
 
+
+def test_orpo_step_rejects_empty_target_sequences():
+    import pytest
+
+    vocab_size = 5
+    empty_targets = np.array([], dtype=np.int64)
+    valid_targets = np.array([0, 1], dtype=np.int64)
+
+    with pytest.raises(ValueError, match="targets_w cannot be empty"):
+        orpo_step(np.zeros((0, vocab_size)), empty_targets, np.zeros((2, vocab_size)), valid_targets)
+
+    with pytest.raises(ValueError, match="targets_l cannot be empty"):
+        orpo_step(np.zeros((2, vocab_size)), valid_targets, np.zeros((0, vocab_size)), empty_targets)
+
+
