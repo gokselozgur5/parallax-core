@@ -98,6 +98,12 @@ def gguf_metadata_to_parallax(
     else:
         rope_interleaved = arch in ("llama", "mistral")
 
+    sliding_window = None
+    if f"{arch}.attention.sliding_window" in metadata:
+        sliding_window = int(metadata[f"{arch}.attention.sliding_window"])
+    elif f"{arch}.sliding_window" in metadata:
+        sliding_window = int(metadata[f"{arch}.sliding_window"])
+
     return ParallaxLMConfig(
         vocab_size=vocab_size,
         embed_dim=embed_dim,
@@ -115,7 +121,9 @@ def gguf_metadata_to_parallax(
         qkv_bias=qkv_bias,
         head_dim=int(metadata[f"{arch}.attention.key_length"]) if f"{arch}.attention.key_length" in metadata else None,
         qk_norm=bool(arch == "qwen3" or (tensors is not None and "blk.0.attn_q_norm.weight" in tensors)),
+        sliding_window=sliding_window,
     )
+
 
 
 def load_gguf_weights_into_model(
