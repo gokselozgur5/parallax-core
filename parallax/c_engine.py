@@ -81,6 +81,25 @@ def _find_candidate_in_dir(d: Path, candidate_names: list[str]) -> Optional[Path
             return candidate
     return None
 
+
+def _find_or_build_in_tree() -> Optional[Path]:
+    global _LOAD_ERROR_REASON
+    csrc_dir = Path(__file__).parent / "csrc"
+    candidate_names = [f"libparallax_c{ext}" for ext in (".dylib", ".so", ".dll")]
+    hasher = hashlib.sha256(f"{platform.system()}-{platform.machine()}".encode())
+    src_files = [f for f in sorted(csrc_dir.iterdir()) if f.is_file() and (f.suffix in (".c", ".h", ".mk") or f.name == "Makefile")] if csrc_dir.is_dir() else []
+    for sf in src_files:
+        hasher.update(sf.name.encode() + sf.read_bytes())
+    cache_subdir = _get_build_cache_dir() / hasher.hexdigest()[:16]
+    lib_path = _find_candidate_in_dir(csrc_dir, candidate_names)
+    if lib_path and src_files and lib_path.stat().st_mtime < max(f.stat().st_mtime for f in src_files):
+        lib_path = None
+    if lib_path is None:
+        lib_path = _find_candidate_in_dir(cache_subdir, candidate_names)
+    if lib_path is None and (csrc_dir / "Makefile").is_file():
+        lib_path = _compile_csrc(csrc_dir, src_files, cache_subdir, candidate_names)
+    return lib_path
+
 def _find_or_build_library() -> Optional[ctypes.CDLL]:
     global _C_LIB, _LIB_LOAD_ATTEMPTED
     if _LIB_LOAD_ATTEMPTED:
