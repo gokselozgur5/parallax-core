@@ -181,8 +181,11 @@ def _extract_split_pattern(data: Dict[str, Any]) -> Optional[str]:
     return pattern.get("Regex") if isinstance(pattern, dict) else None
 
 _PRETOKENIZER_REGEX = re.compile(
-    r"""'s|'t|'re|'ve|'m|'ll|'d| ?[a-zA-Z]+| ?\d+| ?[^\s\w]+|\s+(?!\S)|\s+"""
+    _translate_hf_regex(
+        r"""'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
+    )
 )
+
 
 
 class HFTokenizer:
