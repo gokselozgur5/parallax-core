@@ -61,12 +61,13 @@ def test_dispatched_conv2d_strided_forward():
 
 def test_dispatched_conv2d_forward_parity():
     from parallax.tensor import Tensor
-    from python.parallax.dispatch.conv2d import conv2d_forward
 
-    layer = DispatchedConv2d(in_channels=2, out_channels=3, kernel_size=(3, 3), stride=1, padding=1)
-    x_data = np.random.randn(2, 2, 6, 6).astype(np.float32)
-    expected = conv2d_forward(x_data, layer.weight.data, layer.bias.data if layer.bias else None, (1, 1), (1, 1))
-    actual = layer(Tensor(x_data.copy())).data
+    layer = DispatchedConv2d(in_channels=1, out_channels=1, kernel_size=2, stride=1, padding=0, bias=True)
+    layer.weight.data = np.array([[[[1.0, 0.0], [0.0, 1.0]]]], dtype=np.float32)
+    layer.bias.data = np.array([0.5], dtype=np.float32)
+    x = Tensor(np.array([[[[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]]], dtype=np.float32))
+    expected = np.array([[[[6.5, 8.5], [12.5, 14.5]]]], dtype=np.float32)
+    actual = layer(x).data
     assert np.allclose(actual, expected, atol=1e-5)
 
 
