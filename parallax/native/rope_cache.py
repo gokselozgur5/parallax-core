@@ -84,4 +84,22 @@ class RoPECache:
             )
             if rc != 0:
                 raise RuntimeError(f"c_apply_rope_cached_f32 failed: {rc}")
+            return x
+        cos = self.cos[start_pos : start_pos + T, None, :]
+        sin = self.sin[start_pos : start_pos + T, None, :]
+        if interleaved:
+            x1 = x[..., 0::2]
+            x2 = x[..., 1::2]
+            rx1 = x1 * cos - x2 * sin
+            rx2 = x1 * sin + x2 * cos
+            x[..., 0::2] = rx1
+            x[..., 1::2] = rx2
+        else:
+            half = D // 2
+            x1 = x[..., :half]
+            x2 = x[..., half:]
+            rx1 = x1 * cos - x2 * sin
+            rx2 = x1 * sin + x2 * cos
+            x[..., :half] = rx1
+            x[..., half:] = rx2
         return x
