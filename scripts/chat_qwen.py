@@ -30,18 +30,18 @@ def main():
     print("\n[1/2] Loading model weights directly into memory...")
     t0 = time.time()
     model = load_hf_pretrained(model_path)
-    print(f"✓ Model başarıyla yüklendi! ({time.time() - t0:.2f} saniye)")
-    print(f"  - Katman Sayısı: {len(model.blocks)}")
-    print(f"  - Kelime Havuzu (Vocab): {model.config.vocab_size}")
-    print(f"  - Gizli Boyut (Embed Dim): {model.config.embed_dim}")
+    print(f"Loaded model in {time.time() - t0:.2f}s")
+    print(f"  - Blocks: {len(model.blocks)}")
+    print(f"  - Vocab: {model.config.vocab_size}")
+    print(f"  - Embed Dim: {model.config.embed_dim}")
 
-    print("\n[2/2] Tokenizer hazırlanıyor...")
+    print("\n[2/2] Preparing tokenizer...")
     tokenizer_path = os.path.join(model_path, "tokenizer.json")
     tokenizer = load_hf_tokenizer(tokenizer_path)
-    print("✓ Qwen2.5 BPE Tokenizer aktif.")
+    print("Qwen2.5 BPE Tokenizer active.")
 
     print("\n" + "-" * 65)
-    print("Sohbete başlayabilirsiniz! Çıkmak için 'q' veya 'exit' yazın.")
+    print("Ready to chat! Type 'q' or 'exit' to quit.")
     print("-" * 65)
 
     while True:
