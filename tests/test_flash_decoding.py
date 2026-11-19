@@ -59,3 +59,12 @@ def test_flash_decode_attention_matches_standard_dot_product():
     fd_out = flash_decode_attention(q, k, v, split_size=64)
 
     assert np.allclose(fd_out, expected_out, atol=1e-6)
+
+
+def test_flash_decode_attention_head_dim_one():
+    q = np.ones(1)
+    k = np.ones((7, 1))
+    v = np.ones((7, 1))
+    out = flash_decode_attention(q, k, v, split_size=3)
+    assert out.shape == (1,)
+    assert np.allclose(out, [1.0])

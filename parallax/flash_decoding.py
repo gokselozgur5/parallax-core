@@ -81,8 +81,8 @@ def flash_decode_attention(
     Returns:
         Output vector of shape (d,).
     """
-    q_vec = q.squeeze()
     seq_len, d = k.shape
+    q_vec = np.asarray(q).reshape(d)
     scale = 1.0 / np.sqrt(d)
 
     num_splits = int(np.ceil(seq_len / split_size))
