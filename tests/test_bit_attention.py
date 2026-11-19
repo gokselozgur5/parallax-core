@@ -377,3 +377,26 @@ def test_bit_attention_flash_prefill_empty_cache_then_decode():
         dec_fl, _ = fl(Tensor(x_decode), kv_cache=cache_fl)
 
     np.testing.assert_allclose(dec_fl.data, dec_std.data, atol=1e-9)
+
+
+def test_bit_attention_sliding_window_routes_to_standard_and_bypasses_flash():
+    """Verify sliding_window routes to standard path and does not call flash kernel."""
+    import parallax.bit_attention as ba
+
+    calls = []
+
+    def mock_flash_fwd(*args, **kwargs):
+        calls.append(True)
+        raise RuntimeError("flash_attention_forward should not be called with sliding_window")
+
+    orig_flash_fwd = ba.flash_attention_forward
+    ba.flash_attention_forward = mock_flash_fwd
+    try:
+        attn = BitAttention(16, 2, sliding_window=2, use_flash_attn=True, use_rope=False)
+        out = attn(Tensor(np.random.randn(1, 4, 16))).data
+        assert out.shape == (1, 4, 16)
+        assert len(calls) == 0
+        assert getattr(attn, "last_used_flash_path", None) is False
+    finally:
+        ba.flash_attention_forward = orig_flash_fwd
+
