@@ -160,7 +160,9 @@ def _read_metadata_value(
 
 
 def _write_metadata_value(f: BinaryIO, val: Any) -> None:
-    if isinstance(val, bool):
+    if isinstance(val, np.uint32):
+        f.write(struct.pack("<II", GGUF_TYPE_UINT32, int(val)))
+    elif isinstance(val, bool):
         f.write(struct.pack("<IB", GGUF_TYPE_BOOL, 1 if val else 0))
     elif isinstance(val, int):
         if -2147483648 <= val <= 2147483647:
@@ -382,13 +384,20 @@ def save_gguf(
     tensor_shapes: Optional[Dict[str, Tuple[int, ...]]] = None,
 ) -> None:
     """Serializes metadata and tensors into an official GGUF v3 binary file."""
+    if alignment <= 0 or (alignment & (alignment - 1)) != 0:
+        raise ValueError(f"Invalid GGUF alignment: {alignment} must be a positive power of 2")
+    final_metadata = dict(metadata)
+    if "general.alignment" in final_metadata and int(final_metadata["general.alignment"]) != alignment:
+        raise ValueError(f"Conflicting general.alignment in metadata: {final_metadata['general.alignment']} vs {alignment}")
+    if alignment != GGUF_DEFAULT_ALIGNMENT and "general.alignment" not in final_metadata:
+        final_metadata["general.alignment"] = np.uint32(alignment)
     with open(file_path, "wb") as f:
         # Magic & Header
         f.write(GGUF_MAGIC)
-        f.write(struct.pack("<IQQ", version, len(tensors), len(metadata)))
+        f.write(struct.pack("<IQQ", version, len(tensors), len(final_metadata)))
 
         # Metadata
-        for k, v in metadata.items():
+        for k, v in final_metadata.items():
             _write_string(f, k)
             _write_metadata_value(f, v)
 
