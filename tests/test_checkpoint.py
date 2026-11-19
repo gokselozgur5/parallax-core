@@ -141,3 +141,25 @@ def test_checkpoint_missing_parameter_and_archive_validation():
         np.savez(p2, __config_json__=np.array("{}"), __step__=np.array(1))
         with pytest.raises(ValueError, match="empty model state_dict"):
             load_checkpoint(p2)
+
+
+def test_checkpoint_roundtrip_keeps_qk_norm_weights(tmp_path):
+    np.random.seed(0)
+    cfg = ParallaxLMConfig(
+        vocab_size=64, embed_dim=32, num_heads=4, num_layers=1, max_seq_len=16, qk_norm=True
+    )
+    model = ParallaxLM(cfg)
+    attn = model.blocks[0].attn
+    attn.q_norm.weight.data = np.linspace(0.5, 1.5, attn.q_norm.weight.data.size)
+    attn.k_norm.weight.data = np.linspace(1.5, 0.5, attn.k_norm.weight.data.size)
+    idx = np.array([[1, 2, 3, 4, 5]])
+    expected = model(idx).data
+
+    path = save_checkpoint(str(tmp_path / "ckpt.npz"), model)
+    loaded, _ = load_checkpoint(path)
+
+    np.testing.assert_allclose(
+        loaded.blocks[0].attn.q_norm.weight.data, attn.q_norm.weight.data
+    )
+    np.testing.assert_allclose(loaded(idx).data, expected, atol=1e-9)
+
