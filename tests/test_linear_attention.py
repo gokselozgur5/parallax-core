@@ -1,6 +1,6 @@
 import numpy as np
 from parallax.linear_attention import LinearAttention, elu_feature_map
-from parallax.tensor import Tensor
+from parallax.tensor import Tensor, no_grad
 
 
 def test_elu_feature_map_positivity():
@@ -24,10 +24,11 @@ def test_linear_attention_parallel_vs_recurrent_equivalence():
     # 2. Recurrent single-step forward pass step-by-step
     out_recurrent_steps = []
     state = None
-    for t in range(T):
-        x_t = x[:, t : t + 1, :]
-        out_t, state = attn(x_t, state=state, return_state=True)
-        out_recurrent_steps.append(out_t.data)
+    with no_grad():
+        for t in range(T):
+            x_t = x[:, t : t + 1, :]
+            out_t, state = attn(x_t, state=state, return_state=True)
+            out_recurrent_steps.append(out_t.data)
 
 
     out_recurrent = np.concatenate(out_recurrent_steps, axis=1)
