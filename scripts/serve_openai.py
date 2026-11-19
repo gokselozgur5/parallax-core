@@ -5,7 +5,7 @@ CLI entrypoint to launch OpenAI-compatible HTTP serving server for ParallaxLM.
 
 import argparse
 import os
-from http.server import HTTPServer
+from http.server import ThreadingHTTPServer
 from typing import Optional
 
 from parallax.checkpoint import load_checkpoint
@@ -52,8 +52,9 @@ def run_server(
     resolved_model_name = model_name or default_name
     state = OpenAIServerState(model=model, model_name=resolved_model_name, tokenizer=tokenizer)
     handler_cls = create_handler(state)
+    handler_cls.timeout = 10.0
 
-    server = HTTPServer((host, port), handler_cls)
+    server = ThreadingHTTPServer((host, port), handler_cls)
     print(f"Parallax OpenAI server listening on http://{host}:{port}/v1 (model: {resolved_model_name})")
     try:
         server.serve_forever()
