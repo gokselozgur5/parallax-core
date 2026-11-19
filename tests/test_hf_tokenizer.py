@@ -313,3 +313,14 @@ def test_hf_tokenizer_merges_rstrip():
     merges = ["Ġ a\n", "Ġ a\r\n"]
     tok = HFTokenizer(vocab={"Ġ": 0, "a": 1, "Ġa": 2}, merges=merges)
     assert ("Ġ", "a") in tok.merges
+
+
+def test_default_pretokenizer_unicode_letters_and_symbols():
+    """Verify default pre-tokenizer handles non-ASCII letters and symbols like GPT-2."""
+    sp, c3, a9 = "\u0120", "\u00c3", "\u00a9"
+    vocab = {sp: 0, c3: 1, a9: 2, sp + c3: 3, sp + c3 + a9: 4, "_": 5, sp + "_": 6}
+    merges = [f"{sp} {c3}", f"{sp}{c3} {a9}", f"{sp} _"]
+    tok = HFTokenizer(vocab=vocab, merges=merges)
+    assert tok.encode(" \u00e9") == [4]
+    assert tok.encode(" _") == [6]
+
