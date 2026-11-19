@@ -49,3 +49,23 @@ def test_cuda_engine_generate_stream_validation():
     tokens = list(model.generate_stream([1], max_new_tokens=2, temperature=1e-8))
     assert len(tokens) == 2
 
+
+def test_cuda_engine_forward_step_cached_multi_token_mask(tmp_path):
+    """Cover chunked prefill / multi-token continuation causal mask."""
+    torch = pytest.importorskip("torch")
+    from parallax.cuda_engine import Qwen2CUDAModel
+    from tests.test_cuda_qwen3_gguf import _write_tiny_qwen3_gguf
+
+    gguf_path = str(tmp_path / "tiny_qwen3.gguf")
+    _write_tiny_qwen3_gguf(gguf_path)
+    model = Qwen2CUDAModel(gguf_path, device="cpu", dtype=torch.float32)
+
+    ids = torch.tensor([[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]], dtype=torch.long)
+    full_logits, _ = model.forward_step(ids[:, :12], start_pos=0)
+    _, kv = model.forward_step(ids[:, :8], start_pos=0)
+    chunk_logits, _ = model.forward_step(ids[:, 8:12], start_pos=8, kv_cache=kv)
+
+    diff = (full_logits[0] - chunk_logits[0]).abs().max().item()
+    assert diff < 1e-2
+
+
