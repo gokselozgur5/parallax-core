@@ -337,6 +337,11 @@ pub unsafe extern "C" fn parallax_find_bucket(
 }
 
 /// C-ABI export to collate sequences into padded buffer.
+///
+/// # Safety
+///
+/// All sequence, bucket, and output pointers must be valid, non-null, aligned,
+/// and reference slices matching their respective length parameters.
 #[no_mangle]
 pub unsafe extern "C" fn parallax_collate_batch_u32(
     seq_ptrs: *const *const u32, seq_lens: *const usize, num_seqs: usize,
