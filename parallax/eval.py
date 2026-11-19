@@ -62,7 +62,7 @@ def compute_perplexity(
         raise ValueError("At least 2 tokens are required to evaluate perplexity")
 
     window_size = max_context_len or model.config.max_seq_len
-    window_stride = stride or max(1, window_size // 2)
+    window_stride = min(stride or max(1, window_size // 2), window_size - 1)
 
     total_nll = 0.0
     total_tokens_evaluated = 0
