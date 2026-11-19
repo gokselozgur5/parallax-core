@@ -77,6 +77,7 @@ def create_handler(state: OpenAIServerState):
 
         def do_POST(self) -> None:
             if self.path == "/v1/chat/completions":
+                req_id = None
                 try:
                     content_length_header = self.headers.get("Content-Length")
                     try:
@@ -321,6 +322,9 @@ def create_handler(state: OpenAIServerState):
 
                 except Exception as e:
                     self._send_json(500, {"error": {"message": str(e), "type": "server_error"}})
+                finally:
+                    if req_id is not None:
+                        state.engine.abort_request(req_id)
             else:
                 self._send_json(404, {"error": {"message": "Not Found", "type": "invalid_request_error"}})
 
