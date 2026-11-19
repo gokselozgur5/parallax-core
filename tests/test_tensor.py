@@ -244,6 +244,12 @@ def test_no_grad_skips_backward_closure_cells():
         assert out._backward.__closure__ is None
 
 
+def test_check_tensor_gradient_rejects_nan_analytic_gradient():
+    def _nan_backward_fn(a: Tensor) -> Tensor:
+        out = Tensor(a.data ** 2, (a,), "square")
+        out._backward = lambda: setattr(a, "grad", np.full_like(a.data, np.nan))
+        return out.sum()
 
-
+    x = Tensor(np.array([1.0, 2.0]))
+    assert check_tensor_gradient(_nan_backward_fn, [x]) is False
 
