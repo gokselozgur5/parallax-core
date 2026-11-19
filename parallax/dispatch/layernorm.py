@@ -1,6 +1,6 @@
 """Direct dispatch layernorm compatibility alias."""
 
-from parallax.dispatch.layernorm import (
+from python.parallax.dispatch.layernorm import (
     FusedLayerNorm,
     fused_layernorm,
     stabilize_epsilon,
