@@ -116,12 +116,19 @@ class QGaLoreAdamW:
         self.step_count = 0
 
         self.projectors: Dict[int, QGaLoreProjector] = {}
+        self.m: List[np.ndarray] = []
+        self.v: List[np.ndarray] = []
         for p in self.params:
             if p.data.ndim == 2:
                 self.projectors[id(p)] = QGaLoreProjector(rank=self.rank, update_interval=self.update_interval)
-
-        self.m: List[np.ndarray] = [np.zeros_like(p.data) for p in self.params]
-        self.v: List[np.ndarray] = [np.zeros_like(p.data) for p in self.params]
+                M, N = p.data.shape
+                er = min(self.rank, min(M, N))
+                m_shape = (M, er) if M >= N else (er, N)
+                self.m.append(np.zeros(m_shape, dtype=p.data.dtype))
+                self.v.append(np.zeros(m_shape, dtype=p.data.dtype))
+            else:
+                self.m.append(np.zeros_like(p.data))
+                self.v.append(np.zeros_like(p.data))
 
     def zero_grad(self) -> None:
         for p in self.params:
