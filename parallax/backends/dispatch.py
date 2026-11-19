@@ -78,6 +78,10 @@ def _resolve_backend(name: str) -> Backend | None:
             return registry.get("c")
         except KeyError:
             return None
+    if name == "numpy":
+        from parallax.backends.numpy_backend import NumpyBackend
+
+        return NumpyBackend()
     return None
 
 
