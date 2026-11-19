@@ -130,6 +130,19 @@ def test_quarantine_all_exports() -> None:
         assert hasattr(mod, sym)
 
 
+def test_partial_reset_lifts_quarantine_after_success() -> None:
+    from parallax.backends.quarantine import BackendQuarantine as BQ
+
+    q = BQ(failure_threshold=2)
+    q.record_failure("gemm", "c")
+    q.record_failure("gemm", "c")
+    assert q.is_quarantined("gemm", "c")
+    q.record_success("gemm", "c")
+    q.reset(op="gemm")
+    assert not q.is_quarantined("gemm", "c")
+
+
+
 
 
 
