@@ -108,9 +108,12 @@ def run_mutation_test() -> int:
                 "-q",
                 os.path.join(REPO_ROOT, test_file),
             ]
+            env = dict(os.environ)
+            env["PYTHONDONTWRITEBYTECODE"] = "1"
             res = subprocess.run(
                 cmd,
                 cwd=REPO_ROOT,
+                env=env,
                 capture_output=True,
                 text=True,
             )
