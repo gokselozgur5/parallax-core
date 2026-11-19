@@ -39,3 +39,17 @@ def test_flash_cross_entropy_backward_matches_standard():
     grad = flash_cross_entropy_backward(logits, targets, m_vec, l_vec, chunk_size=16)
 
     assert np.allclose(grad, expected_grad, atol=1e-5)
+
+
+def test_flash_cross_entropy_masked_leading_chunk():
+    rng = np.random.default_rng(0)
+    logits = rng.standard_normal((4, 150))
+    logits[:, :64] = -np.inf
+    targets = np.array([70, 80, 90, 100])
+    row_max = logits.max(axis=1, keepdims=True)
+    lse = row_max[:, 0] + np.log(np.exp(logits - row_max).sum(axis=1))
+    expected = float(np.mean(lse - logits[np.arange(4), targets]))
+    loss, _, _ = flash_cross_entropy_forward(logits, targets, chunk_size=64)
+    assert np.isfinite(loss), loss
+    assert abs(loss - expected) < 1e-12
+
