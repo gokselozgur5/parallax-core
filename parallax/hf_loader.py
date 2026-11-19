@@ -407,8 +407,12 @@ def save_hf_pretrained(
     """Exports a ParallaxLM model into standard HuggingFace format (config.json + model.safetensors)."""
     cfg = model.config
 
+    if getattr(cfg, "use_rope", True) is False:
+        raise NotImplementedError("Exporting models with use_rope=False is not supported in HuggingFace format.")
+
     if (
         hasattr(cfg, "num_experts")
+
         and cfg.num_experts is not None
         and cfg.num_experts > 1
     ) or any(
@@ -451,7 +455,12 @@ def save_hf_pretrained(
         "tie_word_embeddings": bool(cfg.tie_weights),
         "torch_dtype": "float32",
     }
+    if getattr(cfg, "head_dim", None) is not None:
+        hf_config["head_dim"] = int(cfg.head_dim)
+    if getattr(cfg, "qk_norm", False):
+        hf_config["qk_norm"] = True
     if cfg.sliding_window is not None:
+
         hf_config["sliding_window"] = int(cfg.sliding_window)
     with open(os.path.join(output_dir, "config.json"), "w", encoding="utf-8") as f:
         json.dump(hf_config, f, indent=2)
@@ -474,7 +483,7 @@ def save_hf_pretrained(
 
         q_w = block.attn.q_proj.weight.data.astype(np.float32)
         k_w = block.attn.k_proj.weight.data.astype(np.float32)
-        head_dim = cfg.embed_dim // cfg.num_heads
+        head_dim = getattr(cfg, "head_dim", None) or (cfg.embed_dim // cfg.num_heads)
         if cfg.rope_interleaved:
             q_w = _permute_interleaved_to_hf_weight(q_w, cfg.num_heads, head_dim)
             k_w = _permute_interleaved_to_hf_weight(k_w, num_kv_heads, head_dim)
@@ -483,6 +492,10 @@ def save_hf_pretrained(
         tensors[f"{prefix}.self_attn.k_proj.weight"] = k_w
         tensors[f"{prefix}.self_attn.v_proj.weight"] = block.attn.v_proj.weight.data.astype(np.float32)
         tensors[f"{prefix}.self_attn.o_proj.weight"] = block.attn.out_proj.weight.data.astype(np.float32)
+        if getattr(block.attn, "q_norm", None) is not None and getattr(block.attn, "k_norm", None) is not None:
+            tensors[f"{prefix}.self_attn.q_norm.weight"] = block.attn.q_norm.weight.data.astype(np.float32)
+            tensors[f"{prefix}.self_attn.k_norm.weight"] = block.attn.k_norm.weight.data.astype(np.float32)
+
 
         if block.attn.q_proj.bias is not None:
             q_b = block.attn.q_proj.bias.data.astype(np.float32)
