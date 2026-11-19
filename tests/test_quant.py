@@ -131,3 +131,15 @@ def test_quantize_sparse_moe_model(use_swiglu: bool):
     assert stats["quantized_mb"] < stats["original_mb"]
     assert stats["ratio"] > 1.0
 
+
+def test_quantized_linear_cache_follows_weight_updates():
+    np.random.seed(0)
+    layer = QuantizedLinear.from_linear(Linear(4, 3))
+    x = Tensor(np.ones((1, 4)))
+    assert np.abs(layer(x).data).max() > 0.0
+
+    layer.w_int8 = np.zeros_like(layer.w_int8)
+
+    np.testing.assert_allclose(layer(x).data, np.zeros((1, 3)))
+
+
