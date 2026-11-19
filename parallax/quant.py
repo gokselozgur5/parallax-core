@@ -53,6 +53,11 @@ class QuantizedLinear(Module):
         """Invalidates cached dequantized weights."""
         self._cached_weight = None
 
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name in ("w_int8", "scale"):
+            self.__dict__["_cached_weight"] = None
+        super().__setattr__(name, value)
+
     @classmethod
     def from_linear(cls, linear: Linear) -> "QuantizedLinear":
         """Constructs a QuantizedLinear instance from a trained float Linear layer."""
