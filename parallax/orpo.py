@@ -77,6 +77,11 @@ def orpo_step(
     Returns:
         Tuple of (loss, grad_logits_w, grad_logits_l).
     """
+    if len(targets_w) == 0:
+        raise ValueError("targets_w cannot be empty")
+    if len(targets_l) == 0:
+        raise ValueError("targets_l cannot be empty")
+
     def get_token_log_probs(logits: np.ndarray, targets: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         m = np.max(logits, axis=-1, keepdims=True)
         exp_logits = np.exp(logits - m)
