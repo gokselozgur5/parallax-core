@@ -39,10 +39,12 @@ class ActivationBeaconCompressor:
                     *lead_shape, num_intervals * self.beacon_tokens, dim
                 )
             else:
-                chunks = np.array_split(full_acts, num_intervals * self.beacon_tokens, axis=-2)
-                beacons = np.concatenate(
-                    [np.mean(c, axis=-2, keepdims=True) for c in chunks], axis=-2
-                )
+                sub_parts: list[np.ndarray] = []
+                for i in range(num_intervals):
+                    window = full_acts[..., i * self.interval : (i + 1) * self.interval, :]
+                    chunks = np.array_split(window, self.beacon_tokens, axis=-2)
+                    sub_parts.extend(np.mean(c, axis=-2, keepdims=True) for c in chunks)
+                beacons = np.concatenate(sub_parts, axis=-2)
             parts.append(beacons)
 
         rem_len = seq_len - num_intervals * self.interval
