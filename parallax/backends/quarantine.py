@@ -57,8 +57,9 @@ class BackendQuarantine:
                 self._failures.clear()
                 self._quarantined.clear()
                 return
+            all_keys = set(self._failures) | self._quarantined
             keys = [
-                k for k in self._failures
+                k for k in all_keys
                 if (op is None or k[0] == op) and (backend is None or k[1] == backend)
             ]
             for k in keys:
