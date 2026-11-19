@@ -48,3 +48,28 @@ def _validate_targets(
     flat = targets.ravel()
     for val in flat:
         if val != ignore_index and (val < 0 or val >= num_classes):
+            raise ValueError(
+                f"Target index {val} out of bounds for {num_classes} classes"
+            )
+    return (flat != ignore_index) & (flat >= 0) & (flat < num_classes)
+
+
+def cross_entropy_forward_reference(
+    logits: np.ndarray,
+    targets: np.ndarray,
+    ignore_index: int = -100,
+    label_smoothing: float = 0.0,
+    reduction: str = "mean",
+    chunk_size: Optional[int] = None,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Compute cross-entropy forward loss with online log-sum-exp."""
+    N = targets.size
+    C = logits.shape[-1]
+    logits_flat = logits.reshape(N, C)
+    targets_flat = targets.reshape(N)
+    valid = _validate_targets(targets_flat, C, ignore_index)
+    lse_flat, _, _ = online_logsumexp(logits_flat, chunk_size=chunk_size, axis=-1)
+    lse = lse_flat.reshape(N)
+    losses = np.zeros(N, dtype=logits.dtype)
+    valid_indices = np.where(valid)[0]
+    for i in valid_indices:
