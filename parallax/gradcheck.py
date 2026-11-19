@@ -6,6 +6,7 @@ gradients computed by the Value autograd engine.
 """
 
 from typing import Callable, Sequence, Union
+import math
 import numpy as np
 from parallax.engine import Value
 from parallax.tensor import Tensor
@@ -67,10 +68,12 @@ def check_gradient(
 
     # 3. Relative error comparison
     for a_grad, n_grad in zip(analytic_grads, numerical_grads):
+        if not (math.isfinite(a_grad) and math.isfinite(n_grad)):
+            return False
         abs_err = abs(a_grad - n_grad)
         denom = max(abs(a_grad), abs(n_grad), 1e-8)
         rel_err = abs_err / denom
-        if rel_err > tol:
+        if not (rel_err <= tol):
             return False
 
     return True
@@ -111,7 +114,10 @@ def check_tensor_gradient(
     analytic_grads = [inp.grad.copy() if inp.grad is not None else np.zeros_like(inp.data) for inp in inputs]
     numerical_grads = compute_numerical_tensor_gradient(fn, inputs, eps=eps)
     for a_grad, n_grad in zip(analytic_grads, numerical_grads):
+        if not (np.all(np.isfinite(a_grad)) and np.all(np.isfinite(n_grad))):
+            return False
         denom = np.maximum(np.maximum(np.abs(a_grad), np.abs(n_grad)), 1e-7)
-        if np.max(np.abs(a_grad - n_grad) / denom) > tol:
+        rel_err = np.abs(a_grad - n_grad) / denom
+        if not np.all(rel_err <= tol):
             return False
     return True
