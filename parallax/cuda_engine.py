@@ -321,8 +321,13 @@ class Qwen2CUDAModel:
                 v_full = v
                 
             # Scaled Dot-Product Attention
-            is_causal = (seq_len > 1)
-            attn_out = F.scaled_dot_product_attention(q, k_full, v_full, is_causal=is_causal)
+            total_k_len = k_full.shape[2]
+            past_len = total_k_len - seq_len
+            if past_len > 0 and seq_len > 1:
+                mask = torch.ones((seq_len, total_k_len), dtype=torch.bool, device=q.device).tril(diagonal=past_len)
+                attn_out = F.scaled_dot_product_attention(q, k_full, v_full, attn_mask=mask)
+            else:
+                attn_out = F.scaled_dot_product_attention(q, k_full, v_full, is_causal=(seq_len > 1))
             
             # Reshape back and project
             attn_out = attn_out.transpose(1, 2).contiguous().view(batch, seq_len, self.q_dim)
