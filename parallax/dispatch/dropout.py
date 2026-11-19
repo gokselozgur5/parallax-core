@@ -1,6 +1,6 @@
 """Direct dispatch dropout compatibility alias."""
 
-from parallax.dispatch.dropout import (
+from python.parallax.dispatch.dropout import (
     DispatchedDropout,
     DropoutModule,
     dispatched_dropout,
