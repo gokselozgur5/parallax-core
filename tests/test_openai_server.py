@@ -1,5 +1,8 @@
 import json
+import socket
+import struct
 import threading
+import time
 import urllib.request
 import pytest
 from http.server import HTTPServer
@@ -338,3 +341,25 @@ def test_openai_server_failed_request_streaming():
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_stream_disconnect_releases_request():
+    cfg = ParallaxLMConfig(vocab_size=128, embed_dim=32, num_layers=2, num_heads=2, max_seq_len=512)
+    state = OpenAIServerState(model=ParallaxLM(cfg))
+    server = HTTPServer(("127.0.0.1", 0), create_handler(state))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    payload = {"messages": [{"role": "user", "content": "hi"}], "max_tokens": 400, "stream": True}
+    body = json.dumps(payload).encode()
+    head = b"POST /v1/chat/completions HTTP/1.1\r\nContent-Length: %d\r\n\r\n" % len(body)
+    sock = socket.create_connection(("127.0.0.1", server.server_port))
+    sock.sendall(head + body)
+    sock.recv(64)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+    sock.close()
+    time.sleep(1.0)
+    server.shutdown()
+    server.server_close()
+    engine = state.engine
+    assert not engine.running_requests and not engine.waiting_queue
+    assert not engine.completed_requests
+
