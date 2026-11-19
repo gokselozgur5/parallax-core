@@ -63,3 +63,19 @@ def test_dora_module_autograd_training():
     assert dora.lora_A.grad is not None
     assert dora.lora_B.grad is not None
     assert base.weight.grad is None
+
+
+def test_dora_module_forward_tracks_base_layer_weight():
+    base = Linear(3, 2, bias=False)
+    base.weight.data = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=np.float32)
+    dora = DoRAModule(base, rank=1, alpha=1.0)
+
+    x = Tensor(np.array([[1.0, 2.0, 3.0]], dtype=np.float32))
+    out1 = dora(x).data.copy()
+
+    base.weight.data = np.array([[2.0, 1.0, 0.0], [0.0, 3.0, 1.0]], dtype=np.float32)
+    out2 = dora(x).data.copy()
+
+    assert not np.allclose(out1, out2)
+
+
