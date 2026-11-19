@@ -143,6 +143,10 @@ def rust_gemm(
     beta: float = 0.0,
 ) -> np.ndarray:
     """Compute C = alpha * (A @ B) + beta * C with Rust engine or NumPy fallback."""
+    if np.iscomplexobj(a) or np.iscomplexobj(b):
+        raise TypeError("Complex dtypes are not supported")
+    if c is not None and c.dtype != np.float32:
+        raise TypeError("Buffer C must have float32 dtype")
     if a.ndim != 2 or b.ndim != 2:
         raise ValueError("Inputs A and B must be 2-dimensional matrices")
     m, k = a.shape
@@ -150,18 +154,24 @@ def rust_gemm(
     if k != k2:
         raise ValueError(f"Incompatible matrix dimensions: A {a.shape} vs B {b.shape}")
 
+    lib = get_rust_lib()
+    if lib is None or a.dtype != np.float32 or b.dtype != np.float32:
+        res = alpha * (a @ b)
+        if c is not None:
+            if c.shape != (m, n):
+                raise ValueError(f"Target buffer C shape {c.shape} does not match ({m}, {n})")
+            if beta != 0.0:
+                res = res + beta * c
+            c[...] = res
+            return c
+        return res
+
     if c is None:
         c_out = np.zeros((m, n), dtype=np.float32)
     else:
         if c.shape != (m, n):
             raise ValueError(f"Target buffer C shape {c.shape} does not match ({m}, {n})")
         c_out = c
-
-    lib = get_rust_lib()
-    if lib is None or a.dtype != np.float32 or b.dtype != np.float32 or c_out.dtype != np.float32:
-        res = alpha * (a @ b) + (beta * c_out if beta != 0.0 else 0.0)
-        c_out[...] = res
-        return c_out
 
     a_c = np.ascontiguousarray(a, dtype=np.float32)
     b_c = np.ascontiguousarray(b, dtype=np.float32)
