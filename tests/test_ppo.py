@@ -50,3 +50,14 @@ def test_ppo_policy_step_shapes_and_finite_gradients():
     assert grad.shape == logits.shape
     assert not np.isnan(loss)
     assert not np.isnan(grad).any()
+
+
+def test_compute_gae_keeps_float64_precision():
+    rewards = np.array([1.0, 2.0], dtype=np.float64)
+    values = np.array([0.5, 1.0, 2.0], dtype=np.float64)
+    advantages, returns = compute_gae(rewards, values, gamma=0.9, gae_lambda=0.5)
+    assert advantages.dtype == np.float64
+    assert returns.dtype == np.float64
+    np.testing.assert_allclose(advantages, [2.66, 2.8], rtol=1e-12)
+    np.testing.assert_allclose(returns, [3.16, 3.8], rtol=1e-12)
+
