@@ -108,3 +108,15 @@ def test_module_level_telemetry_helpers():
 
     reset_telemetry()
     assert get_op_count("matmul") == 0
+
+
+def test_dispatch_records_into_backends_telemetry():
+    from parallax.backends.telemetry import DispatchTelemetry as BackendTelemetry
+    from parallax.core.telemetry import record, reset_telemetry
+
+    reset_telemetry()
+    record("gemm", "metal", 100)
+    snap = BackendTelemetry().snapshot()
+    assert snap[("gemm", "metal")].count == 1
+    assert snap[("gemm", "metal")].total_ns == 100
+    reset_telemetry()
