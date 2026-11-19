@@ -400,3 +400,19 @@ def test_c_rmsnorm_fallback_narrow_integer_precision():
         expected = (ref_x / ref_rms) * weight
         assert not np.isnan(out).any()
         np.testing.assert_allclose(out, expected, rtol=1e-5, atol=1e-5)
+
+
+def test_c_lib_override_with_existing_library(monkeypatch):
+    lib = _find_or_build_library()
+    assert lib is not None
+    lib_path = lib._name
+    monkeypatch.setenv("PARALLAX_C_LIB", lib_path)
+    from parallax.c_engine import reset_c_lib_cache
+    reset_c_lib_cache()
+    try:
+        assert is_c_engine_available()
+        eye = np.eye(2, dtype=np.float32)
+        np.testing.assert_array_equal(c_gemm(eye, eye), eye)
+    finally:
+        reset_c_lib_cache()
+
