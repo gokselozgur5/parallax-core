@@ -35,8 +35,14 @@ def c_layernorm(
     """Apply LayerNorm on float32 array using C engine."""
     if x.dtype != np.float32:
         raise TypeError("x must be float32")
+    if x.ndim == 0 or x.shape[-1] <= 0:
+        raise ValueError("x must have at least 1 dimension with positive width")
     cols = x.shape[-1]
     rows = x.size // cols
+    if weight is not None and (weight.ndim != 1 or weight.shape[0] != cols):
+        raise ValueError(f"weight shape mismatch: expected ({cols},), got {weight.shape}")
+    if bias is not None and (bias.ndim != 1 or bias.shape[0] != cols):
+        raise ValueError(f"bias shape mismatch: expected ({cols},), got {bias.shape}")
     x_c = np.ascontiguousarray(x)
     out = np.empty_like(x_c)
     if _c_layernorm is None:
