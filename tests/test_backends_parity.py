@@ -106,6 +106,10 @@ def test_parity_real_numpy_ops() -> None:
     nb = NumpyBackend()
     x = np.random.randn(4, 8).astype(np.float32)
     w = np.ones((8,), dtype=np.float32)
-    report = check_parity("rmsnorm", x, w, backends=[nb])
+    var = np.mean(x * x, axis=-1, keepdims=True)
+    expected = (x / np.sqrt(var + 1e-5)) * w
+    ref = MockBackend("independent_ref")
+    ref.rmsnorm = lambda inp, weight, eps=1e-5: expected  # type: ignore[method-assign]
+    report = check_parity("rmsnorm", x, w, backends=[nb], reference=ref)
     assert report["numpy"].passed
     assert report["numpy"].max_abs_error == 0.0
