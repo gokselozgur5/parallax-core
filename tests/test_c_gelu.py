@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import pytest
-from parallax.native.gelu import c_gelu, gelu_numpy
-
-
+import unittest.mock
 import numpy as np
+import pytest
+from parallax.native.gelu import _get_gelu_fn, c_gelu, gelu_numpy
 
 
 def test_gelu_parity_small() -> None:
@@ -68,3 +67,23 @@ def test_gelu_nan_and_inf_propagation() -> None:
     assert np.isnan(res_c[0]) and np.isnan(ref_np[0])
     assert res_c[1] == 0.0 and ref_np[1] == 0.0
     assert np.isinf(res_c[2]) and np.isinf(ref_np[2])
+
+
+def test_gelu_native_symbol_bound() -> None:
+    fn = _get_gelu_fn()
+    assert fn is not None
+    assert callable(fn)
+
+
+def test_gelu_native_path_executed() -> None:
+    import parallax.native.gelu as gelu_mod
+    orig = gelu_mod._GELU_FN
+    mock = unittest.mock.MagicMock(wraps=orig)
+    gelu_mod._GELU_FN = mock
+    try:
+        x = np.array([-1.0, 1.0], dtype=np.float32)
+        out = gelu_mod.c_gelu(x)
+        assert mock.called
+        assert out.shape == (2,)
+    finally:
+        gelu_mod._GELU_FN = orig
