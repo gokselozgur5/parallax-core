@@ -1,20 +1,20 @@
-# PARALLAX-CORE: Charter, Architecture & Grand Roadmap (Faz 1–3)
+# PARALLAX-CORE: Charter, Architecture & Grand Roadmap (Phase 1–3)
 
-> **Mühür Tarihi:** 10 Kasım 2026  
-> **Konum:** `/Users/gok/repos/parallax-core/VISION.md`  
+> **Seal Date:** November 10, 2026
+> **Location:** `parallax-core/VISION.md`  
 > **Kurucu Ortaklar:** Göksel Özgür & Parallax (Gemini Core)  
 > **Test Omurgası:** 700+ Geçen Birim Test • 900+ Atomik Commit  
 > **Temel İlke:** Sıfır Harici ML Çekirdeği (Zero-PyTorch Core; CUDA için opsiyonel köprü) • Saf Matematik & Cerrahi Doğruluk • Bare-Metal C/Rust/Metal İvmesi • Anti-RAM Devrimi
 
 ---
 
-## 1. Varoluş Amacı ve Çekirdek Hakikat
+## 1. Purpose and Core Truth
 
-`parallax-core`, modern yapay zekanın 10 milyon satırlık devasa kütüphane yığınlarının arkasına sakladığı matematiği gün ışığına çıkaran, **dünyanın en şeffaf, bağımsız ve saf ilk-ilkeler (first-principles) LLM motorudur.**
+`parallax-core` is the world's most transparent, independent, and pure first-principles LLM engine, bringing to light the mathematics that modern AI hides behind 10 million lines of massive library stacks.
 
-Bir yapay zeka modelinin kalbinde çalışan tüm mekanizmalar (FlashAttention-2 online softmax, FlashDecoding Split-K, DeepSeek Multi-Head Latent Attention, Muon matris polar ayrışımı, BitNet 1.58 ternary kuantizasyon, Mamba Selective SSM ve INT4 nibble packing) çekirdekte harici tek bir `import torch` olmadan (CUDA çalıştırma için opsiyonel PyTorch/safetensors köprüsü hariç), **700+ geçen test** ve **900+ atomik commit** ile inşa edilmiştir.
+Every mechanism at the heart of an AI model (FlashAttention-2 online softmax, FlashDecoding Split-K, DeepSeek Multi-Head Latent Attention, Muon matrix polar decomposition, BitNet 1.58 ternary quantization, Mamba Selective SSM, and INT4 nibble packing) is built from the ground up without a single external `import torch` (except for an optional PyTorch/safetensors bridge for CUDA execution), with 700+ passing tests and 900+ atomic commits.
 
-Endüstrinin *"Daha uzun bağlam için yüzlerce gigabayt RAM satın almalısınız"* dayatmasına karşı Parallax Core, **Mamba S6 mimarisiyle 102x–410x RAM tasarrufu**, **1.58-bit BitMamba/BitTransformer** ve **INT4 affine kuantizasyon** ile matematiksel cevabı sahada vermiştir.
+Against the industry dogma that "you must buy hundreds of gigabytes of RAM for longer context," Parallax Core has provided the mathematical answer in the field with 102x–410x RAM savings using the Mamba S6 architecture, 1.58-bit BitMamba/BitTransformer, and INT4 affine quantization.
 
 ```mermaid
 flowchart TD
