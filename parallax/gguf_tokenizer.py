@@ -46,9 +46,11 @@ class GGUFTokenizer:
         unk_token_id: Optional[int] = None,
         model_type: Optional[str] = None,
         token_types: Optional[List[int]] = None,
+        scores: Optional[List[float]] = None,
     ):
         self.raw_tokens = tokens
         self.vocab_size = len(tokens)
+        self.scores = [float(s) for s in scores] if scores is not None else None
         self.bos_token_id = bos_token_id if (bos_token_id is not None and 0 <= bos_token_id < self.vocab_size) else None
         self.eos_token_id = eos_token_id if (eos_token_id is not None and 0 <= eos_token_id < self.vocab_size) else None
         self.pad_token_id = pad_token_id if (pad_token_id is not None and 0 <= pad_token_id < self.vocab_size) else None
@@ -121,6 +123,23 @@ class GGUFTokenizer:
             symbols = new_syms
         return [self.token_to_id[s] for s in symbols if s in self.token_to_id]
 
+    def _spm_score_merge(self, symbols: List[str]) -> List[int]:
+        while len(symbols) >= 2:
+            best_idx = None
+            best_score = float("-inf")
+            for idx in range(len(symbols) - 1):
+                pair_str = symbols[idx] + symbols[idx + 1]
+                if pair_str in self.token_to_id:
+                    tid = self.token_to_id[pair_str]
+                    score = self.scores[tid] if self.scores and tid < len(self.scores) else 0.0
+                    if score > best_score:
+                        best_score = score
+                        best_idx = idx
+            if best_idx is None:
+                break
+            symbols = symbols[:best_idx] + [symbols[best_idx] + symbols[best_idx + 1]] + symbols[best_idx + 2:]
+        return [self.token_to_id[s] for s in symbols if s in self.token_to_id]
+
     def encode(self, text: str) -> List[int]:
         """Encodes text to token IDs using byte-fallback and vocabulary matching."""
         if not text:
@@ -137,6 +156,17 @@ class GGUFTokenizer:
     def _encode_plain(self, text: str) -> List[int]:
         if self.model_type == "llama" and not text.startswith((" ", "\u2581")):
             text = " " + text
+
+        if self.scores is not None and self.model_type == "llama" and not self.merge_ranks:
+            text = text.replace(" ", "\u2581")
+            symbols: List[str] = [
+                ch if ch in self.token_to_id else (
+                    f"<0x{ch.encode('utf-8')[0]:02X}>" if f"<0x{ch.encode('utf-8')[0]:02X}>" in self.token_to_id
+                    else (self.raw_tokens[self.unk_token_id] if self.unk_token_id is not None else "")
+                )
+                for ch in text
+            ]
+            return self._spm_score_merge([s for s in symbols if s])
 
         if self.merge_ranks and self.model_type == "gpt2":
             ids: List[int] = []
@@ -240,4 +270,5 @@ def load_gguf_tokenizer(source: Union[str, GGUFFile]) -> GGUFTokenizer:
         unk_token_id=unk_token_id,
         model_type=model_type,
         token_types=metadata.get("tokenizer.ggml.token_type"),
+        scores=metadata.get("tokenizer.ggml.scores"),
     )
