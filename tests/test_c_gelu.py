@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import pytest
-from parallax.native.gelu import c_gelu, gelu_numpy
-
-
+import unittest.mock
 import numpy as np
+import pytest
+from parallax.native.gelu import _get_gelu_fn, c_gelu, gelu_numpy
 
 
 def test_gelu_parity_small() -> None:
