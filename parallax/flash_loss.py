@@ -43,8 +43,14 @@ def flash_cross_entropy_forward(
         chunk_m = np.max(chunk, axis=1)
         new_m = np.maximum(m_vec, chunk_m)
 
+        mask_inf = np.isneginf(new_m)
+        safe_m = np.where(mask_inf, 0.0, new_m)
+        alpha = np.where(mask_inf, 1.0, np.exp(m_vec - safe_m))
+        alpha = np.nan_to_num(alpha, nan=0.0)
+        p_chunk = np.where(mask_inf[:, np.newaxis], 0.0, np.exp(chunk - safe_m[:, np.newaxis]))
+
         # Rescale old accumulator and add new chunk contribution
-        l_vec = l_vec * np.exp(m_vec - new_m) + np.sum(np.exp(chunk - new_m[:, np.newaxis]), axis=1)
+        l_vec = l_vec * alpha + np.sum(p_chunk, axis=1)
         m_vec = new_m
 
     # Log-sum-exp = m + log(l)
