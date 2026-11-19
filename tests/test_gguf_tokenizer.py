@@ -174,3 +174,19 @@ def test_gguf_gpt2_bpe_preserves_underscores():
     )
     ids = tok.encode("head_dim")
     assert tok.decode(ids) == "head_dim"
+
+
+def test_spm_encode_follows_token_scores():
+    from parallax.gguf import GGUFFile
+
+    tokens = ["<unk>", "\u2581", "a", "b", "c", "\u2581a", "bc", "\u2581ab"]
+    metadata = {
+        "tokenizer.ggml.model": "llama",
+        "tokenizer.ggml.tokens": tokens,
+        "tokenizer.ggml.scores": [0.0, -1.0, -2.0, -3.0, -4.0, -6.0, -5.0, -7.0],
+        "tokenizer.ggml.unknown_token_id": 0,
+    }
+    tok = load_gguf_tokenizer(GGUFFile(version=3, metadata=metadata))
+
+    assert [tokens[i] for i in tok.encode("abc")] == ["\u2581a", "bc"]
+
