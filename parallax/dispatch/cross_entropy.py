@@ -198,3 +198,28 @@ class DispatchedCrossEntropyLoss(Module):
         super().__init__()
         self.ignore_index = int(ignore_index)
         self.label_smoothing = float(label_smoothing)
+        self.reduction = str(reduction)
+        self.chunk_size = chunk_size
+
+    def forward(self, logits: Tensor | np.ndarray, targets: Tensor | np.ndarray) -> Tensor:
+        return fast_cross_entropy(
+            logits, targets,
+            ignore_index=self.ignore_index,
+            label_smoothing=self.label_smoothing,
+            reduction=self.reduction,
+            chunk_size=self.chunk_size,
+        )
+    def extra_repr(self) -> str:
+        return (
+            f"ignore_index={self.ignore_index}, "
+            f"label_smoothing={self.label_smoothing}, "
+            f"reduction={self.reduction!r}"
+        )
+
+    def __repr__(self) -> str:
+        return f"DispatchedCrossEntropyLoss({self.extra_repr()})"
+
+
+CrossEntropyLossModule = DispatchedCrossEntropyLoss
+
+
