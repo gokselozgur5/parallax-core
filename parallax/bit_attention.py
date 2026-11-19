@@ -57,6 +57,7 @@ class BitAttention(Module):
         if sliding_window is not None and (isinstance(sliding_window, bool) or sliding_window < 1):
             raise ValueError(f"sliding_window must be >= 1 or None, got {sliding_window}")
         self.sliding_window = sliding_window
+        self.last_used_flash_path: Optional[bool] = None
         self.scale = 1.0 / math.sqrt(self.head_dim)
 
         # 1.58-bit ternary projections for Q, K, V and Out
@@ -154,6 +155,7 @@ class BitAttention(Module):
 
         # 3. Scaled dot-product attention (FlashAttention or standard causal softmax)
         use_flash_path = self.use_flash_attn and past_len == 0 and self.sliding_window is None
+        self.last_used_flash_path = use_flash_path
         if use_flash_path:
             out_heads, lse = flash_attention_forward(
                 q_heads,
