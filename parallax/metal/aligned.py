@@ -44,9 +44,9 @@ def aligned_empty(
     arr = np.frombuffer(
         mm, dtype=dt, count=alloc_bytes // dt.itemsize, offset=offset
     )
-    if isinstance(shape, tuple) and num_items * dt.itemsize == alloc_bytes:
-        return arr.reshape(shape)
-    return arr
+    if isinstance(shape, tuple):
+        return arr[:num_items].reshape(shape)
+    return arr[:num_items]
 
 
 def aligned_zeros(
