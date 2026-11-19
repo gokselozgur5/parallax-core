@@ -223,7 +223,7 @@ class KVCachePruner:
         """
         seq_len = k_cache.shape[2]
         if update_metrics:
-            self.metrics.total_tokens_seen = max(self.metrics.total_tokens_seen, seq_len)
+            self._update_seen(seq_len)
 
         if seq_len <= self.budget:
             if update_metrics:
@@ -263,9 +263,6 @@ class KVCachePruner:
         """Apply pruning across all layer KV caches."""
         if not kv_caches:
             return kv_caches
-
-        seq_len = kv_caches[0][0].shape[2]
-        self.metrics.total_tokens_seen = max(self.metrics.total_tokens_seen, seq_len)
 
         pruned = []
         for i, (k, v) in enumerate(kv_caches):
