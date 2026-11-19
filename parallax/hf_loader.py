@@ -456,7 +456,7 @@ def save_hf_pretrained(
         "torch_dtype": "float32",
     }
     if getattr(cfg, "head_dim", None) is not None:
-        hf_config["head_dim"] = int(cfg.head_dim)
+        hf_config["head_dim"] = int(cfg.head_dim) if cfg.head_dim is not None else 0
     if getattr(cfg, "qk_norm", False):
         hf_config["qk_norm"] = True
     if cfg.sliding_window is not None:
@@ -493,6 +493,7 @@ def save_hf_pretrained(
         tensors[f"{prefix}.self_attn.v_proj.weight"] = block.attn.v_proj.weight.data.astype(np.float32)
         tensors[f"{prefix}.self_attn.o_proj.weight"] = block.attn.out_proj.weight.data.astype(np.float32)
         if getattr(block.attn, "q_norm", None) is not None and getattr(block.attn, "k_norm", None) is not None:
+            assert block.attn.q_norm is not None and block.attn.k_norm is not None
             tensors[f"{prefix}.self_attn.q_norm.weight"] = block.attn.q_norm.weight.data.astype(np.float32)
             tensors[f"{prefix}.self_attn.k_norm.weight"] = block.attn.k_norm.weight.data.astype(np.float32)
 

@@ -73,7 +73,7 @@ def _collect_gpt_tensors(
         f"{arch}.use_swiglu": bool(cfg.use_swiglu),
     }
     if getattr(cfg, "head_dim", None) is not None:
-        metadata[f"{arch}.attention.key_length"] = int(cfg.head_dim)
+        metadata[f"{arch}.attention.key_length"] = int(cfg.head_dim) if cfg.head_dim is not None else 0
     if cfg.sliding_window is not None:
         metadata[f"{arch}.attention.sliding_window"] = int(cfg.sliding_window)
 
@@ -96,6 +96,7 @@ def _collect_gpt_tensors(
         tensors[f"blk.{i}.attn_v.weight"] = block.attn.v_proj.weight.data.astype(np.float32)
         tensors[f"blk.{i}.attn_output.weight"] = block.attn.out_proj.weight.data.astype(np.float32)
         if getattr(block.attn, "q_norm", None) is not None and getattr(block.attn, "k_norm", None) is not None:
+            assert block.attn.q_norm is not None and block.attn.k_norm is not None
             tensors[f"blk.{i}.attn_q_norm.weight"] = block.attn.q_norm.weight.data.astype(np.float32)
             tensors[f"blk.{i}.attn_k_norm.weight"] = block.attn.k_norm.weight.data.astype(np.float32)
 
