@@ -49,12 +49,56 @@ def _get_build_cache_dir() -> Path:
     return p
 
 
+def _compile_csrc(csrc_dir: Path, src_files: list, cache_subdir: Path, candidate_names: list) -> Optional[Path]:
+    global _LOAD_ERROR_REASON
+    tmp_build_dir = Path(tempfile.mkdtemp(prefix="build_", dir=_get_build_cache_dir()))
+    try:
+        for sf in src_files:
+            shutil.copyfile(sf, tmp_build_dir / sf.name)
+        subprocess.run(["make", "-C", str(tmp_build_dir)], check=True, capture_output=True, timeout=15)
+        built_lib = _find_candidate_in_dir(tmp_build_dir, candidate_names)
+        if built_lib:
+            cache_subdir.mkdir(parents=True, exist_ok=True)
+            target_lib = cache_subdir / built_lib.name
+            os.replace(built_lib, target_lib)
+            return target_lib
+    except subprocess.TimeoutExpired as e:
+        _LOAD_ERROR_REASON = f"Build timed out after 15 seconds: {e}"
+    except subprocess.CalledProcessError as e:
+        err_msg = e.stderr.decode("utf-8", errors="replace").strip() if e.stderr else str(e)
+        _LOAD_ERROR_REASON = f"Compilation failed: {err_msg}"
+    except Exception as e:
+        _LOAD_ERROR_REASON = f"Build error: {e}"
+    finally:
+        shutil.rmtree(tmp_build_dir, ignore_errors=True)
+    return None
+
+
 def _find_candidate_in_dir(d: Path, candidate_names: list[str]) -> Optional[Path]:
     for name in candidate_names:
         candidate = d / name
         if candidate.is_file():
             return candidate
     return None
+
+
+def _find_or_build_in_tree() -> Optional[Path]:
+    global _LOAD_ERROR_REASON
+    csrc_dir = Path(__file__).parent / "csrc"
+    candidate_names = [f"libparallax_c{ext}" for ext in (".dylib", ".so", ".dll")]
+    hasher = hashlib.sha256(f"{platform.system()}-{platform.machine()}".encode())
+    src_files = [f for f in sorted(csrc_dir.iterdir()) if f.is_file() and (f.suffix in (".c", ".h", ".mk") or f.name == "Makefile")] if csrc_dir.is_dir() else []
+    for sf in src_files:
+        hasher.update(sf.name.encode() + sf.read_bytes())
+    cache_subdir = _get_build_cache_dir() / hasher.hexdigest()[:16]
+    lib_path = _find_candidate_in_dir(csrc_dir, candidate_names)
+    if lib_path and src_files and lib_path.stat().st_mtime < max(f.stat().st_mtime for f in src_files):
+        lib_path = None
+    if lib_path is None:
+        lib_path = _find_candidate_in_dir(cache_subdir, candidate_names)
+    if lib_path is None and (csrc_dir / "Makefile").is_file():
+        lib_path = _compile_csrc(csrc_dir, src_files, cache_subdir, candidate_names)
+    return lib_path
 
 def _find_or_build_library() -> Optional[ctypes.CDLL]:
     global _C_LIB, _LIB_LOAD_ATTEMPTED
@@ -86,53 +130,7 @@ def _find_or_build_library_unlocked() -> Optional[ctypes.CDLL]:
             return None
         lib_path = path
     else:
-        lib_path = None
-
-    if lib_path is None:
-        csrc_dir = Path(__file__).parent / "csrc"
-    
-    # Candidate shared library names
-    exts = [".dylib", ".so", ".dll"]
-    candidate_names = [f"libparallax_c{ext}" for ext in exts]
-    
-    # Hash sources and platform for cache key
-    hasher = hashlib.sha256(f"{platform.system()}-{platform.machine()}".encode())
-    src_files = [f for f in sorted(csrc_dir.iterdir()) if f.is_file() and (f.suffix in (".c", ".h", ".mk") or f.name == "Makefile")]
-    for sf in src_files:
-        hasher.update(sf.name.encode())
-        hasher.update(sf.read_bytes())
-    cache_subdir = _get_build_cache_dir() / hasher.hexdigest()[:16]
-
-    lib_path = _find_candidate_in_dir(csrc_dir, candidate_names)
-    if lib_path and src_files and lib_path.stat().st_mtime < max(f.stat().st_mtime for f in src_files):
-        lib_path = None
-
-    if lib_path is None:
-        lib_path = _find_candidate_in_dir(cache_subdir, candidate_names)
-
-    # If not found, attempt compilation
-    if lib_path is None and (csrc_dir / "Makefile").is_file():
-        cache_base = _get_build_cache_dir()
-        tmp_build_dir = Path(tempfile.mkdtemp(prefix="build_", dir=cache_base))
-        try:
-            for sf in src_files:
-                shutil.copyfile(sf, tmp_build_dir / sf.name)
-            subprocess.run(["make", "-C", str(tmp_build_dir)], check=True, capture_output=True, timeout=15)
-            built_lib = _find_candidate_in_dir(tmp_build_dir, candidate_names)
-            if built_lib:
-                cache_subdir.mkdir(parents=True, exist_ok=True)
-                target_lib = cache_subdir / built_lib.name
-                os.replace(built_lib, target_lib)
-                lib_path = target_lib
-        except subprocess.TimeoutExpired as e:
-            _LOAD_ERROR_REASON = f"Build timed out after 15 seconds: {e}"
-        except subprocess.CalledProcessError as e:
-            err_msg = e.stderr.decode("utf-8", errors="replace").strip() if e.stderr else str(e)
-            _LOAD_ERROR_REASON = f"Compilation failed: {err_msg}"
-        except Exception as e:
-            _LOAD_ERROR_REASON = f"Build error: {e}"
-        finally:
-            shutil.rmtree(tmp_build_dir, ignore_errors=True)
+        lib_path = _find_or_build_in_tree()
 
     if lib_path is None and _LOAD_ERROR_REASON is None:
         _LOAD_ERROR_REASON = "Shared library not found and no compilation candidate succeeded"
