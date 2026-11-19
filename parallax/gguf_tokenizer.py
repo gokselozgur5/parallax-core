@@ -157,6 +157,17 @@ class GGUFTokenizer:
         if self.model_type == "llama" and not text.startswith((" ", "\u2581")):
             text = " " + text
 
+        if self.scores is not None and self.model_type == "llama" and not self.merge_ranks:
+            text = text.replace(" ", "\u2581")
+            spm_symbols: List[str] = [
+                ch if ch in self.token_to_id else (
+                    f"<0x{ch.encode('utf-8')[0]:02X}>" if f"<0x{ch.encode('utf-8')[0]:02X}>" in self.token_to_id
+                    else (self.raw_tokens[self.unk_token_id] if self.unk_token_id is not None else "")
+                )
+                for ch in text
+            ]
+            return self._spm_score_merge([s for s in spm_symbols if s])
+
         if self.merge_ranks and self.model_type == "gpt2":
             ids: List[int] = []
             for piece in _GPT2_SPLIT_RE.findall(text):
