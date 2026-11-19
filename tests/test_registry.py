@@ -71,3 +71,19 @@ def test_module_level_helpers():
     assert list_backends() == ["gpu"]
     clear()
     assert list_backends() == []
+
+
+def test_dispatched_linear_default_registry():
+    import subprocess
+    import sys
+
+    code = (
+        "import numpy as np\n"
+        "from parallax.nn import DispatchedLinear\n"
+        "from parallax.tensor import Tensor\n"
+        "print(DispatchedLinear(4, 3)(Tensor(np.ones((2, 4)))).shape)\n"
+    )
+    res = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert res.returncode == 0, res.stderr[-300:]
+    assert res.stdout.strip() == "(2, 3)"
+
