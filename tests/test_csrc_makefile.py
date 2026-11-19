@@ -1,9 +1,35 @@
 """Tests for parallax/csrc/Makefile wildcard sources and ISA flags."""
 
+import os
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
+
+
+def _run_in_temp_csrc(code: str, run_clean: bool = False) -> None:
+    root = Path(__file__).parent.parent
+    with tempfile.TemporaryDirectory() as td:
+        t = Path(td)
+        csrc = t / "parallax" / "csrc"
+        shutil.copytree(root / "parallax" / "csrc", csrc)
+        (t / "parallax" / "__init__.py").write_text("")
+        shutil.copy2(root / "parallax" / "c_engine.py", t / "parallax" / "c_engine.py")
+        env = dict(os.environ)
+        if sys.platform == "darwin" and "SDKROOT" not in env:
+            for s in ("MacOSX26.5.sdk", "MacOSX12.3.sdk"):
+                p = Path(f"/Library/Developer/CommandLineTools/SDKs/{s}")
+                if p.exists():
+                    env["SDKROOT"] = str(p)
+                    break
+        if run_clean:
+            subprocess.run(["make", "-C", str(csrc), "clean"], env=env, check=True)
+        try:
+            subprocess.run([sys.executable, "-c", code], cwd=str(t), env=env, check=True)
+        finally:
+            if run_clean:
+                subprocess.run(["make", "-C", str(csrc), "clean"], env=env, check=True)
 
 
 def test_makefile_wildcard_and_isa_rules():
@@ -41,4 +67,3 @@ def test_makefile_builds_and_loads_kernels():
         assert sm is not None and np.allclose(sm, [[0.5, 0.5], [0.5, 0.5]])
     finally:
         subprocess.run(["make", "-C", str(csrc), "clean"], check=True)
-
