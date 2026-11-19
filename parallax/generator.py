@@ -142,6 +142,8 @@ def _generate_stream_tokens(
         return
 
     # Fast KV cached stream
+    if rolling_cache is not None:
+        rolling_cache.reset()
     context = tokens[-max_seq_len:]
     idx = np.array([context], dtype=np.int64)
 
