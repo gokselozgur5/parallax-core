@@ -67,3 +67,9 @@ def test_gelu_nan_and_inf_propagation() -> None:
     assert np.isnan(res_c[0]) and np.isnan(ref_np[0])
     assert res_c[1] == 0.0 and ref_np[1] == 0.0
     assert np.isinf(res_c[2]) and np.isinf(ref_np[2])
+
+
+def test_gelu_native_symbol_bound() -> None:
+    fn = _get_gelu_fn()
+    assert fn is not None
+    assert callable(fn)
