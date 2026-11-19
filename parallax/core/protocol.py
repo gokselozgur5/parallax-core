@@ -64,6 +64,8 @@ def query_backend_capabilities(
     results: dict[str, bool] = {}
     for item in ops:
         op_name = item.op if isinstance(item, OpQuery) else item
+        if op_name in results:
+            raise ValueError(f"duplicate op in query: {op_name}")
         results[op_name] = query_capability(
             backend,
             item,
