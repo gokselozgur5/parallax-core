@@ -53,17 +53,16 @@ def test_makefile_avx512_flag_injection():
 
 
 def test_makefile_builds_and_loads_kernels():
-    csrc = Path(__file__).parent.parent / "parallax" / "csrc"
-    subprocess.run(["make", "-C", str(csrc), "clean"], check=True)
-    try:
-        subprocess.run(["make", "-C", str(csrc)], check=True)
-        import numpy as np
-        from parallax.c_engine import c_gemm, c_softmax, is_c_engine_available
-        assert is_c_engine_available()
-        a = np.ones((2, 2), dtype=np.float32)
-        out = c_gemm(a, a)
-        assert out is not None and np.allclose(out, [[2.0, 2.0], [2.0, 2.0]])
-        sm = c_softmax(a)
-        assert sm is not None and np.allclose(sm, [[0.5, 0.5], [0.5, 0.5]])
-    finally:
-        subprocess.run(["make", "-C", str(csrc), "clean"], check=True)
+    code = (
+        "import subprocess, numpy as np, parallax.c_engine as ce\n"
+        "from pathlib import Path\n"
+        "p = Path(ce.__file__).parent / 'csrc'\n"
+        "subprocess.run(['make', '-C', str(p)], check=True)\n"
+        "assert ce.is_c_engine_available()\n"
+        "a = np.ones((2, 2), dtype=np.float32)\n"
+        "out = ce.c_gemm(a, a)\n"
+        "assert out is not None and np.allclose(out, [[2.0, 2.0], [2.0, 2.0]])\n"
+        "sm = ce.c_softmax(a)\n"
+        "assert sm is not None and np.allclose(sm, [[0.5, 0.5], [0.5, 0.5]])\n"
+    )
+    _run_in_temp_csrc(code, run_clean=True)
