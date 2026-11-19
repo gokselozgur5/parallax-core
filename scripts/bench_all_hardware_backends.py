@@ -779,9 +779,6 @@ def generate_markdown_report(
     md.append(f"   - Dynamic Split-K caps partitions dynamically (e.g. from {last_f['v1_splits']} splits in v1 to {last_f['v2_splits']} splits in v2 at $T={last_f['seq_len']}$).")
     md.append(f"   - Online logsumexp reduction maintains exact numerical equivalence while reaching up to {max_fd_spd:.2f}x relative throughput.")
     md.append("")
-    md.append("---")
-    md.append("*Sealed by Parallax Swarm Agent 18 (Continuous Benchmarking & Regression Guard) — Parallax Core Lab.*")
-    md.append("")
 
     return "\n".join(md)
 

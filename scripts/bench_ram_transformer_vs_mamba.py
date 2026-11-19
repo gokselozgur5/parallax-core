@@ -314,9 +314,6 @@ def generate_report(
     md.append("3. **Anti-RAM Verdict:**")
     md.append("   The claim that AI inference fundamentally requires ever-increasing terabytes of RAM is an artifact of the standard Softmax Attention inductive bias, not an intrinsic law of intelligence. Architectural alternatives such as Mamba S6 dismantle the memory bottleneck by operating as continuous-time selective dynamical systems.")
     md.append("")
-    md.append("---")
-    md.append("*Sealed by Parallax Swarm Agent 4 (Anti-RAM Benchmark) — Parallax Core Lab.*")
-    md.append("")
 
     return "\n".join(md)
 
