@@ -29,7 +29,8 @@ def compute_gae(
             - returns: Target empirical returns V(s) + A of shape (T,).
     """
     T = len(rewards)
-    advantages = np.zeros(T, dtype=np.float32)
+    out_dtype = np.result_type(rewards.dtype, values.dtype, np.float64)
+    advantages = np.zeros(T, dtype=out_dtype)
     last_gae = 0.0
 
     for t in reversed(range(T)):
