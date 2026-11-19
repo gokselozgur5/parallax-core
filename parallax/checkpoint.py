@@ -115,6 +115,10 @@ def load_model_state_dict(model: ParallaxLM, state_dict: Dict[str, np.ndarray]) 
         if block.attn.v_proj.bias is not None and f"{prefix}.attn.v_proj.bias" in state_dict:
             block.attn.v_proj.bias.data = state_dict[f"{prefix}.attn.v_proj.bias"].copy()
         block.attn.out_proj.weight.data = state_dict[f"{prefix}.attn.out_proj.weight"].copy()
+        if getattr(block.attn, "q_norm", None) is not None:
+            block.attn.q_norm.weight.data = state_dict[f"{prefix}.attn.q_norm.weight"].copy()
+        if getattr(block.attn, "k_norm", None) is not None:
+            block.attn.k_norm.weight.data = state_dict[f"{prefix}.attn.k_norm.weight"].copy()
 
         block.mlp_norm.weight.data = state_dict[f"{prefix}.mlp_norm.weight"].copy()
         if block.num_experts is not None and block.num_experts > 1:
