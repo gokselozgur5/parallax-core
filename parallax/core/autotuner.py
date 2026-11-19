@@ -84,12 +84,13 @@ def _run_op(backend: Any, op: str, size: int) -> None:
         fn = getattr(backend, "gemm", None)
     if fn is None and op == "gemm":
         fn = getattr(backend, "matmul", None)
-    if op in ("gemm", "matmul"):
-        fn(np.ones((size, size), dtype=np.float32), np.ones((size, size), dtype=np.float32))
-    elif op == "softmax":
-        fn(np.ones((1, size), dtype=np.float32))
-    elif op == "rmsnorm":
-        fn(np.ones((1, size), dtype=np.float32), np.ones((size,), dtype=np.float32))
+    if fn is not None:
+        if op in ("gemm", "matmul"):
+            fn(np.ones((size, size), dtype=np.float32), np.ones((size, size), dtype=np.float32))
+        elif op == "softmax":
+            fn(np.ones((1, size), dtype=np.float32))
+        elif op == "rmsnorm":
+            fn(np.ones((1, size), dtype=np.float32), np.ones((size,), dtype=np.float32))
 
 
 def measure_latency(backend: Any, op: str, size: int, repeat: int = 3, warmup: int = 1) -> float:
