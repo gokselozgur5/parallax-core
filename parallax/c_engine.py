@@ -118,6 +118,7 @@ def _find_or_build_library() -> Optional[ctypes.CDLL]:
 def _find_or_build_library_unlocked() -> Optional[ctypes.CDLL]:
     global _C_LIB, _LIB_LOAD_ATTEMPTED, _LOAD_ERROR_REASON
     env_override = os.environ.get("PARALLAX_C_LIB")
+    lib_path: Optional[Path] = None
     if env_override:
         path = Path(env_override).expanduser().resolve()
         if not path.is_file():
@@ -130,32 +131,7 @@ def _find_or_build_library_unlocked() -> Optional[ctypes.CDLL]:
             return None
         lib_path = path
     else:
-        lib_path = None
-
-    if lib_path is None:
-        csrc_dir = Path(__file__).parent / "csrc"
-    
-    # Candidate shared library names
-    exts = [".dylib", ".so", ".dll"]
-    candidate_names = [f"libparallax_c{ext}" for ext in exts]
-    
-    # Hash sources and platform for cache key
-    hasher = hashlib.sha256(f"{platform.system()}-{platform.machine()}".encode())
-    src_files = [f for f in sorted(csrc_dir.iterdir()) if f.is_file() and (f.suffix in (".c", ".h", ".mk") or f.name == "Makefile")]
-    for sf in src_files:
-        hasher.update(sf.name.encode())
-        hasher.update(sf.read_bytes())
-    cache_subdir = _get_build_cache_dir() / hasher.hexdigest()[:16]
-
-    lib_path = _find_candidate_in_dir(csrc_dir, candidate_names)
-    if lib_path and src_files and lib_path.stat().st_mtime < max(f.stat().st_mtime for f in src_files):
-        lib_path = None
-
-    if lib_path is None:
-        lib_path = _find_candidate_in_dir(cache_subdir, candidate_names)
-
-    if lib_path is None and (csrc_dir / "Makefile").is_file():
-        lib_path = _compile_csrc(csrc_dir, src_files, cache_subdir, candidate_names)
+        lib_path = _find_or_build_in_tree()
 
     if lib_path is None and _LOAD_ERROR_REASON is None:
         _LOAD_ERROR_REASON = "Shared library not found and no compilation candidate succeeded"
