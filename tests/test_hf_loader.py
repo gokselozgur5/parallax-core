@@ -273,3 +273,26 @@ def test_load_hf_tied_with_lm_head_present():
         assert model.config.tie_weights is True
         assert model.lm_head.weight is model.token_embeddings.weight
 
+
+def test_hf_export_roundtrip_keeps_qk_norm(tmp_path):
+    from parallax.hf_loader import save_hf_pretrained
+    from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
+
+    np.random.seed(0)
+    cfg = ParallaxLMConfig(
+        vocab_size=64,
+        embed_dim=32,
+        num_heads=4,
+        num_layers=1,
+        max_seq_len=16,
+        use_swiglu=True,
+        qk_norm=True,
+    )
+    model = ParallaxLM(cfg)
+    idx = np.array([[1, 2, 3, 4, 5]])
+    save_hf_pretrained(model, str(tmp_path))
+    loaded = load_hf_pretrained(str(tmp_path))
+    assert loaded.config.qk_norm is True
+    np.testing.assert_allclose(loaded(idx).data, model(idx).data, atol=1e-4)
+
+
