@@ -53,3 +53,12 @@ def test_condense_multiple_beacon_tokens_and_batch_dims() -> None:
     assert condensed.shape == (2, 3, 7, 8)
     np.testing.assert_array_equal(condensed[:, :, 4:, :], acts[:, :, 32:, :])
 
+
+def test_condense_sub_chunks_respect_interval_boundaries() -> None:
+    comp = ActivationBeaconCompressor(interval=16, beacon_tokens=3)
+    acts = np.arange(32, dtype=float).reshape(32, 1)
+    condensed = comp.condense_activations(acts)
+    expected = np.array([2.5, 8.0, 13.0, 18.5, 24.0, 29.0]).reshape(6, 1)
+    np.testing.assert_allclose(condensed, expected)
+
+
