@@ -106,7 +106,7 @@ impl<'a> StorageReader<'a> {
         if data.len() < 16 {
             return Err(StorageError::UnexpectedEof);
         }
-        if &data[0..4] != &STORAGE_MAGIC {
+        if data[0..4] != STORAGE_MAGIC {
             return Err(StorageError::InvalidMagic);
         }
         let version = u32::from_le_bytes(data[4..8].try_into().unwrap());
@@ -180,7 +180,7 @@ impl<'a> StorageReader<'a> {
             numel = numel.checked_mul(d).ok_or(StorageError::DimensionOverflow)?;
         }
         let byte_len = numel.checked_mul(dtype.element_size()).ok_or(StorageError::DimensionOverflow)?;
-        if data_offset % STORAGE_ALIGNMENT != 0 {
+        if !data_offset.is_multiple_of(STORAGE_ALIGNMENT) {
             return Err(StorageError::UnalignedTensorData);
         }
         let data_end = data_offset.checked_add(byte_len).ok_or(StorageError::OffsetOutOfBounds)?;
@@ -355,7 +355,7 @@ mod tests {
 
     #[test]
     fn test_storage_roundtrip() {
-        let data = vec![1.0f32, 2.0, 3.0, 4.0];
+        let data = [1.0f32, 2.0, 3.0, 4.0];
         let bytes = unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 4) };
         let entries = [TensorEntryBuilder {
             name: "weight",

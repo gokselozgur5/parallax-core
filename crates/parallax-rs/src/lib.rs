@@ -192,6 +192,12 @@ unsafe fn validate_flash_attn_ptrs(
     }
     STATUS_OK
 }
+/// C-ABI export for single-head flash attention f32.
+///
+/// # Safety
+///
+/// Pointers `q`, `k`, `v`, and `out` must be valid, 4-byte aligned, non-null,
+/// and reference at least `seq_len * head_dim` elements.
 #[no_mangle]
 pub unsafe extern "C" fn parallax_flash_attn_f32(
     q: *const f32, k: *const f32, v: *const f32, out: *mut f32,
@@ -306,6 +312,11 @@ mod tests {
 }
 
 /// C-ABI export to find bucket boundary for given sequence length.
+///
+/// # Safety
+///
+/// `buckets_ptr` must reference at least `buckets_len` valid `usize` values.
+/// `out_bucket` must be a valid, aligned, non-null pointer to a `usize`.
 #[no_mangle]
 pub unsafe extern "C" fn parallax_find_bucket(
     seq_len: usize, buckets_ptr: *const usize, buckets_len: usize, out_bucket: *mut usize,
@@ -326,6 +337,11 @@ pub unsafe extern "C" fn parallax_find_bucket(
 }
 
 /// C-ABI export to collate sequences into padded buffer.
+///
+/// # Safety
+///
+/// All sequence, bucket, and output pointers must be valid, non-null, aligned,
+/// and reference slices matching their respective length parameters.
 #[no_mangle]
 pub unsafe extern "C" fn parallax_collate_batch_u32(
     seq_ptrs: *const *const u32, seq_lens: *const usize, num_seqs: usize,

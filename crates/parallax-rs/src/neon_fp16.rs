@@ -34,7 +34,7 @@ pub fn is_pointer_aligned<T>(ptr: *const T, align_bytes: usize) -> bool {
     if ptr.is_null() || align_bytes == 0 {
         return false;
     }
-    (ptr as usize) % align_bytes == 0
+    (ptr as usize).is_multiple_of(align_bytes)
 }
 
 /// Verifies memory alignment for NEON FP16 vector operands.
