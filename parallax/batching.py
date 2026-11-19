@@ -75,6 +75,19 @@ class ContinuousBatchEngine:
                 req.kv_cache = None
             return req
 
+    def abort_request(self, request_id: str) -> None:
+        """Removes a request from waiting, running, or completed collections and clears its KV cache."""
+        with self.lock:
+            self.waiting_queue = [r for r in self.waiting_queue if r.request_id != request_id]
+            for r in self.running_requests:
+                if r.request_id == request_id:
+                    r.kv_cache = None
+            self.running_requests = [r for r in self.running_requests if r.request_id != request_id]
+            req = self.completed_requests.pop(request_id, None)
+            if req is not None:
+                req.kv_cache = None
+
+
     def step(self) -> List[Tuple[str, int]]:
         """Executes one iteration step across active sequences in the continuous batch.
 
