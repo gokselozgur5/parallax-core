@@ -283,9 +283,19 @@ class MLAModule(Module):
                 x_flat = x_in.reshape(B * T, self.embed_dim)
                 _accumulate_grad(self.w_qc, np.matmul(x_flat.T, grad_qc_flat))
 
+            g_w_uv, g_w_uk, g_w_dkv, g_x_c = _bwd_c(grad_context, grad_scores)
+            for p, g in ((self.w_uv, g_w_uv), (self.w_uk, g_w_uk), (self.w_dkv, g_w_dkv)):
+                if p.requires_grad:
+                    _accumulate_grad(p, g)
+
+            g_w_qr, g_w_kr, g_x_qr, g_x_kr = _bwd_r(grad_scores)
+            for p, g in ((self.w_qr, g_w_qr), (self.w_kr, g_w_kr)):
+                if p.requires_grad:
+                    _accumulate_grad(p, g)
+
             if x.requires_grad:
-                grad_x = np.matmul(grad_qc_flat, self.w_qc.data.T).reshape(x.data.shape)
-                _accumulate_grad(x, grad_x)
+                gx = np.matmul(grad_qc_flat, self.w_qc.data.T).reshape(B, T, -1) + g_x_c + g_x_qr + g_x_kr
+                _accumulate_grad(x, gx if not was_2d else gx.squeeze(0))
 
         out_tensor._backward = _backward
         return (out_tensor, new_kv) if use_cache else out_tensor
