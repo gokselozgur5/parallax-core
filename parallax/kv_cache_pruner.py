@@ -67,11 +67,21 @@ class KVCachePruner:
 
         # Cumulative attention scores per layer: list of np.ndarray [B, H, current_seq_len] or None
         self._accumulated_scores: List[Optional[np.ndarray]] = []
+        self._prev_len: int = 0
         self.metrics = PruningMetrics()
+
+    def _update_seen(self, seq_len: int) -> None:
+        if self.metrics.total_tokens_seen == 0:
+            delta = seq_len
+        else:
+            delta = max(0, seq_len - self._prev_len)
+        self.metrics.total_tokens_seen += delta
+        self._prev_len = min(seq_len, self.budget)
 
     def reset(self) -> None:
         """Reset internal accumulator and metrics."""
         self._accumulated_scores = []
+        self._prev_len = 0
         self.metrics = PruningMetrics()
 
     def update_attention_scores(
