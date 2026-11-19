@@ -48,3 +48,16 @@ def test_layernorm_constant_rows() -> None:
     expected = ln(Tensor(x)).data
     actual = c_layernorm(x, weight=ln.weight.data, bias=ln.bias.data, eps=1e-5)
     np.testing.assert_allclose(actual, expected, atol=1e-5, rtol=1e-5)
+
+
+def test_layernorm_rejects_invalid_weights_and_shapes() -> None:
+    x = np.arange(8, dtype=np.float32).reshape(1, 8)
+    with pytest.raises(ValueError):
+        c_layernorm(x, weight=np.ones(1, dtype=np.float32))
+    with pytest.raises(ValueError):
+        c_layernorm(x, bias=np.ones(1, dtype=np.float32))
+    with pytest.raises(ValueError):
+        c_layernorm(np.zeros((0, 0), dtype=np.float32))
+    with pytest.raises(ValueError):
+        c_layernorm(np.float32(1.0))
+
