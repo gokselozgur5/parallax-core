@@ -61,3 +61,19 @@ def test_qgalore_left_projection_when_m_less_than_n():
     rel_error = np.linalg.norm(recon - grad) / np.linalg.norm(grad)
     assert rel_error < 0.1
 
+
+def test_qgalore_adamw_moments_are_smaller_than_dense_adamw_moments():
+    from parallax.nn import Parameter
+    from parallax.qgalore import QGaLoreAdamW
+
+    rng = np.random.default_rng(0)
+    weight = Parameter(rng.standard_normal((64, 64)))
+    optimizer = QGaLoreAdamW([weight], rank=4)
+    weight.grad = rng.standard_normal((64, 64))
+    optimizer.step()
+
+    moment_bytes = sum(a.nbytes for a in optimizer.m) + sum(a.nbytes for a in optimizer.v)
+    dense_adamw_bytes = 2 * weight.data.nbytes
+    assert moment_bytes < dense_adamw_bytes
+
+
