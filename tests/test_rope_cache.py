@@ -41,3 +41,15 @@ def test_rope_cache_parity_non_interleaved() -> None:
     expected = np.transpose(ref, (1, 0, 2))
     actual = cache.apply_in_place(x.copy(), start_pos=5, interleaved=False)
     np.testing.assert_allclose(actual, expected, atol=1e-5, rtol=1e-5)
+
+def test_apply_in_place_rotates_without_native_symbols(monkeypatch: pytest.MonkeyPatch) -> None:
+    import math
+    import parallax.native.rope_cache as rc
+    monkeypatch.setattr(rc, "_c_build_rope_cache", None)
+    monkeypatch.setattr(rc, "_c_apply_rope_cached", None)
+    cache = rc.RoPECache.create(dim=4, max_seq_len=8)
+    x = np.ones((1, 1, 4), dtype=np.float32)
+    out = cache.apply_in_place(x, start_pos=1)
+    assert out[0, 0, 0] == pytest.approx(math.cos(1.0) - math.sin(1.0), abs=1e-6)
+    assert out[0, 0, 1] == pytest.approx(math.sin(1.0) + math.cos(1.0), abs=1e-6)
+
