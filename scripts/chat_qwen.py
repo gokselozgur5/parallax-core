@@ -15,17 +15,19 @@ from parallax.hf_loader import load_hf_pretrained
 from parallax.hf_tokenizer import load_hf_tokenizer
 
 def main():
-    model_path = "/Users/gok/repos/parallax-core/models/qwen2.5-0.5b"
-    if not os.path.exists(model_path):
-        print(f"Hata: Model yolu bulunamadı: {model_path}")
+    default_dir = os.path.expanduser("~/.parallax/models/qwen2.5-0.5b")
+    candidates = [sys.argv[1]] if len(sys.argv) > 1 else [default_dir, "models/qwen2.5-0.5b", "models/qwen2.5-3b"]
+    model_path = next((p for p in candidates if os.path.exists(p)), "")
+    if not model_path:
+        print("ERROR: Model path not found. Provide a model directory path.")
         return
 
     print("=" * 65)
-    print("🚀 PARALLAX-CORE: Standalone Qwen2.5-0.5B-Instruct Canlı Çıkarım")
-    print("Sıfır PyTorch • Saf Matematik & C/Metal Donanım Çekirdeği")
+    print("PARALLAX-CORE: Standalone Qwen2.5-0.5B-Instruct Inference")
+    print("Zero PyTorch - Pure Math & C/Metal Hardware Kernels")
     print("=" * 65)
 
-    print("\n[1/2] Model ağırlıkları SafeTensors'tan doğrudan belleğe yükleniyor...")
+    print("\n[1/2] Loading model weights directly into memory...")
     t0 = time.time()
     model = load_hf_pretrained(model_path)
     print(f"✓ Model başarıyla yüklendi! ({time.time() - t0:.2f} saniye)")
