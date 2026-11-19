@@ -58,10 +58,6 @@ from parallax.dispatch.layernorm_backward import (
     layernorm_backward,
     layernorm_backward_reference,
 )
-from parallax.dispatch.layernorm import (
-    FusedLayerNorm,
-    fused_layernorm,
-)
 from parallax.dispatch.fused_layernorm import (
     DispatchedFusedLayerNorm,
     FusedLayerNormRMS,
@@ -70,6 +66,10 @@ from parallax.dispatch.fused_layernorm import (
     fused_layernorm_forward,
     rms_weight_scale,
     rms_weight_scale_backward,
+)
+from parallax.dispatch.layernorm import (
+    FusedLayerNorm,
+    fused_layernorm,
 )
 from parallax.dispatch.kv_cache import (
     KVCacheBuffer,

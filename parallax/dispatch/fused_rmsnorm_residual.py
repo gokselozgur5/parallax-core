@@ -1,6 +1,6 @@
 """Direct dispatch fused RMSNorm residual compatibility alias."""
 
-from parallax.dispatch.fused_rmsnorm_residual import (
+from python.parallax.dispatch.fused_rmsnorm_residual import (
     FusedRMSNormResidual,
     dispatched_fused_rmsnorm_residual,
     fused_rmsnorm_residual_backward,
