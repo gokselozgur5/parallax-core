@@ -106,7 +106,7 @@ impl<'a> StorageReader<'a> {
         if data.len() < 16 {
             return Err(StorageError::UnexpectedEof);
         }
-        if &data[0..4] != &STORAGE_MAGIC {
+        if data[0..4] != STORAGE_MAGIC {
             return Err(StorageError::InvalidMagic);
         }
         let version = u32::from_le_bytes(data[4..8].try_into().unwrap());
