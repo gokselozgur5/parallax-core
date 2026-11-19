@@ -150,3 +150,15 @@ def test_prune_layers_multi_layer():
     for pk, pv in pruned_caches:
         assert pk.shape[2] == pruner.budget
         assert pv.shape[2] == pruner.budget
+
+
+def test_total_tokens_seen_counts_every_appended_token():
+    pruner = KVCachePruner(num_sinks=2, window_size=4, heavy_hitters=2)
+    k = np.zeros((1, 1, 0, 2))
+    for t in range(100):
+        k = np.concatenate([k, np.full((1, 1, 1, 2), float(t))], axis=2)
+        k, _ = pruner.prune(k, k)
+    assert pruner.metrics.current_cache_size == 8
+    assert pruner.metrics.total_evicted == 92
+    assert pruner.metrics.total_tokens_seen == 100
+
