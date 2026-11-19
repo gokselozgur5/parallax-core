@@ -233,3 +233,23 @@ def test_gguf_overlapping_tensor_intervals_rejected():
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+
+def test_save_gguf_custom_alignment_reads_back(tmp_path):
+    path = str(tmp_path / "aligned.gguf")
+    a = np.arange(3, dtype=np.float32)
+    b = np.arange(5, dtype=np.float32) + 10.0
+    save_gguf(path, {}, {"a": a, "b": b}, alignment=64)
+    loaded = load_gguf(path)
+    np.testing.assert_array_equal(loaded.tensors["a"], a)
+    np.testing.assert_array_equal(loaded.tensors["b"], b)
+
+
+def test_save_gguf_alignment_validation(tmp_path):
+    path = str(tmp_path / "test.gguf")
+    with pytest.raises(ValueError, match="Invalid GGUF alignment"):
+        save_gguf(path, {}, {}, alignment=48)
+    with pytest.raises(ValueError, match="Conflicting general.alignment"):
+        save_gguf(path, {"general.alignment": 32}, {}, alignment=64)
+
+
