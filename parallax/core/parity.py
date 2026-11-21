@@ -98,7 +98,7 @@ class ParityChecker:
         try:
             fn = getattr(backend, op, None)
             if not callable(fn):
-                return ParityResult(name, op, 0.0, False, "error", f"missing op {op}")
+                return ParityResult(name, op, 0.0, False, "error", error_message=f"missing op {op}")
             out = fn(*args, **kwargs)
             abs_err, rel_err, passed = self.compare(out, ref_out, tol)
             return ParityResult(name, op, abs_err, passed, "ok" if passed else "flagged", rel_err)

@@ -84,6 +84,8 @@ def _run_op(backend: Any, op: str, size: int) -> None:
         fn = getattr(backend, "gemm", None)
     if fn is None and op == "gemm":
         fn = getattr(backend, "matmul", None)
+    if fn is None:
+        return
     if op in ("gemm", "matmul"):
         fn(np.ones((size, size), dtype=np.float32), np.ones((size, size), dtype=np.float32))
     elif op == "softmax":
