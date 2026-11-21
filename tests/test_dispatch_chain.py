@@ -6,7 +6,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from parallax.core.dispatch_chain import DispatchChain, FallbackRecord
+from parallax.core.dispatch_chain import DispatchChain
 
 
 class DummyBackend:
@@ -59,7 +59,6 @@ def test_dispatch_chain_module_helpers_and_custom_policy():
     from parallax.core.dispatch_chain import (
         clear_fallback_history,
         dispatch_chain,
-        dispatch_with_fallback,
         get_fallback_history,
     )
 
