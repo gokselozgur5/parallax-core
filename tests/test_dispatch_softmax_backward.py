@@ -102,7 +102,8 @@ def test_dispatched_softmax_module():
 
 
 def test_softmax_backward_exports():
-    import parallax.dispatch.softmax_backward as sb
+    import importlib
+    sb = importlib.import_module("parallax.dispatch.softmax_backward")
     for sym in (
         "DispatchedSoftmax",
         "SoftmaxModule",
