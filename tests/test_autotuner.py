@@ -1,4 +1,3 @@
-from pathlib import Path
 import time
 import pytest
 from parallax.core.autotuner import (
