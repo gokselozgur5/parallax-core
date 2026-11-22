@@ -48,12 +48,23 @@ def test_sdpa_causal_masking() -> None:
 
 
 def test_sdpa_custom_scale() -> None:
-    q = np.ones((1, 2, 2), dtype=np.float64)
-    k = np.ones((1, 2, 2), dtype=np.float64)
-    v = np.ones((1, 2, 2), dtype=np.float64)
+    q = np.array([[[1.0, 0.0], [0.0, 1.0]]], dtype=np.float64)
+    k = np.array([[[1.0, 2.0], [0.0, 1.0]]], dtype=np.float64)
+    v = np.array([[[1.0, 0.0], [0.0, 2.0]]], dtype=np.float64)
     out_default = scaled_dot_product_attention(q, k, v)
     out_custom = scaled_dot_product_attention(q, k, v, scale=0.5)
-    np.testing.assert_allclose(out_default, out_custom)
+    default_scale = 1.0 / np.sqrt(2.0)
+    scores_def = np.matmul(q, k.swapaxes(-2, -1)) * default_scale
+    exp_def = np.exp(scores_def - np.max(scores_def, axis=-1, keepdims=True))
+    probs_def = exp_def / np.sum(exp_def, axis=-1, keepdims=True)
+    expected_default = np.matmul(probs_def, v)
+    scores_cust = np.matmul(q, k.swapaxes(-2, -1)) * 0.5
+    exp_cust = np.exp(scores_cust - np.max(scores_cust, axis=-1, keepdims=True))
+    probs_cust = exp_cust / np.sum(exp_cust, axis=-1, keepdims=True)
+    expected_custom = np.matmul(probs_cust, v)
+    np.testing.assert_allclose(out_default, expected_default)
+    np.testing.assert_allclose(out_custom, expected_custom)
+    assert not np.allclose(out_default, out_custom)
 
 
 def test_sdpa_boolean_and_additive_masks() -> None:
