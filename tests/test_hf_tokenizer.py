@@ -295,6 +295,13 @@ def test_hf_tokenizer_vocab_size_with_added_tokens():
     assert tok.vocab["<special>"] == 2
 
 
+def test_hf_tokenizer_vocab_size_with_added_token_gap():
+    """Verify vocab_size covers max token ID when added tokens have gaps."""
+    tok = HFTokenizer(vocab={"a": 0, "b": 1}, added_tokens={"<special>": 5})
+    assert tok.vocab_size == 6
+
+
+
 def test_hf_tokenizer_normalizer_preserves_added_tokens():
     """Verify normalizer only applies to non-special parts."""
     from parallax.hf_tokenizer import _BYTE_TO_UNICODE
