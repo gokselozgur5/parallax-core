@@ -103,6 +103,15 @@ def test_fast_cross_entropy_autograd_and_module():
     assert out.shape == ()
 
 
+def test_fast_cross_entropy_accepts_tensor_targets():
+    logits = np.array([[2.0, 0.0, -1.0], [0.0, 1.0, 0.0]])
+    targets = np.array([0, 1])
+    log_probs = logits - np.log(np.exp(logits).sum(axis=1, keepdims=True))
+    expected = -log_probs[[0, 1], targets].mean()
+    out = fast_cross_entropy(Tensor(logits), Tensor(targets, requires_grad=False))
+    np.testing.assert_allclose(out.data, expected, rtol=1e-12)
+
+
 def test_cross_entropy_exports():
     import parallax.dispatch.cross_entropy as ce
     import parallax.dispatch as pd
