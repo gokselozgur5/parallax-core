@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 from typing import Any
+import numpy as np
+
 from parallax.backends import cpuinfo
 from parallax.backends import registry
 from parallax.backends.base import Backend
+from parallax.backends.parity import check_parity
 
 
 def _format_isa_flags(info: cpuinfo.CpuInfo) -> str:
@@ -41,6 +44,25 @@ def _collect_backend_items(override: dict[str, Any] | None) -> list[tuple[str, A
     return sorted([(n, registry.get(n)) for n in names], key=lambda x: x[0])
 
 
+def _evaluate_parity(name: str, backend: Any, avail: bool) -> str:
+    if not avail:
+        return "n/a"
+    if isinstance(backend, Backend):
+        try:
+            a = np.ones((2, 2), dtype=np.float32)
+            b = np.ones((2, 2), dtype=np.float32)
+            report = check_parity("gemm", a, b, backends=[backend])
+            res = report.get(backend.name) or report.get(name)
+            if res is not None:
+                if res.status == "ok":
+                    return "pass"
+                if res.status in ("flagged", "error"):
+                    return "fail"
+        except Exception:
+            pass
+    return "not checked"
+
+
 def generate_markdown_report(
     *,
     cpu_info: cpuinfo.CpuInfo | None = None,
@@ -57,10 +79,9 @@ def generate_markdown_report(
     items = _collect_backend_items(backends_override)
     for name, b in items:
         av = _check_backend_available(b)
-        par = (
-            parity_override.get(name, "pass" if av else "n/a")
-            if parity_override is not None
-            else ("pass" if av else "n/a")
-        )
+        if parity_override is not None:
+            par = parity_override.get(name, "pass" if av else "n/a")
+        else:
+            par = _evaluate_parity(name, b, av)
         lines.append(_format_row(name, av, isa, par))
     return "\n".join(lines)
