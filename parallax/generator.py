@@ -35,6 +35,13 @@ class CharTokenizer:
         return "".join([self.itos.get(i, "?") for i in indices])
 
 
+def _validate_top_p(top_p: Optional[float]) -> None:
+    """Validates top_p parameter is within (0, 1]."""
+    if top_p is not None:
+        if np.isnan(top_p) or np.isinf(top_p) or top_p <= 0.0 or top_p > 1.0:
+            raise ValueError(f"top_p must be in (0, 1], got {top_p}")
+
+
 def sample_multinomial(
     logits: np.ndarray,
     temperature: float = 1.0,
@@ -82,8 +89,10 @@ def sample_next_token(
     exp_logits = np.exp(scaled_logits - np.max(scaled_logits))
     probs = exp_logits / np.sum(exp_logits)
 
+    _validate_top_p(top_p)
+
     # Top-P (Nucleus) filtering
-    if top_p is not None and 0.0 < top_p < 1.0:
+    if top_p is not None and top_p < 1.0:
         # Sort probabilities descending
         sorted_indices = np.argsort(probs)[::-1]
         sorted_probs = probs[sorted_indices]
