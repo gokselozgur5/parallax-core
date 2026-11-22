@@ -45,6 +45,21 @@ def test_apply_axial_rope_norm_preservation():
     np.testing.assert_allclose(np.linalg.norm(out, axis=-1), np.linalg.norm(x, axis=-1), rtol=1e-5)
 
 
+def test_apply_axial_rope_known_rotation_angle():
+    cos_h, sin_h, cos_w, sin_w = precompute_axial_freqs(dim=4, max_h=4, max_w=4, theta=100.0)
+    x = np.array([[1.0, 0.0, 0.0, 1.0]], dtype=np.float32)
+    h_coords = np.array([1], dtype=np.int64)
+    w_coords = np.array([2], dtype=np.int64)
+    out = apply_axial_rope(x, cos_h, sin_h, cos_w, sin_w, h_coords, w_coords)
+    expected = np.array(
+        [[cos_h[1, 0], sin_h[1, 0], -sin_w[2, 0], cos_w[2, 0]]],
+        dtype=np.float32,
+    )
+    np.testing.assert_allclose(out, expected, rtol=1e-5)
+    with pytest.raises(AssertionError):
+        np.testing.assert_allclose(x, expected, rtol=1e-5)
+
+
 def test_apply_axial_rope_grid_patches():
     cos_h, sin_h, cos_w, sin_w = precompute_axial_freqs(dim=32, max_h=8, max_w=8)
     x = np.random.randn(16, 32).astype(np.float32)
