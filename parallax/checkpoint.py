@@ -14,6 +14,13 @@ import numpy as np
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 
 
+def _get_layer_weight_data(layer: Any) -> np.ndarray:
+    """Extracts weight array from linear or LoRA layer, keeping unmerged adapters."""
+    if hasattr(layer, "effective_weight_data"):
+        return layer.effective_weight_data
+    return layer.weight.data
+
+
 def get_model_state_dict(model: ParallaxLM) -> Dict[str, np.ndarray]:
     """Extracts a named state dictionary mapping parameter paths to ndarrays."""
     state_dict: Dict[str, np.ndarray] = {
@@ -22,23 +29,23 @@ def get_model_state_dict(model: ParallaxLM) -> Dict[str, np.ndarray]:
     }
 
     if not model.config.tie_weights:
-        state_dict["lm_head.weight"] = model.lm_head.weight.data
+        state_dict["lm_head.weight"] = _get_layer_weight_data(model.lm_head)
         if model.lm_head.bias is not None:
             state_dict["lm_head.bias"] = model.lm_head.bias.data
 
     for i, block in enumerate(model.blocks):
         prefix = f"blocks.{i}"
         state_dict[f"{prefix}.attn_norm.weight"] = block.attn_norm.weight.data
-        state_dict[f"{prefix}.attn.q_proj.weight"] = block.attn.q_proj.weight.data
+        state_dict[f"{prefix}.attn.q_proj.weight"] = _get_layer_weight_data(block.attn.q_proj)
         if block.attn.q_proj.bias is not None:
             state_dict[f"{prefix}.attn.q_proj.bias"] = block.attn.q_proj.bias.data
-        state_dict[f"{prefix}.attn.k_proj.weight"] = block.attn.k_proj.weight.data
+        state_dict[f"{prefix}.attn.k_proj.weight"] = _get_layer_weight_data(block.attn.k_proj)
         if block.attn.k_proj.bias is not None:
             state_dict[f"{prefix}.attn.k_proj.bias"] = block.attn.k_proj.bias.data
-        state_dict[f"{prefix}.attn.v_proj.weight"] = block.attn.v_proj.weight.data
+        state_dict[f"{prefix}.attn.v_proj.weight"] = _get_layer_weight_data(block.attn.v_proj)
         if block.attn.v_proj.bias is not None:
             state_dict[f"{prefix}.attn.v_proj.bias"] = block.attn.v_proj.bias.data
-        state_dict[f"{prefix}.attn.out_proj.weight"] = block.attn.out_proj.weight.data
+        state_dict[f"{prefix}.attn.out_proj.weight"] = _get_layer_weight_data(block.attn.out_proj)
         if getattr(block.attn, "q_norm", None) is not None:
             state_dict[f"{prefix}.attn.q_norm.weight"] = block.attn.q_norm.weight.data
         if getattr(block.attn, "k_norm", None) is not None:
@@ -50,25 +57,25 @@ def get_model_state_dict(model: ParallaxLM) -> Dict[str, np.ndarray]:
             for e, expert in enumerate(block.mlp.experts):
                 e_pfx = f"{prefix}.mlp.experts.{e}"
                 if block.use_swiglu:
-                    state_dict[f"{e_pfx}.w_gate.weight"] = expert.w_gate.weight.data
-                    state_dict[f"{e_pfx}.w_up.weight"] = expert.w_up.weight.data
-                    state_dict[f"{e_pfx}.w_down.weight"] = expert.w_down.weight.data
+                    state_dict[f"{e_pfx}.w_gate.weight"] = _get_layer_weight_data(expert.w_gate)
+                    state_dict[f"{e_pfx}.w_up.weight"] = _get_layer_weight_data(expert.w_up)
+                    state_dict[f"{e_pfx}.w_down.weight"] = _get_layer_weight_data(expert.w_down)
                 else:
-                    state_dict[f"{e_pfx}.fc1.weight"] = expert.fc1.weight.data
+                    state_dict[f"{e_pfx}.fc1.weight"] = _get_layer_weight_data(expert.fc1)
                     if expert.fc1.bias is not None:
                         state_dict[f"{e_pfx}.fc1.bias"] = expert.fc1.bias.data
-                    state_dict[f"{e_pfx}.fc2.weight"] = expert.fc2.weight.data
+                    state_dict[f"{e_pfx}.fc2.weight"] = _get_layer_weight_data(expert.fc2)
                     if expert.fc2.bias is not None:
                         state_dict[f"{e_pfx}.fc2.bias"] = expert.fc2.bias.data
         elif block.use_swiglu:
-            state_dict[f"{prefix}.mlp.w_gate.weight"] = block.mlp.w_gate.weight.data
-            state_dict[f"{prefix}.mlp.w_up.weight"] = block.mlp.w_up.weight.data
-            state_dict[f"{prefix}.mlp.w_down.weight"] = block.mlp.w_down.weight.data
+            state_dict[f"{prefix}.mlp.w_gate.weight"] = _get_layer_weight_data(block.mlp.w_gate)
+            state_dict[f"{prefix}.mlp.w_up.weight"] = _get_layer_weight_data(block.mlp.w_up)
+            state_dict[f"{prefix}.mlp.w_down.weight"] = _get_layer_weight_data(block.mlp.w_down)
         else:
-            state_dict[f"{prefix}.mlp.fc1.weight"] = block.mlp.fc1.weight.data
+            state_dict[f"{prefix}.mlp.fc1.weight"] = _get_layer_weight_data(block.mlp.fc1)
             if block.mlp.fc1.bias is not None:
                 state_dict[f"{prefix}.mlp.fc1.bias"] = block.mlp.fc1.bias.data
-            state_dict[f"{prefix}.mlp.fc2.weight"] = block.mlp.fc2.weight.data
+            state_dict[f"{prefix}.mlp.fc2.weight"] = _get_layer_weight_data(block.mlp.fc2)
             if block.mlp.fc2.bias is not None:
                 state_dict[f"{prefix}.mlp.fc2.bias"] = block.mlp.fc2.bias.data
 
