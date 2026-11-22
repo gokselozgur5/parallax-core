@@ -68,6 +68,7 @@ def cross_entropy_forward_reference(
     logits_flat = logits.reshape(N, C)
     targets_flat = targets.reshape(N)
     valid = _validate_targets(targets_flat, C, ignore_index)
+    targets_flat = targets_flat.astype(np.int64)
     lse_flat, _, _ = online_logsumexp(logits_flat, chunk_size=chunk_size, axis=-1)
     lse = lse_flat.reshape(N)
     losses = np.zeros(N, dtype=logits.dtype)
@@ -105,6 +106,7 @@ def cross_entropy_backward_reference(
     logits_flat = logits.reshape(N, C)
     targets_flat = targets.reshape(N)
     valid = (targets_flat != ignore_index) & (targets_flat >= 0) & (targets_flat < C)
+    targets_flat = targets_flat.astype(np.int64)
     probs = np.exp(logits_flat - lse.reshape(N, 1))
     grad = np.zeros_like(logits_flat)
     for i in range(N):
