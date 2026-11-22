@@ -78,3 +78,31 @@ def test_format_isa_flags_with_platform_info() -> None:
 
     none_info = PlatformInfo(arch="unknown", system="unknown")
     assert format_isa_flags(none_info) == "none"
+
+
+def test_report_does_not_claim_parity_for_a_backend_with_wrong_results() -> None:
+    import numpy as np
+    from parallax.backends.base import Backend
+    from parallax.backends.cpuinfo import CpuInfo
+    from parallax.backends.numpy_backend import NumpyBackend
+    from parallax.backends.report import generate_markdown_report
+
+    class _WrongGemm(Backend):
+        name = "rust"
+
+        def available(self) -> bool:
+            return True
+
+        def supports(self, op: str, dtype: object, shape: tuple[int, ...]) -> bool:
+            return True
+
+        def gemm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+            return np.zeros((a.shape[0], b.shape[1]), dtype=np.float32)
+
+    report = generate_markdown_report(
+        cpu_info=CpuInfo(arch="x86_64", system="Linux"),
+        backends_override={"numpy": NumpyBackend(), "rust": _WrongGemm()},
+    )
+    row = next(line for line in report.splitlines() if line.startswith("| rust"))
+    assert "pass" not in row, row
+
