@@ -47,7 +47,7 @@ class LoRALinear(Module):
         self.lora_A: Optional[Parameter]
         self.lora_B: Optional[Parameter]
         if r > 0:
-            # A initialized with Gaussian N(0, 1/r), B initialized to 0
+            # A initialized with Gaussian N(0, 1/in_features), B initialized to 0
             limit_a = 1.0 / np.sqrt(self.in_features)
             a_data = np.random.normal(0.0, limit_a, (r, self.in_features))
             b_data = np.zeros((self.out_features, r), dtype=np.float64)
