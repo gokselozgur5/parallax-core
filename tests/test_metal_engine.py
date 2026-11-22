@@ -167,30 +167,43 @@ def test_metal_engine_int32_bounds():
         metal_rmsnorm(MockArray(), weight)
 
 
-def test_metal_buffers_released_on_exception():
-    if not is_metal_available() or sys.platform != "darwin":
-        pytest.skip("Metal not available on this platform")
-
+def test_metal_buffers_released_on_exception(monkeypatch):
     import ctypes
-    from parallax.metal_engine import _OBJC, _DEVICE
-
-    objc_msgSend = ctypes.cast(_OBJC.objc_msgSend, ctypes.c_void_p).value
-    sel = _OBJC.sel_registerName(b"currentAllocatedSize")
-    query_alloc = ctypes.CFUNCTYPE(ctypes.c_size_t, ctypes.c_void_p, ctypes.c_void_p)(objc_msgSend)
+    import parallax.metal_engine as me
 
     x = np.random.randn(64, 64).astype(np.float32)
     w = np.random.randn(64).astype(np.float32)
 
     # Warmup
     metal_rmsnorm(x, w)
-    alloc_before = query_alloc(_DEVICE, sel)
+    with monkeypatch.context() as mp:
+        is_mock = _mock_metal_runtime(mp, me)
+        real_send, allocs, releases, alloc_before = me._objc_send, 0, 0, 0
+        if not is_mock:
+            msg = ctypes.cast(me._OBJC.objc_msgSend, ctypes.c_void_p).value
+            sel = me._OBJC.sel_registerName(b"currentAllocatedSize")
+            q_alloc = ctypes.CFUNCTYPE(ctypes.c_size_t, ctypes.c_void_p, ctypes.c_void_p)(msg)
+            alloc_before = q_alloc(me._DEVICE, sel)
 
-    for _ in range(100):
-        with pytest.raises(TypeError):
-            metal_rmsnorm(x, w, eps="invalid_eps")  # type: ignore[arg-type]
+        def fail_after_alloc(ret_type, target, sel_name, *args):
+            nonlocal allocs, releases
+            if sel_name in ("newBufferWithBytes:length:options:", "newBufferWithLength:options:"):
+                allocs += 1
+                return allocs if is_mock else real_send(ret_type, target, sel_name, *args)
+            if sel_name == "release":
+                releases += 1
+                return None if is_mock else real_send(ret_type, target, sel_name, *args)
+            if sel_name == "status":
+                return 5
+            return 1 if is_mock else real_send(ret_type, target, sel_name, *args)
 
-    alloc_after = query_alloc(_DEVICE, sel)
-    assert alloc_after <= alloc_before, f"Leaked {alloc_after - alloc_before} bytes after failing calls"
+        mp.setattr(me, "_objc_send", fail_after_alloc)
+        for _ in range(100):
+            with pytest.raises(RuntimeError, match="status 5"):
+                metal_rmsnorm(x, w)
+        alloc_after = (allocs - releases) if is_mock else q_alloc(me._DEVICE, sel)
+        assert allocs == 300 and releases == 300
+        assert alloc_after == alloc_before, f"Leaked {alloc_after - alloc_before} bytes after failing calls"
 
     # Following valid call must return
     res = metal_rmsnorm(x, w)
