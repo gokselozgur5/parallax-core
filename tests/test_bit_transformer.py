@@ -250,16 +250,22 @@ def test_bit_transformer_autoregressive_generation():
 
     # 3. Early stopping with eos_token_id
     eos_token_id = 9
-    # Force eos token to be sampled by overriding generator or testing branch
-    tokens_stream = list(
-        model.generate_stream(
-            prompt_tokens=prompt,
-            max_new_tokens=10,
-            temperature=1.0,
-            eos_token_id=eos_token_id,
+    import parallax.generator as gen
+    orig_sample = gen.sample_next_token
+    try:
+        gen.sample_next_token = lambda logits, **kwargs: eos_token_id
+        tokens_stream = list(
+            model.generate_stream(
+                prompt_tokens=prompt,
+                max_new_tokens=10,
+                temperature=1.0,
+                eos_token_id=eos_token_id,
+            )
         )
-    )
-    assert len(tokens_stream) <= 10
+        assert tokens_stream == [eos_token_id]
+        assert len(tokens_stream) == 1
+    finally:
+        gen.sample_next_token = orig_sample
 
 
 def test_bit_transformer_generate_max_new_tokens_edge_cases():
