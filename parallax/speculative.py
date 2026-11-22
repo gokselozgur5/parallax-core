@@ -14,7 +14,7 @@ import time
 from typing import Dict, List, Optional, Tuple
 import numpy as np
 
-from parallax.generator import sample_next_token
+from parallax.generator import _validate_top_p, sample_next_token
 from parallax.models.gpt import ParallaxLM
 from parallax.tensor import no_grad
 
@@ -46,7 +46,9 @@ def _compute_token_probs(
     exp_l = np.exp(scaled - np.max(scaled))
     probs = exp_l / np.sum(exp_l)
 
-    if top_p is not None and 0.0 < top_p < 1.0:
+    _validate_top_p(top_p)
+
+    if top_p is not None and top_p < 1.0:
         sorted_indices = np.argsort(probs)[::-1]
         sorted_probs = probs[sorted_indices]
         cumulative = np.cumsum(sorted_probs)
