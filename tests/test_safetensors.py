@@ -125,3 +125,31 @@ def test_safetensors_metadata_validation():
 
         with pytest.raises(ValueError, match="Invalid safetensors __metadata__"):
             load_safetensors(file_path)
+
+
+def test_safetensors_non_string_dtype_is_a_value_error(tmp_path):
+    header = json.dumps({"a": {"dtype": ["F32"], "shape": [1], "data_offsets": [0, 4]}}).encode()
+    path = tmp_path / "bad.safetensors"
+    path.write_bytes(struct.pack("<Q", len(header)) + header + b"\x00" * 4)
+    with pytest.raises(ValueError):
+        load_safetensors(str(path))
+
+
+def test_gguf_non_integer_alignment_is_a_value_error(tmp_path):
+    from parallax.gguf import GGUF_MAGIC, GGUF_TYPE_ARRAY, GGUF_TYPE_UINT32, load_gguf
+
+    # Construct a minimal GGUF file with general.alignment metadata as an array
+    path = tmp_path / "bad.gguf"
+    key_bytes = b"general.alignment"
+    payload = bytearray()
+    payload += GGUF_MAGIC
+    payload += struct.pack("<IQQ", 3, 0, 1)  # version 3, 0 tensors, 1 metadata kv
+    payload += struct.pack("<Q", len(key_bytes)) + key_bytes
+    payload += struct.pack("<I", GGUF_TYPE_ARRAY)
+    payload += struct.pack("<IQ", GGUF_TYPE_UINT32, 2)  # elem_type uint32, count 2
+    payload += struct.pack("<II", 1, 2)
+    path.write_bytes(bytes(payload))
+
+    with pytest.raises(ValueError):
+        load_gguf(str(path))
+
