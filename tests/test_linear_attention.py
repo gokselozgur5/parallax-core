@@ -1,6 +1,8 @@
 import numpy as np
+import pytest
+from parallax.attention import CausalSelfAttention
 from parallax.linear_attention import LinearAttention, elu_feature_map
-from parallax.tensor import Tensor
+from parallax.tensor import Tensor, no_grad
 
 
 def test_elu_feature_map_positivity():
@@ -124,3 +126,30 @@ def test_linear_attention_parallel_autograd_finite_differences():
         abs_err = np.max(np.abs(num_grad - auto_grad))
         rel_err = np.max(np.abs(num_grad - auto_grad) / (np.abs(num_grad) + np.abs(auto_grad) + 1e-8))
         assert abs_err < 1e-5 or rel_err < 1e-4, f"Gradcheck failed for {name}: abs={abs_err}, rel={rel_err}"
+
+
+def test_linear_attention_recurrent_path_refuses_autograd_and_allows_no_grad():
+    np.random.seed(0)
+    attn = LinearAttention(embed_dim=8, num_heads=2)
+    x = Tensor(np.random.randn(1, 4, 8))
+    with pytest.raises(RuntimeError, match="LinearAttention.*recurrent"):
+        attn(x, return_state=True)
+    state = (np.zeros((1, 2, 4, 4)), np.zeros((1, 2, 4, 1)))
+    with pytest.raises(RuntimeError, match="LinearAttention.*recurrent"):
+        attn(Tensor(np.random.randn(1, 1, 8)), state=state)
+    with no_grad():
+        out, next_state = attn(x, return_state=True)
+    assert out.shape == (1, 4, 8) and next_state[0].shape == (1, 2, 4, 4)
+
+
+def test_causal_attention_cached_path_refuses_autograd_and_allows_no_grad():
+    np.random.seed(0)
+    attn = CausalSelfAttention(embed_dim=8, num_heads=2)
+    empty = (np.empty((1, 2, 0, 4)), np.empty((1, 2, 0, 4)))
+    x = Tensor(np.random.randn(1, 4, 8))
+    with pytest.raises(RuntimeError, match="CausalSelfAttention.*kv_cache"):
+        attn(x, kv_cache=empty)
+    with no_grad():
+        out, cache = attn(x, kv_cache=empty)
+    assert out.shape == (1, 4, 8) and cache[0].shape == (1, 2, 4, 4)
+
