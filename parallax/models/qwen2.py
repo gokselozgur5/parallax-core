@@ -11,12 +11,26 @@ from typing import Any, Dict, Optional
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 
 
+# Published Qwen2 / Qwen2.5 intermediate sizes mapped by hidden size (embed_dim)
+QWEN2_INTERMEDIATE_SIZES: Dict[int, int] = {
+    896: 4864,    # Qwen2.5-0.5B
+    1024: 2816,   # synthetic / small fallback
+    1536: 8960,   # Qwen2.5-1.5B / Qwen2.5-Coder-1.5B
+    2048: 11008,  # Qwen2.5-3B
+    3584: 18944,  # Qwen2.5-7B / Qwen2.5-Coder-7B
+    5120: 27648,  # Qwen2.5-14B / Qwen2.5-Coder-14B
+    8192: 29568,  # Qwen2.5-72B
+}
+
+
 def calculate_qwen2_intermediate_size(hidden_size: int, multiple_of: int = 256) -> int:
     """Calculates SwiGLU intermediate_size for Qwen2 architectures.
 
-    Follows standard SwiGLU dimension scaling (~8/3 * hidden_size) rounded to
-    the nearest hardware-friendly multiple.
+    Returns the published intermediate size for standard Qwen2 hidden dimensions,
+    or falls back to SwiGLU dimension scaling rounded to multiple_of.
     """
+    if hidden_size in QWEN2_INTERMEDIATE_SIZES:
+        return QWEN2_INTERMEDIATE_SIZES[hidden_size]
     raw_size = int(2 * (4 * hidden_size) / 3)
     return multiple_of * ((raw_size + multiple_of - 1) // multiple_of)
 
