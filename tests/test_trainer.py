@@ -147,4 +147,26 @@ def test_trainer_moe_aux_loss_gradient_accumulation_and_single_coef_scale():
     assert np.isclose(float(model.blocks[0].mlp.aux_loss.grad), 0.5)
 
 
+def _batches():
+    rng = np.random.default_rng(0)
+    while True:
+        x = rng.integers(0, 16, size=(2, 8))
+        yield x, np.roll(x, -1, axis=1)
+
+
+import pytest
+
+
+@pytest.mark.parametrize("field", ["grad_accum_steps", "eval_interval", "checkpoint_interval"])
+def test_zero_count_or_interval_is_rejected_or_handled(field, tmp_path):
+    config = ParallaxLMConfig(vocab_size=16, embed_dim=16, num_heads=2, num_layers=1, max_seq_len=16)
+    model = ParallaxLM(config)
+    try:
+        cfg = TrainerConfig(max_steps=1, checkpoint_prefix=str(tmp_path / "ckpt"), **{field: 0})
+        Trainer(model, AdamW(model.parameters()), cfg, _batches(), val_loader=_batches()).train()
+    except ValueError as exc:
+        assert field in str(exc)
+
+
+
 
