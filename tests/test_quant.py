@@ -14,7 +14,7 @@ from parallax.quant import (
     quantize_int8,
     quantize_model,
 )
-from parallax.tensor import Tensor
+from parallax.tensor import Tensor, no_grad
 
 
 def test_quantize_and_dequantize_int8_precision():
@@ -141,5 +141,51 @@ def test_quantized_linear_cache_follows_weight_updates():
     layer.w_int8 = np.zeros_like(layer.w_int8)
 
     np.testing.assert_allclose(layer(x).data, np.zeros((1, 3)))
+
+
+def test_quantized_linear_propagates_gradient_to_input():
+    np.random.seed(0)
+    layer = QuantizedLinear.from_linear(Linear(4, 3))
+    x = Tensor(np.random.randn(2, 4))
+
+    out = layer(x)
+    assert out.requires_grad
+    out.sum().backward()
+
+    w = dequantize_int8(layer.w_int8, layer.scale)
+    expected = np.ones((2, 3)) @ w
+    assert x.grad is not None
+    np.testing.assert_allclose(x.grad, expected)
+
+
+def test_quantized_linear_upstream_finite_diff_and_no_grad():
+    np.random.seed(7)
+    pre = Linear(5, 4, bias=True)
+    lin = Linear(4, 3, bias=True)
+    lin.bias.data = np.array([0.2, -0.4, 0.7])
+    qlin = QuantizedLinear.from_linear(lin)
+    scale_out = np.random.randn(2, 2, 3)
+
+    x = Tensor(np.random.randn(2, 2, 5))
+    loss = (qlin(pre(x)) * scale_out).sum()
+    loss.backward()
+    assert pre.weight.grad is not None and pre.bias.grad is not None and x.grad is not None
+
+    eps = 1e-6
+    w_q = dequantize_int8(qlin.w_int8, qlin.scale)
+    num_grad = np.zeros_like(x.data)
+    for idx in np.ndindex(x.shape):
+        xp, xm = x.data.copy(), x.data.copy()
+        xp[idx] += eps
+        xm[idx] -= eps
+        yp = ((xp @ pre.weight.data.T + pre.bias.data) @ w_q.T + qlin.bias_data) * scale_out
+        ym = ((xm @ pre.weight.data.T + pre.bias.data) @ w_q.T + qlin.bias_data) * scale_out
+        num_grad[idx] = (yp.sum() - ym.sum()) / (2.0 * eps)
+    np.testing.assert_allclose(x.grad, num_grad, rtol=1e-5, atol=1e-6)
+
+    with no_grad():
+        out_ng = qlin(pre(x))
+        assert not out_ng.requires_grad and len(out_ng._prev) == 0
+
 
 
