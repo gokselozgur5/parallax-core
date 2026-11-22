@@ -301,9 +301,9 @@ class Tensor:
         if grad is None:
             if not (self.shape == () or self.shape == (1,)):
                 raise ValueError("Default backward only supported for scalar outputs")
-            self.grad = np.ones_like(self.data, dtype=np.float64)
+            root_grad = np.ones_like(self.data, dtype=np.float64)
         else:
-            self.grad = grad.astype(np.float64)
+            root_grad = grad.astype(np.float64)
 
         topo: List["Tensor"] = []
         visited: Set["Tensor"] = set()
@@ -321,6 +321,15 @@ class Tensor:
             for child in node._prev:
                 if child not in visited:
                     stack.append((child, False))
+
+        for node in topo:
+            if node._prev:
+                node.grad = None
+
+        if self._prev or self.grad is None:
+            self.grad = root_grad
+        else:
+            self.grad = self.grad + root_grad
 
         for node in reversed(topo):
             node._backward()
