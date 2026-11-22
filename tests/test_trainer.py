@@ -97,3 +97,30 @@ def test_trainer_sets_model_training_mode_with_lora():
     assert model.training is False
     assert all(not l.training for l in lora_layers)
 
+
+def test_trainer_objective_includes_moe_aux_loss():
+    np.random.seed(0)
+    cfg = ParallaxLMConfig(
+        vocab_size=16, embed_dim=8, num_heads=2, num_layers=2, num_experts=4, top_k_experts=2
+    )
+    model = ParallaxLM(cfg)
+    model.lm_head.weight.data.fill(0.0)
+
+    def batches():
+        while True:
+            x = np.random.randint(0, 16, (3, 3))
+            yield x, x
+
+    opt = AdamW(model.parameters(), weight_decay=0.0)
+    trainer = Trainer(model, opt, TrainerConfig(max_steps=1, max_grad_norm=None), batches())
+    trainer.train()
+
+    param_moments = {id(p): m for p, m in zip(opt.params, opt.m)}
+    for block in model.blocks:
+        aux = block.mlp.aux_loss
+        assert aux is not None and float(aux.data) > 0.0
+        assert aux.grad is not None, "aux loss was never part of the backward pass"
+        assert np.isclose(float(aux.grad), 1.0)
+        assert np.any(param_moments[id(block.mlp.router.weight)] != 0.0)
+
+
