@@ -91,3 +91,17 @@ def test_causal_self_attention_records_weights():
     assert hasattr(mha, "last_attn_weights")
     assert mha.last_attn_weights is not None
     assert mha.last_attn_weights.shape == (1, num_heads, seq_len, seq_len)
+
+
+def test_graph_export_handles_deep_chain():
+    x = Value(1.0, label="x")
+    total = Value(0.0)
+    for _ in range(3000):
+        total = total + x
+    total.backward()
+    nodes, edges = trace_graph(total)
+    assert len(nodes) == 3002
+    assert len(edges) == 6000
+    assert x.grad == 3000.0
+    assert to_dot(total).startswith("digraph")
+    assert to_mermaid(total).startswith("graph")
