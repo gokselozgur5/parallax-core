@@ -136,10 +136,12 @@ def _collect_gpt_tensors(
     return metadata, tensors
 
 
-def _collect_bitmamba_tensors(model: BitMambaLM) -> Tuple[Dict[str, Any], Dict[str, np.ndarray]]:
+def _collect_bitmamba_tensors(
+    model: BitMambaLM, architecture: str = "mamba"
+) -> Tuple[Dict[str, Any], Dict[str, np.ndarray]]:
     """Extracts metadata and tensor map from a BitMambaLM model."""
     cfg = model.config
-    arch = "mamba"
+    arch = architecture.lower()
 
     metadata: Dict[str, Any] = {
         "general.architecture": arch,
@@ -208,11 +210,9 @@ def export_to_gguf_v3(
 
     # Extract metadata and tensors depending on model type
     if isinstance(model, BitMambaLM):
-        metadata, tensors = _collect_bitmamba_tensors(model)
+        arch = architecture.lower() if architecture is not None else "mamba"
+        metadata, tensors = _collect_bitmamba_tensors(model, architecture=arch)
         vocab_size = model.config.vocab_size
-        if architecture is not None:
-            arch = architecture.lower()
-            metadata["general.architecture"] = arch
     elif isinstance(model, ParallaxLM):
         arch = architecture.lower() if architecture is not None else "llama"
         metadata, tensors = _collect_gpt_tensors(model, architecture=arch)
