@@ -115,24 +115,28 @@ class ContinuousBatchEngine:
             step_outputs: List[Tuple[str, int]] = []
             still_running: List[SequenceRequest] = []
 
+            max_seq_len = getattr(self.model.config, "max_seq_len", None)
+
             # Process each running request for 1 iteration
             for req in self.running_requests:
                 try:
-                    if req.kv_cache is None:
-                        # Prefill step
-                        input_tokens = np.array([req.prompt_tokens], dtype=np.int64)
-                        # Initialize empty KV cache per layer
-                        num_heads = self.model.config.num_heads
-                        num_kv_heads = (
-                            self.model.config.num_kv_heads
-                            if self.model.config.num_kv_heads is not None
-                            else num_heads
-                        )
-                        head_dim = (
-                            self.model.config.head_dim
-                            if self.model.config.head_dim is not None
-                            else self.model.config.embed_dim // num_heads
-                        )
+                    num_heads = self.model.config.num_heads
+                    num_kv_heads = (
+                        self.model.config.num_kv_heads
+                        if self.model.config.num_kv_heads is not None
+                        else num_heads
+                    )
+                    head_dim = (
+                        self.model.config.head_dim
+                        if self.model.config.head_dim is not None
+                        else self.model.config.embed_dim // num_heads
+                    )
+                    current_tokens = req.prompt_tokens + req.generated_tokens
+                    cached_len = req.kv_cache[0][0].shape[2] if req.kv_cache is not None else 0
+                    if req.kv_cache is None or (max_seq_len is not None and cached_len >= max_seq_len):
+                        # Prefill step or re-prefill when context window is full
+                        ctx = current_tokens[-max_seq_len:] if max_seq_len is not None else current_tokens
+                        input_tokens = np.array([ctx], dtype=np.int64)
                         initial_kv = [
                             (
                                 np.empty((1, num_kv_heads, 0, head_dim), dtype=np.float64),
@@ -143,7 +147,7 @@ class ContinuousBatchEngine:
                         with no_grad():
                             logits, updated_kv = self.model(input_tokens, kv_caches=initial_kv)
                         req.kv_cache = updated_kv
-                        req.total_tokens_seen = len(req.prompt_tokens)
+                        req.total_tokens_seen = len(ctx)
                         next_token_logits = logits.data[0, -1, :]
                     else:
                         # Decode single token step
