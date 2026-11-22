@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Tuple
+from typing import Any, Optional, Tuple
 import numpy as np
 
 from parallax.tensor import Tensor, _accumulate_grad
@@ -53,6 +53,25 @@ def swiglu_backward(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Compute fused SwiGLU backward gradients for gate and up tensors."""
     return _dispatch_swiglu_backward(grad, gate, up)
+
+
+def _resolve_proj(
+    proj: Any,
+) -> Tuple[Optional[Tensor], Optional[Tensor], np.ndarray, Optional[np.ndarray]]:
+    """Unpack Linear module, Parameter/Tensor, or ndarray projection weights."""
+    if hasattr(proj, "weight"):
+        w_t, b_t = proj.weight, getattr(proj, "bias", None)
+        rw = w_t.data if isinstance(w_t, Tensor) else np.asarray(w_t)
+        rb = b_t.data if isinstance(b_t, Tensor) else (None if b_t is None else np.asarray(b_t))
+        return (
+            w_t if isinstance(w_t, Tensor) else None,
+            b_t if isinstance(b_t, Tensor) else None,
+            rw,
+            rb,
+        )
+    if isinstance(proj, Tensor):
+        return proj, None, proj.data, None
+    return None, None, np.asarray(proj), None
 
 
 def gated_mlp_backward(
