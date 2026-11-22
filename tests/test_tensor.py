@@ -269,3 +269,16 @@ def test_rust_softmax_fully_masked_row_matches_fallback(monkeypatch):
         np.testing.assert_array_equal(native, fallback)
 
 
+def test_second_backward_through_shared_node_does_not_double_count():
+    x = Tensor(np.array([1.0, 2.0, 3.0]))
+    h = x * 2.0
+    loss_a = h.sum()  # d(loss_a)/dx = 2
+    loss_b = (h * h).sum()  # d(loss_b)/dx = 8 * x
+    loss_a.backward()
+    loss_b.backward()
+    np.testing.assert_allclose(x.grad, np.array([10.0, 18.0, 26.0]))
+
+    loss_c = (x * 3.0).sum()  # separate graph still accumulates into leaf x
+    loss_c.backward()
+    np.testing.assert_allclose(x.grad, np.array([13.0, 21.0, 29.0]))
+
