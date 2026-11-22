@@ -210,7 +210,7 @@ class HFTokenizer:
         for tok, tok_id in self.added_tokens.items():
             self.vocab[tok] = tok_id
             self.id_to_token[tok_id] = tok
-        self.vocab_size = len(self.vocab)
+        self.vocab_size = max(self.id_to_token.keys(), default=-1) + 1
         self.split_pattern: Optional[str] = split_pattern
         self.pretokenizer_regex = _PRETOKENIZER_REGEX
         if split_pattern:
