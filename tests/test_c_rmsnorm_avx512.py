@@ -14,12 +14,8 @@ def test_avx512_rmsnorm_availability_probe():
 def test_rmsnorm_avx512_shape_validation():
     x = np.ones((2, 16), dtype=np.float32)
     w_bad = np.ones((7,), dtype=np.float32)
-    if not is_avx512_rmsnorm_available():
-        with pytest.raises(RuntimeError, match="unavailable"):
-            rmsnorm_avx512(x, w_bad)
-    else:
-        with pytest.raises(ValueError, match="shape mismatch"):
-            rmsnorm_avx512(x, w_bad)
+    with pytest.raises(ValueError, match="shape mismatch"):
+        rmsnorm_avx512(x, w_bad)
 
 
 def test_rmsnorm_avx512_raises_when_unavailable(monkeypatch):
@@ -27,9 +23,13 @@ def test_rmsnorm_avx512_raises_when_unavailable(monkeypatch):
 
     monkeypatch.setattr(mod, "is_avx512_rmsnorm_available", lambda: False)
     x = np.ones((2, 16), dtype=np.float32)
-    w = np.ones((16,), dtype=np.float32)
-    with pytest.raises(RuntimeError, match="unavailable"):
-        mod.rmsnorm_avx512(x, w)
+    w = np.full((16,), 0.5, dtype=np.float32)
+    actual = mod.rmsnorm_avx512(x, w, eps=1e-5)
+    expected = _numpy_rmsnorm(x, w, eps=1e-5)
+    assert actual.shape == x.shape
+    np.testing.assert_allclose(actual, expected, rtol=1e-5, atol=1e-5)
+    with pytest.raises(ValueError, match="at least 1 dimension"):
+        mod.rmsnorm_avx512(np.array(1.0, dtype=np.float32), w)
 
 
 def _numpy_rmsnorm(x: np.ndarray, weight: np.ndarray, eps: float = 1e-6) -> np.ndarray:
@@ -39,8 +39,6 @@ def _numpy_rmsnorm(x: np.ndarray, weight: np.ndarray, eps: float = 1e-6) -> np.n
 
 @pytest.mark.parametrize("shape", [(1, 16), (2, 32), (4, 64), (3, 77), (2, 128)])
 def test_rmsnorm_avx512_numerical_parity(shape):
-    if not is_avx512_rmsnorm_available():
-        pytest.skip("AVX-512 RMSNorm not available on this platform")
     rng = np.random.default_rng(42)
     x = rng.standard_normal(shape).astype(np.float32)
     w = rng.standard_normal(shape[1]).astype(np.float32)
