@@ -215,4 +215,32 @@ def test_pop_completed_request_clears_kv_cache():
     assert "pop-test" not in engine.completed_requests
 
 
+def test_continuous_batch_engine_decoupled_head_dim():
+    config = ParallaxLMConfig(
+        vocab_size=32,
+        embed_dim=16,
+        num_heads=2,
+        num_kv_heads=1,
+        head_dim=12,
+        num_layers=1,
+        max_seq_len=64,
+        use_swiglu=False,
+    )
+    model = ParallaxLM(config)
+    engine = ContinuousBatchEngine(model=model, max_batch_size=2)
+    engine.add_request(
+        SequenceRequest("decoupled-head-dim", prompt_tokens=[1, 2, 3], max_new_tokens=2)
+    )
+    step_outputs = engine.step()
+    req = engine.running_requests[0] if engine.running_requests else engine.completed_requests["decoupled-head-dim"]
+    assert req.status != RequestStatus.FAILED, f"Request failed: {req.error}"
+    assert req.kv_cache is not None
+    assert req.kv_cache[0][0].shape == (1, 1, 3, 12)
+    assert len(step_outputs) == 1
+    engine.step()
+    assert req.status == RequestStatus.FINISHED
+
+
+
+
 
