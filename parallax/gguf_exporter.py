@@ -23,6 +23,7 @@ from parallax.gguf import (
     save_gguf,
 )
 from parallax.gguf_quant import quantize_q4_0, quantize_q8_0
+from parallax.hf_tokenizer import _BYTE_TO_UNICODE
 from parallax.models.gpt import ParallaxLM
 
 
@@ -221,15 +222,51 @@ def export_to_gguf_v3(
 
     # Populate tokenizer metadata
     if tokenizer is not None:
+        tokens: list[str] = []
+        token_types: list[int] = []
         if hasattr(tokenizer, "raw_tokens"):
-            metadata["tokenizer.ggml.tokens"] = list(tokenizer.raw_tokens)
+            tokens = list(tokenizer.raw_tokens)
         elif hasattr(tokenizer, "vocab") and isinstance(tokenizer.vocab, dict):
-            sorted_tokens = [tok for tok, _ in sorted(tokenizer.vocab.items(), key=lambda x: x[1])]
-            metadata["tokenizer.ggml.tokens"] = sorted_tokens
+            first_val = next(iter(tokenizer.vocab.values()), None)
+            if isinstance(first_val, bytes):
+                inv_sp = getattr(tokenizer, "inverse_special", {})
+                for i in range(len(tokenizer.vocab)):
+                    raw_b = tokenizer.vocab[i]
+                    if i in inv_sp:
+                        tokens.append(inv_sp[i])
+                        token_types.append(3)
+                    else:
+                        tokens.append("".join(_BYTE_TO_UNICODE[b] for b in raw_b))
+                        token_types.append(1)
+            else:
+                tokens = [tok for tok, _ in sorted(tokenizer.vocab.items(), key=lambda x: x[1])]
+                added = getattr(tokenizer, "added_tokens", {})
+                token_types = [3 if t in added else 1 for t in tokens]
+        metadata["tokenizer.ggml.tokens"] = tokens
+        if token_types:
+            metadata["tokenizer.ggml.token_type"] = token_types
         if getattr(tokenizer, "bos_token_id", None) is not None:
             metadata["tokenizer.ggml.bos_token_id"] = int(tokenizer.bos_token_id)
         if getattr(tokenizer, "eos_token_id", None) is not None:
             metadata["tokenizer.ggml.eos_token_id"] = int(tokenizer.eos_token_id)
+        merges_list: list[str] = []
+        if hasattr(tokenizer, "merges") and isinstance(tokenizer.merges, dict):
+            inv_v = {v: k for k, v in tokenizer.vocab.items()} if hasattr(tokenizer, "vocab") else {}
+            for pair in tokenizer.merges.keys():
+                if isinstance(pair[0], str):
+                    merges_list.append(f"{pair[0]} {pair[1]}")
+                elif isinstance(pair[0], int) and inv_v:
+                    t0 = inv_v.get(pair[0])
+                    t1 = inv_v.get(pair[1])
+                    if isinstance(t0, bytes):
+                        t0 = "".join(_BYTE_TO_UNICODE[b] for b in t0)
+                    if isinstance(t1, bytes):
+                        t1 = "".join(_BYTE_TO_UNICODE[b] for b in t1)
+                    if t0 and t1:
+                        merges_list.append(f"{t0} {t1}")
+        if merges_list:
+            metadata["tokenizer.ggml.merges"] = merges_list
+        metadata["tokenizer.ggml.model"] = getattr(tokenizer, "model_type", None) or "gpt2"
     else:
         default_tokens = []
         for i in range(vocab_size):
