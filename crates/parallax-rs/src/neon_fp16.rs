@@ -1,12 +1,13 @@
-//! NEON FP16 dot-product kernel alignment verification and execution.
+//! Scalar FP16 dot-product kernel alignment verification and execution.
 
-/// Required byte alignment for 128-bit NEON SIMD vector memory operations.
-pub const NEON_SIMD_ALIGNMENT_BYTES: usize = 16;
+/// Byte alignment for 128-bit vector memory operations.
+pub const FP16_VECTOR_ALIGNMENT_BYTES: usize = 16;
+pub const NEON_SIMD_ALIGNMENT_BYTES: usize = FP16_VECTOR_ALIGNMENT_BYTES;
 
 /// Minimum alignment requirement for individual half-precision float primitives.
 pub const FP16_ELEMENT_ALIGNMENT_BYTES: usize = 2;
 
-/// Errors that can occur during NEON FP16 dot-product operations.
+/// Errors that can occur during scalar FP16 dot-product operations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NeonFp16Error {
     NullPointer,
@@ -37,7 +38,7 @@ pub fn is_pointer_aligned<T>(ptr: *const T, align_bytes: usize) -> bool {
     (ptr as usize).is_multiple_of(align_bytes)
 }
 
-/// Verifies memory alignment for NEON FP16 vector operands.
+/// Verifies memory alignment for FP16 vector operands.
 pub fn verify_fp16_alignment(
     a_ptr: *const u16,
     b_ptr: *const u16,
@@ -47,7 +48,7 @@ pub fn verify_fp16_alignment(
         return Err(NeonFp16Error::NullPointer);
     }
     let required = if strict_simd {
-        NEON_SIMD_ALIGNMENT_BYTES
+        FP16_VECTOR_ALIGNMENT_BYTES
     } else {
         FP16_ELEMENT_ALIGNMENT_BYTES
     };
@@ -93,7 +94,7 @@ pub fn dot_fp16_scalar(a: &[u16], b: &[u16]) -> Result<f32, NeonFp16Error> {
     Ok(sum)
 }
 
-/// Computes FP16 dot-product with runtime alignment verification and chunking.
+/// Computes FP16 dot-product with runtime alignment verification.
 pub fn dot_fp16_verified(a: &[u16], b: &[u16]) -> Result<f32, NeonFp16Error> {
     if a.len() != b.len() {
         return Err(NeonFp16Error::DimensionMismatch);
@@ -102,13 +103,19 @@ pub fn dot_fp16_verified(a: &[u16], b: &[u16]) -> Result<f32, NeonFp16Error> {
     dot_fp16_scalar(a, b)
 }
 
-/// Computes strict 16-byte SIMD aligned NEON FP16 dot product with boundary checking.
-pub fn dot_fp16_simd_aligned(a: &[u16], b: &[u16]) -> Result<f32, NeonFp16Error> {
+/// Computes 16-byte aligned scalar FP16 dot product with boundary checking.
+pub fn dot_fp16_aligned(a: &[u16], b: &[u16]) -> Result<f32, NeonFp16Error> {
     if a.len() != b.len() {
         return Err(NeonFp16Error::DimensionMismatch);
     }
     verify_fp16_alignment(a.as_ptr(), b.as_ptr(), true)?;
     dot_fp16_scalar(a, b)
+}
+
+/// Backwards-compatible alias for dot_fp16_aligned.
+#[inline]
+pub fn dot_fp16_simd_aligned(a: &[u16], b: &[u16]) -> Result<f32, NeonFp16Error> {
+    dot_fp16_aligned(a, b)
 }
 
 #[cfg(test)]
