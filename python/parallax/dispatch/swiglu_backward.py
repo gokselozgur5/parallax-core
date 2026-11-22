@@ -114,19 +114,45 @@ def gated_mlp_backward(
     return dx, dw_gate, dw_up, dw_down
 
 
+def _propagate_from_roots(roots: Tuple[Tensor, ...]) -> None:
+    """Propagate accumulated gradients backward from intermediate Tensor roots."""
+    active = [r for r in roots if r.requires_grad and r._prev]
+    if not active:
+        return
+    topo: list[Tensor] = []
+    visited: set[Tensor] = set()
+    stack: list[Tuple[Tensor, bool]] = [(r, False) for r in active]
+    while stack:
+        node, processed = stack.pop()
+        if processed:
+            topo.append(node)
+        elif node not in visited:
+            visited.add(node)
+            stack.append((node, True))
+            stack.extend((c, False) for c in node._prev if c not in visited)
+    for node in reversed(topo):
+        node._backward()
+
+
 def dispatched_swiglu_backward(
     grad_output: Tensor | np.ndarray,
     gate: Tensor,
     up: Tensor,
 ) -> Tuple[Tensor, Tensor]:
-    """Propagate backward gradients to gate and up Tensors."""
-    g_arr = grad_output.data if isinstance(grad_output, Tensor) else grad_output
+    """Propagate backward gradients to gate, up, and their upstream Tensor DAG."""
+    g_arr = grad_output.data if isinstance(grad_output, Tensor) else np.asarray(grad_output)
     dgate, dup = swiglu_backward(g_arr, gate.data, up.data)
     if gate.requires_grad:
         _accumulate_grad(gate, dgate)
     if up.requires_grad:
         _accumulate_grad(up, dup)
-    return Tensor(dgate), Tensor(dup)
+    _propagate_from_roots((gate, up))
+    g_prev = (gate,) if gate.requires_grad else ()
+    u_prev = (up,) if up.requires_grad else ()
+    return (
+        Tensor(dgate, g_prev, "swiglu_bwd_gate", requires_grad=False),
+        Tensor(dup, u_prev, "swiglu_bwd_up", requires_grad=False),
+    )
 
 
 class FusedSwiGLUBackward:
