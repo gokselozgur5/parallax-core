@@ -180,6 +180,22 @@ def _attach_fused_layernorm_backward(
     out_t._backward = _backward
 
 
+def _attach_residual_backward(res_t: Tensor, x: Any, residual: Any) -> None:
+    """Attach pass-through autograd backward callback to fused residual Tensor."""
+    if not res_t.requires_grad:
+        return
+
+    def _backward_res() -> None:
+        if res_t.grad is None:
+            return
+        if isinstance(x, Tensor) and x.requires_grad:
+            _accumulate_grad(x, res_t.grad)
+        if isinstance(residual, Tensor) and residual.requires_grad:
+            _accumulate_grad(residual, res_t.grad)
+
+    res_t._backward = _backward_res
+
+
 def dispatched_fused_layernorm(
     x: Tensor | np.ndarray,
     weight: Optional[Tensor | np.ndarray] = None,
@@ -204,7 +220,10 @@ def dispatched_fused_layernorm(
     out_t = Tensor(out_arr, parents, "DispatchedFusedLayerNorm")
     _attach_fused_layernorm_backward(out_t, x, weight, bias, residual, eps, rms_scale)
     if return_residual and isinstance(res_fwd, tuple):
-        return out_t, Tensor(res_fwd[1], parents, "ResidualFused")
+        parents_res = tuple(p for p in (x, residual) if isinstance(p, Tensor))
+        res_t = Tensor(res_fwd[1], parents_res, "ResidualFused", requires_grad=False)
+        _attach_residual_backward(res_t, x, residual)
+        return out_t, res_t
     return out_t
 
 
