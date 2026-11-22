@@ -26,6 +26,20 @@ def test_qwen2_intermediate_size_formula():
     assert calculate_qwen2_intermediate_size(512, multiple_of=64) == 1408
 
 
+def test_qwen2_intermediate_size_matches_published_configs():
+    """Verify calculate_qwen2_intermediate_size matches published Qwen2 checkpoints."""
+    published = {896: 4864, 1536: 8960, 3584: 18944}
+    presets = (
+        Qwen2Config.qwen2_5_0_5b(),
+        Qwen2Config.qwen2_5_coder_1_5b(),
+        Qwen2Config.qwen2_5_coder_7b(),
+    )
+    for preset in presets:
+        assert preset.intermediate_size == published[preset.embed_dim]
+        got = calculate_qwen2_intermediate_size(preset.embed_dim)
+        assert got == published[preset.embed_dim], (preset.embed_dim, got)
+
+
 def test_qwen25_coder_preset_configs():
     """Test predefined Qwen2.5 architectural preset configurations."""
     # 1. Qwen2.5-0.5B preset
