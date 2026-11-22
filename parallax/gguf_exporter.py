@@ -1,8 +1,8 @@
 """
 Zero-dependency GGUF v3 Model Exporter and Quantization Pipeline.
 
-Implements end-to-end serialization of Parallax models (ParallaxLM / GPT architectures,
-BitMamba SSM) into official GGUF v3 format compatible with llama.cpp and Ollama.
+Implements serialization of Parallax models (ParallaxLM / GPT architectures,
+BitMamba SSM) into GGUF v3 format for llama.cpp and Ollama runtimes.
 Supports uncompressed F32/F16 as well as Q8_0 and Q4_0 block quantization.
 """
 

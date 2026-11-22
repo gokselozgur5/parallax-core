@@ -159,9 +159,31 @@ def _read_metadata_value(
         raise ValueError(f"Unknown GGUF metadata value type: {val_type}")
 
 
-def _write_metadata_value(f: BinaryIO, val: Any) -> None:
-    if isinstance(val, np.uint32):
+GGUF_STANDARD_METADATA_TYPES: Dict[str, int] = {
+    "general.file_type": GGUF_TYPE_UINT32,
+    "general.quantization_version": GGUF_TYPE_UINT32,
+    "general.alignment": GGUF_TYPE_UINT32,
+}
+
+
+def _infer_metadata_type_for_key(key: str) -> Optional[int]:
+    if key in GGUF_STANDARD_METADATA_TYPES:
+        return GGUF_STANDARD_METADATA_TYPES[key]
+    if key.endswith(".rope.freq_base") or key.endswith(".attention.layer_norm_rms_epsilon"):
+        return GGUF_TYPE_FLOAT32
+    return None
+
+
+def _write_metadata_value(f: BinaryIO, val: Any, key: Optional[str] = None) -> None:
+    expected_type = _infer_metadata_type_for_key(key) if key else None
+    if expected_type == GGUF_TYPE_UINT32 and isinstance(val, (int, np.integer)) and not isinstance(val, bool):
         f.write(struct.pack("<II", GGUF_TYPE_UINT32, int(val)))
+    elif expected_type == GGUF_TYPE_FLOAT32 and isinstance(val, (float, np.floating)):
+        f.write(struct.pack("<If", GGUF_TYPE_FLOAT32, float(val)))
+    elif isinstance(val, np.uint32):
+        f.write(struct.pack("<II", GGUF_TYPE_UINT32, int(val)))
+    elif isinstance(val, np.float32):
+        f.write(struct.pack("<If", GGUF_TYPE_FLOAT32, float(val)))
     elif isinstance(val, bool):
         f.write(struct.pack("<IB", GGUF_TYPE_BOOL, 1 if val else 0))
     elif isinstance(val, int):
@@ -399,7 +421,7 @@ def save_gguf(
         # Metadata
         for k, v in final_metadata.items():
             _write_string(f, k)
-            _write_metadata_value(f, v)
+            _write_metadata_value(f, v, key=k)
 
         # Prepare tensor binary chunks and descriptors
         tensor_chunks: List[bytes] = []
