@@ -188,6 +188,9 @@ def load_safetensors(
                 raise ValueError(f"Missing required fields (dtype, shape, data_offsets) in tensor '{key}'")
 
             dtype_str = info["dtype"]
+            if not isinstance(dtype_str, str):
+                raise ValueError(f"Invalid dtype for tensor '{key}': expected string")
+
             shape_raw = info["shape"]
             offsets = info["data_offsets"]
 
@@ -196,14 +199,19 @@ def load_safetensors(
 
             shape = tuple(shape_raw)
             for dim in shape:
-                if not isinstance(dim, int) or dim < 0:
+                if not isinstance(dim, int) or isinstance(dim, bool) or dim < 0:
                     raise ValueError(f"Invalid dimension {dim} for tensor '{key}': must be non-negative integer")
 
             if not isinstance(offsets, (list, tuple)) or len(offsets) != 2:
                 raise ValueError(f"Invalid data_offsets for tensor '{key}': expected [start, end]")
 
             start_off, end_off = offsets
-            if not isinstance(start_off, int) or not isinstance(end_off, int):
+            if (
+                not isinstance(start_off, int)
+                or isinstance(start_off, bool)
+                or not isinstance(end_off, int)
+                or isinstance(end_off, bool)
+            ):
                 raise ValueError(f"Offsets must be integers for tensor '{key}'")
 
             if start_off < 0 or end_off < start_off:
