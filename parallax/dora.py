@@ -5,12 +5,14 @@ Decomposes pretrained weights into magnitude and directional components, updatin
 the directional component via LoRA while training magnitude separately.
 
 Integration contract:
-    Standalone mathematical kernel. Operates on pure NumPy arrays and does not
-    subclass parallax.nn.Module or register Parameters in the autograd DAG.
+    Provides both the standalone mathematical kernel (DoRALinear) operating on NumPy arrays
+    and the autograd-integrated Module adapter (DoRAModule) subclassing parallax.nn.Module.
 """
 
 from typing import Optional, Tuple
 import numpy as np
+from parallax.nn import Linear, Module, Parameter
+from parallax.tensor import Tensor, _accumulate_grad
 
 
 class DoRALinear:
@@ -105,10 +107,6 @@ class DoRALinear:
             dx = dx.squeeze(0)
 
         return grad_m, grad_A, grad_B, dx
-
-
-from parallax.nn import Linear, Module, Parameter
-from parallax.tensor import Tensor, _accumulate_grad
 
 
 class DoRAModule(Module):
