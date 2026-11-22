@@ -116,3 +116,49 @@ def test_dispatched_embedding_routes_through_backend_gather(monkeypatch):
     np.testing.assert_allclose(emb.weight.grad[1], [1.0, 1.0])
 
 
+def test_dispatched_gather_validation_and_fallback(monkeypatch):
+    from parallax.backends import registry
+    from parallax.backends.base import Backend
+    from parallax.backends.dispatch import clear_fallback_history, get_fallback_history
+    from parallax.backends.numpy_backend import NumpyBackend
+    from parallax.backends.scope import use_backend
+    from parallax.backends.tensor_ops import dispatched_gather
+    from parallax.nn.embedding import DispatchedEmbedding
+
+    with pytest.raises(TypeError, match="Tensor weight"):
+        dispatched_gather(np.ones((4, 2)), np.array([0]))  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="2D weight"):
+        dispatched_gather(Tensor(np.ones((4,))), np.array([0]))
+
+    class _FaultyGather(Backend):
+        name = "rust"
+
+        def available(self) -> bool:
+            return True
+
+        def supports(self, op: str, dtype: object, shape: tuple[int, ...]) -> bool:
+            return op == "gather"
+
+        def gather(self, weight: np.ndarray, indices: np.ndarray) -> np.ndarray:
+            raise RuntimeError("gather kernel failure")
+
+    emb = DispatchedEmbedding.from_pretrained(np.array([[1.0, 2.0], [3.0, 4.0]]), freeze=True)
+    registry.clear()
+    clear_fallback_history()
+    registry.register("numpy", NumpyBackend())
+    registry.register("rust", _FaultyGather())
+    try:
+        with use_backend("rust"):
+            out = emb(np.array([1]))
+        history = get_fallback_history()
+        monkeypatch.setenv("PARALLAX_BACKEND", "invalid_backend")
+        with pytest.raises(ValueError, match="not a known backend"):
+            emb(np.array([0]))
+    finally:
+        registry.clear()
+        clear_fallback_history()
+    np.testing.assert_allclose(out.data, [[3.0, 4.0]])
+    assert len(history) == 1 and "gather kernel failure" in history[0].reason
+
+
+
