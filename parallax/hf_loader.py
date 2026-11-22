@@ -20,7 +20,7 @@ from parallax.models.qwen2 import (
     calculate_qwen2_intermediate_size,
 )
 from parallax.safetensors import load_safetensors, save_safetensors
-from parallax.hf_tokenizer import HFTokenizer, load_hf_tokenizer
+from parallax.hf_tokenizer import HFTokenizer, _BYTE_TO_UNICODE, load_hf_tokenizer
 from parallax.loader_utils import _assign_bias, _assign_param
 
 
@@ -542,17 +542,30 @@ def save_hf_pretrained(
                 for content, tid in tokenizer.added_tokens.items():
                     added_tokens.append({"id": tid, "content": content, "special": True})
 
+            first_val = next(iter(tokenizer.vocab.values()), None)
+            if isinstance(first_val, bytes):
+                inv_sp = getattr(tokenizer, "inverse_special", {})
+                inv_v: dict[int, str] = {}
+                vocab_dict: dict[str, int] = {}
+                for i in range(len(tokenizer.vocab)):
+                    raw_b = tokenizer.vocab[i]
+                    tok_str = inv_sp[i] if i in inv_sp else "".join(_BYTE_TO_UNICODE[b] for b in raw_b)
+                    inv_v[i] = tok_str
+                    vocab_dict[tok_str] = i
+                for k, v in getattr(tokenizer, "special_tokens", {}).items():
+                    added_tokens.append({"id": v, "content": k, "special": True})
+            else:
+                vocab_dict = tokenizer.vocab
+                inv_v = {v: k for k, v in tokenizer.vocab.items()}
+
             merges_list = []
             if hasattr(tokenizer, "merges") and isinstance(tokenizer.merges, dict):
-                # Check whether keys are tuple of str or tuple of int
                 for pair in tokenizer.merges.keys():
                     if isinstance(pair[0], str):
                         merges_list.append(f"{pair[0]} {pair[1]}")
-                    elif hasattr(tokenizer, "vocab") and isinstance(tokenizer.vocab, dict):
-                        # Convert integer tuple to tokens
-                        inv_vocab = {v: k for k, v in tokenizer.vocab.items()}
-                        t0 = inv_vocab.get(pair[0], "")
-                        t1 = inv_vocab.get(pair[1], "")
+                    elif isinstance(pair[0], int) and inv_v:
+                        t0 = inv_v.get(pair[0], "")
+                        t1 = inv_v.get(pair[1], "")
                         if t0 and t1:
                             merges_list.append(f"{t0} {t1}")
 
@@ -561,7 +574,7 @@ def save_hf_pretrained(
                 "added_tokens": added_tokens,
                 "model": {
                     "type": "BPE",
-                    "vocab": tokenizer.vocab,
+                    "vocab": vocab_dict,
                     "merges": merges_list,
                 },
             }
