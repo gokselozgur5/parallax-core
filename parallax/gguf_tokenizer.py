@@ -150,7 +150,17 @@ class GGUFTokenizer:
                     new_syms.append(symbols[idx])
                     idx += 1
             symbols = new_syms
-        return [self.token_to_id[s] for s in symbols if s in self.token_to_id]
+        out: List[int] = []
+        for s in symbols:
+            if s in self.token_to_id:
+                out.append(self.token_to_id[s])
+            elif self.unk_token_id is not None:
+                out.append(self.unk_token_id)
+            else:
+                raise KeyError(
+                    f"Token '{s}' not found in vocabulary and no unk_token defined."
+                )
+        return out
 
     def _spm_score_merge(self, symbols: List[str]) -> List[int]:
         while len(symbols) >= 2:
