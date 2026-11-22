@@ -6,6 +6,7 @@ import numpy as np
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.generator import generate
+from parallax.tensor import no_grad
 
 
 def test_kv_cache_matches_non_cached_greedy_logits():
@@ -54,13 +55,15 @@ def test_kv_cache_step_shape_growth():
 
     # Step 1: Prompt length 3
     idx1 = np.array([[2, 4, 6]], dtype=np.int64)
-    logits1, caches1 = model(idx1, kv_caches=init_caches)
+    with no_grad():
+        logits1, caches1 = model(idx1, kv_caches=init_caches)
     assert logits1.shape == (1, 3, config.vocab_size)
     assert caches1[0][0].shape == (1, 2, 3, head_dim)
 
     # Step 2: Incremental step length 1
     idx2 = np.array([[8]], dtype=np.int64)
-    logits2, caches2 = model(idx2, kv_caches=caches1)
+    with no_grad():
+        logits2, caches2 = model(idx2, kv_caches=caches1)
     assert logits2.shape == (1, 1, config.vocab_size)
     assert caches2[0][0].shape == (1, 2, 4, head_dim)
 

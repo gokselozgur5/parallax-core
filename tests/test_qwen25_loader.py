@@ -17,6 +17,7 @@ from parallax.hf_loader import (
     load_hf_pretrained,
 )
 from parallax.safetensors import save_safetensors
+from parallax.tensor import no_grad
 
 
 def test_qwen2_intermediate_size_formula():
@@ -233,7 +234,8 @@ def test_qwen25_synthetic_loader_and_forward_pass():
             )
             for _ in range(L)
         ]
-        step_logits, updated_caches = model(input_ids, kv_caches=kv_caches)
+        with no_grad():
+            step_logits, updated_caches = model(input_ids, kv_caches=kv_caches)
         assert step_logits.shape == (batch_size, seq_len, V)
         assert len(updated_caches) == L
         assert updated_caches[0][0].shape == (batch_size, KV_H, seq_len, head_dim)

@@ -2,6 +2,7 @@ import numpy as np
 from parallax.attention_sink import RollingKVCache
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.generator import generate_stream
+from parallax.tensor import no_grad
 
 
 def test_rolling_kv_cache_eviction():
@@ -95,12 +96,14 @@ def test_retained_window_distinct_and_increasing_rope_positions():
          np.empty((1, config.num_heads, 0, head_dim), dtype=np.float64))
     ]
 
-    _, kv_caches = model(idx, kv_caches=kv_caches)
+    with no_grad():
+        _, kv_caches = model(idx, kv_caches=kv_caches)
     kv_caches = sink.evict_layers(kv_caches)
 
     for step in range(8):
         idx_next = np.array([[repeated_token]], dtype=np.int64)
-        _, kv_caches = model(idx_next, kv_caches=kv_caches, rope_offset=sink.total_seen)
+        with no_grad():
+            _, kv_caches = model(idx_next, kv_caches=kv_caches, rope_offset=sink.total_seen)
         kv_caches = sink.evict_layers(kv_caches)
 
         k_window = kv_caches[0][0][0, 0, 2:, :]
