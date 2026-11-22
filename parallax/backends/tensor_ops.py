@@ -3,7 +3,18 @@
 from __future__ import annotations
 
 import numpy as np
-from parallax.backends.dispatch import _resolve_backend, candidate_backends, dispatch
+from parallax.backends import registry
+from parallax.backends.dispatch import (
+    _record_fallback,
+    _resolve_backend,
+    candidate_backends,
+    detect_cpu,
+    dispatch,
+    get_scope_backend,
+)
+from parallax.backends.env import backend_override
+from parallax.backends.policy import native_order
+from parallax.backends.scope import current_backend
 from parallax.tensor import Tensor, _accumulate_grad
 
 
@@ -64,3 +75,39 @@ def dispatched_matmul(a: Tensor, b: Tensor) -> Tensor:
 
     out._backward = _backward
     return out
+
+
+def _dispatch_gather_data(weight_data: np.ndarray, idx_arr: np.ndarray) -> np.ndarray:
+    """Route row-gather lookup through backend dispatch with NumPy fallback."""
+    sb = current_backend("gather") or get_scope_backend()
+    ov = backend_override("gather")
+    forced = {x for x in (sb, ov) if x is not None}
+    candidates: list[str] = []
+    for name in (sb, ov, *native_order(detect_cpu()), *registry.list_backends(), "numpy"):
+        if name is not None and name not in candidates:
+            candidates.append(name)
+    last_err: Exception | None = None
+    for name in candidates:
+        be = _resolve_backend(name)
+        failed = False
+        if be is not None and be.available():
+            fn = getattr(be, "gather", None)
+            if callable(fn):
+                for dt in (weight_data.dtype, np.dtype(np.float32)):
+                    if be.supports("gather", dt, weight_data.shape):
+                        try:
+                            arg = weight_data.astype(dt, copy=False)
+                            return np.asarray(fn(arg, idx_arr)).astype(weight_data.dtype, copy=False)
+                        except Exception as exc:
+                            last_err = exc
+                            failed = True
+                            _record_fallback("gather", name, str(exc), exc=exc)
+                        break
+        if failed:
+            continue
+        if name == "numpy":
+            return weight_data[idx_arr]
+        if name in forced:
+            _record_fallback("gather", name, "backend not available or unsupported")
+    raise RuntimeError(f"All backends failed for gather: {candidates}") from last_err
+
