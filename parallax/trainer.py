@@ -84,7 +84,7 @@ class Trainer:
 
         val_losses: List[float] = []
         for _ in range(self.config.eval_steps):
-            x, y = next(self.train_loader if self.val_loader is None else self.val_loader)
+            x, y = next(self.val_loader)
             logits = self.model(x)
             loss = cross_entropy_loss(logits, y, label_smoothing=0.0)
             val_losses.append(float(loss.data))
