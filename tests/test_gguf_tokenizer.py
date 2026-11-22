@@ -201,3 +201,20 @@ def test_gpt2_encode_maps_unknown_bytes_to_unk():
     assert tok.unk_token_id in ids
 
 
+def test_tokenizer_loads_without_decoding_tensor_data(tmp_path):
+    GGML_TYPE_Q5_K = 13  # valid ggml type that this reader cannot dequantize
+
+    path = str(tmp_path / "q5k.gguf")
+    save_gguf(
+        path,
+        {"tokenizer.ggml.tokens": ["<unk>", "a", "b"]},
+        {"blk.0.attn_q.weight": b"\x00" * 176},
+        tensor_types={"blk.0.attn_q.weight": GGML_TYPE_Q5_K},
+        tensor_shapes={"blk.0.attn_q.weight": (1, 256)},
+    )
+
+    tok = load_gguf_tokenizer(path)
+
+    assert tok.vocab_size == 3
+
+
