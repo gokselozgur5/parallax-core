@@ -338,3 +338,31 @@ def test_openai_server_failed_request_streaming():
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_top_p_and_stop_are_honoured():
+    import http.client
+    import numpy as np
+    np.random.seed(0)
+    cfg = ParallaxLMConfig(vocab_size=128, embed_dim=16, num_layers=1, num_heads=2, max_seq_len=64)
+    server = HTTPServer(("127.0.0.1", 0), create_handler(OpenAIServerState(model=ParallaxLM(cfg))))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    port = server.server_port
+
+    def _content(payload):
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=60)
+        conn.request("POST", "/v1/chat/completions", body=json.dumps(payload))
+        return json.loads(conn.getresponse().read().decode())["choices"][0]["message"]["content"]
+
+    base = {"messages": [{"role": "user", "content": "Hi"}], "max_tokens": 16}
+    try:
+        greedy = _content({**base, "temperature": 0})
+        nucleus = _content({**base, "temperature": 1.5, "top_p": 1e-9})
+        stopped = _content({**base, "temperature": 0, "stop": [greedy[3]]})
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert nucleus == greedy
+    assert greedy[3] not in stopped
+
+
