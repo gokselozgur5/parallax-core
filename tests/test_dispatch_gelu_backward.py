@@ -86,6 +86,15 @@ def test_dispatched_gelu_backward_interface_and_errors():
         gelu_backward_reference(np.array([1.0]), np.array([1.0]), approximate="invalid")
 
 
+def test_fused_and_dispatch_reject_invalid_approximate():
+    x = np.array([0.5], dtype=np.float32)
+    dout = np.array([1.0], dtype=np.float32)
+    with pytest.raises(ValueError, match="Unsupported mode"):
+        fused_gelu_backward(dout, x, approximate="exact")
+    with pytest.raises(ValueError, match="Unsupported mode"):
+        gelu_backward(dout, x, approximate="erf")
+
+
 def test_gelu_backward_package_exports():
     import python.parallax.dispatch as pd
     for sym in (
