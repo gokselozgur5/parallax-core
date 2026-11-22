@@ -40,7 +40,11 @@ def build_alibi_bias(
     q_pos = (np.arange(q_len, dtype=np.float32) + offset)[:, None]
     k_pos = np.arange(k_len, dtype=np.float32)[None, :]
     rel_pos = k_pos - q_pos if causal else -np.abs(q_pos - k_pos)
-    return (slopes[:, None, None] * rel_pos[None, :, :]).astype(np.float32)
+    bias = (slopes[:, None, None] * rel_pos[None, :, :]).astype(np.float32)
+    if causal:
+        future_mask = k_pos > q_pos
+        bias = np.where(future_mask[None, :, :], -1e9, bias).astype(np.float32)
+    return bias
 
 
 def apply_alibi_bias(
@@ -58,10 +62,9 @@ def apply_alibi_bias(
     if bias is None:
         if slopes is None:
             slopes = get_alibi_slopes(num_heads)
-        q_pos = (np.arange(q_len, dtype=np.float32) + offset)[:, None]
-        k_pos = np.arange(k_len, dtype=np.float32)[None, :]
-        rel = k_pos - q_pos if causal else -np.abs(q_pos - k_pos)
-        bias = (slopes[:, None, None] * rel[None, :, :]).astype(scores.dtype)
+        bias = build_alibi_bias(
+            num_heads, q_len, k_len, causal=causal, offset=offset
+        ).astype(scores.dtype)
     return scores + bias
 
 
