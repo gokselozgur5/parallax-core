@@ -325,6 +325,11 @@ def load_gguf(
         padding = (alignment - (header_end % alignment)) % alignment
         data_base_offset = header_end + padding
 
+        if header_only:
+            info_container = GGUFFile(version=version, metadata=metadata, tensors={}, tensor_infos=tensor_infos)
+            object.__setattr__(info_container, "data_base_offset", data_base_offset)
+            return info_container
+
         # Validate tensor intervals and ensure non-overlapping byte ranges
         intervals: List[Tuple[int, int, str]] = []
         for name, info in tensor_infos.items():
@@ -354,10 +359,6 @@ def load_gguf(
                     f"Overlapping tensor byte intervals detected between '{cur_name}' "
                     f"and '{next_name}' (DoS protection)"
                 )
-
-        if header_only:
-            object.__setattr__(info_container := GGUFFile(version=version, metadata=metadata, tensors={}, tensor_infos=tensor_infos), "data_base_offset", data_base_offset)
-            return info_container
 
         # Extract tensors
         tensors: Dict[str, np.ndarray] = {}
