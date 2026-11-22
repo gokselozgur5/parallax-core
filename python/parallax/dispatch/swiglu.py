@@ -77,8 +77,20 @@ class SwiGLUActivation(Module):
 
     def forward(self, gate: Tensor, up: Tensor | None = None) -> Tensor:
         if up is None:
-            g, u = np.split(gate.data, 2, axis=self.dim)
-            return dispatched_swiglu(Tensor(g), Tensor(u))
+            axis = self.dim
+            g, u = np.split(gate.data, 2, axis=axis)
+            out = Tensor(swiglu_dispatch(g, u), (gate,), "SwiGLU")
+            if not out.requires_grad:
+                return out
+
+            def _backward() -> None:
+                if out.grad is None or not gate.requires_grad:
+                    return
+                ga, gb = swiglu_backward_dispatch(out.grad, g, u)
+                _accumulate_grad(gate, np.concatenate((ga, gb), axis=axis))
+
+            out._backward = _backward
+            return out
         return dispatched_swiglu(gate, up)
 
 
