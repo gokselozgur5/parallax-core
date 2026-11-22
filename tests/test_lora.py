@@ -203,3 +203,32 @@ def test_checkpoint_round_trip_keeps_lora_adapters(tmp_path):
 
     np.testing.assert_allclose(restored(tokens).data, expected, atol=1e-9)
 
+
+def test_apply_lora_to_model_preserves_dora_adapters():
+    from parallax.dora import DoRAModule
+    from parallax.nn import Module
+
+    class HybridModel(Module):
+        def __init__(self):
+            super().__init__()
+            self.dora_proj = DoRAModule(Linear(8, 8, bias=False), rank=2)
+            self.q_proj = Linear(8, 8, bias=False)
+
+        def forward(self, x):
+            return self.q_proj(self.dora_proj(x))
+
+    model = HybridModel()
+    assert model.dora_proj.m.requires_grad
+    assert model.dora_proj.lora_A.requires_grad
+    assert model.dora_proj.lora_B.requires_grad
+
+    apply_lora_to_model(model, target_modules=("q_proj",), r=2)
+
+    assert not model.q_proj.base_layer.weight.requires_grad
+    assert model.q_proj.lora_A.requires_grad
+    assert model.q_proj.lora_B.requires_grad
+    assert model.dora_proj.m.requires_grad
+    assert model.dora_proj.lora_A.requires_grad
+    assert model.dora_proj.lora_B.requires_grad
+
+
