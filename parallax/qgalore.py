@@ -120,8 +120,22 @@ class QGaLoreAdamW:
             if p.data.ndim == 2:
                 self.projectors[id(p)] = QGaLoreProjector(rank=self.rank, update_interval=self.update_interval)
 
-        self.m: List[np.ndarray] = [np.zeros_like(p.data) for p in self.params]
-        self.v: List[np.ndarray] = [np.zeros_like(p.data) for p in self.params]
+        self.m: List[np.ndarray] = [
+            np.zeros(self._moment_shape(p.data.shape, self.rank), dtype=p.data.dtype)
+            for p in self.params
+        ]
+        self.v: List[np.ndarray] = [
+            np.zeros(self._moment_shape(p.data.shape, self.rank), dtype=p.data.dtype)
+            for p in self.params
+        ]
+
+    @staticmethod
+    def _moment_shape(shape: Tuple[int, ...], rank: int) -> Tuple[int, ...]:
+        if len(shape) != 2:
+            return shape
+        m_dim, n_dim = shape
+        eff_rank = min(rank, m_dim, n_dim)
+        return (m_dim, eff_rank) if m_dim >= n_dim else (eff_rank, n_dim)
 
     def zero_grad(self) -> None:
         for p in self.params:
@@ -141,10 +155,14 @@ class QGaLoreAdamW:
             pid = id(p)
 
             # Apply Q-GaLore projection for 2D weight matrices
-            if pid in self.projectors:
-                proj = self.projectors[pid]
+            proj: Optional[QGaLoreProjector] = None
+            if p.data.ndim == 2:
+                proj = self.projectors.get(pid)
+                if proj is None:
+                    proj = QGaLoreProjector(rank=self.rank, update_interval=self.update_interval)
+                    self.projectors[pid] = proj
                 q_sub, scale = proj.project_and_quantize(grad)
-                effective_grad = proj.deproject(q_sub, scale)
+                effective_grad = q_sub.astype(self.m[i].dtype) * scale
             else:
                 effective_grad = grad
 
@@ -157,5 +175,6 @@ class QGaLoreAdamW:
             m_hat = self.m[i] / bias_corr1
             v_hat = self.v[i] / bias_corr2
 
-            step_update = lr_t * m_hat / (np.sqrt(v_hat) + self.eps)
-            p.data -= step_update
+            low_rank_step = m_hat / (np.sqrt(v_hat) + self.eps)
+            full_step = proj.deproject(low_rank_step, 1.0) if proj is not None else low_rank_step
+            p.data -= lr_t * full_step
