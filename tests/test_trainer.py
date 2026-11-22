@@ -4,8 +4,9 @@ Unit tests for Trainer with gradient accumulation and evaluation (M14).
 
 import numpy as np
 
-from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.lora import apply_lora_to_model
+from parallax.loss import cross_entropy_loss
+from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.optim import AdamW, CosineAnnealingWithWarmup
 from parallax.trainer import Trainer, TrainerConfig
 
@@ -122,5 +123,28 @@ def test_trainer_objective_includes_moe_aux_loss():
         assert aux.grad is not None, "aux loss was never part of the backward pass"
         assert np.isclose(float(aux.grad), 1.0)
         assert np.any(param_moments[id(block.mlp.router.weight)] != 0.0)
+
+
+def test_trainer_moe_aux_loss_gradient_accumulation_and_single_coef_scale():
+    np.random.seed(7)
+    cfg = ParallaxLMConfig(
+        vocab_size=12, embed_dim=8, num_heads=2, num_layers=1, num_experts=4, top_k_experts=2
+    )
+    model = ParallaxLM(cfg)
+    model.blocks[0].mlp.aux_loss_coef = 0.25
+    x_fixed = np.array([[0, 1, 2, 3], [3, 2, 1, 0]])
+
+    def batches():
+        while True:
+            yield x_fixed.copy(), x_fixed.copy()
+
+    expected_ce = float(cross_entropy_loss(model(x_fixed), x_fixed).data)
+    expected_aux = float(model.blocks[0].mlp.aux_loss.data)
+
+    opt = AdamW(model.parameters(), lr=0.0, weight_decay=0.0)
+    history = Trainer(model, opt, TrainerConfig(max_steps=1, grad_accum_steps=2), batches()).train()
+    assert np.isclose(history[0]["loss"], expected_ce + expected_aux)
+    assert np.isclose(float(model.blocks[0].mlp.aux_loss.grad), 0.5)
+
 
 
