@@ -115,7 +115,11 @@ class ContinuousBatchEngine:
                             if self.model.config.num_kv_heads is not None
                             else num_heads
                         )
-                        head_dim = self.model.config.embed_dim // num_heads
+                        head_dim = (
+                            self.model.config.head_dim
+                            if self.model.config.head_dim is not None
+                            else self.model.config.embed_dim // num_heads
+                        )
                         initial_kv = [
                             (
                                 np.empty((1, num_kv_heads, 0, head_dim), dtype=np.float64),
