@@ -133,3 +133,24 @@ def test_use_backend_scope_selects_the_backend_for_dispatch():
         registry.clear()
     assert out[0, 0] == 42.0, "dispatch ignored the use_backend scope"
 
+
+def test_clear_scopes_inside_use_backend_exits_cleanly():
+    from parallax.backends.scope import (
+        clear_scopes as clear_backend_scopes,
+        current_backend as current_scoped_backend,
+        use_backend as use_scoped_backend,
+    )
+
+    with use_scoped_backend("numpy"):
+        assert current_scoped_backend() == "numpy"
+        clear_backend_scopes()
+        assert current_scoped_backend() is None
+    assert current_scoped_backend() is None
+
+    with pytest.raises(RuntimeError, match="caller boom"):
+        with use_scoped_backend("numpy"):
+            with use_scoped_backend("rust"):
+                clear_backend_scopes()
+                raise RuntimeError("caller boom")
+    assert current_scoped_backend() is None
+
