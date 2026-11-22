@@ -174,8 +174,9 @@ def test_license_metadata_consistency():
     with open(cargo_path, "rb") as f:
         cargo_data = tomllib.load(f)
 
-    pyproject_license = pyproject_data.get("project", {}).get("license", {}).get("text")
-    assert pyproject_license == "Proprietary"
+    pyproject_license = pyproject_data.get("project", {}).get("license")
+    assert pyproject_license == "LicenseRef-Proprietary"
+    assert pyproject_data.get("project", {}).get("license-files") == ["LICENSE"]
 
     # Cargo.toml points to the proprietary repo LICENSE file
     license_file_rel = cargo_data.get("package", {}).get("license-file")

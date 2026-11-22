@@ -5,10 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "parallax"
 version = "0.1.0"
-description = "First-principles zero-dependency Autograd and Transformer framework"
+description = "First-principles Autograd and Transformer framework"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "Proprietary" }
+license = "LicenseRef-Proprietary"
+license-files = ["LICENSE"]
 authors = [
     { name = "Göksel Özgür", email = "gokselozgur5@gmail.com" },
 ]
