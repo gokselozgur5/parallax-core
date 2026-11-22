@@ -94,18 +94,18 @@ def generate_contrastive(
 ) -> List[int]:
     """Autoregressively generates text using Contrastive Search."""
     tokens = list(prompt_tokens)
-    idx = np.array([tokens], dtype=np.int64)
+    max_seq_len = getattr(model.config, "max_seq_len", None)
+    ctx = tokens[-max_seq_len:] if max_seq_len is not None else tokens
+    idx = np.array([ctx], dtype=np.int64)
     with no_grad():
         _, hidden = model(idx, return_hidden=True)
-    history_hidden_states: List[np.ndarray] = [hidden.data[0, i, :] for i in range(len(tokens))]
+    history_hidden_states: List[np.ndarray] = [hidden.data[0, i, :] for i in range(len(ctx))]
 
     for _ in range(max_new_tokens):
-        if len(tokens) >= model.config.max_seq_len:
-            break
         next_tok, next_h = contrastive_search_step(
             model,
-            tokens,
-            history_hidden_states,
+            tokens[-max_seq_len:] if max_seq_len is not None else tokens,
+            history_hidden_states[-max_seq_len:] if max_seq_len is not None else history_hidden_states,
             k=k,
             alpha=alpha,
         )
