@@ -86,3 +86,30 @@ def test_dispatch_does_not_probe_the_cpu_on_every_call(monkeypatch):
     assert len(calls) <= 1, f"sysctl was spawned {len(calls)} times for 20 dispatch calls"
 
 
+def test_fallback_history_does_not_grow_without_bound(monkeypatch):
+    import numpy as np
+
+    import parallax.backends.dispatch as dd
+    from parallax.backends import registry
+    from parallax.backends.cpuinfo import CpuInfo
+    from parallax.backends.numpy_backend import NumpyBackend
+
+    monkeypatch.setattr(dd, "detect_cpu", lambda: CpuInfo(arch="x86_64", system="Linux"))
+    monkeypatch.setenv("PARALLAX_BACKEND", "metal")
+    added = "numpy" not in registry.list_backends()
+    if added:
+        registry.register("numpy", NumpyBackend())
+    dd.clear_fallback_history()
+    try:
+        a = np.ones((2, 2), dtype=np.float64)
+        for _ in range(20000):
+            dd.dispatch("gemm", a, a)
+        size = len(dd.get_fallback_history())
+    finally:
+        dd.clear_fallback_history()
+        if added:
+            registry.unregister("numpy")
+    assert size < 20000, f"{size} fallback records kept after 20000 calls"
+
+
+
