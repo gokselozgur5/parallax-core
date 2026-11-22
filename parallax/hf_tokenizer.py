@@ -383,6 +383,45 @@ def load_hf_tokenizer(tokenizer_file_or_dir: str) -> HFTokenizer:
         data = json.load(f)
 
     model_data = data.get("model", {})
+    model_type = model_data.get("type")
+    if model_type is not None and model_type != "BPE":
+        raise ValueError(
+            f"Unsupported tokenizer model type {model_type!r}; only byte-level 'BPE' is supported."
+        )
+
+    if model_data.get("ignore_merges"):
+        warnings.warn("Ignoring unsupported model setting 'ignore_merges'.", UserWarning, stacklevel=2)
+
+    def _inspect_components(obj: Any, is_pretok: bool = False) -> None:
+        if isinstance(obj, dict):
+            ctype = obj.get("type")
+            if is_pretok and ctype == "Metaspace":
+                raise NotImplementedError(
+                    "Metaspace pre-tokenizer is not supported; byte-level BPE is required."
+                )
+            if ctype == "Lowercase":
+                warnings.warn(
+                    "Ignoring unsupported component 'Lowercase'.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            if obj.get("add_prefix_space"):
+                warnings.warn(
+                    "Ignoring unsupported setting 'add_prefix_space'.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            for v in obj.values():
+                _inspect_components(v, is_pretok=is_pretok)
+        elif isinstance(obj, list):
+            for item in obj:
+                _inspect_components(item, is_pretok=is_pretok)
+
+    if "pre_tokenizer" in data:
+        _inspect_components(data["pre_tokenizer"], is_pretok=True)
+    if "normalizer" in data:
+        _inspect_components(data["normalizer"], is_pretok=False)
+
     vocab = model_data.get("vocab", {})
     merges = model_data.get("merges", [])
     split_pattern = _extract_split_pattern(data)
