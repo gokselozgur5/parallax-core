@@ -10,7 +10,7 @@ from typing import Any
 _local = threading.local()
 
 
-def _get_stack() -> list[tuple[str | None, str | None]]:
+def _get_stack() -> list[tuple[object, str | None, str | None]]:
     stack = getattr(_local, "stack", None)
     if stack is None:
         stack = []
@@ -39,11 +39,15 @@ def use_backend(
     stack = _get_stack()
     norm_backend = _normalize_name(backend, "backend")
     norm_op = _normalize_name(op, "op")
-    stack.append((norm_op, norm_backend))
+    token = object()
+    stack.append((token, norm_op, norm_backend))
     try:
         yield norm_backend
     finally:
-        stack.pop()
+        for idx in range(len(stack) - 1, -1, -1):
+            if stack[idx][0] is token:
+                del stack[idx]
+                break
 
 
 def current_backend(op: str | None = None) -> str | None:
@@ -52,7 +56,7 @@ def current_backend(op: str | None = None) -> str | None:
     if not stack:
         return None
     norm_op = _normalize_name(op, "op") if op is not None else None
-    for entry_op, backend in reversed(stack):
+    for _, entry_op, backend in reversed(stack):
         if norm_op is not None and entry_op == norm_op:
             return backend
         if entry_op is None:
