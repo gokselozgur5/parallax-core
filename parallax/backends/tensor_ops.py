@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
-from parallax.backends.dispatch import dispatch
+from parallax.backends.dispatch import _resolve_backend, candidate_backends, dispatch
 from parallax.tensor import Tensor, _accumulate_grad
 
 
@@ -12,7 +12,23 @@ def dispatched_matmul(a: Tensor, b: Tensor) -> Tensor:
     if not isinstance(a, Tensor) or not isinstance(b, Tensor):
         raise TypeError("dispatched_matmul requires Tensor arguments")
 
-    out_data = dispatch("gemm", a.data, b.data)
+    a_data, b_data = a.data, b.data
+    target_f32 = False
+    for name in candidate_backends("gemm", n_elements=a_data.size):
+        if name == "numpy":
+            break
+        be = _resolve_backend(name)
+        if be is not None and be.available():
+            if not be.supports("gemm", a_data.dtype, a_data.shape) and be.supports("gemm", np.float32, a_data.shape):
+                target_f32 = True
+                break
+
+    if target_f32:
+        out_data = dispatch("gemm", a_data.astype(np.float32, copy=False), b_data.astype(np.float32, copy=False))
+        out_data = out_data.astype(a_data.dtype, copy=False)
+    else:
+        out_data = dispatch("gemm", a_data, b_data)
+
     out = Tensor(out_data, (a, b), "dispatched_matmul")
 
     if not out.requires_grad:
