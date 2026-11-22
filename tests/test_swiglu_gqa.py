@@ -6,7 +6,7 @@ import numpy as np
 
 from parallax.attention import CausalSelfAttention
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig, SwiGLU, tensor_silu
-from parallax.tensor import Tensor
+from parallax.tensor import Tensor, no_grad
 
 
 def test_silu_forward_and_backward():
@@ -83,14 +83,16 @@ def test_gqa_kv_cache_inference():
     )
 
     x_prompt = Tensor(np.random.randn(1, 3, embed_dim))
-    out1, cache1 = gqa(x_prompt, kv_cache=init_cache)
+    with no_grad():
+        out1, cache1 = gqa(x_prompt, kv_cache=init_cache)
     assert cache1 is not None
     # KV cache retains num_kv_heads (2 heads), saving 50% KV memory
     assert cache1[0].shape == (1, 2, 3, 4)
 
     # Incremental step of length 1
     x_next = Tensor(np.random.randn(1, 1, embed_dim))
-    out2, cache2 = gqa(x_next, kv_cache=cache1)
+    with no_grad():
+        out2, cache2 = gqa(x_next, kv_cache=cache1)
     assert out2.shape == (1, 1, embed_dim)
     assert cache2[0].shape == (1, 2, 4, 4)
 
