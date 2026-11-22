@@ -53,6 +53,15 @@ class TrainerConfig:
     checkpoint_interval: Optional[int] = None
     checkpoint_prefix: str = "checkpoint"
 
+    def __post_init__(self) -> None:
+        if self.grad_accum_steps <= 0:
+            raise ValueError(f"grad_accum_steps must be positive, got {self.grad_accum_steps}")
+        if self.eval_interval <= 0:
+            raise ValueError(f"eval_interval must be positive, got {self.eval_interval}")
+        if self.checkpoint_interval is not None and self.checkpoint_interval <= 0:
+            raise ValueError(f"checkpoint_interval must be positive, got {self.checkpoint_interval}")
+
+
 
 class Trainer:
     """First-principles Trainer for ParallaxLM."""
