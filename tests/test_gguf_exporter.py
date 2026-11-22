@@ -220,3 +220,28 @@ def test_rope_freq_base_is_written_as_float32(tmp_path):
     key_bytes = b"llama.rope.freq_base"
     val_type = struct.unpack_from("<I", raw, raw.index(key_bytes) + len(key_bytes))[0]
     assert val_type == GGUF_TYPE_FLOAT32
+
+
+def test_gguf_export_tokenizer_roundtrip(tmp_path):
+    from parallax.hf_tokenizer import HFTokenizer
+    from parallax.tokenizer import BPETokenizer
+
+    sp = "\u0120"
+    vocab = {"h": 0, "i": 1, sp: 2, "hi": 3, sp + "hi": 4}
+    hf_tok = HFTokenizer(vocab, merges=["h i", f"{sp} hi"])
+    assert hf_tok.encode("hi hi") == [3, 4]
+
+    cfg_hf = ParallaxLMConfig(vocab_size=hf_tok.vocab_size, embed_dim=16, num_heads=2, num_layers=1, max_seq_len=16)
+    p_hf = str(tmp_path / "hf.gguf")
+    export_to_gguf_v3(ParallaxLM(cfg_hf), p_hf, tokenizer=hf_tok)
+    loaded_hf = load_gguf_pretrained(p_hf, return_tokenizer=True)[1]
+    assert loaded_hf.encode("hi hi") == [3, 4]
+    assert loaded_hf.decode([3, 4]) == "hi hi"
+
+    bpe_tok = BPETokenizer()
+    cfg_bpe = ParallaxLMConfig(vocab_size=bpe_tok.vocab_size, embed_dim=16, num_heads=2, num_layers=1, max_seq_len=16)
+    p_bpe = str(tmp_path / "bpe.gguf")
+    export_to_gguf_v3(ParallaxLM(cfg_bpe), p_bpe, tokenizer=bpe_tok)
+    loaded_bpe = load_gguf_pretrained(p_bpe, return_tokenizer=True)[1]
+    assert loaded_bpe.decode(bpe_tok.encode("hi")) == "hi"
+
