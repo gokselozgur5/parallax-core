@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import logging
 import threading
 from collections.abc import Mapping
@@ -10,11 +11,17 @@ from typing import Any
 
 from parallax.backends import registry
 from parallax.backends.base import Backend
-from parallax.backends.cpuinfo import detect_cpu
+from parallax.backends.cpuinfo import detect_cpu as _detect_cpu_raw
 from parallax.backends.env import backend_override
 from parallax.backends.policy import backend_order
 
 _LOGGER = logging.getLogger(__name__)
+
+
+@functools.lru_cache(maxsize=1)
+def detect_cpu():
+    """Cached wrapper around host CPU feature detection for dispatch."""
+    return _detect_cpu_raw()
 
 
 @dataclass(frozen=True)
