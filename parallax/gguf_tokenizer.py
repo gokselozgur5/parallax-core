@@ -272,7 +272,7 @@ class GGUFTokenizer:
 def load_gguf_tokenizer(source: Union[str, GGUFFile]) -> GGUFTokenizer:
     """Extracts and instantiates a GGUFTokenizer from a GGUF file or loaded GGUFFile."""
     if isinstance(source, str):
-        gguf_file = load_gguf(source, cast_float64=False)
+        gguf_file = load_gguf(source, cast_float64=False, header_only=True)
     else:
         gguf_file = source
 
