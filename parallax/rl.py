@@ -113,10 +113,11 @@ def compute_policy_gradient_step(
     kl_coef: float = 0.0,
     ref_logits: Optional[np.ndarray] = None,
 ) -> float:
-    """Performs a REINFORCE policy gradient update step on the policy model.
+    """Computes REINFORCE policy loss and accumulates gradients into policy model.
 
     Advantage A = reward - baseline
     Loss = - A * sum_t log P(y_t | y_<t) + kl_coef * KL(P || P_ref)
+    Note: Does not step the optimizer; callers invoke optimizer.step() explicitly.
     """
     advantage = reward - baseline
     logits = policy_model(tokens)  # [1, T, V]
