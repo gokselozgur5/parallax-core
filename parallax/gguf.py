@@ -285,7 +285,10 @@ def load_gguf(
             val = _read_metadata_value(f, val_type, max_header_size=effective_max_header)
             metadata[key] = val
 
-        alignment = int(metadata.get("general.alignment", GGUF_DEFAULT_ALIGNMENT))
+        alignment_raw = metadata.get("general.alignment", GGUF_DEFAULT_ALIGNMENT)
+        if not isinstance(alignment_raw, (int, np.integer)) or isinstance(alignment_raw, bool):
+            raise ValueError(f"Invalid GGUF alignment type: expected integer, got {type(alignment_raw).__name__}")
+        alignment = int(alignment_raw)
         if alignment <= 0 or (alignment & (alignment - 1)) != 0:
             raise ValueError(f"Invalid GGUF alignment: {alignment} must be a positive power of 2")
 
@@ -409,8 +412,12 @@ def save_gguf(
     if alignment <= 0 or (alignment & (alignment - 1)) != 0:
         raise ValueError(f"Invalid GGUF alignment: {alignment} must be a positive power of 2")
     final_metadata = dict(metadata)
-    if "general.alignment" in final_metadata and int(final_metadata["general.alignment"]) != alignment:
-        raise ValueError(f"Conflicting general.alignment in metadata: {final_metadata['general.alignment']} vs {alignment}")
+    if "general.alignment" in final_metadata:
+        align_val = final_metadata["general.alignment"]
+        if not isinstance(align_val, (int, np.integer)) or isinstance(align_val, bool):
+            raise ValueError(f"Invalid GGUF alignment in metadata: expected integer, got {type(align_val).__name__}")
+        if int(align_val) != alignment:
+            raise ValueError(f"Conflicting general.alignment in metadata: {align_val} vs {alignment}")
     if alignment != GGUF_DEFAULT_ALIGNMENT and "general.alignment" not in final_metadata:
         final_metadata["general.alignment"] = np.uint32(alignment)
     with open(file_path, "wb") as f:
