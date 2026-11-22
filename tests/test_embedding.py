@@ -67,3 +67,52 @@ def test_dispatched_embedding_package_export():
     import parallax.nn as pnn
     assert hasattr(pnn, "DispatchedEmbedding")
     assert "DispatchedEmbedding" in pnn.__all__
+
+
+def test_dispatched_embedding_routes_through_backend_gather(monkeypatch):
+    from parallax.backends import registry
+    from parallax.backends.base import Backend
+    from parallax.backends.dispatch import clear_fallback_history, get_fallback_history
+    from parallax.backends.numpy_backend import NumpyBackend
+    from parallax.nn.embedding import DispatchedEmbedding
+
+    seen: list[tuple[tuple[int, ...], tuple[int, ...]]] = []
+
+    class _GatherBackend(Backend):
+        name = "c"
+
+        def available(self) -> bool:
+            return True
+
+        def supports(self, op: str, dtype: object, shape: tuple[int, ...]) -> bool:
+            return op == "gather" and np.dtype(dtype) == np.float32  # type: ignore[arg-type]
+
+        def gather(self, weight: np.ndarray, indices: np.ndarray) -> np.ndarray:
+            seen.append((weight.shape, indices.shape))
+            return weight[indices]
+
+    weights = np.array([[0.0, 0.0], [1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], dtype=np.float64)
+    emb = DispatchedEmbedding.from_pretrained(weights, freeze=False, padding_idx=0)
+    registry.clear()
+    clear_fallback_history()
+    registry.register("numpy", NumpyBackend())
+    registry.register("c", _GatherBackend())
+    try:
+        monkeypatch.setenv("PARALLAX_BACKEND", "c")
+        out = emb(Tensor(np.array([1, 3])))
+        out.sum().backward()
+        monkeypatch.delenv("PARALLAX_BACKEND", raising=False)
+        registry.unregister("c")
+        fallback_out = emb(Tensor(np.array([2])))
+        history = get_fallback_history()
+    finally:
+        registry.clear()
+        clear_fallback_history()
+    assert seen == [((4, 2), (2,))]
+    assert history == []
+    np.testing.assert_allclose(out.data, [[1.0, 2.0], [5.0, 6.0]])
+    np.testing.assert_allclose(fallback_out.data, [[3.0, 4.0]])
+    assert emb.weight.grad is not None
+    np.testing.assert_allclose(emb.weight.grad[1], [1.0, 1.0])
+
+
