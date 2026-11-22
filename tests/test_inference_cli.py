@@ -54,3 +54,33 @@ def test_incremental_token_decoder_incomplete_trailing_bytes():
     assert part1 == ""  # Incomplete byte buffered
     finished = decoder.finish()
     assert finished == "\ufffd"  # Flushed incomplete bytes become replacement char
+
+
+def test_stream_and_plain_completion_return_same_text():
+    import http.client
+    import json
+    import threading
+    from http.server import HTTPServer
+    import numpy as np
+    from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
+    from parallax.openai_server import OpenAIServerState, create_handler
+
+    np.random.seed(0)
+    cfg = ParallaxLMConfig(vocab_size=128, embed_dim=16, num_layers=1, num_heads=2, max_seq_len=64)
+    server = HTTPServer(("127.0.0.1", 0), create_handler(OpenAIServerState(model=ParallaxLM(cfg))))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+
+    def _post(port, payload):
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=60)
+        conn.request("POST", "/v1/chat/completions", body=json.dumps(payload))
+        return conn.getresponse().read().decode()
+
+    base = {"messages": [{"role": "user", "content": "Hi"}], "max_tokens": 8, "temperature": 0}
+    plain = json.loads(_post(server.server_port, base))["choices"][0]["message"]["content"]
+    raw = _post(server.server_port, {**base, "stream": True})
+    server.shutdown()
+    server.server_close()
+    events = [json.loads(line[6:]) for line in raw.split("\n") if line.startswith("data: {")]
+    streamed = "".join(e["choices"][0]["delta"].get("content", "") for e in events)
+    assert streamed == plain
+
