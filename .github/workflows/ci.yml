@@ -10,6 +10,7 @@ on:
 
 jobs:
   test:
+    name: ${{ matrix.os == 'ubuntu-latest' && format('test ({0})', matrix.python-version) || format('test ({0}, {1})', matrix.os, matrix.python-version) }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
