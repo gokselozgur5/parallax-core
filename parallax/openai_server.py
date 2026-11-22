@@ -135,6 +135,50 @@ def create_handler(state: OpenAIServerState):
                     if math.isnan(temperature) or math.isinf(temperature) or temperature < 0:
                         self._send_json(400, {"error": {"message": f"Invalid temperature: {temperature}. Must be finite and non-negative.", "type": "invalid_request_error"}})
                         return
+
+                    top_p = None
+                    if "top_p" in data and data["top_p"] is not None:
+                        try:
+                            top_p = float(data["top_p"])
+                        except (ValueError, TypeError):
+                            self._send_json(400, {"error": {"message": f"Invalid top_p: {data['top_p']}. Must be a valid float.", "type": "invalid_request_error"}})
+                            return
+                        if math.isnan(top_p) or math.isinf(top_p) or top_p < 0.0 or top_p > 1.0:
+                            self._send_json(400, {"error": {"message": f"Invalid top_p: {top_p}. Must be in [0.0, 1.0].", "type": "invalid_request_error"}})
+                            return
+
+                    top_k = None
+                    if "top_k" in data and data["top_k"] is not None:
+                        try:
+                            top_k = int(data["top_k"])
+                        except (ValueError, TypeError):
+                            self._send_json(400, {"error": {"message": f"Invalid top_k: {data['top_k']}. Must be an integer.", "type": "invalid_request_error"}})
+                            return
+                        if top_k < 0:
+                            self._send_json(400, {"error": {"message": f"Invalid top_k: {top_k}. Must be non-negative.", "type": "invalid_request_error"}})
+                            return
+
+                    if "n" in data and data["n"] is not None:
+                        try:
+                            n_val = int(data["n"])
+                        except (ValueError, TypeError):
+                            self._send_json(400, {"error": {"message": f"Invalid n: {data['n']}. Must be an integer.", "type": "invalid_request_error"}})
+                            return
+                        if n_val != 1:
+                            self._send_json(400, {"error": {"message": f"Unsupported n: {n_val}. Only n=1 is supported.", "type": "invalid_request_error"}})
+                            return
+
+                    stop = data.get("stop", None)
+                    stop_seqs: List[str] = []
+                    if stop is not None:
+                        if isinstance(stop, str):
+                            stop_seqs = [stop] if stop else []
+                        elif isinstance(stop, list) and all(isinstance(s, str) for s in stop):
+                            stop_seqs = [s for s in stop if s]
+                        else:
+                            self._send_json(400, {"error": {"message": "stop must be a string or list of strings", "type": "invalid_request_error"}})
+                            return
+
                     stream = bool(data.get("stream", False))
 
                     prompt_text = "\n".join(f"{m.get('role', 'user')}: {m.get('content', '')}" for m in messages)
@@ -160,6 +204,8 @@ def create_handler(state: OpenAIServerState):
                         prompt_tokens=prompt_tokens,
                         max_new_tokens=max_tokens,
                         temperature=temperature,
+                        top_p=top_p,
+                        top_k=top_k,
                         eos_token_id=eos_token_id,
                     )
                     state.engine.add_request(req)
@@ -289,9 +335,21 @@ def create_handler(state: OpenAIServerState):
                         tokens_to_decode = tokens_to_decode[:-1]
                     gen_text = decode_tokens(tokens_to_decode) if tokens_to_decode else ""
 
+                    stopped_by_stop_seq = False
+                    if stop_seqs and gen_text:
+                        earliest_pos = None
+                        for s in stop_seqs:
+                            pos = gen_text.find(s)
+                            if pos != -1:
+                                if earliest_pos is None or pos < earliest_pos:
+                                    earliest_pos = pos
+                        if earliest_pos is not None:
+                            gen_text = gen_text[:earliest_pos]
+                            stopped_by_stop_seq = True
+
                     if max_tokens == 0:
                         finish_reason = "length"
-                    elif eos_id is not None and req.generated_tokens and req.generated_tokens[-1] == eos_id:
+                    elif stopped_by_stop_seq or (eos_id is not None and req.generated_tokens and req.generated_tokens[-1] == eos_id):
                         finish_reason = "stop"
                     else:
                         finish_reason = "length"
