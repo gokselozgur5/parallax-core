@@ -61,11 +61,18 @@ def find_rust_lib() -> Optional[Path]:
     else:
         lib_name = "libparallax_rs.so"
 
-    for mode in ("release", "debug"):
-        candidate = crate_target / mode / lib_name
-        if candidate.is_file():
-            _LOAD_ERROR_REASON = None
-            return candidate
+    search_roots = []
+    cargo_target = os.environ.get("CARGO_TARGET_DIR")
+    if cargo_target:
+        search_roots.append(Path(cargo_target))
+    search_roots.append(crate_target)
+
+    for root in search_roots:
+        for mode in ("release", "debug"):
+            candidate = root / mode / lib_name
+            if candidate.is_file():
+                _LOAD_ERROR_REASON = None
+                return candidate
     _LOAD_ERROR_REASON = "libparallax_rs shared library not found in crate target"
     return None
 
