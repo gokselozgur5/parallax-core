@@ -6,7 +6,10 @@ import numpy as np
 
 from parallax.dispatch import dispatched_fused_layernorm
 from parallax.tensor import Tensor
-from python.parallax.dispatch.fused_layernorm import fused_layernorm_backward
+from python.parallax.dispatch.fused_layernorm import (
+    fused_layernorm_backward,
+    fused_layernorm_forward,
+)
 
 
 def test_fused_layernorm_residual_output_backpropagates() -> None:
@@ -61,3 +64,11 @@ def test_fused_layernorm_residual_output_partial_tensor_inputs() -> None:
     )
     assert isinstance(fused_const, Tensor)
     assert fused_const.requires_grad is False
+
+
+def test_fused_layernorm_forward_integer_dtype_preserved() -> None:
+    x = np.array([[1, 2, 3]], dtype=np.int64)
+    out = fused_layernorm_forward(x, eps=1e-5)
+    assert np.issubdtype(out.dtype, np.floating)
+    expected = np.array([[-1.22473569, 0.0, 1.22473569]])
+    np.testing.assert_allclose(out, expected, rtol=1e-5, atol=1e-5)
