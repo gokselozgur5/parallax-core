@@ -185,3 +185,32 @@ def test_speculative_bonus_token_when_draft_hits_max_seq_len() -> None:
     assert stats["target_pass_ratio"] == 2.0  # 2 tokens generated in 1 target pass!
 
 
+def test_top_p_zero_does_not_disable_nucleus_filter() -> None:
+    from parallax.generator import sample_next_token
+
+    np.random.seed(0)
+    logits = np.array([0.0, 0.0, 5.0])
+    with pytest.raises(ValueError, match=r"top_p"):
+        sample_next_token(logits, temperature=5.0, top_p=0.0)
+
+
+def test_top_p_negative_raises_value_error() -> None:
+    from parallax.generator import sample_next_token
+
+    logits = np.array([0.0, 0.0, 5.0])
+    with pytest.raises(ValueError, match=r"top_p"):
+        sample_next_token(logits, temperature=1.0, top_p=-0.5)
+
+
+def test_speculative_compute_token_probs_top_p_validation() -> None:
+    from parallax.speculative import _compute_token_probs
+
+    logits = np.array([0.0, 0.0, 5.0])
+    with pytest.raises(ValueError, match=r"top_p"):
+        _compute_token_probs(logits, temperature=1.0, top_p=0.0)
+
+    with pytest.raises(ValueError, match=r"top_p"):
+        _compute_token_probs(logits, temperature=1.0, top_p=1.5)
+
+
+
