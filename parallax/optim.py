@@ -4,7 +4,7 @@ Optimization algorithms, gradient management, and learning rate schedules.
 Implements:
 - AdamW (Loshchilov & Hutter, 2017) with decoupled weight decay
 - Global gradient norm clipping (`clip_grad_norm_`)
-- Learning rate schedulers: CosineAnnealingWithWarmup, LinearWarmup
+- Learning rate schedulers: CosineAnnealingWithWarmup
 """
 
 import math
