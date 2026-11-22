@@ -248,6 +248,18 @@ def load_gguf_pretrained(
     """Parses a GGUF file and instantiates a ready-to-run ParallaxLM model, optionally returning its tokenizer."""
     gguf_file = load_gguf(file_path, cast_float64=True)
     p_config = gguf_metadata_to_parallax(gguf_file.metadata, gguf_file.tensors)
+    if "token_embd.weight" in gguf_file.tensor_infos:
+        embd_shape = gguf_file.tensor_infos["token_embd.weight"].shape
+        if len(embd_shape) == 2 and (embd_shape[1] != p_config.embed_dim or embd_shape[0] != p_config.vocab_size):
+            raise ValueError(f"Mismatch between metadata dims and token_embd.weight shape {embd_shape}")
+    max_blocks = max(
+        (int(k.split(".")[1]) + 1 for k in gguf_file.tensor_infos if k.startswith("blk.") and k.split(".")[1].isdigit()),
+        default=0,
+    )
+    if max_blocks > 0 and p_config.num_layers != max_blocks:
+        raise ValueError(f"Metadata block_count {p_config.num_layers} does not match tensor layers {max_blocks}")
+    if p_config.num_heads <= 0 or p_config.num_layers <= 0 or p_config.embed_dim <= 0 or p_config.max_seq_len <= 0:
+        raise ValueError("Invalid non-positive architecture dimensions in GGUF metadata")
     model = ParallaxLM(p_config)
     load_gguf_weights_into_model(model, gguf_file.tensors, strict=strict)
 
