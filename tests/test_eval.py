@@ -1,6 +1,5 @@
 import numpy as np
 from parallax.eval import compute_cross_entropy_loss, compute_perplexity
-from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 
 
 def test_compute_cross_entropy_loss_uniform():
@@ -21,18 +20,23 @@ def test_compute_cross_entropy_loss_perfect():
     assert loss < 1e-4
 
 
-def test_compute_perplexity_sliding_window():
-    config = ParallaxLMConfig(
-        vocab_size=16,
-        embed_dim=16,
-        num_layers=1,
-        num_heads=2,
-        max_seq_len=8,
-        use_swiglu=False,
-    )
-    model = ParallaxLM(config)
-    tokens = list(np.random.randint(0, 16, size=24))
+def test_compute_perplexity_sliding_window(monkeypatch):
+    class UniformStubModel:
+        def __call__(self, inputs):
+            return np.zeros((*inputs.shape, 16))
 
-    ppl = compute_perplexity(model, tokens, max_context_len=8, stride=4)
+    tokens = [i % 16 for i in range(24)]
+    scored_targets = []
+    orig_loss = compute_cross_entropy_loss
+
+    def tracking_loss(logits, targets):
+        scored_targets.extend(targets.tolist())
+        return orig_loss(logits, targets)
+
+    monkeypatch.setattr("parallax.eval.compute_cross_entropy_loss", tracking_loss)
+    ppl = compute_perplexity(UniformStubModel(), tokens, max_context_len=8, stride=4)
+
     assert ppl > 1.0
     assert np.isfinite(ppl)
+    assert np.isclose(ppl, 16.0)
+    assert scored_targets == tokens[1:]
