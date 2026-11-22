@@ -1,14 +1,15 @@
-"""DispatchedEmbedding module routing embedding lookups."""
+"""DispatchedEmbedding module routing embedding lookups through backend dispatch."""
 
 from __future__ import annotations
 from typing import Optional
 import numpy as np
+from parallax.backends.tensor_ops import dispatched_gather
 from parallax.nn import Module, Parameter
-from parallax.tensor import Tensor, _accumulate_grad
+from parallax.tensor import Tensor
 
 
 class DispatchedEmbedding(Module):
-    """Embedding layer supporting backend dispatch and autograd."""
+    """Embedding layer routing lookups through dispatched_gather with NumPy fallback."""
 
     def __init__(
         self,
@@ -27,27 +28,7 @@ class DispatchedEmbedding(Module):
         self.weight = Parameter(data, label="Embedding.weight")
 
     def forward(self, indices: Tensor | np.ndarray) -> Tensor:
-        raw_idx = indices.data if isinstance(indices, Tensor) else indices
-        idx_arr = np.asarray(raw_idx, dtype=np.int64)
-        if np.any(idx_arr < 0) or np.any(idx_arr >= self.num_embeddings):
-            raise IndexError("Index out of range for DispatchedEmbedding")
-        out_data = self.weight.data[idx_arr]
-        parents = (self.weight,) if isinstance(indices, np.ndarray) else (indices, self.weight)
-        out = Tensor(out_data, parents, "Embedding")
-        if not out.requires_grad:
-            return out
-
-        def _backward() -> None:
-            if out.grad is None or not self.weight.requires_grad:
-                return
-            grad_w = np.zeros_like(self.weight.data)
-            np.add.at(grad_w, idx_arr, out.grad)
-            if self.padding_idx is not None:
-                grad_w[self.padding_idx] = 0.0
-            _accumulate_grad(self.weight, grad_w)
-
-        out._backward = _backward
-        return out
+        return dispatched_gather(self.weight, indices, padding_idx=self.padding_idx)
 
     @classmethod
     def from_pretrained(
