@@ -16,6 +16,16 @@ class GroupedGEMMDispatcher:
         expert_assignments: List[int],
     ) -> Tuple[List[np.ndarray], List[List[int]]]:
         """Group tokens by their assigned expert ID into contiguous batches."""
+        if len(tokens) != len(expert_assignments):
+            raise ValueError(
+                f"Expected {len(tokens)} expert assignments, got {len(expert_assignments)}"
+            )
+        for exp_id in expert_assignments:
+            if exp_id < 0 or exp_id >= self.num_experts:
+                raise IndexError(
+                    f"Expert index {exp_id} out of range [0, {self.num_experts})"
+                )
+
         expert_batches: List[List[np.ndarray]] = [[] for _ in range(self.num_experts)]
         expert_orig_indices: List[List[int]] = [[] for _ in range(self.num_experts)]
 
