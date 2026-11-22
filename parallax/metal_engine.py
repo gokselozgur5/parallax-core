@@ -353,28 +353,19 @@ def metal_gemm(A: np.ndarray, B: np.ndarray) -> np.ndarray:
     A_c = np.ascontiguousarray(A, dtype=np.float32)
     B_c = np.ascontiguousarray(B, dtype=np.float32)
 
-    buf_A = _objc_send(
-        ctypes.c_void_p,
-        _DEVICE,
-        "newBufferWithBytes:length:options:",
-        A_c.ctypes.data_as(ctypes.c_void_p),
-        A_c.nbytes,
-        0,
-    )
-    buf_B = _objc_send(
-        ctypes.c_void_p,
-        _DEVICE,
-        "newBufferWithBytes:length:options:",
-        B_c.ctypes.data_as(ctypes.c_void_p),
-        B_c.nbytes,
-        0,
-    )
     out_bytes = M * N * 4
-    buf_C = _objc_send(
-        ctypes.c_void_p, _DEVICE, "newBufferWithLength:options:", out_bytes, 0
-    )
-
-    with _managed_buffers(buf_A, buf_B, buf_C), _autorelease_pool():
+    with _buffer_scope() as track, _autorelease_pool():
+        buf_A = track(_objc_send(
+            ctypes.c_void_p, _DEVICE, "newBufferWithBytes:length:options:",
+            A_c.ctypes.data_as(ctypes.c_void_p), A_c.nbytes, 0,
+        ))
+        buf_B = track(_objc_send(
+            ctypes.c_void_p, _DEVICE, "newBufferWithBytes:length:options:",
+            B_c.ctypes.data_as(ctypes.c_void_p), B_c.nbytes, 0,
+        ))
+        buf_C = track(_objc_send(
+            ctypes.c_void_p, _DEVICE, "newBufferWithLength:options:", out_bytes, 0
+        ))
         if not buf_A or not buf_B or not buf_C:
             raise RuntimeError("Failed to allocate Metal buffers for GEMM")
 
