@@ -9,8 +9,10 @@ int c_softmax_neon_f32(const float *in, float *out, int rows, int cols) {
 #else
 
 static inline float32x4_t poly_exp_vec(float32x4_t x) {
-    float32x4_t k = vrndaq_f32(vmulq_n_f32(x, 1.44269504f));
-    float32x4_t r = vmlsq_n_f32(x, k, 0.69314718f);
+    uint32x4_t underflow = vcltq_f32(x, vdupq_n_f32(-87.3f));
+    float32x4_t xc = vminq_f32(vmaxq_f32(x, vdupq_n_f32(-87.3f)), vdupq_n_f32(88.7f));
+    float32x4_t k = vminq_f32(vrndaq_f32(vmulq_n_f32(xc, 1.44269504f)), vdupq_n_f32(127.0f));
+    float32x4_t r = vmlsq_n_f32(xc, k, 0.69314718f);
     float32x4_t p = vmlaq_n_f32(vdupq_n_f32(1.0f / 120.0f), r, 1.0f / 720.0f);
     p = vmlaq_f32(vdupq_n_f32(1.0f / 24.0f), r, p);
     p = vmlaq_f32(vdupq_n_f32(1.0f / 6.0f), r, p);
@@ -18,7 +20,8 @@ static inline float32x4_t poly_exp_vec(float32x4_t x) {
     p = vmlaq_f32(vdupq_n_f32(1.0f), r, p);
     p = vmlaq_f32(vdupq_n_f32(1.0f), r, p);
     int32x4_t ik = vaddq_s32(vcvtq_s32_f32(k), vdupq_n_s32(127));
-    return vmulq_f32(p, vreinterpretq_f32_s32(vshlq_n_s32(ik, 23)));
+    float32x4_t y = vmulq_f32(p, vreinterpretq_f32_s32(vshlq_n_s32(ik, 23)));
+    return vbslq_f32(underflow, vdupq_n_f32(0.0f), y);
 }
 
 int c_softmax_neon_f32(const float *in, float *out, int rows, int cols) {
