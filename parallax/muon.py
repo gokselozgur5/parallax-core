@@ -5,13 +5,13 @@ Applies Newton-Schulz iterations to orthogonalize momentum matrices, achieving
 superior convergence speed on 2D weight matrices.
 
 Integration contract:
-    Standalone mathematical optimizer kernel. Operates on pure NumPy parameter and
-    gradient arrays with Newton-Schulz orthogonalization. Standalone optimizer
-    not wired to parallax.trainer.Trainer or ParallaxLM autograd parameters.
+    Provides both the standalone mathematical kernel (Muon) operating on NumPy arrays
+    and the Trainer-compatible adapter (MuonOptimizer) accepting Parameter instances.
 """
 
-from typing import List
+from typing import List, Optional
 import numpy as np
+from parallax.nn import Parameter
 
 
 def newton_schulz5(G: np.ndarray, steps: int = 5, eps: float = 1e-7) -> np.ndarray:
@@ -91,10 +91,6 @@ class Muon:
 
             # Apply parameter update
             p -= self.lr * ortho_update
-
-
-from typing import Optional
-from parallax.nn import Parameter
 
 
 class MuonOptimizer:
