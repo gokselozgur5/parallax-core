@@ -185,17 +185,57 @@ def dispatched_swiglu_forward(gate: Tensor | np.ndarray, up: Tensor | np.ndarray
     return out
 
 
-class FusedSwiGLUBackward:
-    """Dispatched backward helper and gradient accumulator for SwiGLU."""
+def dispatched_gated_mlp(
+    x: Tensor | np.ndarray, w_gate: Any, w_up: Any, w_down: Any
+) -> Tensor:
+    """Compute gated MLP forward pass wired to gated_mlp_backward in Tensor autograd."""
+    rx = x.data if isinstance(x, Tensor) else np.asarray(x)
+    wg_t, bg_t, rwg, rbg = _resolve_proj(w_gate)
+    wu_t, bu_t, rwu, rbu = _resolve_proj(w_up)
+    wd_t, bd_t, rwd, rbd = _resolve_proj(w_down)
+    dtype = np.result_type(rx.dtype, rwg.dtype, rwu.dtype, rwd.dtype, np.float32)
+    rx_d = np.asarray(rx, dtype=dtype)
+    gate = rx_d @ np.asarray(rwg, dtype=dtype).T
+    if rbg is not None:
+        gate = gate + np.asarray(rbg, dtype=dtype)
+    up = rx_d @ np.asarray(rwu, dtype=dtype).T
+    if rbu is not None:
+        up = up + np.asarray(rbu, dtype=dtype)
+    sig = 1.0 / (1.0 + np.exp(-np.clip(gate, -50.0, 50.0)))
+    out_data = (gate * sig * up) @ np.asarray(rwd, dtype=dtype).T
+    if rbd is not None:
+        out_data = out_data + np.asarray(rbd, dtype=dtype)
+    parents = tuple(p for p in (x, wg_t, bg_t, wu_t, bu_t, wd_t, bd_t) if isinstance(p, Tensor))
+    out = Tensor(out_data, parents, "FusedGatedMLP", requires_grad=False)
+    if not out.requires_grad:
+        return out
 
+    def _backward() -> None:
+        if out.grad is not None:
+            gated_mlp_backward(out.grad, x, gate, up, w_gate, w_up, w_down)
+
+    out._backward = _backward
+    return out
+
+
+class FusedSwiGLUBackward:
+    """Dispatched backward helper and autograd operator for SwiGLU and gated MLPs."""
+
+    apply = staticmethod(dispatched_swiglu_forward)
+    gated_mlp = staticmethod(dispatched_gated_mlp)
     backward = staticmethod(swiglu_backward)
     mlp_backward = staticmethod(gated_mlp_backward)
     reference = staticmethod(swiglu_backward_reference)
 
+    def __call__(self, gate: Tensor | np.ndarray, up: Tensor | np.ndarray) -> Tensor:
+        return dispatched_swiglu_forward(gate, up)
+
 
 __all__ = [
     "FusedSwiGLUBackward",
+    "dispatched_gated_mlp",
     "dispatched_swiglu_backward",
+    "dispatched_swiglu_forward",
     "gated_mlp_backward",
     "swiglu_backward",
     "swiglu_backward_reference",
