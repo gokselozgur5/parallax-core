@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import threading
 from typing import Any, Optional
 import numpy as np
 
@@ -11,6 +12,10 @@ from parallax.metal_engine import is_metal_available
 
 class MetalTensorBridge:
     """Bridge between Python/NumPy/Tensor data and Metal shared buffers."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._pinned: dict[int, np.ndarray] = {}
 
     def available(self) -> bool:
         if sys.platform != "darwin":
@@ -33,14 +38,28 @@ class MetalTensorBridge:
 
         if me._DEVICE is None or me._objc_send is None:
             return None, arr.shape, arr.dtype
+        ptr = arr.ctypes.data_as(me.ctypes.c_void_p)
         buf = me._objc_send(
             me.ctypes.c_void_p,
             me._DEVICE,
-            "newBufferWithBytes:length:options:",
-            arr.ctypes.data_as(me.ctypes.c_void_p),
+            "newBufferWithBytesNoCopy:length:options:deallocator:",
+            ptr,
             arr.nbytes,
             0,
+            None,
         )
+        if buf:
+            with self._lock:
+                self._pinned[buf if isinstance(buf, int) else id(buf)] = arr
+        else:
+            buf = me._objc_send(
+                me.ctypes.c_void_p,
+                me._DEVICE,
+                "newBufferWithBytes:length:options:",
+                ptr,
+                arr.nbytes,
+                0,
+            )
         return buf, arr.shape, arr.dtype
 
     def release_buffer(self, buffer: Any) -> None:
@@ -51,6 +70,12 @@ class MetalTensorBridge:
                 me._objc_send(None, buffer, "release")
         except Exception:
             pass
+        finally:
+            if buffer:
+                with self._lock:
+                    self._pinned.pop(
+                        buffer if isinstance(buffer, int) else id(buffer), None
+                    )
 
     def from_metal_buffer(
         self,
