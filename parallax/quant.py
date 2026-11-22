@@ -10,7 +10,7 @@ import numpy as np
 
 from parallax.models.gpt import ParallaxLM
 from parallax.nn import Linear, Module
-from parallax.tensor import Tensor
+from parallax.tensor import Tensor, _accumulate_grad
 
 
 def quantize_int8(w: np.ndarray) -> Tuple[np.ndarray, float]:
@@ -69,13 +69,26 @@ class QuantizedLinear(Module):
 
     def forward(self, x: Tensor) -> Tensor:
         # Cache dequantized weights during inference to avoid redundant dequantization
-        if self._cached_weight is None:
-            self._cached_weight = dequantize_int8(self.w_int8, self.scale)
+        w_float = self._cached_weight
+        if w_float is None:
+            w_float = dequantize_int8(self.w_int8, self.scale)
+            self._cached_weight = w_float
         # x: [..., in_features], w_float: [out_features, in_features]
-        out_data = x.data @ self._cached_weight.T
+        out_data = x.data @ w_float.T
         if self.bias_data is not None:
             out_data = out_data + self.bias_data
-        return Tensor(out_data, (x,), "QuantizedLinear")
+        out = Tensor(out_data, (x,), "QuantizedLinear")
+        if not out.requires_grad:
+            return out
+
+        def _backward() -> None:
+            if out.grad is None:
+                return
+            if x.requires_grad:
+                _accumulate_grad(x, out.grad @ w_float)
+
+        out._backward = _backward
+        return out
 
 
 def quantize_model(model: ParallaxLM) -> ParallaxLM:
