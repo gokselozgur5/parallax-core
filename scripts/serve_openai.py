@@ -21,6 +21,7 @@ def run_server(
     checkpoint: Optional[str] = None,
     gguf: Optional[str] = None,
     hf: Optional[str] = None,
+    vocab: Optional[str] = None,
     model_name: Optional[str] = None,
 ) -> None:
     flags_set = sum(bool(x) for x in (checkpoint, gguf, hf))
@@ -31,6 +32,21 @@ def run_server(
     if checkpoint:
         model, _ = load_checkpoint(checkpoint)
         default_name = os.path.splitext(os.path.basename(checkpoint))[0]
+        vocab_path = vocab
+        if not vocab_path:
+            candidate = os.path.join(os.path.dirname(os.path.abspath(checkpoint)), "shakespeare.txt")
+            if os.path.isfile(candidate):
+                vocab_path = candidate
+        if not vocab_path or not os.path.isfile(vocab_path):
+            raise ValueError(f"Serving checkpoint requires a valid vocabulary file (pass --vocab); tried '{vocab_path}'")
+        with open(vocab_path, "r", encoding="utf-8") as f:
+            v_text = f.read()
+        from parallax.generator import CharTokenizer
+        tokenizer = CharTokenizer(v_text)
+        if tokenizer.vocab_size != model.config.vocab_size:
+            raise ValueError(
+                f"Vocabulary size {tokenizer.vocab_size} does not match model vocab size {model.config.vocab_size}"
+            )
     elif gguf:
         model, tokenizer = load_gguf_pretrained(gguf, return_tokenizer=True)
         default_name = os.path.splitext(os.path.basename(gguf))[0]
@@ -70,6 +86,7 @@ def main() -> None:
     parser.add_argument("--checkpoint", type=str, default=None, help="Path to checkpoint (.npz) file")
     parser.add_argument("--gguf", type=str, default=None, help="Path to GGUF (.gguf) file")
     parser.add_argument("--hf", type=str, default=None, help="Path to HuggingFace model directory")
+    parser.add_argument("--vocab", type=str, default=None, help="Path to vocabulary corpus text file")
     parser.add_argument("--model-name", type=str, default=None, help="Custom model name for API responses")
     args = parser.parse_args()
     run_server(
@@ -78,6 +95,7 @@ def main() -> None:
         checkpoint=args.checkpoint,
         gguf=args.gguf,
         hf=args.hf,
+        vocab=args.vocab,
         model_name=args.model_name,
     )
 
