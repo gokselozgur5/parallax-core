@@ -198,6 +198,26 @@ def test_export_bitmamba_ternary_effective_weights():
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
 
+
+def test_export_bitmamba_architecture_override_updates_keys():
+    """Verify export_to_gguf_v3 uses overridden architecture for all BitMamba metadata keys."""
+    cfg = BitMambaConfig(vocab_size=32, d_model=16, num_layers=1, d_state=4, d_conv=4, expand=2)
+    model = BitMambaLM(cfg)
+    with tempfile.NamedTemporaryFile(suffix=".gguf", delete=False) as f:
+        tmp_path = f.name
+    try:
+        export_to_gguf_v3(model, tmp_path, quantization="f32", architecture="qwen2")
+        gguf = load_gguf(tmp_path)
+        assert gguf.metadata["general.architecture"] == "qwen2"
+        assert "qwen2.block_count" in gguf.metadata
+        assert "qwen2.embedding_length" in gguf.metadata
+        assert "mamba.block_count" not in gguf.metadata
+        assert not any(k.startswith("mamba.") for k in gguf.metadata.keys())
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
 def test_file_type_is_written_as_uint32(tmp_path):
     import struct
     from parallax.gguf import GGUF_TYPE_UINT32, save_gguf
