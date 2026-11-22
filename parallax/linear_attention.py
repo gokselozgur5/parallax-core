@@ -10,7 +10,7 @@ step forward for constant O(1) memory autoregressive decoding.
 from typing import Optional, Tuple, Union
 import numpy as np
 from parallax.nn import Linear, Module
-from parallax.tensor import Tensor, _accumulate_grad
+from parallax.tensor import Tensor, _accumulate_grad, is_grad_enabled
 
 
 def elu_feature_map(x: np.ndarray) -> np.ndarray:
@@ -55,6 +55,11 @@ class LinearAttention(Module):
                    S is [B, num_heads, head_dim, head_dim]
                    Z is [B, num_heads, head_dim, 1]
         """
+        if (state is not None or return_state) and is_grad_enabled():
+            raise RuntimeError(
+                "LinearAttention recurrent path (state or return_state=True) is inference-only; "
+                "wrap the call in parallax.no_grad() or call without state."
+            )
         x_tensor = x if isinstance(x, Tensor) else Tensor(x)
         B, T, C = x_tensor.shape
 
