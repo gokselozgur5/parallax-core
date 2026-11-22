@@ -58,34 +58,6 @@ def dropout_backward_reference(
     return dx
 
 
-def _dispatch_dropout_forward(
-    x: np.ndarray,
-    p: float = 0.5,
-    training: bool = True,
-    seed: Optional[int] = None,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Route dropout forward through backend dispatch or fallback."""
-    try:
-        from parallax.backends.dispatch import dispatch
-        return dispatch("dropout_forward", x, p=p, training=training, seed=seed)
-    except Exception:
-        return dropout_forward_reference(x, p=p, training=training, seed=seed)
-
-
-def _dispatch_dropout_backward(
-    dout: np.ndarray,
-    mask: np.ndarray,
-    p: float = 0.5,
-    training: bool = True,
-) -> np.ndarray:
-    """Route dropout backward through backend dispatch or fallback."""
-    try:
-        from parallax.backends.dispatch import dispatch
-        return dispatch("dropout_backward", dout, mask, p=p, training=training)
-    except Exception:
-        return dropout_backward_reference(dout, mask, p=p, training=training)
-
-
 def dropout_forward(
     x: np.ndarray,
     p: float = 0.5,
@@ -93,7 +65,7 @@ def dropout_forward(
     seed: Optional[int] = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Execute functional forward pass for Dropout layer."""
-    return _dispatch_dropout_forward(x, p=p, training=training, seed=seed)
+    return dropout_forward_reference(x, p=p, training=training, seed=seed)
 
 
 def dropout_backward(
@@ -103,7 +75,7 @@ def dropout_backward(
     training: bool = True,
 ) -> np.ndarray:
     """Execute functional backward pass for Dropout layer."""
-    return _dispatch_dropout_backward(dout, mask, p=p, training=training)
+    return dropout_backward_reference(dout, mask, p=p, training=training)
 
 
 def dispatched_dropout(
