@@ -23,9 +23,15 @@ class CBackend(Backend):
         if op not in ("gemm", "softmax", "rmsnorm"):
             return False
         try:
-            return np.dtype(dtype) == np.float32
+            if np.dtype(dtype) != np.float32:
+                return False
         except Exception:
             return False
+        if op == "gemm":
+            return len(shape) == 2
+        if op in ("softmax", "rmsnorm"):
+            return len(shape) >= 1
+        return True
 
     def gemm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
         return c_gemm(a, b)
@@ -34,4 +40,5 @@ class CBackend(Backend):
         return c_softmax(x, axis=axis)
 
     def rmsnorm(self, x: np.ndarray, weight: np.ndarray, eps: float = 1e-5) -> np.ndarray:
-        return c_rmsnorm(x, weight, eps=eps)
+        w = np.squeeze(weight) if weight.ndim > 1 else weight
+        return c_rmsnorm(x, w, eps=eps)
