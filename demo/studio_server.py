@@ -224,23 +224,45 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         else:
             super().do_GET()
 
-    def _get_allowed_origin(self) -> Optional[str]:
-        origin = self.headers.get("Origin")
-        if not origin:
+    _LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+    @classmethod
+    def _canonical_loopback_netloc(cls, authority: str) -> Optional[str]:
+        try:
+            parsed = urllib.parse.urlsplit(f"//{authority}")
+            port = parsed.port
+        except ValueError:
             return None
+        host = parsed.hostname
+        if (
+            host not in cls._LOOPBACK_HOSTS
+            or parsed.path or parsed.query or parsed.fragment
+            or parsed.username is not None or parsed.password is not None
+            or (port is not None and port <= 0)
+        ):
+            return None
+        lit = f"[{host}]" if ":" in host else host
+        canon = f"{lit}:{port}" if port is not None else lit
+        return canon if authority.lower() == canon else None
+
+    def _get_allowed_origin(self) -> Optional[str]:
+        get_all = getattr(self.headers, "get_all", None)
+        hosts = get_all("Host") if get_all else [self.headers.get("Host", "")]
+        origins = get_all("Origin") if get_all else [self.headers.get("Origin", "")]
+        if len(hosts or ()) != 1 or len(origins or ()) != 1:
+            return None
+        if not self._canonical_loopback_netloc(hosts[0].strip(" \t")):
+            return None
+        origin = origins[0].strip(" \t")
         try:
             parsed = urllib.parse.urlsplit(origin)
-            h = (parsed.hostname or "").lower()
-            if h in ("localhost", "127.0.0.1", "::1"):
-                return origin
-            host_header = self.headers.get("Host", "")
-            if host_header:
-                server_host = host_header.split(":")[0].lower()
-                if h == server_host:
-                    return origin
-        except Exception:
+        except ValueError:
             return None
-        return None
+        if parsed.scheme not in ("http", "https") or parsed.path or parsed.query or parsed.fragment:
+            return None
+        netloc = self._canonical_loopback_netloc(parsed.netloc)
+        canon = f"{parsed.scheme}://{netloc}" if netloc else None
+        return canon if origin == canon else None
 
     def send_json(self, data: Dict[str, Any], status: int = 200):
         body = json.dumps(data, allow_nan=False).encode("utf-8")
