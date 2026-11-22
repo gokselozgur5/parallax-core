@@ -11,7 +11,8 @@ def build_sliding_window_mask(
     """Construct boolean mask where valid attention positions are True."""
     if window_size < 0:
         raise ValueError(f"window_size must be non-negative, got {window_size}")
-    q_idx = np.arange(seq_len_q)[:, None]
+    offset = (seq_len_k - seq_len_q) if causal else 0
+    q_idx = (np.arange(seq_len_q) + offset)[:, None]
     k_idx = np.arange(seq_len_k)[None, :]
     delta = q_idx - k_idx
     if causal:
@@ -23,7 +24,8 @@ def get_sliding_window_bounds(
     seq_len_q: int, seq_len_k: int, window_size: int, causal: bool = True
 ) -> tuple[np.ndarray, np.ndarray]:
     """Compute per-query [start, end) key indices for sliding window attention."""
-    q_pos = np.arange(seq_len_q)
+    offset = (seq_len_k - seq_len_q) if causal else 0
+    q_pos = np.arange(seq_len_q) + offset
     starts = np.maximum(0, q_pos - window_size)
     if causal:
         ends = np.minimum(seq_len_k, q_pos + 1)
