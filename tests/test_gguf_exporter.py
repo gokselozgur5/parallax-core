@@ -197,3 +197,26 @@ def test_export_bitmamba_ternary_effective_weights():
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+def test_file_type_is_written_as_uint32(tmp_path):
+    import struct
+    from parallax.gguf import GGUF_TYPE_UINT32, save_gguf
+
+    path = str(tmp_path / "a.gguf")
+    save_gguf(path, {"general.file_type": 1}, {})
+    raw = open(path, "rb").read()
+    key_bytes = b"general.file_type"
+    val_type = struct.unpack_from("<I", raw, raw.index(key_bytes) + len(key_bytes))[0]
+    assert val_type == GGUF_TYPE_UINT32
+
+
+def test_rope_freq_base_is_written_as_float32(tmp_path):
+    import struct
+    from parallax.gguf import GGUF_TYPE_FLOAT32, save_gguf
+
+    path = str(tmp_path / "b.gguf")
+    save_gguf(path, {"llama.rope.freq_base": 10000.0}, {})
+    raw = open(path, "rb").read()
+    key_bytes = b"llama.rope.freq_base"
+    val_type = struct.unpack_from("<I", raw, raw.index(key_bytes) + len(key_bytes))[0]
+    assert val_type == GGUF_TYPE_FLOAT32
