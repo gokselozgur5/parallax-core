@@ -11,13 +11,34 @@ Encapsulates the standard LLM pretraining / fine-tuning loop:
 
 from dataclasses import dataclass
 import time
-from typing import Dict, Iterator, List, Optional, Tuple
+from typing import Dict, Iterator, List, Optional, Set, Tuple
 import numpy as np
 
 from parallax.checkpoint import save_checkpoint
 from parallax.loss import cross_entropy_loss, perplexity_from_loss
 from parallax.models.gpt import ParallaxLM
+from parallax.moe import SparseMoE
+from parallax.nn import Module
 from parallax.optim import AdamW, LRScheduler, clip_grad_norm_
+
+
+def _iter_sparse_moe_modules(root: object) -> List[SparseMoE]:
+    """Collects unique SparseMoE submodules reachable from root."""
+    found: List[SparseMoE] = []
+    seen: Set[int] = set()
+
+    def visit(obj: object) -> None:
+        if not isinstance(obj, (Module, list, tuple, dict)) or id(obj) in seen:
+            return
+        seen.add(id(obj))
+        if isinstance(obj, SparseMoE):
+            found.append(obj)
+        children = obj.__dict__.values() if isinstance(obj, Module) else (obj.values() if isinstance(obj, dict) else obj)
+        for item in children:
+            visit(item)
+
+    visit(root)
+    return found
 
 
 @dataclass
@@ -87,6 +108,9 @@ class Trainer:
             # Inner micro-batch accumulation loop
             micro_loss_sum = 0.0
             for _ in range(cfg.grad_accum_steps):
+                moe_blocks = _iter_sparse_moe_modules(model)
+                for moe in moe_blocks:
+                    moe.aux_loss = None
                 x_batch, y_batch = next(self.train_loader)
                 logits = model(x_batch)
                 loss = cross_entropy_loss(
@@ -94,6 +118,9 @@ class Trainer:
                     y_batch,
                     label_smoothing=cfg.label_smoothing,
                 )
+                for moe in moe_blocks:
+                    if moe.aux_loss is not None:
+                        loss = loss + moe.aux_loss
                 # Scale loss by 1 / grad_accum_steps for accumulation
                 scaled_loss = loss * (1.0 / cfg.grad_accum_steps)
                 scaled_loss.backward()
