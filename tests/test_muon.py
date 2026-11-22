@@ -87,3 +87,34 @@ def test_qgalore_adamw_with_trainer():
     )
     history = trainer.train()
     assert len(history) == 2
+
+
+def _batches():
+    rng = np.random.default_rng(0)
+    while True:
+        x = rng.integers(0, 16, size=(2, 8))
+        yield x, np.roll(x, -1, axis=1)
+
+
+def test_trainer_writes_checkpoint_with_muon_optimizer(tmp_path):
+    config = ParallaxLMConfig(
+        vocab_size=16,
+        embed_dim=16,
+        num_heads=2,
+        num_layers=1,
+        max_seq_len=16,
+    )
+    model = ParallaxLM(config)
+    trainer_config = TrainerConfig(
+        max_steps=1,
+        checkpoint_interval=1,
+        checkpoint_prefix=str(tmp_path / "ckpt"),
+    )
+    trainer = Trainer(
+        model,
+        MuonOptimizer(model.parameters()),  # type: ignore[arg-type]
+        trainer_config,
+        _batches(),
+    )
+    trainer.train()
+    assert (tmp_path / "ckpt_step_1.npz").exists()
