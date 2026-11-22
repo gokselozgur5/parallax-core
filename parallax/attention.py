@@ -10,7 +10,7 @@ from typing import Optional, Tuple, Union
 import numpy as np
 from parallax.flash_attn import flash_attention_backward, flash_attention_forward
 from parallax.nn import Linear, Module, RMSNorm
-from parallax.tensor import Tensor, _accumulate_grad
+from parallax.tensor import Tensor, _accumulate_grad, is_grad_enabled
 
 
 def apply_rope(
@@ -135,6 +135,11 @@ class CausalSelfAttention(Module):
         kv_cache: Optional[Tuple[np.ndarray, np.ndarray]] = None,
         rope_offset: Optional[int] = None,
     ) -> Union[Tensor, Tuple[Tensor, Tuple[np.ndarray, np.ndarray]]]:
+        if kv_cache is not None and is_grad_enabled():
+            raise RuntimeError(
+                "CausalSelfAttention with kv_cache is inference-only; "
+                "wrap the call in parallax.no_grad() or pass kv_cache=None."
+            )
         # x shape: [batch_size, seq_len, embed_dim]
         B, T, C = x.shape
 
@@ -235,10 +240,6 @@ class CausalSelfAttention(Module):
 
         def _backward() -> None:
             # Analytical backpropagation through attention mechanism
-            if kv_cache is not None:
-                # KV cached incremental step during inference is strictly forward/eval
-                return
-
             dout = attn_out.grad  # [B, T, C]
             if dout is None:
                 return
