@@ -182,3 +182,24 @@ def test_apply_lora_to_tuple_and_dict_containers():
     assert not isinstance(model.tup[1], LoRALinear)
     assert not isinstance(model.mapping["other"], LoRALinear)
 
+
+def test_checkpoint_round_trip_keeps_lora_adapters(tmp_path):
+    from parallax.checkpoint import load_checkpoint, save_checkpoint
+
+    np.random.seed(0)
+    config = ParallaxLMConfig(
+        vocab_size=16, embed_dim=16, num_heads=2, num_layers=1, max_seq_len=16
+    )
+    model = ParallaxLM(config)
+    for layer in apply_lora_to_model(model, r=2):
+        layer.lora_B.data[:] = np.random.randn(*layer.lora_B.shape)
+    model.eval()
+    tokens = np.random.randint(0, 16, size=(1, 8))
+    expected = model(tokens).data.copy()
+
+    path = save_checkpoint(str(tmp_path / "lora.npz"), model)
+    restored, _ = load_checkpoint(path)
+    restored.eval()
+
+    np.testing.assert_allclose(restored(tokens).data, expected, atol=1e-9)
+
