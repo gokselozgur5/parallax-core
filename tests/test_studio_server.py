@@ -45,3 +45,13 @@ def test_cors_rejects_dns_rebinding_and_spoofed_origins(studio_addr):
     ]:
         status, acao = _request_acao(studio_addr, origin, host)
         assert status == 200 and acao is None, f"unexpected ACAO={acao!r} for {origin!r}"
+
+
+def test_cors_allows_strict_loopback_origins(studio_addr):
+    for origin, host in [
+        ("http://localhost:8080", f"127.0.0.1:{studio_addr[1]}"),
+        ("https://127.0.0.1:8443", "localhost:8080"),
+        ("http://[::1]:8080", "[::1]:8080"),
+    ]:
+        status, acao = _request_acao(studio_addr, origin, host)
+        assert status == 200 and acao == origin
