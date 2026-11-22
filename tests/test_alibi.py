@@ -51,3 +51,10 @@ def test_alibi_causal_attention_non_power_of_2() -> None:
     out = alibi_causal_attention(q, k, v)
     assert out.shape == (num_heads, seq_len, head_dim)
     assert np.all(np.isfinite(out))
+
+
+def test_build_alibi_bias_causal_future_keys_masked() -> None:
+    from python.parallax.dispatch.alibi import build_alibi_bias
+
+    bias = build_alibi_bias(num_heads=8, q_len=2, k_len=2, causal=True)
+    assert bias[0, 0, 1] <= -1e9
