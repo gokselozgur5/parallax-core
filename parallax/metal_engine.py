@@ -150,6 +150,21 @@ def _managed_buffers(*buffers: Optional[ctypes.c_void_p]):
         _release_buffers(*buffers)
 
 
+@contextmanager
+def _buffer_scope():
+    allocated: list[Optional[ctypes.c_void_p]] = []
+
+    def track(buf: Optional[ctypes.c_void_p]) -> Optional[ctypes.c_void_p]:
+        if buf:
+            allocated.append(buf)
+        return buf
+
+    try:
+        yield track
+    finally:
+        _release_buffers(*allocated)
+
+
 def _cf_release(*handles: Optional[ctypes.c_void_p]) -> None:
     """Release CoreFoundation objects created with retain count +1."""
     global _CF
@@ -458,27 +473,18 @@ def metal_rmsnorm(
     x_c = np.ascontiguousarray(x.reshape(rows, cols), dtype=np.float32)
     w_c = np.ascontiguousarray(weight, dtype=np.float32)
 
-    buf_x = _objc_send(
-        ctypes.c_void_p,
-        _DEVICE,
-        "newBufferWithBytes:length:options:",
-        x_c.ctypes.data_as(ctypes.c_void_p),
-        x_c.nbytes,
-        0,
-    )
-    buf_w = _objc_send(
-        ctypes.c_void_p,
-        _DEVICE,
-        "newBufferWithBytes:length:options:",
-        w_c.ctypes.data_as(ctypes.c_void_p),
-        w_c.nbytes,
-        0,
-    )
-    buf_out = _objc_send(
-        ctypes.c_void_p, _DEVICE, "newBufferWithLength:options:", x_c.nbytes, 0
-    )
-
-    with _managed_buffers(buf_x, buf_w, buf_out), _autorelease_pool():
+    with _buffer_scope() as track, _autorelease_pool():
+        buf_x = track(_objc_send(
+            ctypes.c_void_p, _DEVICE, "newBufferWithBytes:length:options:",
+            x_c.ctypes.data_as(ctypes.c_void_p), x_c.nbytes, 0,
+        ))
+        buf_w = track(_objc_send(
+            ctypes.c_void_p, _DEVICE, "newBufferWithBytes:length:options:",
+            w_c.ctypes.data_as(ctypes.c_void_p), w_c.nbytes, 0,
+        ))
+        buf_out = track(_objc_send(
+            ctypes.c_void_p, _DEVICE, "newBufferWithLength:options:", x_c.nbytes, 0
+        ))
         if not buf_x or not buf_w or not buf_out:
             raise RuntimeError("Failed to allocate Metal buffers for RMSNorm")
 
