@@ -63,10 +63,15 @@ class MetalTensorBridge:
         import ctypes
         import parallax.metal_engine as me
 
+        dt = np.dtype(dtype)
+        buf_len = me._objc_send(ctypes.c_ulonglong, buffer, "length")
+        req_len = int(np.prod(shape, dtype=int) * dt.itemsize)
+        if buf_len is not None and buf_len < req_len:
+            return None
         ptr = me._objc_send(ctypes.c_void_p, buffer, "contents")
         if not ptr:
             return None
-        c_type = ctypes.POINTER(ctypes.c_float)
+        c_type = ctypes.POINTER(np.ctypeslib.as_ctypes_type(dt))
         arr = np.ctypeslib.as_array(ctypes.cast(ptr, c_type), shape=shape)
         return arr.copy()
 
