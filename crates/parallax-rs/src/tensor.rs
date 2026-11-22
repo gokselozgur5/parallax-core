@@ -34,6 +34,13 @@ pub fn softmax_2d(data: &mut [f32], rows: usize, cols: usize) -> Result<(), &'st
             }
         }
 
+        if max_val == f32::NEG_INFINITY {
+            for val in row_slice.iter_mut() {
+                *val = 0.0;
+            }
+            continue;
+        }
+
         if max_val.is_infinite() {
             for val in row_slice.iter_mut() {
                 *val = f32::NAN;
@@ -187,5 +194,16 @@ mod tests {
         assert!((data[3] - 0.26894143).abs() < 1e-5);
         assert_eq!(data[4], 0.0);
         assert!((data[5] - 0.7310586).abs() < 1e-5);
+    }
+
+    #[test]
+    fn test_softmax_fully_masked_row() {
+        let mut data = vec![f32::NEG_INFINITY, f32::NEG_INFINITY, 1.0, f32::NEG_INFINITY];
+        let res = softmax_2d(&mut data, 2, 2);
+        assert!(res.is_ok());
+        assert_eq!(data[0], 0.0);
+        assert_eq!(data[1], 0.0);
+        assert_eq!(data[2], 1.0);
+        assert_eq!(data[3], 0.0);
     }
 }
