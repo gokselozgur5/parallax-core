@@ -105,3 +105,31 @@ def test_scoped_backend_alias():
     with use_backend("rust"):
         assert scoped_backend() == "rust"
     assert scoped_backend() is None
+
+
+def test_use_backend_scope_selects_the_backend_for_dispatch():
+    import numpy as np
+
+    from parallax.backends import registry
+    from parallax.backends.base import Backend
+    from parallax.backends.dispatch import dispatch
+    from parallax.backends.numpy_backend import NumpyBackend
+    from parallax.backends.scope import use_backend
+
+    class _Marker(Backend):
+        name = "rust"
+        available = lambda self: True  # noqa: E731
+        supports = lambda self, op, dtype, shape: op == "gemm"  # noqa: E731
+        gemm = lambda self, a, b: np.full((1, 1), 42.0)  # noqa: E731
+
+    registry.clear()
+    registry.register("numpy", NumpyBackend())
+    registry.register("rust", _Marker())
+    try:
+        a = np.ones((2, 2), dtype=np.float32)
+        with use_backend("rust"):
+            out = dispatch("gemm", a, a)
+    finally:
+        registry.clear()
+    assert out[0, 0] == 42.0, "dispatch ignored the use_backend scope"
+
