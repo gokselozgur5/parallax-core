@@ -253,3 +253,19 @@ def test_check_tensor_gradient_rejects_nan_analytic_gradient():
     x = Tensor(np.array([1.0, 2.0]))
     assert check_tensor_gradient(_nan_backward_fn, [x]) is False
 
+
+def test_rust_softmax_fully_masked_row_matches_fallback(monkeypatch):
+    import parallax.rust_engine as re
+
+    x = np.array([[-np.inf, -np.inf], [1.0, -np.inf]], dtype=np.float32)
+    expected = np.array([[0.0, 0.0], [1.0, 0.0]], dtype=np.float32)
+    native = None
+    if re.is_rust_engine_available():
+        native = re.rust_softmax(x)
+    monkeypatch.setattr(re, "get_rust_lib", lambda: None)
+    fallback = re.rust_softmax(x)
+    np.testing.assert_array_equal(fallback, expected)
+    if native is not None:
+        np.testing.assert_array_equal(native, fallback)
+
+
