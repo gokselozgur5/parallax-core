@@ -5,14 +5,14 @@ Projects full-rank weight gradients into low-rank SVD subspaces and quantizes
 the projected states to 8-bit integers to drastically reduce optimizer memory.
 
 Integration contract:
-    Standalone mathematical gradient projector and quantizer. Operates on raw
-    NumPy gradient arrays. Not integrated into parallax.optim.AdamW or the
-    computational autograd graph.
+    Provides both the standalone mathematical gradient projector (QGaLoreProjector)
+    and the Trainer-compatible optimizer adapter (QGaLoreAdamW).
 """
 
-from typing import Tuple, Optional
+from typing import Dict, List, Optional, Tuple
 import warnings
 import numpy as np
+from parallax.nn import Parameter
 
 
 class QGaLoreProjector:
@@ -84,10 +84,6 @@ class QGaLoreProjector:
             return np.dot(dequant, self.V_T)
         assert self.U is not None
         return np.dot(self.U, dequant)
-
-
-from typing import List, Dict
-from parallax.nn import Parameter
 
 
 class QGaLoreAdamW:
