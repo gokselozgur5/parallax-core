@@ -127,6 +127,15 @@ def get_rust_lib() -> Optional[ctypes.CDLL]:
             ]
             lib.parallax_softmax_f32.restype = ctypes.c_int32
 
+            lib.parallax_backend_count.argtypes = []
+            lib.parallax_backend_count.restype = ctypes.c_uint32
+
+            lib.parallax_get_device_type.argtypes = [
+                ctypes.c_uint32,
+                ctypes.POINTER(ctypes.c_uint32),
+            ]
+            lib.parallax_get_device_type.restype = ctypes.c_int32
+
             _RUST_LIB = lib
             return _RUST_LIB
         except Exception as e:
@@ -244,3 +253,21 @@ def rust_softmax(x: np.ndarray, axis: int = -1) -> np.ndarray:
         return exp_s / denom
 
     return x_c.reshape(orig_shape)
+
+
+def rust_backend_count() -> int:
+    """Return total number of registered compute backends in Rust engine."""
+    lib = get_rust_lib()
+    if lib is None:
+        return 0
+    return int(lib.parallax_backend_count())
+
+
+def rust_get_device_type(backend_idx: int) -> Optional[int]:
+    """Return device type identifier for backend index or None if invalid."""
+    lib = get_rust_lib()
+    if lib is None or backend_idx < 0:
+        return None
+    out = ctypes.c_uint32()
+    status = lib.parallax_get_device_type(ctypes.c_uint32(backend_idx), ctypes.byref(out))
+    return int(out.value) if status == 0 else None
