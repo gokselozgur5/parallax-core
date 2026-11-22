@@ -65,26 +65,13 @@ def fused_masked_softmax_backward(
     return softmax_backward_reference(effective_dout, probs, axis=axis)
 
 
-def _dispatch_softmax_backward(
-    dout: np.ndarray,
-    probs: np.ndarray,
-    axis: int = -1,
-) -> np.ndarray:
-    """Route softmax backward through backend dispatch or fallback."""
-    try:
-        from parallax.backends.dispatch import dispatch
-        return dispatch("softmax_backward", dout, probs, axis=axis)
-    except Exception:
-        return softmax_backward_reference(dout, probs, axis=axis)
-
-
 def softmax_backward(
     dout: np.ndarray,
     probs: np.ndarray,
     axis: int = -1,
 ) -> np.ndarray:
     """Execute functional backward pass for Softmax layer."""
-    return _dispatch_softmax_backward(dout, probs, axis=axis)
+    return softmax_backward_reference(dout, probs, axis=axis)
 
 
 def dispatched_softmax(
