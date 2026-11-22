@@ -18,7 +18,7 @@ repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if repo_root not in sys.path:
     sys.path.insert(0, repo_root)
 
-from typing import Dict, List
+from typing import Any, Dict, List
 from parallax.cuda_engine import Qwen3CUDAModel, is_cuda_available
 from parallax.hf_tokenizer import load_hf_tokenizer
 
@@ -37,6 +37,16 @@ def build_chatml_prompt(history: List[Dict[str, str]], is_qwen3: bool, enable_th
     body = "".join(f"<|im_start|>{m['role']}\n{m['content']}<|im_end|>\n" for m in kept)
     suffix = "" if (not is_qwen3 or enable_thinking) else "<think>\n\n</think>\n\n"
     return body + "<|im_start|>assistant\n" + suffix
+
+
+def detect_thinking_support(tokenizer: Any) -> bool:
+    vocab = getattr(tokenizer, "vocab", None)
+    if vocab is not None and isinstance(vocab, dict):
+        return "<think>" in vocab
+    token_to_id = getattr(tokenizer, "token_to_id", None)
+    if token_to_id is not None and isinstance(token_to_id, dict):
+        return "<think>" in token_to_id
+    return False
 
 
 def main():
@@ -60,7 +70,7 @@ def main():
     model = Qwen3CUDAModel(model_dir=model_dir, device="cuda")
     print(f"[OK] Loaded in {time.time() - t0:.2f}s.\n", flush=True)
     tokenizer = model.tokenizer if model.tokenizer is not None else load_hf_tokenizer(model_dir)
-    is_qwen3 = "<think>" in getattr(tokenizer, "token_to_id", {})
+    is_qwen3 = detect_thinking_support(tokenizer)
     print_banner(model_name, dev_name, vram)
     
     system_prompt = "You are Parallax, a concise and direct AI partner. Mirror the user's language naturally."
