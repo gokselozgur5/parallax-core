@@ -50,7 +50,7 @@ def test_update_online_softmax_true_neginf_mask():
 
     # Next block provides valid scores for row 1
     S_block2 = np.array([[[[0.5, 0.2, 0.1, 0.0], [2.0, 1.0, 0.0, -1.0]]]])
-    V_block2 = np.full((B, H, Bc, d), 2.0)
+    V_block2 = np.arange(Bc * d, dtype=float).reshape(1, 1, Bc, d) + 1.0
 
     m2, l2, O2 = update_online_softmax(m1, l1, O1, S_block2, V_block2)
     assert not np.isnan(m2).any()
