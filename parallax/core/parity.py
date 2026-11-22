@@ -71,6 +71,8 @@ class ParityChecker:
 
     def compare(self, actual: Any, ref: Any, threshold: float) -> tuple[float, float, bool]:
         act_arr, ref_arr = _to_numpy(actual), _to_numpy(ref)
+        if act_arr.shape != ref_arr.shape:
+            raise ValueError(f"shape mismatch: actual shape {act_arr.shape} != ref shape {ref_arr.shape}")
         diff = np.abs(act_arr - ref_arr)
         abs_err = float(np.max(diff)) if diff.size > 0 else 0.0
         rel_denom = np.abs(ref_arr) + 1e-12
