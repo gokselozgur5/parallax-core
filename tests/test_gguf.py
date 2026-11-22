@@ -253,3 +253,8 @@ def test_save_gguf_alignment_validation(tmp_path):
         save_gguf(path, {"general.alignment": 32}, {}, alignment=64)
 
 
+def test_ggml_type_bf16_enum_value():
+    assert GGML_TYPE_BF16 == 30
+
+
+
