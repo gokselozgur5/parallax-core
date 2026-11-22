@@ -5,6 +5,7 @@ from __future__ import annotations
 import functools
 import logging
 import threading
+from collections import deque
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -34,7 +35,8 @@ class FallbackRecord:
     exception: str | None = None
 
 
-_fallback_history: list[FallbackRecord] = []
+_MAX_FALLBACK_HISTORY = 1000
+_fallback_history: deque[FallbackRecord] = deque(maxlen=_MAX_FALLBACK_HISTORY)
 _fallback_lock = threading.Lock()
 
 
