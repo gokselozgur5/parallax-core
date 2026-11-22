@@ -48,6 +48,8 @@ def fused_gelu_backward(
     approximate: str = "tanh",
 ) -> np.ndarray:
     """Compute fused GeLU backward reusing cached tanh activation."""
+    if approximate not in {"tanh", "none"}:
+        raise ValueError(f"Unsupported mode: {approximate!r}")
     if approximate == "none":
         return gelu_backward_reference(dout, x, approximate="none")
     if np.iscomplexobj(x) or np.iscomplexobj(dout):
