@@ -75,18 +75,26 @@ def _resolve_proj(
 
 
 def gated_mlp_backward(
-    dout: np.ndarray,
-    x: np.ndarray,
-    gate: np.ndarray,
-    up: np.ndarray,
-    w_gate: np.ndarray,
-    w_up: np.ndarray,
-    w_down: np.ndarray,
+    dout: Any,
+    x: Any,
+    gate: Any,
+    up: Any,
+    w_gate: Any,
+    w_up: Any,
+    w_down: Any,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Compute backward gradients for gated MLP projections."""
+    """Compute and accumulate backward gradients for gated MLP projections."""
+    x_t, g_t, u_t = x, gate, up
+    dout = dout.data if isinstance(dout, Tensor) else np.asarray(dout)
+    x = x.data if isinstance(x, Tensor) else np.asarray(x)
+    gate = gate.data if isinstance(gate, Tensor) else np.asarray(gate)
+    up = up.data if isinstance(up, Tensor) else np.asarray(up)
+    wg_t, bg_t, w_gate, _ = _resolve_proj(w_gate)
+    wu_t, bu_t, w_up, _ = _resolve_proj(w_up)
+    wd_t, bd_t, w_down, _ = _resolve_proj(w_down)
     dh = dout @ w_down
     dgate, dup = swiglu_backward(dh, gate, up)
-    dx = dgate @ w_gate + dup @ w_up
+    dx = (dgate @ w_gate + dup @ w_up).astype(x.dtype, copy=False)
     x_2d = x.reshape(-1, x.shape[-1])
     sig = 1.0 / (1.0 + np.exp(-np.clip(gate, -50.0, 50.0)))
     h_2d = (gate * sig * up).reshape(-1, gate.shape[-1])
@@ -94,7 +102,16 @@ def gated_mlp_backward(
     dw_gate = (dgate.reshape(-1, dgate.shape[-1]).T @ x_2d).astype(w_gate.dtype)
     dw_up = (dup.reshape(-1, dup.shape[-1]).T @ x_2d).astype(w_up.dtype)
     dw_down = (dout_2d.T @ h_2d).astype(w_down.dtype)
-    return dx.astype(x.dtype), dw_gate, dw_up, dw_down
+    targets = (
+        (x_t, dx), (g_t, dgate), (u_t, dup),
+        (wg_t, dw_gate), (bg_t, dgate),
+        (wu_t, dw_up), (bu_t, dup),
+        (wd_t, dw_down), (bd_t, dout),
+    )
+    for t, g in targets:
+        if isinstance(t, Tensor) and t.requires_grad:
+            _accumulate_grad(t, g)
+    return dx, dw_gate, dw_up, dw_down
 
 
 def dispatched_swiglu_backward(
