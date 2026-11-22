@@ -66,6 +66,13 @@ class LoRALinear(Module):
         return self.base_layer.weight
 
     @property
+    def effective_weight_data(self) -> np.ndarray:
+        """Returns the effective weight data, including LoRA delta if unmerged."""
+        if self.r > 0 and not self.merged and self.lora_A is not None and self.lora_B is not None:
+            return self.base_layer.weight.data + self.scaling * (self.lora_B.data @ self.lora_A.data)
+        return self.base_layer.weight.data
+
+    @property
     def bias(self):
         return self.base_layer.bias
 
