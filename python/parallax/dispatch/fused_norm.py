@@ -19,7 +19,7 @@ def _dispatch_rmsnorm(x: np.ndarray, weight: np.ndarray, eps: float) -> np.ndarr
     try:
         from parallax.backends.dispatch import dispatch
         return dispatch("rmsnorm", x, weight, eps=eps)
-    except Exception:
+    except (ImportError, LookupError):
         variance = np.mean(x * x, axis=-1, keepdims=True)
         inv_rms = 1.0 / np.sqrt(np.maximum(variance, 0.0) + eps)
         return (x * inv_rms) * weight
