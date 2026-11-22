@@ -23,9 +23,15 @@ class RustBackend(Backend):
         if op not in ("gemm", "softmax"):
             return False
         try:
-            return np.dtype(dtype) == np.float32
+            if np.dtype(dtype) != np.float32:
+                return False
         except Exception:
             return False
+        if op == "gemm":
+            return len(shape) == 2
+        if op == "softmax":
+            return len(shape) >= 1
+        return True
 
     def gemm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
         return rust_gemm(a, b)
