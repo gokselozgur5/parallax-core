@@ -41,11 +41,20 @@ def test_hf_config_custom_head_dim_mismatch():
         "model_type": "qwen3",
         "hidden_size": 128,
         "num_attention_heads": 4,
+        "num_hidden_layers": 2,
+        "vocab_size": 256,
         "head_dim": 64,
     })
     assert cfg.head_dim == 64
     with pytest.raises(ValueError, match="head_dim must be a positive even integer"):
-        hf_config_to_parallax({"model_type": "qwen3", "hidden_size": 128, "num_attention_heads": 4, "head_dim": 31})
+        hf_config_to_parallax({
+            "model_type": "qwen3",
+            "hidden_size": 128,
+            "num_attention_heads": 4,
+            "num_hidden_layers": 2,
+            "vocab_size": 256,
+            "head_dim": 31,
+        })
 
 
 def test_hf_config_hidden_act_validation():
@@ -53,6 +62,9 @@ def test_hf_config_hidden_act_validation():
         hf_config_to_parallax({
             "model_type": "llama",
             "hidden_size": 128,
+            "num_attention_heads": 4,
+            "num_hidden_layers": 2,
+            "vocab_size": 256,
             "hidden_act": "relu",
         })
 
@@ -60,12 +72,18 @@ def test_hf_config_hidden_act_validation():
         hf_config_to_parallax({
             "model_type": "llama",
             "hidden_size": 128,
+            "num_attention_heads": 4,
+            "num_hidden_layers": 2,
+            "vocab_size": 256,
             "hidden_act": "gelu",
         })
 
     cfg_silu = hf_config_to_parallax({
         "model_type": "llama",
         "hidden_size": 128,
+        "num_attention_heads": 4,
+        "num_hidden_layers": 2,
+        "vocab_size": 256,
         "hidden_act": "silu",
     })
     assert cfg_silu.use_swiglu is True
@@ -73,6 +91,9 @@ def test_hf_config_hidden_act_validation():
     cfg_swish = hf_config_to_parallax({
         "model_type": "llama",
         "hidden_size": 128,
+        "num_attention_heads": 4,
+        "num_hidden_layers": 2,
+        "vocab_size": 256,
         "hidden_act": "swish",
     })
     assert cfg_swish.use_swiglu is True
@@ -81,14 +102,26 @@ def test_hf_config_hidden_act_validation():
 def test_hf_config_tie_word_embeddings_defaults():
     # If tie_word_embeddings not provided and tensors provided without lm_head.weight: True
     cfg_tied = hf_config_to_parallax(
-        {"model_type": "llama", "hidden_size": 128},
+        {
+            "model_type": "llama",
+            "hidden_size": 128,
+            "num_attention_heads": 4,
+            "num_hidden_layers": 2,
+            "vocab_size": 256,
+        },
         hf_tensors={"model.embed_tokens.weight": np.zeros((10, 128))},
     )
     assert cfg_tied.tie_weights is True
 
     # If lm_head.weight is in tensors: False
     cfg_untied = hf_config_to_parallax(
-        {"model_type": "llama", "hidden_size": 128},
+        {
+            "model_type": "llama",
+            "hidden_size": 128,
+            "num_attention_heads": 4,
+            "num_hidden_layers": 2,
+            "vocab_size": 256,
+        },
         hf_tensors={"lm_head.weight": np.zeros((10, 128))},
     )
     assert cfg_untied.tie_weights is False
