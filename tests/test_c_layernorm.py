@@ -27,6 +27,8 @@ def test_layernorm_parity_nn() -> None:
     rng = np.random.default_rng(42)
     dim = 64
     ln = LayerNorm(dim, eps=1e-5)
+    ln.weight.data = rng.standard_normal(dim).astype(np.float32)
+    ln.bias.data = rng.standard_normal(dim).astype(np.float32)
     x = rng.standard_normal((16, dim)).astype(np.float32)
 
     expected = ln(Tensor(x)).data
@@ -38,8 +40,11 @@ def test_layernorm_constant_rows() -> None:
     from parallax.nn import LayerNorm
     from parallax.tensor import Tensor
 
+    rng = np.random.default_rng(43)
     dim = 32
     ln = LayerNorm(dim, eps=1e-5)
+    ln.weight.data = rng.standard_normal(dim).astype(np.float32)
+    ln.bias.data = rng.standard_normal(dim).astype(np.float32)
     x = np.ones((3, dim), dtype=np.float32)
     x[0, :] = 3.0
     x[1, :] = -5.0
