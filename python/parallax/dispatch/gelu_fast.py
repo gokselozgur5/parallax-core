@@ -31,12 +31,14 @@ def gelu_fast_dispatch(x: np.ndarray) -> np.ndarray:
         raise TypeError("Complex dtypes are not supported")
     try:
         from parallax.backends.dispatch import dispatch
-        return dispatch("gelu_fast", x)
+        res = dispatch("gelu_fast", x)
+        return res.astype(x.dtype) if res.dtype != x.dtype else res
     except Exception:
         pass
     try:
         from parallax.native.gelu import c_gelu
-        return c_gelu(x)
+        res = c_gelu(x)
+        return res.astype(x.dtype) if res.dtype != x.dtype else res
     except Exception:
         pass
     return gelu_fast_forward_np(x)
