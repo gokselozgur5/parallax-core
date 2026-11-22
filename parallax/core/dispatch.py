@@ -77,7 +77,11 @@ class DispatchPolicy:
         platform: PlatformInfo | None = None,
         available_backends: Sequence[str] | set[str] | None = None,
     ) -> str:
-        """Select the optimal available backend according to heuristic policy."""
+        """Select the optimal available backend according to heuristic policy.
+
+        Raises:
+            ValueError: If ``available_backends`` contains none of the candidates.
+        """
         candidates = self.candidate_backends(op, size_or_shape, platform=platform)
         if available_backends is None:
             return candidates[0]
@@ -85,7 +89,8 @@ class DispatchPolicy:
         for backend in candidates:
             if backend in avail_set:
                 return backend
-        return "numpy"
+        msg = f"No candidate backend for {op!r} in available_backends: {candidates}"
+        raise ValueError(msg)
 
 
 _DEFAULT_POLICY = DispatchPolicy()
