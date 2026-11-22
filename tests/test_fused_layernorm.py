@@ -44,3 +44,20 @@ def test_fused_layernorm_combined_norm_and_residual_gradients() -> None:
     np.testing.assert_allclose(res.grad, dres_norm + 3.0, rtol=1e-6, atol=1e-6)
     np.testing.assert_allclose(w.grad, dw_ref, rtol=1e-6, atol=1e-6)
     np.testing.assert_allclose(b.grad, db_ref, rtol=1e-6, atol=1e-6)
+
+
+def test_fused_layernorm_residual_output_partial_tensor_inputs() -> None:
+    x = Tensor(np.array([[2.0, -1.0, 0.5]]))
+    _, fused_no_res = dispatched_fused_layernorm(x, residual=None, return_residual=True)
+    fused_no_res.sum().backward()
+    assert x.grad is not None
+    np.testing.assert_allclose(x.grad, np.ones((1, 3)))
+
+    raw_x = np.array([[1.0, 2.0, 3.0]])
+    raw_r = np.array([[0.5, 0.5, 0.5]])
+    w = Tensor(np.ones(3))
+    _, fused_const = dispatched_fused_layernorm(
+        raw_x, weight=w, residual=raw_r, return_residual=True
+    )
+    assert isinstance(fused_const, Tensor)
+    assert fused_const.requires_grad is False
