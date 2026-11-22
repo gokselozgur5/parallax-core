@@ -56,21 +56,23 @@ def benchmark_transformer(
         for _ in range(num_layers)
     ]
 
-    _, full_caches = model(idx, kv_caches=initial_caches)
+    with no_grad():
+        _, full_caches = model(idx, kv_caches=initial_caches)
     measured_kv_bytes = sum(k.nbytes + v.nbytes for k, v in full_caches)
 
     # 3. Benchmark Next-Token Step Latency (Inference decoding at step T)
     next_token = np.random.randint(0, config.vocab_size, size=(batch_size, 1))
 
     # Warmup
-    for _ in range(warmup):
-        _ = model(next_token, kv_caches=full_caches, rope_offset=seq_len)
+    with no_grad():
+        for _ in range(warmup):
+            _ = model(next_token, kv_caches=full_caches, rope_offset=seq_len)
 
-    latencies = []
-    for _ in range(repeats):
-        t0 = time.perf_counter()
-        _ = model(next_token, kv_caches=full_caches, rope_offset=seq_len)
-        latencies.append((time.perf_counter() - t0) * 1000.0)
+        latencies = []
+        for _ in range(repeats):
+            t0 = time.perf_counter()
+            _ = model(next_token, kv_caches=full_caches, rope_offset=seq_len)
+            latencies.append((time.perf_counter() - t0) * 1000.0)
 
     step_latency_ms = float(np.median(latencies))
 

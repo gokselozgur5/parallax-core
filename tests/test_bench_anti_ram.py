@@ -13,6 +13,7 @@ import numpy as np
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.bitmamba import BitMambaLM, BitMambaConfig
+from parallax.tensor import no_grad
 from scripts.bench_ram_transformer_vs_mamba import (
     benchmark_transformer,
     benchmark_mamba,
@@ -38,7 +39,8 @@ def test_transformer_meas_equals_model_array_nbytes():
          np.zeros((batch_size, 2, 0, 16), dtype=model.token_embeddings.weight.data.dtype))
         for _ in range(config.num_layers)
     ]
-    _, full_caches = model(idx, kv_caches=initial_caches)
+    with no_grad():
+        _, full_caches = model(idx, kv_caches=initial_caches)
     expected_nbytes = sum(k.nbytes + v.nbytes for k, v in full_caches)
 
     assert meas_b == expected_nbytes
