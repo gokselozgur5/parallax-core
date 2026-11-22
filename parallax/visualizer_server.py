@@ -156,7 +156,11 @@ class VisualizerState:
         seq_len_current = len(token_ids)
         num_layers = self.config.num_layers
         num_kv_heads = self.config.num_kv_heads or self.config.num_heads
-        head_dim = self.config.embed_dim // self.config.num_heads
+        head_dim = (
+            self.config.head_dim
+            if self.config.head_dim is not None
+            else self.config.embed_dim // self.config.num_heads
+        )
         bytes_per_elem = 8  # float64
 
         kv_elements_per_token = num_layers * 2 * num_kv_heads * head_dim
