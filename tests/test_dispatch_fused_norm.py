@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from parallax.tensor import Tensor
 
@@ -44,11 +45,21 @@ def test_fused_rmsnorm_with_residual_addition():
     np.testing.assert_allclose(normed, expected)
 
 
-def test_fused_rmsnorm_dispatches_to_backend():
+def test_fused_rmsnorm_dispatches_to_backend(monkeypatch: pytest.MonkeyPatch) -> None:
+    import parallax.backends.dispatch as backend_dispatch
+
+    called: list[str] = []
+
+    def mock_dispatch(op: str, *args, **kwargs):
+        called.append(op)
+        raise RuntimeError("backend dispatch failure")
+
+    monkeypatch.setattr(backend_dispatch, "dispatch", mock_dispatch)
     x = np.ones((2, 4), dtype=np.float32)
     w = np.full(4, 2.0, dtype=np.float32)
-    out = fused_rmsnorm(x, w, eps=1e-5)
-    np.testing.assert_allclose(out, np.full((2, 4), 2.0, dtype=np.float32), rtol=1e-4)
+    with pytest.raises(RuntimeError, match="backend dispatch failure"):
+        fused_rmsnorm(x, w, eps=1e-5)
+    assert called == ["rmsnorm"]
 
 
 def test_fused_rmsnorm_zero_inputs_stability():
