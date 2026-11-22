@@ -113,6 +113,28 @@ def test_parity_errors_includes_flagged_backends():
         registry.unregister("drift")
 
 
+def test_parity_compare_mismatched_shapes_error():
+    from parallax.core.parity import ParityChecker
+
+    checker = ParityChecker()
+    actual = np.ones((1, 8), dtype=np.float32)
+    ref = np.ones((4, 8), dtype=np.float32)
+
+    with pytest.raises(ValueError, match="shape mismatch"):
+        checker.compare(actual, ref, 1e-4)
+
+    class MismatchedShapeBackend(MockBackend):
+        def gemm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+            return np.ones((1, 8), dtype=np.float32)
+
+    be = MismatchedShapeBackend("mismatch")
+    a = np.ones((4, 8), dtype=np.float32)
+    res = checker.check_op(be, "gemm", a, a, a)
+    assert res.passed is False
+    assert res.status == "error"
+    assert "shape mismatch" in (res.error_message or "").lower()
+
+
 
 
 
