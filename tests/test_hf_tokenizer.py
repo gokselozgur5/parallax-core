@@ -361,4 +361,14 @@ def test_gguf_tokenizer_unknown_pre_tokenizer_warns():
         assert any("unknown_future_pre" in str(item.message) for item in w)
 
 
+def test_unigram_tokenizer_json_is_rejected(tmp_path):
+    data = {
+        "model": {"type": "Unigram", "unk_id": 0, "vocab": [["<unk>", 0.0], ["\u2581a", -1.5]]},
+        "pre_tokenizer": {"type": "Metaspace", "replacement": "\u2581"},
+    }
+    (tmp_path / "tokenizer.json").write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises((ValueError, NotImplementedError)):
+        load_hf_tokenizer(str(tmp_path))
+
+
 
