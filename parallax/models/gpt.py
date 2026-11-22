@@ -218,6 +218,8 @@ class Embedding(Module):
     def forward(self, idx: Union[np.ndarray, Tensor]) -> Tensor:
         # idx: [batch_size, seq_len] array of integer token IDs
         idx_arr = np.asarray(idx.data if isinstance(idx, Tensor) else idx, dtype=np.int64)
+        if np.any(idx_arr < 0) or np.any(idx_arr >= self.vocab_size):
+            raise IndexError("Index out of range for Embedding")
         B, T = idx_arr.shape
         out_data = self.weight.data[idx_arr]  # Shape: [B, T, embed_dim]
 
