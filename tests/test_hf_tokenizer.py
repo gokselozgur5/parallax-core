@@ -324,3 +324,41 @@ def test_default_pretokenizer_unicode_letters_and_symbols():
     assert tok.encode(" \u00e9") == [4]
     assert tok.encode(" _") == [6]
 
+
+def test_gguf_tokenizer_honours_qwen2_pre_tokenizer():
+    from parallax.gguf import GGUFFile
+    from parallax.gguf_tokenizer import load_gguf_tokenizer
+
+    tokens = ["1", "2", "12", ".", "c", "o", "m", "co", "com", ".com", "a"]
+    metadata = {
+        "tokenizer.ggml.model": "gpt2",
+        "tokenizer.ggml.pre": "qwen2",
+        "tokenizer.ggml.tokens": tokens,
+        "tokenizer.ggml.merges": ["1 2", "c o", "co m", ". com"],
+    }
+    tok = load_gguf_tokenizer(GGUFFile(version=3, metadata=metadata))
+
+    # qwen2 rule "\p{N}" isolates every digit.
+    assert [tokens[i] for i in tok.encode("12")] == ["1", "2"]
+    # qwen2 rule "[^\r\n\p{L}\p{N}]?\p{L}+" attaches "." to the following letters.
+    assert [tokens[i] for i in tok.encode("a.com")] == ["a", ".com"]
+
+
+def test_gguf_tokenizer_unknown_pre_tokenizer_warns():
+    import warnings
+    from parallax.gguf import GGUFFile
+    from parallax.gguf_tokenizer import load_gguf_tokenizer
+
+    metadata = {
+        "tokenizer.ggml.model": "gpt2",
+        "tokenizer.ggml.pre": "unknown_future_pre",
+        "tokenizer.ggml.tokens": ["a", "b"],
+    }
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        tok = load_gguf_tokenizer(GGUFFile(version=3, metadata=metadata))
+        assert tok is not None
+        assert any("unknown_future_pre" in str(item.message) for item in w)
+
+
+
