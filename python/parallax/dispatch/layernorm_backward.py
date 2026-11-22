@@ -27,7 +27,7 @@ def layernorm_backward_reference(
     x_hat = (x - mean) * inv_std
     gw = dout * weight if weight is not None else dout
     dx = inv_std * (gw - np.mean(gw, axis=-1, keepdims=True) - x_hat * np.mean(gw * x_hat, axis=-1, keepdims=True))
-    reduce_axes = tuple(range(dout.ndim - 1)) if dout.ndim > 1 else None
+    reduce_axes = tuple(range(dout.ndim - 1))
     dw = np.sum(dout * x_hat, axis=reduce_axes) if weight is not None else None
     db = np.sum(dout, axis=reduce_axes) if bias is not None else None
     return dx.astype(x.dtype), dw if dw is None else dw.astype(weight.dtype), db if db is None else db.astype(bias.dtype)
