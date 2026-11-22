@@ -86,8 +86,12 @@ def hf_config_to_parallax(
     if hf_config.get("rope_scaling") is not None:
         raise NotImplementedError("rope_scaling is not supported in ParallaxLM config")
 
-    embed_dim = int(hf_config.get("hidden_size", 576))
-    num_heads = int(hf_config.get("num_attention_heads", 9))
+    for key in ("hidden_size", "num_attention_heads", "num_hidden_layers", "vocab_size"):
+        if key not in hf_config or hf_config[key] is None:
+            raise ValueError(f"Missing required config key: '{key}'")
+
+    embed_dim = int(hf_config["hidden_size"])
+    num_heads = int(hf_config["num_attention_heads"])
 
     head_dim: Optional[int] = None
     if "head_dim" in hf_config and hf_config["head_dim"] is not None:
@@ -108,8 +112,8 @@ def hf_config_to_parallax(
     else:
         num_kv_heads = num_heads
 
-    num_layers = int(hf_config.get("num_hidden_layers", 30))
-    vocab_size = int(hf_config.get("vocab_size", 49152))
+    num_layers = int(hf_config["num_hidden_layers"])
+    vocab_size = int(hf_config["vocab_size"])
     max_seq_len = int(hf_config.get("max_position_embeddings", 2048))
 
     intermediate_size = hf_config.get("intermediate_size")
