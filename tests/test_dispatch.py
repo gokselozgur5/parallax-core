@@ -30,6 +30,17 @@ def test_heuristic_dispatch_fallback_when_backend_unavailable():
     assert policy.select_backend("gemm", 10000, platform=plat, available_backends=avail) == "c-neon"
 
 
+def test_select_backend_raises_when_no_candidate_is_available():
+    import pytest
+
+    policy = DispatchPolicy()
+    plat = PlatformInfo(arch="arm64", system="Darwin", neon=True)
+    with pytest.raises(ValueError, match="No candidate backend"):
+        policy.select_backend("gemm", 10000, platform=plat, available_backends={"rust"})
+    with pytest.raises(ValueError, match="No candidate backend"):
+        select_optimal_backend("gemm", 10000, platform=plat, available_backends=set())
+
+
 def test_heuristic_dispatch_x86_avx2():
     policy = DispatchPolicy()
     plat = PlatformInfo(arch="x86_64", system="Linux", avx2=True)
