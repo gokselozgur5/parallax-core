@@ -54,3 +54,35 @@ def test_custom_thresholds_override():
     plat = PlatformInfo(arch="arm64", system="Darwin", neon=True)
     assert policy.select_backend("gemm", 50, platform=plat) == "numpy"
     assert policy.select_backend("gemm", 150, platform=plat) == "metal"
+
+
+class _Done:
+    stdout = "hw.optional.neon: 1\n"
+
+
+def test_dispatch_does_not_probe_the_cpu_on_every_call(monkeypatch):
+    import numpy as np
+    from parallax.backends import cpuinfo, registry
+    from parallax.backends.dispatch import dispatch
+    from parallax.backends.numpy_backend import NumpyBackend
+
+    if hasattr(cpuinfo.detect_cpu, "cache_clear"):
+        cpuinfo.detect_cpu.cache_clear()
+    calls = []
+    monkeypatch.setattr(cpuinfo.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(cpuinfo.subprocess, "run", lambda *a, **k: calls.append(a) or _Done())
+    added = "numpy" not in registry.list_backends()
+    if added:
+        registry.register("numpy", NumpyBackend())
+    try:
+        a = np.ones((4, 4), dtype=np.float32)
+        for _ in range(20):
+            dispatch("gemm", a, a)
+    finally:
+        if added:
+            registry.unregister("numpy")
+        if hasattr(cpuinfo.detect_cpu, "cache_clear"):
+            cpuinfo.detect_cpu.cache_clear()
+    assert len(calls) <= 1, f"sysctl was spawned {len(calls)} times for 20 dispatch calls"
+
+
