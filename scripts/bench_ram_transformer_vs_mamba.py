@@ -271,7 +271,7 @@ def generate_report(
     if analysis["m_state_invariant"]:
         md.append(rf"| **State Memory Complexity** | $O(T \cdot d_{{model}} \cdot L)$ | $O(d_{{inner}} \cdot d_{{state}})$ | **Confirmed:** Mamba state size is strictly invariant to $T$ ({m_state_str} constant). |")
     else:
-        md.append(r"| **State Memory Complexity** | $O(T \cdot d_{{model}} \cdot L)$ | $O(d_{{inner}} \cdot d_{{state}})$ | **Not Confirmed:** Mamba state size varied across sequence lengths. |")
+        md.append(r"| **State Memory Complexity** | $O(T \cdot d_{model} \cdot L)$ | $O(d_{inner} \cdot d_{state})$ | **Not Confirmed:** Mamba state size varied across sequence lengths. |")
 
     if analysis["m_step_is_flat"]:
         md.append(rf"| **Attention/Step Complexity** | $O(T)$ per decoding step | $O(1)$ recurrent step | **Confirmed:** Mamba step time remains flat at $O(1)$ computation (scaling exponent $\alpha \approx {analysis['alpha_m_step']:.2f}$). |")
@@ -281,7 +281,7 @@ def generate_report(
     if analysis["tf_prefill_superlinear"] and analysis["m_scan_linear"]:
         md.append(rf"| **Sequence Scan Complexity** | $O(T^2 \cdot d)$ or FlashAttn tile | $O(T \cdot d \cdot d_{{state}})$ linear | **Confirmed:** Prefill latency scales quadratically ($O(T^{{{analysis['alpha_tf_prefill']:.2f}}})$, ~{last_res['tf_prefill_ms'] / first_res['tf_prefill_ms']:.1f}x slowdown) for attention vs linearly ($O(T^{{{analysis['alpha_m_scan']:.2f}}})$, ~{last_res['m_scan_ms'] / first_res['m_scan_ms']:.1f}x slowdown) for SSM scan. |")
     else:
-        md.append(r"| **Sequence Scan Complexity** | $O(T^2 \cdot d)$ or FlashAttn tile | $O(T \cdot d \cdot d_{{state}})$ linear | **Not Confirmed:** Measured sequence scaling did not exhibit expected theoretical quadratic vs linear divergence. |")
+        md.append(r"| **Sequence Scan Complexity** | $O(T^2 \cdot d)$ or FlashAttn tile | $O(T \cdot d \cdot d_{state})$ linear | **Not Confirmed:** Measured sequence scaling did not exhibit expected theoretical quadratic vs linear divergence. |")
 
     md.append("")
     md.append("## Key Insights & Architectural Conclusions")
