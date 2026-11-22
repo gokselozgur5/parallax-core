@@ -190,3 +190,14 @@ def test_spm_encode_follows_token_scores():
 
     assert [tokens[i] for i in tok.encode("abc")] == ["\u2581a", "bc"]
 
+
+def test_gpt2_encode_maps_unknown_bytes_to_unk():
+    tokens = ["<unk>", "h", "!"]
+    tok = GGUFTokenizer(tokens=tokens, merges=["h !"], model_type="gpt2", unk_token_id=0)
+
+    ids = tok.encode("h\u00e9!")
+
+    assert ids[0] == 1 and ids[-1] == 2
+    assert tok.unk_token_id in ids
+
+
