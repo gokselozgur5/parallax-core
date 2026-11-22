@@ -141,12 +141,14 @@ impl<'a> StorageReader<'a> {
 
 impl<'a> StorageReader<'a> {
     fn read_dims(&self, mut offset: usize, ndim: usize) -> Result<(Vec<usize>, usize), StorageError> {
+        let bytes_needed = ndim.checked_mul(8).ok_or(StorageError::OffsetOutOfBounds)?;
+        let end = offset.checked_add(bytes_needed).ok_or(StorageError::OffsetOutOfBounds)?;
+        if end > self.data.len() {
+            return Err(StorageError::UnexpectedEof);
+        }
         let mut shape = Vec::with_capacity(ndim);
         for _ in 0..ndim {
-            let next = offset.checked_add(8).ok_or(StorageError::OffsetOutOfBounds)?;
-            if next > self.data.len() {
-                return Err(StorageError::UnexpectedEof);
-            }
+            let next = offset + 8;
             let dim = u64::from_le_bytes(self.data[offset..next].try_into().unwrap()) as usize;
             if dim == 0 {
                 return Err(StorageError::ZeroDimension);
