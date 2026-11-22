@@ -276,3 +276,51 @@ def test_is_cuda_available_matches_cuda_engine():
 
     assert me.is_cuda_available() == ce.is_cuda_available()
 
+
+def _mock_metal_runtime(monkeypatch, me):
+    import ctypes
+    import types
+
+    if me.is_metal_available() and sys.platform == "darwin":
+        return False
+    cb = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p, me.MTLSize, me.MTLSize)(lambda *_: None)
+    fn = type("_Fn", (), {"__call__": lambda self, *a: 1})()
+    fake = types.SimpleNamespace(objc_msgSend=cb, sel_registerName=lambda _s: 1, objc_autoreleasePoolPush=fn, objc_autoreleasePoolPop=fn)
+    for k, v in (("_OBJC", fake), ("_DEVICE", 1), ("_COMMAND_QUEUE", 2)):
+        monkeypatch.setattr(me, k, v)
+    monkeypatch.setattr(me, "is_metal_available", lambda: True)
+    return True
+
+
+def test_metal_partial_alloc_releases_buffers_on_exception(monkeypatch):
+    import parallax.metal_engine as me
+
+    is_mock = _mock_metal_runtime(monkeypatch, me)
+    real_send, live, seq = me._objc_send, set(), 0
+
+    def tracking_send(ret_type, target, sel_name, *args):
+        nonlocal seq
+        if sel_name == "newBufferWithLength:options:":
+            raise RuntimeError("simulated output buffer allocation error")
+        if sel_name == "newBufferWithBytes:length:options:":
+            seq += 1
+            buf = seq if is_mock else real_send(ret_type, target, sel_name, *args)
+            live.add(int(buf))
+            return buf
+        if sel_name == "release":
+            live.discard(int(target))
+            return None if is_mock else real_send(ret_type, target, sel_name, *args)
+        return 1 if is_mock else real_send(ret_type, target, sel_name, *args)
+
+    monkeypatch.setattr(me, "_objc_send", tracking_send)
+    a, w = np.ones((8, 8), dtype=np.float32), np.ones(8, dtype=np.float32)
+    try:
+        for fn, arg2 in ((me.metal_rmsnorm, w), (me.metal_gemm, a)):
+            with pytest.raises(RuntimeError, match="simulated output buffer"):
+                fn(a, arg2)
+        assert seq == 4 and not live, f"Leaked Metal buffer handles: {sorted(live)}"
+    finally:
+        for leaked_buf in ([] if is_mock else list(live)):
+            real_send(None, leaked_buf, "release")
+
+
