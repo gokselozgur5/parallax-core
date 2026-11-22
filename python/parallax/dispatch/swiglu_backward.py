@@ -155,6 +155,36 @@ def dispatched_swiglu_backward(
     )
 
 
+def dispatched_swiglu_forward(gate: Tensor | np.ndarray, up: Tensor | np.ndarray) -> Tensor:
+    """Compute SwiGLU forward pass wired to swiglu_backward in Tensor autograd."""
+    rg = gate.data if isinstance(gate, Tensor) else np.asarray(gate)
+    ru = up.data if isinstance(up, Tensor) else np.asarray(up)
+    if np.iscomplexobj(rg) or np.iscomplexobj(ru):
+        raise TypeError("Complex dtypes are not supported")
+    if rg.shape != ru.shape:
+        raise ValueError(f"Shape mismatch: {rg.shape} vs {ru.shape}")
+    dtype = np.result_type(rg.dtype, ru.dtype, np.float32)
+    g_arr, u_arr = np.asarray(rg, dtype=dtype), np.asarray(ru, dtype=dtype)
+    sig = 1.0 / (1.0 + np.exp(-np.clip(g_arr, -50.0, 50.0)))
+    out_data = (g_arr * sig * u_arr).astype(dtype, copy=False)
+    parents = tuple(p for p in (gate, up) if isinstance(p, Tensor))
+    out = Tensor(out_data, parents, "FusedSwiGLU", requires_grad=False)
+    if not out.requires_grad:
+        return out
+
+    def _backward() -> None:
+        if out.grad is None:
+            return
+        dg, du = swiglu_backward(out.grad, rg, ru)
+        if isinstance(gate, Tensor) and gate.requires_grad:
+            _accumulate_grad(gate, dg)
+        if isinstance(up, Tensor) and up.requires_grad:
+            _accumulate_grad(up, du)
+
+    out._backward = _backward
+    return out
+
+
 class FusedSwiGLUBackward:
     """Dispatched backward helper and gradient accumulator for SwiGLU."""
 
