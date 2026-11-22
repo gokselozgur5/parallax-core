@@ -241,6 +241,34 @@ def test_continuous_batch_engine_decoupled_head_dim():
     assert req.status == RequestStatus.FINISHED
 
 
+def test_engine_matches_generate_past_context_limit():
+    import numpy as np
+    from parallax.generator import generate
+
+    np.random.seed(0)
+    cfg = ParallaxLMConfig(vocab_size=23, embed_dim=16, num_heads=2, num_layers=2, max_seq_len=16)
+    model = ParallaxLM(cfg)
+    prompt = [1, 2, 3, 4, 5]
+    expected = generate(model, prompt, max_new_tokens=40, temperature=0.0)
+    engine = ContinuousBatchEngine(model, max_batch_size=1)
+    req = SequenceRequest("r", prompt, max_new_tokens=40, temperature=0.0)
+    engine.add_request(req)
+    while engine.has_unfinished_requests():
+        engine.step()
+    assert prompt + req.generated_tokens == expected
+
+
+def test_contrastive_generates_past_context_limit():
+    from parallax.contrastive import generate_contrastive
+
+    cfg = ParallaxLMConfig(vocab_size=23, embed_dim=16, num_heads=2, num_layers=2, max_seq_len=8)
+    model = ParallaxLM(cfg)
+    prompt = [1, 2, 3, 4, 5, 6, 7]
+    out = generate_contrastive(model, prompt, max_new_tokens=10)
+    assert len(out) == len(prompt) + 10
+
+
+
 
 
 
