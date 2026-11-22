@@ -296,3 +296,9 @@ def test_hf_export_roundtrip_keeps_qk_norm(tmp_path):
     np.testing.assert_allclose(loaded(idx).data, model(idx).data, atol=1e-4)
 
 
+def test_hf_config_without_sizes_is_rejected():
+    with pytest.raises(ValueError, match="hidden_size"):
+        hf_config_to_parallax({"model_type": "llama"})
+
+
+
