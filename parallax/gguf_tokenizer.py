@@ -6,14 +6,26 @@ from GGUF metadata headers without requiring sentencepiece, protobuf, or hugging
 """
 
 import re
+import warnings
 from typing import Dict, List, Optional, Tuple, Union
 
 from parallax.gguf import GGUFFile, load_gguf
-from parallax.hf_tokenizer import _BYTE_TO_UNICODE, _UNICODE_TO_BYTE
+from parallax.hf_tokenizer import _BYTE_TO_UNICODE, _UNICODE_TO_BYTE, _translate_hf_regex
 
 
 _BYTE_FALLBACK_RE = re.compile(r"^<0x([0-9a-fA-F]{2})>$")
 _GPT2_SPLIT_RE = re.compile(r"'s|'t|'re|'ve|'m|'ll|'d| ?[^\W\d_]+| ?\d+| ?(?:[^\s\w]|_)+|\s+(?!\S)|\s+")
+_QWEN2_SPLIT_RE = re.compile(
+    _translate_hf_regex(
+        r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"
+    )
+)
+_LLAMA3_SPLIT_RE = re.compile(
+    _translate_hf_regex(
+        r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"
+    )
+)
+
 
 
 def _parse_gguf_token(token_str: str, model_type: Optional[str] = None, is_special: bool = False) -> bytes:
@@ -47,6 +59,7 @@ class GGUFTokenizer:
         model_type: Optional[str] = None,
         token_types: Optional[List[int]] = None,
         scores: Optional[List[float]] = None,
+        pre_type: Optional[str] = None,
     ):
         self.raw_tokens = tokens
         self.vocab_size = len(tokens)
@@ -56,6 +69,22 @@ class GGUFTokenizer:
         self.pad_token_id = pad_token_id if (pad_token_id is not None and 0 <= pad_token_id < self.vocab_size) else None
         self.unk_token_id = unk_token_id if (unk_token_id is not None and 0 <= unk_token_id < self.vocab_size) else None
         self.model_type = model_type
+        self.pre_type = pre_type
+        self.split_re = _GPT2_SPLIT_RE
+        if pre_type in ("qwen2", "qwen"):
+            self.split_re = _QWEN2_SPLIT_RE
+        elif pre_type in ("llama-bpe", "llama3", "llama-3"):
+            self.split_re = _LLAMA3_SPLIT_RE
+        elif pre_type in ("gpt-2", "gpt2", None):
+            self.split_re = _GPT2_SPLIT_RE
+        else:
+            warnings.warn(
+                f"Unknown tokenizer.ggml.pre={pre_type!r}: falling back to default regex.",
+                UserWarning,
+                stacklevel=2,
+            )
+            self.split_re = _GPT2_SPLIT_RE
+
 
         # Mapping: token_id -> raw bytes
         self.id_to_bytes: Dict[int, bytes] = {}
@@ -170,7 +199,7 @@ class GGUFTokenizer:
 
         if self.merge_ranks and self.model_type == "gpt2":
             ids: List[int] = []
-            for piece in _GPT2_SPLIT_RE.findall(text):
+            for piece in self.split_re.findall(text):
                 ids.extend(self._bpe_merge_symbols([_BYTE_TO_UNICODE[b] for b in piece.encode("utf-8")]))
             return ids
 
@@ -261,6 +290,10 @@ def load_gguf_tokenizer(source: Union[str, GGUFFile]) -> GGUFTokenizer:
     if model_type is not None:
         model_type = str(model_type)
 
+    pre_type = metadata.get("tokenizer.ggml.pre")
+    if pre_type is not None:
+        pre_type = str(pre_type)
+
     return GGUFTokenizer(
         tokens=tokens,
         merges=merges,
@@ -271,4 +304,5 @@ def load_gguf_tokenizer(source: Union[str, GGUFFile]) -> GGUFTokenizer:
         model_type=model_type,
         token_types=metadata.get("tokenizer.ggml.token_type"),
         scores=metadata.get("tokenizer.ggml.scores"),
+        pre_type=pre_type,
     )
