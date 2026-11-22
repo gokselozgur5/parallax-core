@@ -20,14 +20,15 @@ def swiglu_backward_reference(
         raise ValueError(f"Shape mismatch: {gate.shape} vs {up.shape}")
     if grad.shape != gate.shape:
         raise ValueError(f"Grad shape mismatch: {grad.shape} vs {gate.shape}")
-    g_f32 = np.asarray(gate, dtype=np.float32)
-    u_f32 = np.asarray(up, dtype=np.float32)
-    dout_f32 = np.asarray(grad, dtype=np.float32)
-    sig = 1.0 / (1.0 + np.exp(-np.clip(g_f32, -50.0, 50.0)))
-    silu = g_f32 * sig
-    dsilu = sig * (1.0 + g_f32 * (1.0 - sig))
-    dgate = (dout_f32 * u_f32 * dsilu).astype(np.float32)
-    dup = (dout_f32 * silu).astype(np.float32)
+    dtype = np.result_type(gate.dtype, up.dtype, grad.dtype, np.float32)
+    g_arr = np.asarray(gate, dtype=dtype)
+    u_arr = np.asarray(up, dtype=dtype)
+    dout_arr = np.asarray(grad, dtype=dtype)
+    sig = 1.0 / (1.0 + np.exp(-np.clip(g_arr, -50.0, 50.0)))
+    silu = g_arr * sig
+    dsilu = sig * (1.0 + g_arr * (1.0 - sig))
+    dgate = (dout_arr * u_arr * dsilu).astype(dtype, copy=False)
+    dup = (dout_arr * silu).astype(dtype, copy=False)
     return dgate, dup
 
 
