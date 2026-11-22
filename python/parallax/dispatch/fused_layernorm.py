@@ -70,12 +70,13 @@ def fused_layernorm_forward(
     eps_val = stabilize_epsilon(eps)
     fused = x + residual if residual is not None else x
     orig_dtype = fused.dtype
-    acc = fused.astype(np.float32) if orig_dtype in (np.float16, np.int32) else fused
+    target_dtype = np.float32 if not np.issubdtype(orig_dtype, np.floating) else orig_dtype
+    acc = fused.astype(np.float32) if orig_dtype == np.float16 or not np.issubdtype(orig_dtype, np.floating) else fused
     w_eff = rms_weight_scale(weight, eps=eps_val) if weight is not None and rms_scale else weight
     w_acc = w_eff.astype(acc.dtype) if w_eff is not None else None
     b_acc = bias.astype(acc.dtype) if bias is not None else None
     normed = _dispatch_fused_layernorm(acc, w_acc, b_acc, eps_val)
-    out = normed.astype(orig_dtype)
+    out = normed.astype(target_dtype)
     if return_residual:
         return out, fused
     return out
