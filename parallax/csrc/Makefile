@@ -17,7 +17,7 @@ ifeq ($(UNAME_M),arm64)
 else ifeq ($(UNAME_M),aarch64)
     ARCH_FLAGS ?= -march=armv8-a+simd
 else ifeq ($(UNAME_M),x86_64)
-    HAS_AVX2 := $(shell if [ "$$(uname -s)" = "Darwin" ]; then sysctl -n hw.optional.avx2_0 2>/dev/null || echo 0; else grep -c "avx2" /proc/cpuinfo 2>/dev/null || echo 0; fi)
+    HAS_AVX2 := $(shell if [ "$$(uname -s)" = "Darwin" ]; then sysctl -n hw.optional.avx2_0 2>/dev/null || echo 0; else grep -q "avx2" /proc/cpuinfo 2>/dev/null && echo 1 || echo 0; fi)
     ifneq ($(HAS_AVX2),0)
         ARCH_FLAGS ?= -mavx2 -mfma
     else
