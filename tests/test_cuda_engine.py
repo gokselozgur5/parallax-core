@@ -46,8 +46,12 @@ def test_cuda_engine_generate_stream_validation():
     assert list(model.generate_stream([1], max_new_tokens=0)) == []
 
     # Tiny temperature < 1e-5 should fall back to greedy without division by zero / overflow
+    logits = torch.zeros((1, 100))
+    logits[0, 3] = 10.0
+    model.forward_step = lambda input_ids, start_pos, kv_cache: (logits, None)
     tokens = list(model.generate_stream([1], max_new_tokens=2, temperature=1e-8))
     assert len(tokens) == 2
+    assert tokens == [3, 3]
 
 
 def test_cuda_engine_forward_step_cached_multi_token_mask(tmp_path):
