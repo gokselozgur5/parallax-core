@@ -111,3 +111,39 @@ def _dispatch_gather_data(weight_data: np.ndarray, idx_arr: np.ndarray) -> np.nd
             _record_fallback("gather", name, "backend not available or unsupported")
     raise RuntimeError(f"All backends failed for gather: {candidates}") from last_err
 
+
+def dispatched_gather(
+    weight: Tensor,
+    indices: Tensor | np.ndarray,
+    padding_idx: int | None = None,
+) -> Tensor:
+    """Gather rows of a 2D weight Tensor routed through backend dispatch."""
+    if not isinstance(weight, Tensor):
+        raise TypeError("dispatched_gather requires a Tensor weight")
+    if weight.ndim != 2:
+        raise ValueError("dispatched_gather requires a 2D weight Tensor")
+
+    raw_idx = indices.data if isinstance(indices, Tensor) else indices
+    idx_arr = np.asarray(raw_idx, dtype=np.int64)
+    if np.any(idx_arr < 0) or np.any(idx_arr >= weight.data.shape[0]):
+        raise IndexError("Index out of range for DispatchedEmbedding")
+
+    out_data = _dispatch_gather_data(weight.data, idx_arr)
+    parents = (weight,) if not isinstance(indices, Tensor) else (indices, weight)
+    out = Tensor(out_data, parents, "dispatched_gather")
+    if not out.requires_grad:
+        return out
+
+    def _backward() -> None:
+        if out.grad is None or not weight.requires_grad:
+            return
+        grad_w = np.zeros_like(weight.data)
+        np.add.at(grad_w, idx_arr, out.grad)
+        if padding_idx is not None:
+            grad_w[padding_idx] = 0.0
+        _accumulate_grad(weight, grad_w)
+
+    out._backward = _backward
+    return out
+
+
