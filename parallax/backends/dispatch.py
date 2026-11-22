@@ -15,6 +15,7 @@ from parallax.backends.base import Backend
 from parallax.backends.cpuinfo import detect_cpu as _detect_cpu_raw
 from parallax.backends.env import backend_override
 from parallax.backends.policy import backend_order
+from parallax.backends.scope import current_backend
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -109,7 +110,7 @@ def candidate_backends(
     op: str, n_elements: int = 0, environ: Mapping[str, str] | None = None
 ) -> list[str]:
     c: list[str] = []
-    sb = get_scope_backend()
+    sb = current_backend(op) or get_scope_backend()
     if sb:
         c.append(sb)
     ov = backend_override(op, environ=environ)
