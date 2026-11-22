@@ -26,10 +26,11 @@ def test_linear_attention_parallel_vs_recurrent_equivalence():
     # 2. Recurrent single-step forward pass step-by-step
     out_recurrent_steps = []
     state = None
-    for t in range(T):
-        x_t = x[:, t : t + 1, :]
-        out_t, state = attn(x_t, state=state, return_state=True)
-        out_recurrent_steps.append(out_t.data)
+    with no_grad():
+        for t in range(T):
+            x_t = x[:, t : t + 1, :]
+            out_t, state = attn(x_t, state=state, return_state=True)
+            out_recurrent_steps.append(out_t.data)
 
 
     out_recurrent = np.concatenate(out_recurrent_steps, axis=1)
@@ -46,15 +47,16 @@ def test_linear_attention_recurrent_multi_token_matches_step_by_step():
     x = np.random.randn(B, T, C)
 
     # 1. Multi-token recurrent forward pass across full sequence T
-    out_multi, final_state = attn(x, return_state=True)
+    with no_grad():
+        out_multi, final_state = attn(x, return_state=True)
 
-    # 2. Recurrent step-by-step forward pass
-    state = None
-    step_outs = []
-    for t in range(T):
-        x_t = x[:, t : t + 1, :]
-        out_t, state = attn(x_t, state=state, return_state=True)
-        step_outs.append(out_t.data)
+        # 2. Recurrent step-by-step forward pass
+        state = None
+        step_outs = []
+        for t in range(T):
+            x_t = x[:, t : t + 1, :]
+            out_t, state = attn(x_t, state=state, return_state=True)
+            step_outs.append(out_t.data)
     out_step_by_step = np.concatenate(step_outs, axis=1)
 
     # 3. Parallel forward pass
