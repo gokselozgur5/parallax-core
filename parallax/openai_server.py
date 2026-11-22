@@ -250,7 +250,10 @@ def create_handler(state: OpenAIServerState):
                                         last_tok = tok
                                         if eos_id is not None and tok == eos_id:
                                             continue
-                                        piece = stream_decoder.decode_token(tok)
+                                        if state.tokenizer is not None:
+                                            piece = stream_decoder.decode_token(tok)
+                                        else:
+                                            piece = decode_tokens([tok])
                                         chunk_payload = {
                                             "id": req_id,
                                             "object": "chat.completion.chunk",
