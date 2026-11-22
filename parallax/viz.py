@@ -5,7 +5,7 @@ Provides exporters for Scalar Value and Tensor DAGs to Mermaid and Graphviz DOT,
 as well as ASCII heatmaps and visualizers for Attention matrices.
 """
 
-from typing import List, Optional, Set, Tuple, Union
+from typing import Iterator, List, Optional, Set, Tuple, Union
 import numpy as np
 
 from parallax.engine import Value
@@ -14,17 +14,23 @@ from parallax.tensor import Tensor
 
 def trace_graph(root: Union[Value, Tensor]) -> Tuple[Set[Union[Value, Tensor]], Set[Tuple[Union[Value, Tensor], Union[Value, Tensor]]]]:
     """Builds a set of all nodes and edges in the computation graph rooted at root."""
-    nodes: Set[Union[Value, Tensor]] = set()
+    nodes: Set[Union[Value, Tensor]] = {root}
     edges: Set[Tuple[Union[Value, Tensor], Union[Value, Tensor]]] = set()
+    stack: List[Tuple[Union[Value, Tensor], Iterator[Union[Value, Tensor]]]] = [
+        (root, iter(root._prev))
+    ]
 
-    def build(v: Union[Value, Tensor]) -> None:
-        if v not in nodes:
-            nodes.add(v)
-            for child in v._prev:
-                edges.add((child, v))
-                build(child)
+    while stack:
+        parent, children = stack[-1]
+        for child in children:
+            edges.add((child, parent))
+            if child not in nodes:
+                nodes.add(child)
+                stack.append((child, iter(child._prev)))
+                break
+        else:
+            stack.pop()
 
-    build(root)
     return nodes, edges
 
 
