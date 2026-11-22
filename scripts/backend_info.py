@@ -12,7 +12,7 @@ from parallax.backends.base import Backend
 from parallax.backends.c_backend import CBackend
 from parallax.backends.metal_backend import MetalBackend
 from parallax.backends.numpy_backend import NumpyBackend
-from parallax.backends.report import generate_markdown_report
+from parallax.backends.report import _evaluate_parity, generate_markdown_report
 from parallax.backends.rust_backend import RustBackend
 
 
@@ -53,7 +53,7 @@ def collect_backend_info_dict() -> dict[str, Any]:
         avail = _check_available(b)
         backends_data[name] = {
             "available": avail,
-            "parity": "pass" if avail else "n/a",
+            "parity": _evaluate_parity(name, b, avail),
         }
     return {
         "cpu": {
