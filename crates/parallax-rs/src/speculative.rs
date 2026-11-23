@@ -182,8 +182,16 @@ pub struct AcceptanceStats {
 
 impl AcceptanceStats {
     pub fn compute(proposed: usize, accepted: usize) -> Self {
-        let rate = if proposed > 0 { accepted as f32 / proposed as f32 } else { 0.0 };
-        Self { total_proposed: proposed, total_accepted: accepted, acceptance_rate: rate }
+        let rate = if proposed > 0 {
+            accepted as f32 / proposed as f32
+        } else {
+            0.0
+        };
+        Self {
+            total_proposed: proposed,
+            total_accepted: accepted,
+            acceptance_rate: rate,
+        }
     }
 }
 
