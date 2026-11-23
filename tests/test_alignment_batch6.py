@@ -14,9 +14,9 @@ import pytest
 
 from parallax.ipo import compute_ipo_loss
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
-from parallax.ppo import ppo_policy_step
+from parallax.ppo import compute_ppo_clip_loss, ppo_policy_step
 from parallax.rl import RewardModel, bradley_terry_reward_loss, compute_policy_gradient_step
-from parallax.simpo import simpo_step
+from parallax.simpo import compute_simpo_loss, simpo_step
 from parallax.tensor import Tensor
 
 
@@ -75,6 +75,11 @@ def test_reward_model_pooling_with_lengths_and_attention_mask():
     assert rm.backbone.token_embeddings.weight.grad is not None
 
 
+def _log_probs_at_targets(logits: np.ndarray, targets: np.ndarray) -> np.ndarray:
+    shifted = logits - np.max(logits, axis=-1, keepdims=True)
+    return shifted[np.arange(len(targets)), targets] - np.log(np.sum(np.exp(shifted), axis=-1))
+
+
 def test_simpo_log_softmax_numerical_stability():
     # Issue #272: Verify simpo_step handles extreme negative logits without underflow / nan
     vocab_size = 10
@@ -90,32 +95,63 @@ def test_simpo_log_softmax_numerical_stability():
     assert not np.isinf(loss)
     assert not np.isnan(grad_w).any()
     assert not np.isnan(grad_l).any()
+    assert np.isclose(
+        loss,
+        compute_simpo_loss(_log_probs_at_targets(logits_w, targets_w), _log_probs_at_targets(logits_l, targets_l)),
+    )
+    assert grad_w[1, 1] < 0.0 < grad_w[1, 0]
+    assert grad_l[0, 0] > 0.0 and grad_l[1, 1] > 0.0
 
 
 def test_ppo_log_softmax_float64_and_advantage_normalization():
     # Issue #272 & #273: Verify float64 log_probs and adv norm safeguards
+    np.random.seed(0)
     T = 4
     vocab_size = 8
     logits = np.random.randn(T, vocab_size)
     actions = np.array([0, 1, 2, 3])
     old_lp = np.array([-1.5, -2.0, -1.8, -2.2])
 
+    def ppo_fd(cand_logits: np.ndarray, act: np.ndarray, olp: np.ndarray, adv_in: np.ndarray) -> np.ndarray:
+        adv_f = np.asarray(adv_in, dtype=np.float64)
+        adv_n = (adv_f - adv_f.mean()) / (adv_f.std() + 1e-8) if len(adv_f) > 1 and adv_f.std() > 1e-8 else adv_f
+        eps = 1e-6
+        base = cand_logits.astype(np.float64, copy=True)
+        out = np.zeros_like(base)
+        for idx in np.ndindex(base.shape):
+            orig = base[idx]
+            base[idx] = orig + eps
+            lp_pos = _log_probs_at_targets(base, act)
+            l_pos = compute_ppo_clip_loss(lp_pos, olp, adv_n)[0]
+            base[idx] = orig - eps
+            lp_neg = _log_probs_at_targets(base, act)
+            l_neg = compute_ppo_clip_loss(lp_neg, olp, adv_n)[0]
+            base[idx] = orig
+            out[idx] = (l_pos - l_neg) / (2.0 * eps)
+        return out
+
     # Case 1: normal advantages with variance
     adv = np.array([1.0, 2.0, 3.0, 4.0])
     loss, grad = ppo_policy_step(logits, actions, old_lp, adv)
     assert not np.isnan(loss)
     assert not np.isnan(grad).any()
+    assert not np.allclose(grad, 0.0)
+    np.testing.assert_allclose(grad, ppo_fd(logits, actions, old_lp, adv), rtol=1e-5, atol=1e-6)
 
     # Case 2: advantages with zero variance (single element or all identical)
     adv_const = np.array([5.0, 5.0, 5.0, 5.0])
     loss_c, grad_c = ppo_policy_step(logits, actions, old_lp, adv_const)
     assert not np.isnan(loss_c)
     assert not np.isnan(grad_c).any()
+    assert not np.allclose(grad_c, 0.0)
+    np.testing.assert_allclose(grad_c, ppo_fd(logits, actions, old_lp, adv_const), rtol=1e-5, atol=1e-6)
 
     # Case 3: single advantage
     loss_s, grad_s = ppo_policy_step(logits[:1], actions[:1], old_lp[:1], np.array([2.0]))
     assert not np.isnan(loss_s)
     assert not np.isnan(grad_s).any()
+    assert not np.allclose(grad_s, 0.0)
+    np.testing.assert_allclose(grad_s, ppo_fd(logits[:1], actions[:1], old_lp[:1], np.array([2.0])), rtol=1e-5, atol=1e-6)
 
 
 def test_policy_gradient_kl_without_ref_logits_raises():
