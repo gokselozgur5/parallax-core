@@ -141,6 +141,50 @@ def test_issue_274_xlora_gate_gradient_and_dx_backward():
 
     np.testing.assert_allclose(dx, dx_num, rtol=1e-3, atol=5e-4)
 
+
+def test_xlora_dx_gate_term_isolated_tight_tolerance():
+    rng = np.random.default_rng(870)
+    layer = XLoRALinear(in_features=5, out_features=7, num_adapters=3, rank=2, alpha=4.0)
+    layer.base_weight = rng.standard_normal(layer.base_weight.shape)
+    layer.lora_A = [rng.standard_normal(a.shape) * 0.5 for a in layer.lora_A]
+    layer.lora_B = [rng.standard_normal(b.shape) * 0.5 for b in layer.lora_B]
+    layer.gate_weight = rng.standard_normal(layer.gate_weight.shape) * 1.0
+
+    x = rng.standard_normal((3, 5))
+    grad_out = rng.standard_normal((3, 7))
+
+    _, gates = layer.forward(x)
+    _, _, _, dx = layer.backward(x, grad_out, gates)
+
+    # Isolate dx_gate by subtracting frozen-gate base + adapter input gradients
+    dx_base = grad_out @ layer.base_weight
+    dx_adapters = np.zeros_like(x)
+    for i in range(layer.num_adapters):
+        eff_grad = gates[:, i : i + 1] * grad_out * layer.scaling
+        dx_adapters += (eff_grad @ layer.lora_B[i]) @ layer.lora_A[i]
+    dx_gate = dx - dx_base - dx_adapters
+    assert np.max(np.abs(dx_gate)) > 0.1
+
+    # Central finite difference holding x fixed inside base/adapters and perturbing only gate input
+    eps = 1e-6
+    dx_gate_num = np.zeros_like(x)
+    for r in range(x.shape[0]):
+        for c in range(x.shape[1]):
+            xp = x.copy()
+            xm = x.copy()
+            xp[r, c] += eps
+            xm[r, c] -= eps
+            _, gp = layer.forward(xp)
+            _, gm = layer.forward(xm)
+            yp_gate = sum(
+                (gp[:, i : i + 1] - gm[:, i : i + 1]) * ((x @ layer.lora_A[i].T) @ layer.lora_B[i].T * layer.scaling)
+                for i in range(layer.num_adapters)
+            )
+            dx_gate_num[r, c] = np.sum(yp_gate * grad_out) / (2 * eps)
+
+    np.testing.assert_allclose(dx_gate, dx_gate_num, rtol=1e-7, atol=1e-8)
+
+
 def test_issue_275_dora_dx_backward():
     np.random.seed(2026)
     layer = DoRALinear(in_features=6, out_features=8, rank=3, alpha=6.0)
