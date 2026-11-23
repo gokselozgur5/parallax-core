@@ -206,11 +206,15 @@ impl<'a> StorageReader<'a> {
                 .checked_mul(d)
                 .ok_or(StorageError::DimensionOverflow)?;
         }
-        let byte_len = numel.checked_mul(dtype.element_size()).ok_or(StorageError::DimensionOverflow)?;
+        let byte_len = numel
+            .checked_mul(dtype.element_size())
+            .ok_or(StorageError::DimensionOverflow)?;
         if !data_offset.is_multiple_of(STORAGE_ALIGNMENT) {
             return Err(StorageError::UnalignedTensorData);
         }
-        let data_end = data_offset.checked_add(byte_len).ok_or(StorageError::OffsetOutOfBounds)?;
+        let data_end = data_offset
+            .checked_add(byte_len)
+            .ok_or(StorageError::OffsetOutOfBounds)?;
         if data_end > self.data.len() {
             return Err(StorageError::OffsetOutOfBounds);
         }
@@ -224,7 +228,15 @@ impl<'a> StorageReader<'a> {
         let (name, offset) = self.read_name(offset, name_len)?;
         let (shape, offset) = self.read_dims(offset, ndim)?;
         let data = self.validate_data_slice(&shape, dtype, data_offset)?;
-        Ok((TensorView { name, dtype, shape, data }, offset))
+        Ok((
+            TensorView {
+                name,
+                dtype,
+                shape,
+                data,
+            },
+            offset,
+        ))
     }
 }
 
@@ -260,7 +272,11 @@ impl<'a> StorageReader<'a> {
     }
 
     pub fn iter<'s>(&'s self) -> StorageIter<'s, 'a> {
-        StorageIter { reader: self, offset: self.header_offset, index: 0 }
+        StorageIter {
+            reader: self,
+            offset: self.header_offset,
+            index: 0,
+        }
     }
 }
 
@@ -311,7 +327,9 @@ pub fn serialize_storage(entries: &[TensorEntryBuilder]) -> Result<Vec<u8>, Stor
             if d == 0 {
                 return Err(StorageError::ZeroDimension);
             }
-            numel = numel.checked_mul(d).ok_or(StorageError::DimensionOverflow)?;
+            numel = numel
+                .checked_mul(d)
+                .ok_or(StorageError::DimensionOverflow)?;
         }
         let byte_len = numel.checked_mul(entry.dtype.element_size()).ok_or(StorageError::DimensionOverflow)?;
         if entry.data.len() != byte_len {
