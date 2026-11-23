@@ -278,8 +278,19 @@ def save_parallax_to_gguf(
     architecture: str = "llama",
 ) -> None:
     """Serializes a ParallaxLM model and optional tokenizer into a standard GGUF v3 file."""
-    cfg = model.config
+    from parallax.gguf_exporter import export_to_gguf_v3
 
+    export_to_gguf_v3(
+        model,
+        file_path,
+        quantization="f32",
+        tokenizer=tokenizer,
+        architecture=architecture,
+    )
+
+
+def _legacy_save_body(model: ParallaxLM, file_path: str, tokenizer: Optional[Any] = None, architecture: str = "llama") -> None:
+    cfg = model.config
     if getattr(cfg, "use_rope", True) is False:
         raise NotImplementedError("Exporting models with use_rope=False is not supported in GGUF format.")
 
