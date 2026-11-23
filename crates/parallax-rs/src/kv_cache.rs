@@ -125,7 +125,10 @@ impl CircularKvBuffer {
         if k_buf.len() != req_buf || v_buf.len() != req_buf {
             return Err(KvCacheError::BufferLengthMismatch);
         }
-        let per_token = self.num_heads.checked_mul(self.head_dim).ok_or(KvCacheError::InvalidDimension)?;
+        let per_token = self
+            .num_heads
+            .checked_mul(self.head_dim)
+            .ok_or(KvCacheError::InvalidDimension)?;
         if new_k.len() != per_token || new_v.len() != per_token {
             return Err(KvCacheError::BufferLengthMismatch);
         }
@@ -137,7 +140,10 @@ impl CircularKvBuffer {
             k_buf[offset..offset + self.head_dim].copy_from_slice(&new_k[src_start..src_end]);
             v_buf[offset..offset + self.head_dim].copy_from_slice(&new_v[src_start..src_end]);
         }
-        self.total_inserted = self.total_inserted.checked_add(1).ok_or(KvCacheError::InvalidDimension)?;
+        self.total_inserted = self
+            .total_inserted
+            .checked_add(1)
+            .ok_or(KvCacheError::InvalidDimension)?;
         Ok(slot)
     }
 
