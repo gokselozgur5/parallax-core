@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from python.parallax.dispatch.sliding_window import build_sliding_window_mask
+from parallax.dispatch.sliding_window import build_sliding_window_mask
 
 
 def test_build_sliding_window_mask_causal() -> None:
@@ -17,7 +17,7 @@ def test_build_sliding_window_mask_causal() -> None:
 
 
 def test_get_sliding_window_bounds() -> None:
-    from python.parallax.dispatch.sliding_window import get_sliding_window_bounds
+    from parallax.dispatch.sliding_window import get_sliding_window_bounds
 
     starts, ends = get_sliding_window_bounds(seq_len_q=4, seq_len_k=4, window_size=2, causal=True)
     np.testing.assert_array_equal(starts, np.array([0, 0, 0, 1]))
@@ -29,7 +29,7 @@ def test_get_sliding_window_bounds() -> None:
 
 
 def test_sliding_window_attention_shapes_and_values() -> None:
-    from python.parallax.dispatch.sliding_window import sliding_window_attention
+    from parallax.dispatch.sliding_window import sliding_window_attention
 
     rng = np.random.default_rng(42)
     q = rng.standard_normal((4, 2, 8)).astype(np.float32)
@@ -41,7 +41,7 @@ def test_sliding_window_attention_shapes_and_values() -> None:
 
 
 def test_sliding_window_zero_window_identity() -> None:
-    from python.parallax.dispatch.sliding_window import sliding_window_attention
+    from parallax.dispatch.sliding_window import sliding_window_attention
 
     q = np.ones((3, 1, 4), dtype=np.float32)
     k = np.ones((3, 1, 4), dtype=np.float32)
@@ -51,7 +51,7 @@ def test_sliding_window_zero_window_identity() -> None:
 
 
 def test_flash_sliding_window_tile() -> None:
-    from python.parallax.dispatch.sliding_window import flash_sliding_window_tile
+    from parallax.dispatch.sliding_window import flash_sliding_window_tile
 
     q_block = np.ones((2, 4), dtype=np.float32)
     k_block = np.ones((2, 4), dtype=np.float32)
@@ -65,7 +65,7 @@ def test_flash_sliding_window_tile() -> None:
 
 
 def test_sliding_window_attention_class() -> None:
-    from python.parallax.dispatch.sliding_window import SlidingWindowAttention
+    from parallax.dispatch.sliding_window import SlidingWindowAttention
 
     layer = SlidingWindowAttention(window_size=2, causal=True)
     assert layer.window_size == 2
@@ -78,7 +78,7 @@ def test_sliding_window_attention_class() -> None:
 
 
 def test_dispatched_sliding_window_attention() -> None:
-    from python.parallax.dispatch.sliding_window import dispatched_sliding_window_attention
+    from parallax.dispatch.sliding_window import dispatched_sliding_window_attention
 
     q = np.ones((2, 1, 4), dtype=np.float32)
     k = np.ones((2, 1, 4), dtype=np.float32)
@@ -89,7 +89,7 @@ def test_dispatched_sliding_window_attention() -> None:
 
 def test_package_exports() -> None:
     import parallax.dispatch as pd
-    import python.parallax.dispatch as ppd
+    import parallax.dispatch as ppd
 
     for mod in (pd, ppd):
         assert hasattr(mod, "SlidingWindowAttention")
@@ -101,7 +101,7 @@ def test_package_exports() -> None:
 
 
 def test_sliding_window_validation() -> None:
-    from python.parallax.dispatch.sliding_window import build_sliding_window_mask, SlidingWindowAttention
+    from parallax.dispatch.sliding_window import build_sliding_window_mask, SlidingWindowAttention
 
     with pytest.raises(ValueError):
         build_sliding_window_mask(seq_len_q=4, seq_len_k=4, window_size=-1)

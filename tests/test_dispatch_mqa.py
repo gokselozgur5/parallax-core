@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from python.parallax.dispatch.mqa import broadcast_kv, reduce_mqa_grad
+from parallax.dispatch.mqa import broadcast_kv, reduce_mqa_grad
 
 
 def test_broadcast_kv_4d() -> None:
@@ -53,7 +53,7 @@ def test_reduce_mqa_grad() -> None:
 
 def test_dispatched_broadcast_kv_autograd() -> None:
     from parallax.tensor import Tensor
-    from python.parallax.dispatch.mqa import dispatched_broadcast_kv
+    from parallax.dispatch.mqa import dispatched_broadcast_kv
 
     x = Tensor(np.ones((1, 1, 3, 4), dtype=np.float32), requires_grad=True)
     out = dispatched_broadcast_kv(x, num_heads=4)
@@ -74,7 +74,7 @@ def test_dispatched_broadcast_kv_autograd() -> None:
 
 def test_mqa_head_broadcaster_module() -> None:
     from parallax.tensor import Tensor
-    from python.parallax.dispatch.mqa import MQAHeadBroadcaster
+    from parallax.dispatch.mqa import MQAHeadBroadcaster
 
     broadcaster = MQAHeadBroadcaster(num_heads=8)
     assert broadcaster.num_heads == 8
@@ -88,7 +88,7 @@ def test_mqa_head_broadcaster_module() -> None:
 
 def test_broadcast_mqa_pair() -> None:
     from parallax.tensor import Tensor
-    from python.parallax.dispatch.mqa import broadcast_mqa_pair
+    from parallax.dispatch.mqa import broadcast_mqa_pair
 
     k = Tensor(np.ones((1, 1, 4, 8), dtype=np.float32))
     v = Tensor(np.full((1, 1, 4, 8), 2.0, dtype=np.float32))
@@ -98,7 +98,7 @@ def test_broadcast_mqa_pair() -> None:
 
 
 def test_dispatch_mqa_package_exports() -> None:
-    from python.parallax.dispatch import mqa
+    from parallax.dispatch import mqa
 
     assert hasattr(mqa, "broadcast_kv")
     assert hasattr(mqa, "reduce_mqa_grad")

@@ -1,7 +1,7 @@
 """Unit tests for sliding window attention causal offset handling."""
 
 import numpy as np
-from python.parallax.dispatch.sliding_window import (
+from parallax.dispatch.sliding_window import (
     build_sliding_window_mask,
     get_sliding_window_bounds,
 )

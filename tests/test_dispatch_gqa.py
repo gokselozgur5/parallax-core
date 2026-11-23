@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from python.parallax.dispatch.gqa import repeat_kv
+from parallax.dispatch.gqa import repeat_kv
 
 
 def test_repeat_kv_shape_and_values() -> None:
@@ -25,7 +25,7 @@ def test_repeat_kv_validation() -> None:
 
 
 def test_reduce_kv_grad() -> None:
-    from python.parallax.dispatch.gqa import reduce_kv_grad
+    from parallax.dispatch.gqa import reduce_kv_grad
 
     grad = np.ones((2, 6, 4, 8), dtype=np.float32)
     reduced = reduce_kv_grad(grad, n_rep=3)
@@ -35,7 +35,7 @@ def test_reduce_kv_grad() -> None:
 
 def test_dispatched_repeat_kv_autograd() -> None:
     from parallax.tensor import Tensor
-    from python.parallax.dispatch.gqa import dispatched_repeat_kv
+    from parallax.dispatch.gqa import dispatched_repeat_kv
 
     x = Tensor(np.ones((1, 2, 3, 4), dtype=np.float32), requires_grad=True)
     out = dispatched_repeat_kv(x, n_rep=3)
@@ -48,7 +48,7 @@ def test_dispatched_repeat_kv_autograd() -> None:
 
 def test_gqa_head_repeater_module() -> None:
     from parallax.tensor import Tensor
-    from python.parallax.dispatch.gqa import GQAHeadRepeater
+    from parallax.dispatch.gqa import GQAHeadRepeater
 
     repeater = GQAHeadRepeater(n_rep=4)
     assert repeater.n_rep == 4
@@ -60,7 +60,7 @@ def test_gqa_head_repeater_module() -> None:
 
 def test_repeat_kv_pair() -> None:
     from parallax.tensor import Tensor
-    from python.parallax.dispatch.gqa import repeat_kv_pair
+    from parallax.dispatch.gqa import repeat_kv_pair
 
     k = Tensor(np.ones((1, 2, 4, 8), dtype=np.float32))
     v = Tensor(np.full((1, 2, 4, 8), 2.0, dtype=np.float32))
@@ -70,7 +70,7 @@ def test_repeat_kv_pair() -> None:
 
 
 def test_dispatch_gqa_package_exports() -> None:
-    from python.parallax.dispatch import gqa
+    from parallax.dispatch import gqa
 
     assert hasattr(gqa, "repeat_kv")
     assert hasattr(gqa, "reduce_kv_grad")
