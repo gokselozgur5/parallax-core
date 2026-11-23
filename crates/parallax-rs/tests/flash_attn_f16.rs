@@ -12,7 +12,10 @@ fn f16_scale_correction_prevents_intermediate_overflow() {
 
     let mut out = [0.0f32; 40];
     let cfg = FlashAttnConfig::new(head_dim, false, true);
-    assert_eq!(flash_attn(&q, &k, &v, &mut out, seq_len, head_dim, cfg), Ok(()));
+    assert_eq!(
+        flash_attn(&q, &k, &v, &mut out, seq_len, head_dim, cfg),
+        Ok(())
+    );
     assert!(
         out.iter().all(|val| val.is_finite()),
         "f16_scale_correction overflowed to non-finite output: {:?}",
