@@ -184,10 +184,22 @@ mod tests {
 
     #[test]
     fn test_kv_cache_invalid_dimensions() {
-        assert_eq!(CircularKvBuffer::new(0, 64, 128).unwrap_err(), KvCacheError::InvalidDimension);
-        assert_eq!(CircularKvBuffer::new(4, 0, 128).unwrap_err(), KvCacheError::InvalidDimension);
-        assert_eq!(CircularKvBuffer::new(4, 64, 0).unwrap_err(), KvCacheError::InvalidDimension);
-        assert_eq!(CircularKvBuffer::new(usize::MAX, 64, 128).unwrap_err(), KvCacheError::InvalidDimension);
+        assert_eq!(
+            CircularKvBuffer::new(0, 64, 128).unwrap_err(),
+            KvCacheError::InvalidDimension
+        );
+        assert_eq!(
+            CircularKvBuffer::new(4, 0, 128).unwrap_err(),
+            KvCacheError::InvalidDimension
+        );
+        assert_eq!(
+            CircularKvBuffer::new(4, 64, 0).unwrap_err(),
+            KvCacheError::InvalidDimension
+        );
+        assert_eq!(
+            CircularKvBuffer::new(usize::MAX, 64, 128).unwrap_err(),
+            KvCacheError::InvalidDimension
+        );
     }
 
     #[test]
@@ -204,10 +216,14 @@ mod tests {
 
         let mut out_k = [0.0f32; 4];
         let mut out_v = [0.0f32; 4];
-        cache.read_token(&k_buf, &v_buf, 0, 0, &mut out_k, &mut out_v).unwrap();
+        cache
+            .read_token(&k_buf, &v_buf, 0, 0, &mut out_k, &mut out_v)
+            .unwrap();
         assert_eq!(out_k, [1.0, 2.0, 3.0, 4.0]);
         assert_eq!(out_v, [10.0, 20.0, 30.0, 40.0]);
-        cache.read_token(&k_buf, &v_buf, 1, 0, &mut out_k, &mut out_v).unwrap();
+        cache
+            .read_token(&k_buf, &v_buf, 1, 0, &mut out_k, &mut out_v)
+            .unwrap();
         assert_eq!(out_k, [5.0, 6.0, 7.0, 8.0]);
         assert_eq!(out_v, [50.0, 60.0, 70.0, 80.0]);
     }
