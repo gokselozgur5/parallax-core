@@ -331,7 +331,9 @@ pub fn serialize_storage(entries: &[TensorEntryBuilder]) -> Result<Vec<u8>, Stor
                 .checked_mul(d)
                 .ok_or(StorageError::DimensionOverflow)?;
         }
-        let byte_len = numel.checked_mul(entry.dtype.element_size()).ok_or(StorageError::DimensionOverflow)?;
+        let byte_len = numel
+            .checked_mul(entry.dtype.element_size())
+            .ok_or(StorageError::DimensionOverflow)?;
         if entry.data.len() != byte_len {
             return Err(StorageError::OffsetOutOfBounds);
         }
@@ -341,13 +343,25 @@ pub fn serialize_storage(entries: &[TensorEntryBuilder]) -> Result<Vec<u8>, Stor
     Ok(out)
 }
 
-fn compute_header_offsets(entries: &[TensorEntryBuilder]) -> Result<(usize, Vec<usize>), StorageError> {
+fn compute_header_offsets(
+    entries: &[TensorEntryBuilder],
+) -> Result<(usize, Vec<usize>), StorageError> {
     let mut header_size = 16usize; // Magic, version, count, flags
     for entry in entries {
-        header_size = header_size.checked_add(20).ok_or(StorageError::DimensionOverflow)?;
-        header_size = header_size.checked_add(entry.name.len()).ok_or(StorageError::DimensionOverflow)?;
-        let dims_size = entry.shape.len().checked_mul(8).ok_or(StorageError::DimensionOverflow)?;
-        header_size = header_size.checked_add(dims_size).ok_or(StorageError::DimensionOverflow)?;
+        header_size = header_size
+            .checked_add(20)
+            .ok_or(StorageError::DimensionOverflow)?;
+        header_size = header_size
+            .checked_add(entry.name.len())
+            .ok_or(StorageError::DimensionOverflow)?;
+        let dims_size = entry
+            .shape
+            .len()
+            .checked_mul(8)
+            .ok_or(StorageError::DimensionOverflow)?;
+        header_size = header_size
+            .checked_add(dims_size)
+            .ok_or(StorageError::DimensionOverflow)?;
     }
     let mut data_cursor = (header_size + STORAGE_ALIGNMENT - 1) & !(STORAGE_ALIGNMENT - 1);
     let mut data_offsets = Vec::with_capacity(entries.len());
