@@ -11,25 +11,26 @@ int c_has_avx512_softmax_f32(void) {
 
 __attribute__((noinline, target("avx512f,avx512dq,avx512vl,avx512bw")))
 static void softmax_avx512_kernel(const float *in, float *out, int rows, int cols) {
-    for (int r = 0; r < rows; ++r) {
-        const float *in_row = in + r * cols;
-        float *out_row = out + r * cols;
+    const size_t rows_s = (size_t)rows, cols_s = (size_t)cols;
+    for (size_t r = 0; r < rows_s; ++r) {
+        const float *in_row = in + r * cols_s;
+        float *out_row = out + r * cols_s;
         float max_val = in_row[0];
-        int c = 1;
+        size_t c = 1;
         __m512 max_vec = _mm512_set1_ps(max_val);
-        for (; cols - c >= 16; c += 16) {
+        for (; cols_s - c >= 16; c += 16) {
             max_vec = _mm512_max_ps(max_vec, _mm512_loadu_ps(in_row + c));
         }
         float tmp[16];
         _mm512_storeu_ps(tmp, max_vec);
-        for (int k = 0; k < 16; ++k) if (tmp[k] > max_val) max_val = tmp[k];
-        for (; c < cols; ++c) if (in_row[c] > max_val) max_val = in_row[c];
+        for (size_t k = 0; k < 16; ++k) if (tmp[k] > max_val) max_val = tmp[k];
+        for (; c < cols_s; ++c) if (in_row[c] > max_val) max_val = in_row[c];
         double sum = 0.0;
-        for (c = 0; c < cols; ++c) {
+        for (c = 0; c < cols_s; ++c) {
             out_row[c] = expf(in_row[c] - max_val);
             sum += (double)out_row[c];
         }
-        for (c = 0; c < cols; ++c) out_row[c] = (float)((double)out_row[c] / sum);
+        for (c = 0; c < cols_s; ++c) out_row[c] = (float)((double)out_row[c] / sum);
     }
 }
 #endif
