@@ -9,9 +9,8 @@ from typing import Any, Dict, Optional, Tuple, Union
 import numpy as np
 
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
-from parallax.gguf import load_gguf, save_gguf
+from parallax.gguf import load_gguf
 from parallax.gguf_tokenizer import GGUFTokenizer, load_gguf_tokenizer
-from parallax.hf_tokenizer import _BYTE_TO_UNICODE
 from parallax.loader_utils import _assign_bias, _assign_param
 
 
