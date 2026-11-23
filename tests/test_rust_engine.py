@@ -45,7 +45,7 @@ def test_get_rust_lib_sets_attempted_only_after_handle_ready(
 ) -> None:
     (fake_path := tmp_path / "libparallax_rs.dylib").write_text("stub")
     entered, release = threading.Event(), threading.Event()
-    fn = {"__getattr__": lambda s, k: (lambda *_: 2 if k == "parallax_version" else 0)}
+    fn = {"__getattr__": lambda s, k: (lambda *_: 3 if k == "parallax_version" else 0)}
 
     def slow_cdll(_path: str) -> object:
         entered.set()
