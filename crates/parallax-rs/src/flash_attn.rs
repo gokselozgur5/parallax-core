@@ -525,8 +525,15 @@ mod tests {
         assert_eq!(flash_attn(&q, &k, &v, &mut out, 1, 2, cfg), Ok(()));
         assert!(out[0].is_nan() || out[1].is_nan());
 
-        let invalid_cfg = FlashAttnConfig { scale: -1.0, is_causal: false, f16_scale_correction: false };
-        assert_eq!(flash_attn(&q, &k, &v, &mut out, 1, 2, invalid_cfg), Err(FlashAttnError::InvalidScale));
+        let invalid_cfg = FlashAttnConfig {
+            scale: -1.0,
+            is_causal: false,
+            f16_scale_correction: false,
+        };
+        assert_eq!(
+            flash_attn(&q, &k, &v, &mut out, 1, 2, invalid_cfg),
+            Err(FlashAttnError::InvalidScale)
+        );
     }
 
     #[test]
@@ -545,8 +552,18 @@ mod tests {
     #[test]
     fn test_flash_attn_f16_overflow_vs_scale_correction() {
         let q = [F16::from_f32(300.0); 4];
-        let k = [F16::from_f32(300.0), F16::from_f32(300.0), F16::from_f32(250.0), F16::from_f32(250.0)];
-        let v = [F16::from_f32(2.0), F16::from_f32(4.0), F16::from_f32(6.0), F16::from_f32(8.0)];
+        let k = [
+            F16::from_f32(300.0),
+            F16::from_f32(300.0),
+            F16::from_f32(250.0),
+            F16::from_f32(250.0),
+        ];
+        let v = [
+            F16::from_f32(2.0),
+            F16::from_f32(4.0),
+            F16::from_f32(6.0),
+            F16::from_f32(8.0),
+        ];
         assert!(dot_product_f16_scaled(&q[..2], &k[..2], 0.0625, false).is_infinite());
         assert!((dot_product_f16_scaled(&q[..2], &k[..2], 0.0625, true) - 11_250.0).abs() < 1.0);
         let mut out = [F16::ZERO; 4];
