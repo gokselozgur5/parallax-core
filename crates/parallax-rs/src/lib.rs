@@ -463,8 +463,26 @@ mod tests {
             // Aliasing checks
             let mut shared = vec![1.0f32; 8];
             let s_ptr = shared.as_mut_ptr();
-            assert_eq!(parallax_gemm_f32(2, 2, 2, 1.0, s_ptr, 4, buf.as_ptr(), 4, 0.0, s_ptr, 4), STATUS_ALIASING_POINTER);
-            assert_eq!(parallax_gemm_f32(2, 2, 2, 1.0, s_ptr, 4, buf.as_ptr(), 4, 0.0, s_ptr.add(2), 4), STATUS_ALIASING_POINTER);
+            assert_eq!(
+                parallax_gemm_f32(2, 2, 2, 1.0, s_ptr, 4, buf.as_ptr(), 4, 0.0, s_ptr, 4),
+                STATUS_ALIASING_POINTER
+            );
+            assert_eq!(
+                parallax_gemm_f32(
+                    2,
+                    2,
+                    2,
+                    1.0,
+                    s_ptr,
+                    4,
+                    buf.as_ptr(),
+                    4,
+                    0.0,
+                    s_ptr.add(2),
+                    4
+                ),
+                STATUS_ALIASING_POINTER
+            );
         }
     }
 
