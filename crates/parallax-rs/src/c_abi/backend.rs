@@ -1,6 +1,9 @@
 //! C-ABI backend enumeration and device types.
 
-use crate::{STATUS_NOT_FOUND, STATUS_NULL_POINTER, STATUS_OK};
+use crate::{
+    is_aligned_u32, STATUS_INVALID_DIMENSION, STATUS_NOT_FOUND, STATUS_NULL_POINTER, STATUS_OK,
+    STATUS_UNALIGNED_POINTER,
+};
 
 /// Device type identifier for CPU backend.
 pub const DEVICE_TYPE_CPU: u32 = 0;
@@ -26,16 +29,34 @@ pub unsafe extern "C" fn parallax_get_device_type(
     backend_idx: u32,
     out_device_type: *mut u32,
 ) -> i32 {
-    if out_device_type.is_null() {
-        return STATUS_NULL_POINTER;
-    }
-    match backend_idx {
-        0 => { *out_device_type = DEVICE_TYPE_CPU; STATUS_OK }
-        1 => { *out_device_type = DEVICE_TYPE_CUDA; STATUS_OK }
-        2 => { *out_device_type = DEVICE_TYPE_METAL; STATUS_OK }
-        3 => { *out_device_type = DEVICE_TYPE_NEON; STATUS_OK }
-        _ => STATUS_NOT_FOUND,
-    }
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        if out_device_type.is_null() {
+            return STATUS_NULL_POINTER;
+        }
+        if !is_aligned_u32(out_device_type) {
+            return STATUS_UNALIGNED_POINTER;
+        }
+        match backend_idx {
+            0 => {
+                *out_device_type = DEVICE_TYPE_CPU;
+                STATUS_OK
+            }
+            1 => {
+                *out_device_type = DEVICE_TYPE_CUDA;
+                STATUS_OK
+            }
+            2 => {
+                *out_device_type = DEVICE_TYPE_METAL;
+                STATUS_OK
+            }
+            3 => {
+                *out_device_type = DEVICE_TYPE_NEON;
+                STATUS_OK
+            }
+            _ => STATUS_NOT_FOUND,
+        }
+    }))
+    .unwrap_or(STATUS_INVALID_DIMENSION)
 }
 
 #[cfg(test)]
@@ -71,5 +92,9 @@ mod tests {
         assert_eq!(status_oob, STATUS_NOT_FOUND);
         let status_null = unsafe { parallax_get_device_type(0, std::ptr::null_mut()) };
         assert_eq!(status_null, STATUS_NULL_POINTER);
+        let raw: [u8; 16] = [0; 16];
+        let unaligned = unsafe { raw.as_ptr().add(1) as *mut u32 };
+        let status_unaligned = unsafe { parallax_get_device_type(0, unaligned) };
+        assert_eq!(status_unaligned, STATUS_UNALIGNED_POINTER);
     }
 }
