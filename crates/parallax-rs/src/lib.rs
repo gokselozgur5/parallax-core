@@ -62,10 +62,18 @@ fn ranges_overlap(p1: usize, len1: usize, p2: usize, len2: usize) -> bool {
     if len1 == 0 || len2 == 0 {
         return false;
     }
-    let Some(size1) = len1.checked_mul(std::mem::size_of::<f32>()) else { return true };
-    let Some(size2) = len2.checked_mul(std::mem::size_of::<f32>()) else { return true };
-    let Some(end1) = p1.checked_add(size1) else { return true };
-    let Some(end2) = p2.checked_add(size2) else { return true };
+    let Some(size1) = len1.checked_mul(std::mem::size_of::<f32>()) else {
+        return true;
+    };
+    let Some(size2) = len2.checked_mul(std::mem::size_of::<f32>()) else {
+        return true;
+    };
+    let Some(end1) = p1.checked_add(size1) else {
+        return true;
+    };
+    let Some(end2) = p2.checked_add(size2) else {
+        return true;
+    };
     p1 < end2 && p2 < end1
 }
 /// C-ABI export for GEMM: C = alpha * (A @ B) + beta * C
