@@ -257,7 +257,10 @@ unsafe fn vec_scale_avx512(out: &mut [f32], scale: f32) {
     let vs = _mm512_set1_ps(scale);
     let (oc, or) = out.as_chunks_mut::<16>();
     for ob in oc.iter_mut() {
-        _mm512_storeu_ps(ob.as_mut_ptr(), _mm512_mul_ps(_mm512_loadu_ps(ob.as_ptr()), vs));
+        _mm512_storeu_ps(
+            ob.as_mut_ptr(),
+            _mm512_mul_ps(_mm512_loadu_ps(ob.as_ptr()), vs),
+        );
     }
     for val in or.iter_mut() {
         *val *= scale;
@@ -392,7 +395,11 @@ pub fn dot_product_f16_scaled(q: &[F16], k: &[F16], scale: f32, f16_correction: 
         let (mut qt, mut kt) = ([0.0f32; 16], [0.0f32; 16]);
         while off < n {
             let len = (n - off).min(16);
-            for ((qd, &qi), (kd, &ki)) in qt[..len].iter_mut().zip(&q[off..off + len]).zip(kt[..len].iter_mut().zip(&k[off..off + len])) {
+            for ((qd, &qi), (kd, &ki)) in qt[..len]
+                .iter_mut()
+                .zip(&q[off..off + len])
+                .zip(kt[..len].iter_mut().zip(&k[off..off + len]))
+            {
                 *qd = F16::from_f32_saturating(qi.to_f32() * qs).to_f32();
                 *kd = F16::from_f32_saturating(ki.to_f32() * ks).to_f32();
             }
@@ -401,13 +408,22 @@ pub fn dot_product_f16_scaled(q: &[F16], k: &[F16], scale: f32, f16_correction: 
         }
         sum
     } else {
-        q.iter().zip(k.iter()).map(|(&qi, &ki)| F16::from_f32(qi.to_f32() * ki.to_f32()).to_f32()).sum::<f32>() * scale
+        q.iter()
+            .zip(k.iter())
+            .map(|(&qi, &ki)| F16::from_f32(qi.to_f32() * ki.to_f32()).to_f32())
+            .sum::<f32>()
+            * scale
     }
 }
 
 pub fn flash_attn_f16(
-    q: &[F16], k: &[F16], v: &[F16], out: &mut [F16],
-    seq_len: usize, head_dim: usize, config: FlashAttnConfig,
+    q: &[F16],
+    k: &[F16],
+    v: &[F16],
+    out: &mut [F16],
+    seq_len: usize,
+    head_dim: usize,
+    config: FlashAttnConfig,
 ) -> Result<(), FlashAttnError> {
     if config.scale < 0.0 || config.scale.is_nan() { return Err(FlashAttnError::InvalidScale); }
     validate_attention_dims(seq_len, head_dim, q, k, v, out)?;
