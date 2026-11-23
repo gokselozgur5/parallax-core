@@ -21,7 +21,9 @@ pub struct VerificationResult {
 
 /// Finds argmax index over a float slice.
 pub fn argmax_f32(slice: &[f32]) -> Option<usize> {
-    if slice.is_empty() { return None; }
+    if slice.is_empty() {
+        return None;
+    }
     let mut best_idx = 0;
     let mut best_val = slice[0];
     for (i, &val) in slice.iter().enumerate().skip(1) {
@@ -56,9 +58,19 @@ pub fn validate_draft_matrix(
 
 /// Check target logits dimension for speculative verification.
 #[inline]
-pub fn check_target_len(logits: &[f32], gamma: usize, vocab_size: usize) -> Result<(), SpeculativeError> {
-    let exp = (gamma + 1).checked_mul(vocab_size).ok_or(SpeculativeError::DimensionMismatch)?;
-    if logits.len() != exp { Err(SpeculativeError::DimensionMismatch) } else { Ok(()) }
+pub fn check_target_len(
+    logits: &[f32],
+    gamma: usize,
+    vocab_size: usize,
+) -> Result<(), SpeculativeError> {
+    let exp = (gamma + 1)
+        .checked_mul(vocab_size)
+        .ok_or(SpeculativeError::DimensionMismatch)?;
+    if logits.len() != exp {
+        Err(SpeculativeError::DimensionMismatch)
+    } else {
+        Ok(())
+    }
 }
 
 /// Greedy speculative verification matching draft tokens against target logits.
@@ -68,7 +80,9 @@ pub fn verify_draft_greedy(
     gamma: usize,
     vocab_size: usize,
 ) -> Result<VerificationResult, SpeculativeError> {
-    if draft_tokens.len() != gamma { return Err(SpeculativeError::LengthMismatch); }
+    if draft_tokens.len() != gamma {
+        return Err(SpeculativeError::LengthMismatch);
+    }
     check_target_len(target_logits, gamma, vocab_size)?;
     let mut acc = Vec::with_capacity(gamma);
     let mut all_acc = true;
