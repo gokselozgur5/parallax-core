@@ -38,7 +38,51 @@ def test_compute_simpo_loss_margin_satisfaction():
 from parallax.simpo import simpo_step
 
 
+def _simpo_finite_diff_grads(
+    logits_w: np.ndarray,
+    targets_w: np.ndarray,
+    logits_l: np.ndarray,
+    targets_l: np.ndarray,
+    beta: float = 2.0,
+    gamma_margin: float = 0.5,
+    eps: float = 1e-6,
+) -> tuple[np.ndarray, np.ndarray]:
+    base_w = logits_w.astype(np.float64, copy=True)
+    base_l = logits_l.astype(np.float64, copy=True)
+
+    def token_lp(cand: np.ndarray, targets: np.ndarray) -> np.ndarray:
+        shifted = cand - np.max(cand, axis=-1, keepdims=True)
+        return shifted[np.arange(len(targets)), targets] - np.log(np.sum(np.exp(shifted), axis=-1))
+
+    def eval_loss() -> float:
+        return compute_simpo_loss(
+            token_lp(base_w, targets_w), token_lp(base_l, targets_l), beta=beta, gamma_margin=gamma_margin
+        )
+
+    num_w = np.zeros_like(base_w)
+    for idx in np.ndindex(base_w.shape):
+        orig = base_w[idx]
+        base_w[idx] = orig + eps
+        l_pos = eval_loss()
+        base_w[idx] = orig - eps
+        l_neg = eval_loss()
+        base_w[idx] = orig
+        num_w[idx] = (l_pos - l_neg) / (2.0 * eps)
+
+    num_l = np.zeros_like(base_l)
+    for idx in np.ndindex(base_l.shape):
+        orig = base_l[idx]
+        base_l[idx] = orig + eps
+        l_pos = eval_loss()
+        base_l[idx] = orig - eps
+        l_neg = eval_loss()
+        base_l[idx] = orig
+        num_l[idx] = (l_pos - l_neg) / (2.0 * eps)
+    return num_w, num_l
+
+
 def test_simpo_step_execution_and_finite_gradients():
+    np.random.seed(42)
     vocab_size = 15
     logits_w = np.random.randn(4, vocab_size)
     targets_w = np.random.randint(0, vocab_size, size=4)
@@ -46,6 +90,7 @@ def test_simpo_step_execution_and_finite_gradients():
     targets_l = np.random.randint(0, vocab_size, size=3)
 
     loss, grad_w, grad_l = simpo_step(logits_w, targets_w, logits_l, targets_l)
+    num_w, num_l = _simpo_finite_diff_grads(logits_w, targets_w, logits_l, targets_l)
 
     assert isinstance(loss, float)
     assert grad_w.shape == logits_w.shape
@@ -53,6 +98,10 @@ def test_simpo_step_execution_and_finite_gradients():
     assert not np.isnan(loss)
     assert not np.isnan(grad_w).any()
     assert not np.isnan(grad_l).any()
+    assert np.all(grad_w[np.arange(4), targets_w] < 0.0)
+    assert np.all(grad_l[np.arange(3), targets_l] > 0.0)
+    np.testing.assert_allclose(grad_w, num_w, rtol=1e-5, atol=1e-6)
+    np.testing.assert_allclose(grad_l, num_l, rtol=1e-5, atol=1e-6)
 
 
 def test_simpo_step_empty_targets_raises_value_error():
