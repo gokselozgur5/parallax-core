@@ -46,6 +46,31 @@ def test_cross_entropy_loss_and_backward():
     )
 
 
+def test_cross_entropy_loss_3d_shift_and_upstream_scale():
+    raw = np.array(
+        [
+            [[1.5, -0.5, 0.2, 2.1], [-1.0, 0.0, 0.8, -0.3]],
+            [[0.4, 1.2, -0.7, 0.9], [2.5, 0.1, -1.5, 0.3]],
+        ]
+    )
+    targets = np.array([[3, 2], [1, 0]])
+    expected_loss, expected_grad_flat = _reference_ce(raw.reshape(-1, 4), targets.reshape(-1))
+    expected_grad = expected_grad_flat.reshape(raw.shape)
+
+    shifted_loss = cross_entropy_loss(Tensor(raw + 500.0), targets)
+    assert math.isclose(float(shifted_loss.data), expected_loss, rel_tol=1e-12, abs_tol=1e-12)
+
+    logits = Tensor(raw.copy())
+    scaled = cross_entropy_loss(logits, targets) * 2.5
+    scaled.backward()
+    assert logits.grad is not None
+    assert np.allclose(logits.grad, expected_grad * 2.5, rtol=1e-12, atol=1e-12)
+    assert (
+        check_tensor_gradient(lambda x: cross_entropy_loss(x, targets), [logits], eps=1e-5, tol=1e-5)
+        is True
+    )
+
+
 def test_adamw_step_decreases_loss():
     np.random.seed(42)
     # Simple linear regression task: learn y = 2*x
