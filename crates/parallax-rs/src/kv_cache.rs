@@ -235,13 +235,22 @@ mod tests {
         let mut v_buf = vec![0.0f32; 6];
         for i in 0..3 {
             let t = i as f32;
-            let slot = cache.append(&mut k_buf, &mut v_buf, &[t, t + 0.5], &[t * 10.0, t * 10.0 + 5.0]).unwrap();
+            let slot = cache
+                .append(
+                    &mut k_buf,
+                    &mut v_buf,
+                    &[t, t + 0.5],
+                    &[t * 10.0, t * 10.0 + 5.0],
+                )
+                .unwrap();
             assert_eq!(slot, i);
         }
         assert_eq!(cache.active_tokens(), 3);
         assert_eq!(cache.write_cursor(), 0);
 
-        let slot4 = cache.append(&mut k_buf, &mut v_buf, &[3.0, 3.5], &[30.0, 35.0]).unwrap();
+        let slot4 = cache
+            .append(&mut k_buf, &mut v_buf, &[3.0, 3.5], &[30.0, 35.0])
+            .unwrap();
         assert_eq!(slot4, 0);
         assert_eq!(cache.active_tokens(), 3);
         assert_eq!(cache.write_cursor(), 1);
@@ -249,14 +258,23 @@ mod tests {
 
         let mut out_k = [0.0f32; 2];
         let mut out_v = [0.0f32; 2];
-        cache.read_token(&k_buf, &v_buf, 0, 0, &mut out_k, &mut out_v).unwrap();
+        cache
+            .read_token(&k_buf, &v_buf, 0, 0, &mut out_k, &mut out_v)
+            .unwrap();
         assert_eq!(out_k, [1.0, 1.5]);
         assert_eq!(out_v, [10.0, 15.0]);
-        cache.read_token(&k_buf, &v_buf, 0, 2, &mut out_k, &mut out_v).unwrap();
+        cache
+            .read_token(&k_buf, &v_buf, 0, 2, &mut out_k, &mut out_v)
+            .unwrap();
         assert_eq!(out_k, [3.0, 3.5]);
         assert_eq!(out_v, [30.0, 35.0]);
 
-        assert_eq!(cache.read_token(&k_buf, &v_buf, 0, 3, &mut out_k, &mut out_v).unwrap_err(), KvCacheError::IndexOutOfBounds);
+        assert_eq!(
+            cache
+                .read_token(&k_buf, &v_buf, 0, 3, &mut out_k, &mut out_v)
+                .unwrap_err(),
+            KvCacheError::IndexOutOfBounds
+        );
     }
 
     #[test]
