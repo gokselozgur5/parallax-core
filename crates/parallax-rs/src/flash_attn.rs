@@ -139,11 +139,31 @@ unsafe fn dot_product_scaled_avx512(q: &[f32], k: &[f32], q_scale: f32, k_scale:
     _mm512_reduce_add_ps(acc) + dot_product_scaled_scalar(qr, kr, q_scale, k_scale)
 }
 
+#[cfg(target_arch = "aarch64")]
+#[target_feature(enable = "neon")]
+unsafe fn dot_product_scaled_neon(q: &[f32], k: &[f32], q_scale: f32, k_scale: f32) -> f32 {
+    use std::arch::aarch64::{vaddvq_f32, vdupq_n_f32, vfmaq_f32, vld1q_f32, vmulq_f32};
+    let n = q.len().min(k.len());
+    let (vqs, vks) = (vdupq_n_f32(q_scale), vdupq_n_f32(k_scale));
+    let mut acc = vdupq_n_f32(0.0);
+    let ((qc, qr), (kc, kr)) = (q[..n].as_chunks::<4>(), k[..n].as_chunks::<4>());
+    for (qb, kb) in qc.iter().zip(kc.iter()) {
+        let vq = vmulq_f32(vld1q_f32(qb.as_ptr()), vqs);
+        let vk = vmulq_f32(vld1q_f32(kb.as_ptr()), vks);
+        acc = vfmaq_f32(acc, vq, vk);
+    }
+    vaddvq_f32(acc) + dot_product_scaled_scalar(qr, kr, q_scale, k_scale)
+}
+
 #[inline]
 pub fn dot_product_scaled(q: &[f32], k: &[f32], q_scale: f32, k_scale: f32) -> f32 {
     #[cfg(target_arch = "x86_64")]
     if std::arch::is_x86_feature_detected!("avx512f") {
         return unsafe { dot_product_scaled_avx512(q, k, q_scale, k_scale) };
+    }
+    #[cfg(target_arch = "aarch64")]
+    if std::arch::is_aarch64_feature_detected!("neon") {
+        return unsafe { dot_product_scaled_neon(q, k, q_scale, k_scale) };
     }
     dot_product_scaled_scalar(q, k, q_scale, k_scale)
 }
