@@ -210,6 +210,12 @@ pub unsafe extern "C" fn parallax_flash_attn_f32(
         if len > (isize::MAX as usize) / std::mem::size_of::<f32>() {
             return STATUS_INVALID_DIMENSION;
         }
+        if ranges_overlap(out as usize, len, q as usize, len)
+            || ranges_overlap(out as usize, len, k as usize, len)
+            || ranges_overlap(out as usize, len, v as usize, len)
+        {
+            return STATUS_ALIASING_POINTER;
+        }
         let (qs, ks, vs) = (slice::from_raw_parts(q, len), slice::from_raw_parts(k, len), slice::from_raw_parts(v, len));
         let outs = slice::from_raw_parts_mut(out, len);
         let cfg = flash_attn::FlashAttnConfig { scale, is_causal: is_causal != 0, f16_scale_correction: f16_corr != 0 };
@@ -310,6 +316,11 @@ mod tests {
             assert_eq!(res, STATUS_OK);
             assert!((out[0] - 3.0).abs() < 1e-4);
             assert!((out[1] - 4.0).abs() < 1e-4);
+            let res_overlap = parallax_flash_attn_f32(
+                out.as_ptr(), k.as_ptr(), v.as_ptr(), out.as_mut_ptr(),
+                1, 2, 0.5, 0, 1,
+            );
+            assert_eq!(res_overlap, STATUS_ALIASING_POINTER);
         }
     }
 }
