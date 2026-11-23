@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 from parallax.nn import Linear, Module
 from parallax.tensor import Tensor
-from python.parallax.dispatch.swiglu_backward import (
+from parallax.dispatch.swiglu_backward import (
     FusedSwiGLUBackward,
     dispatched_swiglu_backward,
     gated_mlp_backward,

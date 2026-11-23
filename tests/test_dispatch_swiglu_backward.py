@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from parallax.tensor import Tensor
-from python.parallax.dispatch.swiglu_backward import (
+from parallax.dispatch.swiglu_backward import (
     dispatched_swiglu_backward,
     gated_mlp_backward,
     swiglu_backward,
@@ -70,7 +70,7 @@ def test_dispatched_swiglu_backward_autograd() -> None:
 
 
 def test_fused_swiglu_backward_exports() -> None:
-    import python.parallax.dispatch as pd
+    import parallax.dispatch as pd
 
     assert hasattr(pd, "FusedSwiGLUBackward")
     assert hasattr(pd, "dispatched_swiglu_backward")

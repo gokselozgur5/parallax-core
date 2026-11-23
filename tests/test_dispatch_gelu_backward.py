@@ -4,7 +4,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 from parallax.tensor import Tensor
-from python.parallax.dispatch.gelu_backward import (
+from parallax.dispatch.gelu_backward import (
     COEF,
     SQRT_2_OVER_PI,
     DispatchedGELUBackward,
@@ -96,7 +96,7 @@ def test_fused_and_dispatch_reject_invalid_approximate():
 
 
 def test_gelu_backward_package_exports():
-    import python.parallax.dispatch as pd
+    import parallax.dispatch as pd
     for sym in (
         "DispatchedGELUBackward",
         "dispatched_gelu_backward",
