@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from python.parallax.dispatch.sdpa import (
+from parallax.dispatch.sdpa import (
     DispatchedSDPA,
     SDPAModule,
     dispatched_sdpa,
@@ -119,7 +119,7 @@ def test_dispatched_sdpa_module_and_autograd() -> None:
 
 
 def test_sdpa_exports_and_bridge() -> None:
-    import python.parallax.dispatch.sdpa as psdpa
+    import parallax.dispatch.sdpa as psdpa
     import parallax.dispatch.sdpa as bsdpa
     import parallax.dispatch as pd
     for mod in (psdpa, bsdpa, pd):

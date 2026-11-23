@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from python.parallax.dispatch.axial_rope import (
+from parallax.dispatch.axial_rope import (
     AxialRoPEFrequencyTable,
     apply_axial_rope,
     apply_axial_rope_grid,
@@ -86,7 +86,7 @@ def test_dispatch_axial_rope_execution():
 
 def test_axial_rope_package_exports():
     import parallax.dispatch as pd
-    import python.parallax.dispatch as ppd
+    import parallax.dispatch as ppd
 
     symbols = [
         "AxialRoPEFrequencyTable",

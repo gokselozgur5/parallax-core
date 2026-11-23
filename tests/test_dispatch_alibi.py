@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from python.parallax.dispatch.alibi import (
+from parallax.dispatch.alibi import (
     AlibiPositionalBias,
     apply_alibi_bias,
     build_alibi_bias,
@@ -91,7 +91,7 @@ def test_dispatch_alibi_bias():
 
 def test_alibi_package_exports():
     import parallax.dispatch as pd
-    import python.parallax.dispatch as ppd
+    import parallax.dispatch as ppd
 
     symbols = [
         "AlibiPositionalBias",
