@@ -291,13 +291,13 @@ pub fn normalize_output_row(out: &mut [f32], l_i: f32) {
     }
 }
 
-pub fn validate_attention_dims(
+pub fn validate_attention_dims<T>(
     seq_len: usize,
     head_dim: usize,
-    q: &[f32],
-    k: &[f32],
-    v: &[f32],
-    out: &[f32],
+    q: &[T],
+    k: &[T],
+    v: &[T],
+    out: &[T],
 ) -> Result<(), FlashAttnError> {
     let req_len = seq_len
         .checked_mul(head_dim)
@@ -375,6 +375,27 @@ pub fn flash_attn(
     validate_attention_dims(seq_len, head_dim, q, k, v, out)?;
     flash_attn_forward_kernel(q, k, v, out, seq_len, head_dim, config);
     Ok(())
+}
+
+#[inline]
+pub fn dot_product_f16_scaled(q: &[F16], k: &[F16], scale: f32, f16_correction: bool) -> f32 {
+    if f16_correction {
+        let (qs, ks) = compute_scale_factor(scale, true);
+        let (n, mut sum, mut off) = (q.len().min(k.len()), 0.0f32, 0usize);
+        let (mut qt, mut kt) = ([0.0f32; 16], [0.0f32; 16]);
+        while off < n {
+            let len = (n - off).min(16);
+            for ((qd, &qi), (kd, &ki)) in qt[..len].iter_mut().zip(&q[off..off + len]).zip(kt[..len].iter_mut().zip(&k[off..off + len])) {
+                *qd = F16::from_f32_saturating(qi.to_f32() * qs).to_f32();
+                *kd = F16::from_f32_saturating(ki.to_f32() * ks).to_f32();
+            }
+            sum += dot_product_scaled(&qt[..len], &kt[..len], 1.0, 1.0);
+            off += len;
+        }
+        sum
+    } else {
+        q.iter().zip(k.iter()).map(|(&qi, &ki)| F16::from_f32(qi.to_f32() * ki.to_f32()).to_f32()).sum::<f32>() * scale
+    }
 }
 
 #[cfg(test)]
