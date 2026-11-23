@@ -5,7 +5,7 @@ from __future__ import annotations
 import ctypes
 import numpy as np
 
-from parallax.native.loader import bind
+from parallax.native.loader import INT32_MAX, bind
 
 _has_avx2_gemm = bind("c_has_avx2_gemm", [], ctypes.c_int)
 _c_gemm_avx2 = bind(
@@ -37,6 +37,8 @@ def gemm_avx2(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     k2, n = b.shape
     if k != k2:
         raise ValueError(f"shape mismatch: {a.shape} vs {b.shape}")
+    if max(m, n, k, m * k, k * n, m * n) > INT32_MAX:
+        raise ValueError(f"Matrix dimensions exceed INT32_MAX: ({m}, {k}) @ ({k2}, {n})")
 
     a_c = np.ascontiguousarray(a, dtype=np.float32)
     b_c = np.ascontiguousarray(b, dtype=np.float32)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import ctypes
 from typing import Any, Callable, Optional
 import numpy as np
-from parallax.native.loader import bind
+from parallax.native.loader import INT32_MAX, bind
 
 _FN_RMSNORM_AVX512: Optional[Callable[..., Any]] = None
 _FN_HAS_AVX512_RMSNORM: Optional[Callable[..., Any]] = None
@@ -50,6 +50,8 @@ def rmsnorm_avx512(x: np.ndarray, weight: np.ndarray, eps: float = 1e-5) -> np.n
     if cols == 0 or weight.ndim != 1 or weight.shape[0] != cols:
         raise ValueError(f"Weight shape mismatch: expected ({cols},), got {weight.shape}")
     rows = x.size // cols
+    if max(rows, cols, rows * cols) > INT32_MAX:
+        raise ValueError(f"Dimensions exceed INT32_MAX: rows={rows}, cols={cols}")
     if rows == 0:
         return np.empty(orig_shape, dtype=np.float32)
     x_c = np.ascontiguousarray(x.reshape(rows, cols), dtype=np.float32)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import ctypes
 import numpy as np
 
-from parallax.native.loader import bind
+from parallax.native.loader import INT32_MAX, bind
 
 _has_avx2_softmax = bind("c_has_avx2_softmax", [], ctypes.c_int)
 _c_softmax_avx2 = bind(
@@ -35,6 +35,8 @@ def softmax_avx2(x: np.ndarray, axis: int = -1) -> np.ndarray:
         raise ValueError("input must be a 2D matrix")
 
     rows, cols = x.shape
+    if max(rows, cols, rows * cols) > INT32_MAX:
+        raise ValueError(f"Dimensions exceed INT32_MAX: rows={rows}, cols={cols}")
     x_c = np.ascontiguousarray(x, dtype=np.float32)
     out = np.empty_like(x_c)
 

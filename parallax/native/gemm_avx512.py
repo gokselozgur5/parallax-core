@@ -5,7 +5,7 @@ from __future__ import annotations
 import ctypes
 from typing import Any, Callable, Optional
 import numpy as np
-from parallax.native.loader import bind
+from parallax.native.loader import INT32_MAX, bind
 
 _FN_AVX512: Optional[Callable[..., Any]] = None
 _FN_HAS_AVX512: Optional[Callable[..., Any]] = None
@@ -31,11 +31,13 @@ def gemm_avx512(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """Execute matrix multiplication C = A @ B using AVX-512."""
     if a.ndim != 2 or b.ndim != 2 or a.shape[1] != b.shape[0]:
         raise ValueError(f"Shape mismatch: {a.shape} vs {b.shape}")
+    m, k = a.shape
+    k2, n = b.shape
+    if max(m, n, k, m * k, k * n, m * n) > INT32_MAX:
+        raise ValueError(f"Matrix dimensions exceed INT32_MAX: ({m}, {k}) @ ({k2}, {n})")
     fn = _get_avx512_fn()
     if fn is None:
         raise RuntimeError("c_gemm_avx512_f32 symbol not available")
-    m, k = a.shape
-    _, n = b.shape
     a_c = np.ascontiguousarray(a, dtype=np.float32)
     b_c = np.ascontiguousarray(b, dtype=np.float32)
     c = np.empty((m, n), dtype=np.float32)

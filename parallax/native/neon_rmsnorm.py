@@ -6,7 +6,7 @@ import ctypes
 
 import numpy as np
 
-from parallax.native.loader import bind
+from parallax.native.loader import INT32_MAX, bind
 
 _has_neon = bind("c_has_neon_rmsnorm", [], ctypes.c_int)
 _rmsnorm_neon = bind(
@@ -31,10 +31,12 @@ def rmsnorm_neon(
         raise RuntimeError("NEON RMSNorm kernel is unavailable")
     if x.ndim != 2 or weight.ndim != 1 or x.shape[1] != weight.shape[0]:
         raise ValueError(f"shape mismatch: x={x.shape}, weight={weight.shape}")
+    rows, cols = x.shape
+    if max(rows, cols, rows * cols) > INT32_MAX:
+        raise ValueError(f"Dimensions exceed INT32_MAX: rows={rows}, cols={cols}")
     x_c = np.ascontiguousarray(x, dtype=np.float32)
     w_c = np.ascontiguousarray(weight, dtype=np.float32)
     out = np.empty_like(x_c)
-    rows, cols = x_c.shape
     _rmsnorm_neon(  # type: ignore[misc]
         x_c.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
         w_c.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),

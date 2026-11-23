@@ -6,7 +6,7 @@ import ctypes
 
 import numpy as np
 
-from parallax.native.loader import bind
+from parallax.native.loader import INT32_MAX, bind
 
 _c_softmax_neon_f32 = bind(
     "c_softmax_neon_f32",
@@ -26,8 +26,10 @@ def softmax_neon(x: np.ndarray) -> np.ndarray:
         raise RuntimeError("NEON softmax microkernel is not available")
     if x.ndim != 2:
         raise ValueError("Input must be a 2D array")
+    rows, cols = x.shape
+    if max(rows, cols, rows * cols) > INT32_MAX:
+        raise ValueError(f"Dimensions exceed INT32_MAX: rows={rows}, cols={cols}")
     x_f32 = np.ascontiguousarray(x, dtype=np.float32)
-    rows, cols = x_f32.shape
     out = np.empty((rows, cols), dtype=np.float32)
     status = _c_softmax_neon_f32(
         x_f32.ctypes.data_as(ctypes.c_void_p),

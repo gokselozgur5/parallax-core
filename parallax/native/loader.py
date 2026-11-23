@@ -7,6 +7,8 @@ from typing import Any, Callable, Optional, Sequence
 
 from parallax.c_engine import _find_or_build_library
 
+INT32_MAX: int = 2147483647
+
 
 def get_c_lib() -> Optional[ctypes.CDLL]:
     """Return the loaded CDLL handle from parallax.c_engine, or None."""
