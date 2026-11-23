@@ -84,6 +84,7 @@ jobs:
 
     - name: Run Cargo Tests
       run: |
+        cargo fmt --manifest-path crates/parallax-rs/Cargo.toml --check
         cargo clippy --manifest-path crates/parallax-rs/Cargo.toml --all-targets -- -D warnings
         cd crates/parallax-rs
         cargo test
