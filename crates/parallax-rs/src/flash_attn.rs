@@ -112,17 +112,40 @@ pub fn compute_scale_factor(scale: f32, f16_correction: bool) -> (f32, f32) {
 }
 
 #[inline]
-pub fn dot_product_scaled(
-    q: &[f32],
-    k: &[f32],
-    q_scale: f32,
-    k_scale: f32,
-) -> f32 {
+fn dot_product_scaled_scalar(q: &[f32], k: &[f32], q_scale: f32, k_scale: f32) -> f32 {
     let mut sum = 0.0f32;
     for (&qi, &ki) in q.iter().zip(k.iter()) {
         sum += (qi * q_scale) * (ki * k_scale);
     }
     sum
+}
+
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx512f")]
+unsafe fn dot_product_scaled_avx512(q: &[f32], k: &[f32], q_scale: f32, k_scale: f32) -> f32 {
+    use std::arch::x86_64::{
+        _mm512_fmadd_ps, _mm512_loadu_ps, _mm512_mul_ps, _mm512_reduce_add_ps, _mm512_set1_ps,
+        _mm512_setzero_ps,
+    };
+    let n = q.len().min(k.len());
+    let (vqs, vks) = (_mm512_set1_ps(q_scale), _mm512_set1_ps(k_scale));
+    let mut acc = _mm512_setzero_ps();
+    let ((qc, qr), (kc, kr)) = (q[..n].as_chunks::<16>(), k[..n].as_chunks::<16>());
+    for (qb, kb) in qc.iter().zip(kc.iter()) {
+        let vq = _mm512_mul_ps(_mm512_loadu_ps(qb.as_ptr()), vqs);
+        let vk = _mm512_mul_ps(_mm512_loadu_ps(kb.as_ptr()), vks);
+        acc = _mm512_fmadd_ps(vq, vk, acc);
+    }
+    _mm512_reduce_add_ps(acc) + dot_product_scaled_scalar(qr, kr, q_scale, k_scale)
+}
+
+#[inline]
+pub fn dot_product_scaled(q: &[f32], k: &[f32], q_scale: f32, k_scale: f32) -> f32 {
+    #[cfg(target_arch = "x86_64")]
+    if std::arch::is_x86_feature_detected!("avx512f") {
+        return unsafe { dot_product_scaled_avx512(q, k, q_scale, k_scale) };
+    }
+    dot_product_scaled_scalar(q, k, q_scale, k_scale)
 }
 
 #[inline]
