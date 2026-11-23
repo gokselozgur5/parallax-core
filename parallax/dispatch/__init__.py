@@ -23,6 +23,25 @@ from parallax.dispatch.axial_rope import (
     precompute_axial_freqs,
     precompute_axial_freqs_cis,
 )
+from parallax.dispatch.conv2d import (
+    DispatchedConv2d,
+    conv2d_backward,
+    conv2d_forward,
+    dispatched_conv2d,
+)
+from parallax.dispatch.embedding_backward import (
+    DispatchedEmbeddingBackward,
+    accumulate_embedding_backward,
+    embedding_backward,
+    sparse_embedding_backward,
+)
+from parallax.dispatch.swiglu_backward import (
+    FusedSwiGLUBackward,
+    dispatched_swiglu_backward,
+    gated_mlp_backward,
+    swiglu_backward,
+    swiglu_backward_reference,
+)
 from parallax.dispatch.fused_norm import (
     FusedRMSNorm,
     fused_rmsnorm,
@@ -281,4 +300,17 @@ __all__ = [
     "dropout_forward",
     "dropout_forward_reference",
     "dropout_mask_generator",
+    "DispatchedConv2d",
+    "conv2d_backward",
+    "conv2d_forward",
+    "dispatched_conv2d",
+    "DispatchedEmbeddingBackward",
+    "accumulate_embedding_backward",
+    "embedding_backward",
+    "sparse_embedding_backward",
+    "FusedSwiGLUBackward",
+    "dispatched_swiglu_backward",
+    "gated_mlp_backward",
+    "swiglu_backward",
+    "swiglu_backward_reference",
 ]
