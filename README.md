@@ -4,10 +4,10 @@
 [![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 [![Python: 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Zero External ML Dependencies](https://img.shields.io/badge/dependencies-pure%20math%20%2B%20numpy-success.svg)](#architecture)
-[![Unit Tests](https://img.shields.io/badge/tests-700%2B%20passing-brightgreen.svg)](#test-suite--gradient-checks)
+[![Unit Tests](https://img.shields.io/badge/tests-1400%2B%20passing-brightgreen.svg)](#test-suite--gradient-checks)
 [![Acceleration](https://img.shields.io/badge/acceleration-C%20%7C%20Rust%20%7C%20Metal%20JIT-orange.svg)](#hardware-acceleration-matrix)
 
-A transparent, zero-dependency, production-grade Autograd engine, modern state-space/transformer architectures, and bare-metal compute acceleration kernels implemented strictly from first principles. Built to demystify backpropagation, gradient flow, attention dynamics, state-space recurrence, and causal language modeling through atomic mathematical operations and verifiable analytical gradient checks.
+A transparent, production-grade Autograd engine, modern state-space/transformer architectures, and bare-metal compute acceleration kernels implemented strictly from first principles. Built to demystify backpropagation, gradient flow, attention dynamics, state-space recurrence, and causal language modeling through atomic mathematical operations and verifiable analytical gradient checks.
 
 ```mermaid
 flowchart TD
@@ -82,19 +82,20 @@ Tested on Apple M2 (`arm64`), FP32 precision:
 
 | Kernel Operation | Matrix / Tensor Shape | NumPy CPU BLAS | C-Engine Native | Rust C-ABI (`libparallax_rs`) | Apple Metal GPU JIT | Parity Max Error |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **GEMM ($A \times B$)** | $1024 \times 1024$ | 1.71 ms | 81.20 ms | — | 11.56 ms (0.15x) | `0.00e+00` |
-| **RMSNorm** | $1024 \times 1024$ | 1.066 ms | **0.657 ms (1.62x)** | — | 2.000 ms | `3.10e-06` |
-| **RMSNorm** | $1024 \times 2048$ | 2.668 ms | **1.352 ms (1.97x)** | — | 4.300 ms | `4.29e-06` |
+| **GEMM ($A \times B$)** | $1024 \times 1024$ | 1.74 ms | 82.45 ms | 85.69 ms (0.02x) | 11.50 ms (0.15x) | `5.34e-05` |
+| **RMSNorm** | $1024 \times 1024$ | 1.118 ms | **0.595 ms (1.88x)** | — | 1.780 ms | `3.10e-06` |
+| **RMSNorm** | $1024 \times 2048$ | 2.517 ms | **1.212 ms (2.08x)** | — | 4.002 ms | `4.29e-06` |
 
-### 3. Model Weight Compression Matrix (INT4 & BitNet 1.58)
+### 3. Model Weight Compression Matrix (Theoretical Estimates)
 
-| Architecture & Precision | Parameters | Storage Footprint | Effective Bitwidth | Compression Ratio | Dominant Arithmetic |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Transformer FP32 Baseline** | 131,328 | 513.00 KB | 32-bit Float | 1.00x | Floating-point MAC |
-| **Transformer INT4 (Affine Group=32)** | 131,328 | 96.19 KB | 4-bit Nibble | **5.33x** | Integer Unpack + Dequant |
-| **Standard Mamba (S6) FP32** | 98,176 | 383.50 KB | 32-bit Float | 1.00x | Continuous State SSM |
-| **BitMamba (1.58-bit Ternary)** | 98,176 | 106.00 KB | 1.58-bit Ternary | **3.62x** | Integer Add / Sub {-1, 0, 1} |
-| **BitTransformer (1.58-bit)** | 131,328 | 114.20 KB | 1.58-bit Ternary | **4.49x** | Pure Addition Matmul |
+> *Note: Parameter counts and weight footprints in this section are theoretical analytical estimates based on architectural layer formulas, assuming packed 1.58-bit ternary representations (0.25 bytes/param) for BitLinear and INT4 affine nibble packing.*
+
+| Model Architecture | Parameters | Weight Storage Footprint | Effective Precision | Compression vs FP32 Baseline |
+| :--- | :--- | :--- | :--- | :--- |
+| **Transformer FP32** | 131,328 | 513.00 KB | 32-bit Float | 1.00x (Baseline) |
+| **Transformer INT4** | 131,328 | 96.19 KB | 4-bit Groupwise Affine | **5.33x** |
+| **Standard Mamba (S6)** | 98,176 | 383.50 KB | 32-bit Float | 1.00x |
+| **BitMamba (1.58-bit)** | 98,176 | 106.00 KB | 1.58-bit Ternary {-1, 0, 1} | **3.62x** |
 
 ---
 
@@ -104,7 +105,7 @@ Tested on Apple M2 (`arm64`), FP32 precision:
 parallax-core/
 ├── parallax/
 │   ├── tensor.py, engine.py # Scalar & Tensor autograd DAG engine
-│   ├── attention/          # MHA, GQA, RoPE, YaRN, ALiBi, Sliding Window
+│   ├── attention.py        # MHA, GQA, RoPE, YaRN, ALiBi, Sliding Window
 │   ├── flash_attn.py       # FlashAttention-2 online softmax kernel
 │   ├── flash_decoding_v2.py# Dynamic Split-K decoding with logsumexp reduction
 │   ├── kv_cache_pruner.py  # H2O, Attention Sinks & Scissorhands pruning
@@ -213,7 +214,7 @@ pip install -r requirements.txt
 ```
 
 ### Running Test Suite & Gradient Checks
-All **700+ unit tests** pass with zero PyTorch/JAX dependencies in the core engine:
+All **1,400+ unit tests** pass with zero PyTorch/JAX dependencies in the core engine:
 ```bash
 pytest tests/ -v
 ```
