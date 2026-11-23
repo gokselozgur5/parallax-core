@@ -42,3 +42,6 @@ class CBackend(Backend):
     def rmsnorm(self, x: np.ndarray, weight: np.ndarray, eps: float = 1e-5) -> np.ndarray:
         w = np.squeeze(weight) if weight.ndim > 1 else weight
         return c_rmsnorm(x, w, eps=eps)
+
+
+CEngineBackend = CBackend
