@@ -40,19 +40,6 @@ static void rmsnorm_avx512_kernel(const float *x, const float *w, float *out, in
 #endif
 
 PARALLAX_SCALAR_TARGET
-static void rmsnorm_scalar_fallback(const float *x, const float *w, float *out, int rows, int cols, float eps) {
-    const size_t cols_s = (size_t)cols;
-    for (size_t r = 0; r < (size_t)rows; ++r) {
-        const float *xr = x + r * cols_s;
-        float *orow = out + r * cols_s;
-        double ssq = 0.0;
-        for (size_t c = 0; c < cols_s; ++c) ssq += (double)xr[c] * (double)xr[c];
-        float rms = 1.0f / (float)sqrt(ssq / (double)cols_s + (double)eps);
-        for (size_t c = 0; c < cols_s; ++c) orow[c] = (xr[c] * rms) * w[c];
-    }
-}
-
-PARALLAX_SCALAR_TARGET
 int c_rmsnorm_avx512_f32(const float *x, const float *w, float *out, int rows, int cols, float eps) {
     if (!x || !w || !out) return PARALLAX_STATUS_NULL_POINTER;
     if (rows <= 0 || cols <= 0) return PARALLAX_STATUS_INVALID_DIMENSION;
@@ -62,6 +49,6 @@ int c_rmsnorm_avx512_f32(const float *x, const float *w, float *out, int rows, i
         return PARALLAX_STATUS_OK;
     }
 #endif
-    rmsnorm_scalar_fallback(x, w, out, rows, cols, eps);
+    c_rmsnorm_scalar_f32(x, w, out, rows, cols, eps);
     return PARALLAX_STATUS_OK;
 }
