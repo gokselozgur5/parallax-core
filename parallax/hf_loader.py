@@ -130,7 +130,10 @@ def hf_config_to_parallax(
 
     sliding_window = hf_config.get("sliding_window")
     if sliding_window is not None:
-        sliding_window = int(sliding_window)
+        if hf_config.get("use_sliding_window") is False:
+            sliding_window = None
+        else:
+            sliding_window = int(sliding_window)
 
     # Qwen2 and some architectures use attention_bias / qkv_bias
     qkv_bias = bool(
