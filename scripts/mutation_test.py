@@ -76,6 +76,7 @@ def run_mutation_test() -> int:
     """Run mutation tests and report kill score."""
     killed = 0
     survived = 0
+    failed_specs = 0
     total = len(MUTATION_SPECS)
 
     print(f"Running mutation testing across {total} targets...\n")
@@ -92,7 +93,29 @@ def run_mutation_test() -> int:
             original_content = f.read()
 
         if target not in original_content:
-            print(f"[{idx}/{total}] SKIP: Target not found in {rel_file}")
+            print(f"[{idx}/{total}] ERROR: Target not found in {rel_file}")
+            failed_specs += 1
+            continue
+
+        cmd = [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            os.path.join(REPO_ROOT, test_file),
+        ]
+        env = dict(os.environ)
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+        baseline = subprocess.run(
+            cmd,
+            cwd=REPO_ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        if baseline.returncode != 0:
+            print(f"[{idx}/{total}] ERROR: Unmutated test failed or unrunnable: {test_file}")
+            failed_specs += 1
             continue
 
         mutated_content = original_content.replace(target, mutant, 1)
@@ -101,15 +124,6 @@ def run_mutation_test() -> int:
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(mutated_content)
 
-            cmd = [
-                sys.executable,
-                "-m",
-                "pytest",
-                "-q",
-                os.path.join(REPO_ROOT, test_file),
-            ]
-            env = dict(os.environ)
-            env["PYTHONDONTWRITEBYTECODE"] = "1"
             res = subprocess.run(
                 cmd,
                 cwd=REPO_ROOT,
@@ -118,7 +132,7 @@ def run_mutation_test() -> int:
                 text=True,
             )
 
-            if res.returncode != 0:
+            if res.returncode == 1:
                 killed += 1
                 status = "KILLED"
             else:
@@ -134,8 +148,8 @@ def run_mutation_test() -> int:
     score = (killed / total) * 100.0 if total > 0 else 0.0
     print(f"\nMutation Score: {killed}/{total} ({score:.1f}%) killed.")
 
-    if survived > 0:
-        print(f"FAILED: {survived} mutant(s) survived.")
+    if failed_specs > 0 or survived > 0:
+        print(f"FAILED: {failed_specs} error(s), {survived} mutant(s) survived.")
         return 1
 
     print("SUCCESS: All mutants killed by test suite.")
