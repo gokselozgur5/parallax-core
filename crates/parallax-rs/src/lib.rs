@@ -646,8 +646,12 @@ pub unsafe extern "C" fn parallax_collate_batch_u32(
         let ptrs = slice::from_raw_parts(seq_ptrs, num_seqs);
         let mut seqs = Vec::with_capacity(num_seqs);
         for i in 0..num_seqs {
-            if ptrs[i].is_null() { return STATUS_NULL_POINTER; }
-            if !is_aligned_u32(ptrs[i]) { return STATUS_UNALIGNED_POINTER; }
+            if ptrs[i].is_null() {
+                return STATUS_NULL_POINTER;
+            }
+            if !is_aligned_u32(ptrs[i]) {
+                return STATUS_UNALIGNED_POINTER;
+            }
             seqs.push(slice::from_raw_parts(ptrs[i], lens[i]));
         }
         let toks = slice::from_raw_parts_mut(out_tokens, out_len);
@@ -659,9 +663,9 @@ pub unsafe extern "C" fn parallax_collate_batch_u32(
             }
             Err(_) => STATUS_INVALID_DIMENSION,
         }
-    })).unwrap_or(STATUS_INVALID_DIMENSION)
+    }))
+    .unwrap_or(STATUS_INVALID_DIMENSION)
 }
-
 
 pub mod q8_gemv;
 pub use q8_gemv::{gemv_q8_0, vec_dot_q8_0_f32, vec_dot_q8_0_f32_block, BlockQ8_0};
