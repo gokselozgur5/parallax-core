@@ -41,6 +41,16 @@ def test_generate_stream_with_attention_sink():
     model = ParallaxLM(config)
     sink = RollingKVCache(sink_tokens=2, window_size=4)
 
+    observed_cache_lengths = []
+    orig_evict_layers = sink.evict_layers
+
+    def tracked_evict_layers(kv_caches):
+        res = orig_evict_layers(kv_caches)
+        observed_cache_lengths.append([k.shape[2] for k, _ in res])
+        return res
+
+    sink.evict_layers = tracked_evict_layers
+
     prompt = [1, 2, 3]
     gen = list(generate_stream(
         model,
@@ -50,10 +60,31 @@ def test_generate_stream_with_attention_sink():
         rolling_cache=sink,
     ))
 
+    gen_ref = list(generate_stream(
+        model,
+        prompt,
+        max_new_tokens=15,
+        temperature=0.0,
+    ))
+
+    max_cache_len = sink.sink_tokens + sink.window_size
     assert len(gen) == 15
     for token in gen:
         assert isinstance(token, int)
     assert sink.total_seen == 17
+
+    # Cache length must never exceed sink_tokens + window_size
+    assert observed_cache_lengths[0] == [len(prompt)] * config.num_layers
+    for layer_lengths in observed_cache_lengths:
+        for seq_len in layer_lengths:
+            assert seq_len <= max_cache_len
+    assert observed_cache_lengths[-1] == [max_cache_len] * config.num_layers
+
+    # Before cache eviction occurs (prompt length 3 + 3 new tokens = 6 tokens),
+    # attention sink output matches unevicted reference exactly.
+    assert gen[:3] == gen_ref[:3]
+    # After eviction takes effect, sequence diverges from full-context reference.
+    assert gen != gen_ref
 
 
 def test_rolling_kv_cache_total_seen_tracking():
