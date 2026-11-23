@@ -37,7 +37,7 @@ def _get_rmsnorm_avx512_fn() -> Optional[Callable[..., Any]]:
 def _rmsnorm_scalar_fallback(x_c: np.ndarray, w_c: np.ndarray, eps: float) -> np.ndarray:
     """Compute float32 RMSNorm fallback when the AVX-512 kernel is unavailable."""
     msq = np.mean(x_c.astype(np.float64) ** 2, axis=-1, keepdims=True)
-    inv_rms = (1.0 / np.sqrt(msq.astype(np.float32) + np.float32(eps))).astype(np.float32)
+    inv_rms = (1.0 / np.sqrt(msq + float(eps))).astype(np.float32)
     return np.asarray((x_c * inv_rms) * w_c, dtype=np.float32)
 
 
