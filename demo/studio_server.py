@@ -386,8 +386,24 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         DEMO_OPTIM = AdamW(CURRENT_MODEL.parameters(), lr=0.04, weight_decay=0.01)
         self.send_json({"status": "ok", "dataset": "parallax", "step": 40})
 
+    def _restore_unquantized_model(self, lr: Optional[float] = None) -> None:
+        global CURRENT_MODEL, DEMO_OPTIM, IS_QUANTIZED, UNQUANTIZED_MODEL
+        if not IS_QUANTIZED:
+            return
+        effective_lr = DEMO_OPTIM.lr if lr is None else lr
+        if UNQUANTIZED_MODEL is not None:
+            CURRENT_MODEL = UNQUANTIZED_MODEL
+            UNQUANTIZED_MODEL = None
+        elif CURRENT_DATASET == "shakespeare":
+            ckpt_path = os.path.join(REPO_ROOT, "data", "shakespeare_model.npz")
+            CURRENT_MODEL, _ = load_checkpoint(ckpt_path)
+        else:
+            CURRENT_MODEL = DEMO_MODEL
+        IS_QUANTIZED = False
+        DEMO_OPTIM = AdamW(CURRENT_MODEL.parameters(), lr=effective_lr, weight_decay=0.01)
+
     def handle_toggle_quant(self, req: Dict[str, Any]):
-        global CURRENT_MODEL, IS_QUANTIZED, DEMO_OPTIM, UNQUANTIZED_MODEL, DEMO_MODEL
+        global CURRENT_MODEL, IS_QUANTIZED, UNQUANTIZED_MODEL
         enable_quant = bool(req.get("quantize", True))
 
         if enable_quant and not IS_QUANTIZED:
@@ -395,16 +411,7 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
             CURRENT_MODEL = quantize_model(copy.deepcopy(CURRENT_MODEL))
             IS_QUANTIZED = True
         elif not enable_quant and IS_QUANTIZED:
-            if UNQUANTIZED_MODEL is not None:
-                CURRENT_MODEL = UNQUANTIZED_MODEL
-                UNQUANTIZED_MODEL = None
-            elif CURRENT_DATASET == "shakespeare":
-                ckpt_path = os.path.join(REPO_ROOT, "data", "shakespeare_model.npz")
-                CURRENT_MODEL, _ = load_checkpoint(ckpt_path)
-            else:
-                CURRENT_MODEL = DEMO_MODEL
-            IS_QUANTIZED = False
-            DEMO_OPTIM = AdamW(CURRENT_MODEL.parameters(), lr=0.04, weight_decay=0.01)
+            self._restore_unquantized_model(lr=0.04)
 
         self.send_json({"status": "ok", "is_quantized": IS_QUANTIZED})
 
@@ -477,17 +484,13 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
         })
 
     def handle_train_step(self, req: Dict[str, Any]):
-        global CURRENT_MODEL, DEMO_OPTIM, IS_QUANTIZED, UNQUANTIZED_MODEL, seq_l
+        global CURRENT_MODEL, DEMO_OPTIM, seq_l
         num_steps = int(req.get("steps", 5))
         num_steps = max(1, min(num_steps, MAX_STEPS))
         lr = float(req.get("lr", 0.04))
         if not math.isfinite(lr) or lr <= 0.0:
             raise ValueError("lr must be a finite positive number")
-        if IS_QUANTIZED and UNQUANTIZED_MODEL is not None:
-            CURRENT_MODEL = UNQUANTIZED_MODEL
-            UNQUANTIZED_MODEL = None
-            IS_QUANTIZED = False
-            DEMO_OPTIM = AdamW(CURRENT_MODEL.parameters(), lr=lr, weight_decay=0.01)
+        self._restore_unquantized_model(lr=lr)
         DEMO_OPTIM.lr = lr
 
         active_tokens = CURRENT_TOKENS
@@ -566,6 +569,7 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
     def handle_rl_policy_step(self, req: Dict[str, Any]):
         # Model generates two responses given a prompt, scores them with RewardModel, and performs policy gradient update
         prompt = req.get("prompt", "par")
+        self._restore_unquantized_model()
         prompt_ids = CURRENT_TOKENIZER.encode(prompt) or [0]
 
         # Generate candidate A
@@ -605,6 +609,7 @@ class StudioHandler(http.server.SimpleHTTPRequestHandler):
             raise ValueError("beta must be a finite positive number")
         steps = int(req.get("steps", 3))
         steps = max(1, min(steps, MAX_STEPS))
+        self._restore_unquantized_model()
 
         chosen_ids = CURRENT_TOKENIZER.encode(chosen_text) or [0, 0]
         rejected_ids = CURRENT_TOKENIZER.encode(rejected_text) or [0, 0]
