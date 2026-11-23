@@ -17,7 +17,12 @@ impl MergeEntry {
     /// Constructs a new MergeEntry.
     #[inline]
     pub const fn new(left: u32, right: u32, rank: u32, new_id: u32) -> Self {
-        Self { left, right, rank, new_id }
+        Self {
+            left,
+            right,
+            rank,
+            new_id,
+        }
     }
 
     /// Comparison key for sorting and binary searching: (left, right).
@@ -30,7 +35,10 @@ impl MergeEntry {
 /// Searches for a pair in a slice of MergeEntry sorted by (left, right).
 pub fn find_merge(table: &[MergeEntry], left: u32, right: u32) -> Option<&MergeEntry> {
     let target = (left, right);
-    table.binary_search_by(|entry| entry.key().cmp(&target)).ok().map(|idx| &table[idx])
+    table
+        .binary_search_by(|entry| entry.key().cmp(&target))
+        .ok()
+        .map(|idx| &table[idx])
 }
 
 /// Validates if a table slice is strictly sorted by (left, right) with no duplicates.
