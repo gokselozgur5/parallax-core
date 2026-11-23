@@ -1,8 +1,7 @@
-#include <stddef.h>
+#include "parallax_simd.h"
 #include <math.h>
 
-#if defined(__ARM_NEON) || defined(__ARM_NEON__)
-#include <arm_neon.h>
+#if defined(PARALLAX_HAVE_NEON)
 
 int c_has_neon_rmsnorm(void) {
     return 1;
