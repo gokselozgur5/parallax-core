@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from python.parallax.dispatch.embedding_backward import (
+from parallax.dispatch.embedding_backward import (
     DispatchedEmbeddingBackward,
     accumulate_embedding_backward,
     embedding_backward,
@@ -114,7 +114,7 @@ def test_dispatch_embedding_backward_all():
     """Verify __all__ contains public functions and class."""
     import sys
 
-    eb = sys.modules["python.parallax.dispatch.embedding_backward"]
+    eb = sys.modules["parallax.dispatch.embedding_backward"]
     assert hasattr(eb, "__all__")
     expected = {
         "DispatchedEmbeddingBackward",
@@ -126,8 +126,8 @@ def test_dispatch_embedding_backward_all():
 
 
 def test_dispatch_package_exports():
-    """Verify symbols are exposed via python.parallax.dispatch package."""
-    import python.parallax.dispatch as pd
+    """Verify symbols are exposed via parallax.dispatch package."""
+    import parallax.dispatch as pd
 
     assert hasattr(pd, "DispatchedEmbeddingBackward")
     assert hasattr(pd, "accumulate_embedding_backward")

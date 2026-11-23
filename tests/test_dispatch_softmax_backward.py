@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from parallax.tensor import Tensor
-from python.parallax.dispatch.softmax_backward import (
+from parallax.dispatch.softmax_backward import (
     DispatchedSoftmax,
     SoftmaxModule,
     dispatched_softmax,

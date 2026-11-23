@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from python.parallax.dispatch.conv2d import DispatchedConv2d, _pair
+from parallax.dispatch.conv2d import DispatchedConv2d, _pair
 
 
 def test_pair_helper():
@@ -34,7 +34,7 @@ def test_dispatched_conv2d_repr():
 
 def test_dispatched_conv2d_package_exports():
     from parallax.dispatch.conv2d import DispatchedConv2d as DC1
-    from python.parallax.dispatch import DispatchedConv2d as DC2
+    from parallax.dispatch import DispatchedConv2d as DC2
 
     assert DC1 is DispatchedConv2d
     assert DC2 is DispatchedConv2d
@@ -99,6 +99,6 @@ def test_dispatched_conv2d_backward_gradients():
 
 def test_dispatched_conv2d_type_validation():
     with pytest.raises(TypeError):
-        from python.parallax.dispatch.conv2d import dispatched_conv2d
+        from parallax.dispatch.conv2d import dispatched_conv2d
 
         dispatched_conv2d(np.zeros((1, 1, 3, 3)), np.zeros((1, 1, 3, 3)))  # type: ignore

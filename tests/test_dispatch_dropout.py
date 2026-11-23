@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from parallax.tensor import Tensor
-from python.parallax.dispatch.dropout import (
+from parallax.dispatch.dropout import (
     DispatchedDropout,
     DropoutModule,
     dispatched_dropout,
