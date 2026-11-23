@@ -60,7 +60,11 @@ class MetalBufferView:
 
 
 def wrap_buffer(arr: np.ndarray, page_size: Optional[int] = None) -> MetalBufferView:
-    aligned_arr = arr if is_aligned(arr, page_size) else aligned_empty(arr.shape, dtype=arr.dtype, page_size=page_size)
+    aligned_arr = (
+        arr
+        if arr.flags.c_contiguous and is_aligned(arr, page_size)
+        else aligned_empty(arr.shape, dtype=arr.dtype, page_size=page_size)
+    )
     if aligned_arr is not arr:
         aligned_arr.ravel()[:arr.size] = arr.ravel()
 
