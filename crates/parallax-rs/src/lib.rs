@@ -213,7 +213,8 @@ pub unsafe extern "C" fn parallax_bpe_find_merge(
             }
             None => STATUS_NOT_FOUND,
         }
-    })).unwrap_or(STATUS_INVALID_DIMENSION)
+    }))
+    .unwrap_or(STATUS_INVALID_DIMENSION)
 }
 /// C-ABI export for validating whether a merge table is strictly sorted.
 ///
@@ -243,12 +244,16 @@ pub unsafe extern "C" fn parallax_bpe_is_sorted(
         } else {
             0
         }
-    })).unwrap_or(STATUS_INVALID_DIMENSION)
+    }))
+    .unwrap_or(STATUS_INVALID_DIMENSION)
 }
 
 #[inline]
 unsafe fn validate_flash_attn_ptrs(
-    q: *const f32, k: *const f32, v: *const f32, out: *mut f32,
+    q: *const f32,
+    k: *const f32,
+    v: *const f32,
+    out: *mut f32,
 ) -> i32 {
     if q.is_null() || k.is_null() || v.is_null() || out.is_null() {
         return STATUS_NULL_POINTER;
@@ -266,8 +271,15 @@ unsafe fn validate_flash_attn_ptrs(
 /// and reference at least `seq_len * head_dim` elements.
 #[no_mangle]
 pub unsafe extern "C" fn parallax_flash_attn_f32(
-    q: *const f32, k: *const f32, v: *const f32, out: *mut f32,
-    seq_len: usize, head_dim: usize, scale: f32, is_causal: i32, f16_corr: i32,
+    q: *const f32,
+    k: *const f32,
+    v: *const f32,
+    out: *mut f32,
+    seq_len: usize,
+    head_dim: usize,
+    scale: f32,
+    is_causal: i32,
+    f16_corr: i32,
 ) -> i32 {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let p_status = validate_flash_attn_ptrs(q, k, v, out);
