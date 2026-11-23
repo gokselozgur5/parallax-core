@@ -5,10 +5,10 @@ from __future__ import annotations
 import ctypes
 import numpy as np
 
-from parallax.native.loader import INT32_MAX, bind
+from parallax.native.loader import check_int32_bounds, lazy_bind
 
-_has_avx2_softmax = bind("c_has_avx2_softmax", [], ctypes.c_int)
-_c_softmax_avx2 = bind(
+_has_avx2_softmax = lazy_bind("c_has_avx2_softmax", [], ctypes.c_int)
+_c_softmax_avx2 = lazy_bind(
     "c_softmax_avx2_f32",
     [
         ctypes.POINTER(ctypes.c_float),
@@ -27,7 +27,7 @@ def is_avx2_softmax_available() -> bool:
 
 def softmax_avx2(x: np.ndarray, axis: int = -1) -> np.ndarray:
     """Compute row-wise softmax via c_softmax_avx2_f32."""
-    if _c_softmax_avx2 is None:
+    if not _c_softmax_avx2:
         raise RuntimeError("c_softmax_avx2_f32 symbol is not available")
     if axis not in (-1, x.ndim - 1):
         raise ValueError("softmax_avx2 only supports last dimension")
@@ -35,8 +35,7 @@ def softmax_avx2(x: np.ndarray, axis: int = -1) -> np.ndarray:
         raise ValueError("input must be a 2D matrix")
 
     rows, cols = x.shape
-    if max(rows, cols, rows * cols) > INT32_MAX:
-        raise ValueError(f"Dimensions exceed INT32_MAX: rows={rows}, cols={cols}")
+    check_int32_bounds(rows, cols, rows * cols)
     x_c = np.ascontiguousarray(x, dtype=np.float32)
     out = np.empty_like(x_c)
 
