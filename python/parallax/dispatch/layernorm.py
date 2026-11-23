@@ -64,9 +64,10 @@ def _backward_layernorm(
     residual: Optional[Tensor],
 ) -> None:
     """Compute and accumulate gradients for LayerNorm operation."""
+    eps_val = stabilize_epsilon(eps)
     mean = np.mean(fused, axis=-1, keepdims=True)
     var = np.var(fused, axis=-1, keepdims=True)
-    inv_std = 1.0 / np.sqrt(var + eps)
+    inv_std = 1.0 / np.sqrt(var + eps_val)
     x_hat = (fused - mean) * inv_std
     d = fused.shape[-1]
     gw = dout * weight.data if weight is not None else dout
@@ -113,14 +114,15 @@ class FusedLayerNorm(Module):
         raw_res = residual.data if isinstance(residual, Tensor) else residual
         raw_w = self.weight.data if self.weight is not None else None
         raw_b = self.bias.data if self.bias is not None else None
-        out_data = fused_layernorm(raw_x, raw_w, raw_b, residual=raw_res, eps=self.eps)
+        eps_val = stabilize_epsilon(self.eps)
+        out_data = fused_layernorm(raw_x, raw_w, raw_b, residual=raw_res, eps=eps_val)
         parents = [p for p in (x, residual, self.weight, self.bias) if isinstance(p, Tensor)]
         out = Tensor(out_data, tuple(parents), "FusedLayerNorm")
         if not out.requires_grad:
             return out
         raw_fused = raw_x + raw_res if raw_res is not None else raw_x
         out._backward = lambda: _backward_layernorm(
-            out.grad, raw_fused, self.eps, self.weight, self.bias,
+            out.grad, raw_fused, eps_val, self.weight, self.bias,
             x if isinstance(x, Tensor) else None,
             residual if isinstance(residual, Tensor) else None,
         ) if out.grad is not None else None
