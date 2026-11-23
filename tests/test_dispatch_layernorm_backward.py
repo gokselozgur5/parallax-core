@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from python.parallax.dispatch.layernorm_backward import (
+from parallax.dispatch.layernorm_backward import (
     stabilize_epsilon,
 )
 
@@ -15,7 +15,7 @@ def test_stabilize_epsilon():
     assert stabilize_epsilon(-5.0) == 1e-12
 
 
-from python.parallax.dispatch.layernorm_backward import (
+from parallax.dispatch.layernorm_backward import (
     layernorm_backward_reference,
 )
 
@@ -35,7 +35,7 @@ def test_layernorm_backward_shapes_and_values():
     assert not np.isnan(db).any()
 
 
-from python.parallax.dispatch.layernorm_backward import (
+from parallax.dispatch.layernorm_backward import (
     layernorm_backward,
 )
 
@@ -74,7 +74,7 @@ def test_layernorm_backward_numerical_finite_difference():
     np.testing.assert_allclose(dx, num_dx, rtol=1e-4, atol=1e-5)
 
 
-from python.parallax.dispatch.layernorm_backward import (
+from parallax.dispatch.layernorm_backward import (
     fused_layernorm_backward,
 )
 
@@ -94,7 +94,7 @@ def test_fused_layernorm_backward():
 
 
 from parallax.tensor import Tensor
-from python.parallax.dispatch.layernorm_backward import (
+from parallax.dispatch.layernorm_backward import (
     dispatched_layernorm,
 )
 
@@ -114,7 +114,7 @@ def test_dispatched_layernorm_autograd():
     assert b.grad.shape == (2,)
 
 
-from python.parallax.dispatch.layernorm_backward import (
+from parallax.dispatch.layernorm_backward import (
     DispatchedLayerNormBackward,
 )
 
@@ -133,7 +133,7 @@ def test_dispatched_layernorm_backward_class():
 
 def test_layernorm_backward_exports():
     import sys
-    lb = sys.modules["python.parallax.dispatch.layernorm_backward"]
+    lb = sys.modules["parallax.dispatch.layernorm_backward"]
     for sym in (
         "DispatchedLayerNormBackward",
         "dispatched_layernorm",

@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from parallax.tensor import Tensor
-from python.parallax.dispatch.fused_layernorm import (
+from parallax.dispatch.fused_layernorm import (
     DispatchedFusedLayerNorm,
     FusedLayerNormRMS,
     dispatched_fused_layernorm,

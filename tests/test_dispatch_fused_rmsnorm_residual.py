@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from parallax.tensor import Tensor
-from python.parallax.dispatch.fused_rmsnorm_residual import (
+from parallax.dispatch.fused_rmsnorm_residual import (
     FusedRMSNormResidual,
     dispatched_fused_rmsnorm_residual,
     fused_rmsnorm_residual_backward,
@@ -147,7 +147,7 @@ def test_fused_rmsnorm_residual_module():
 
 def test_fused_rmsnorm_residual_exports():
     import parallax.dispatch as pd
-    import python.parallax.dispatch as ppd
+    import parallax.dispatch as ppd
     expected = [
         "FusedRMSNormResidual",
         "dispatched_fused_rmsnorm_residual",
@@ -158,4 +158,4 @@ def test_fused_rmsnorm_residual_exports():
     ]
     for name in expected:
         assert hasattr(pd, name), f"Missing {name} in parallax.dispatch"
-        assert hasattr(ppd, name), f"Missing {name} in python.parallax.dispatch"
+        assert hasattr(ppd, name), f"Missing {name} in parallax.dispatch"

@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from parallax.tensor import Tensor
-from python.parallax.dispatch.rmsnorm_backward import (
+from parallax.dispatch.rmsnorm_backward import (
     dispatched_rmsnorm,
     fused_rmsnorm_backward,
     rmsnorm_backward,
@@ -90,7 +90,7 @@ def test_dispatched_rmsnorm_autograd():
 
 
 def test_rmsnorm_backward_exports():
-    import python.parallax.dispatch.rmsnorm_backward as rb
+    import parallax.dispatch.rmsnorm_backward as rb
     for sym in (
         "dispatched_rmsnorm",
         "fused_rmsnorm_backward",
