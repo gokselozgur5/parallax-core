@@ -90,3 +90,18 @@ def test_generate_eos_token_id_stops_early():
     out_uncached = generate(model, prompt, max_new_tokens=10, temperature=0.0, use_cache=False, eos_token_id=first_gen)
     assert out_uncached == [1, 2, first_gen]
 
+
+def test_kv_cache_update_rejects_inconsistent_writes():
+    from parallax.dispatch import KVCacheBuffer
+    cache = KVCacheBuffer(batch_size=1, max_seq_len=8, num_heads=1, head_dim=2)
+    two = np.ones((1, 1, 2, 2), dtype=np.float32)
+    one = np.ones((1, 1, 1, 2), dtype=np.float32)
+    import pytest
+    with pytest.raises(ValueError):
+        cache.update(two, one)
+    cache.reset()
+    with pytest.raises(ValueError):
+        cache.update(one, one, start_pos=5)
+    assert cache.seq_len == 0
+
+
