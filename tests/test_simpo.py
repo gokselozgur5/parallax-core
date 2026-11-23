@@ -104,6 +104,19 @@ def test_simpo_step_execution_and_finite_gradients():
     np.testing.assert_allclose(grad_l, num_l, rtol=1e-5, atol=1e-6)
 
 
+def test_simpo_step_finite_difference_custom_hyperparams():
+    logits_w = np.array([[0.3, -0.4, 0.2, 0.1], [-0.2, 0.5, -0.1, 0.0]], dtype=np.float64)
+    targets_w = np.array([1, 2])
+    logits_l = np.array([[0.1, 0.2, -0.3, 0.4], [-0.5, 0.0, 0.3, -0.2], [0.2, -0.1, 0.0, 0.1]], dtype=np.float64)
+    targets_l = np.array([3, 0, 2])
+
+    _, grad_w, grad_l = simpo_step(logits_w, targets_w, logits_l, targets_l, beta=1.5, gamma_margin=0.8)
+    num_w, num_l = _simpo_finite_diff_grads(logits_w, targets_w, logits_l, targets_l, beta=1.5, gamma_margin=0.8)
+
+    np.testing.assert_allclose(grad_w, num_w, rtol=1e-6, atol=1e-7)
+    np.testing.assert_allclose(grad_l, num_l, rtol=1e-6, atol=1e-7)
+
+
 def test_simpo_step_empty_targets_raises_value_error():
     import pytest
 
