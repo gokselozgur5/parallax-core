@@ -1,4 +1,51 @@
-//! FlashAttention module with online softmax and F16 scale correction.
+//! FlashAttention module with SIMD dispatch, online softmax, and IEEE-754 F16 overflow protection.
+
+/// Maximum finite representable magnitude in IEEE 754 binary16 (`f16`).
+pub const F16_MAX: f32 = 65504.0;
+
+/// IEEE 754 binary16 half-precision floating-point value.
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct F16(pub u16);
+
+impl F16 {
+    pub const ZERO: Self = Self(0x0000);
+
+    #[inline]
+    pub fn from_f32(val: f32) -> Self {
+        let bits = val.to_bits();
+        let sign = ((bits >> 16) & 0x8000) as u16;
+        let exp = ((bits >> 23) & 0xFF) as i32;
+        let mant = bits & 0x007F_FFFF;
+        if exp == 255 {
+            return Self(sign | if mant != 0 { 0x7E00 } else { 0x7C00 });
+        }
+        let half_exp = exp - 112;
+        if half_exp >= 31 {
+            return Self(sign | 0x7C00);
+        }
+        if half_exp <= 0 {
+            if half_exp < -10 {
+                return Self(sign);
+            }
+            let full_mant = mant | 0x0080_0000;
+            let shift = (14 - half_exp) as u32;
+            let bias = (1 << (shift - 1)) - 1 + ((full_mant >> shift) & 1);
+            return Self(sign | (((full_mant + bias) >> shift) as u16));
+        }
+        let rounded = mant + 0x0000_0FFF + ((mant >> 13) & 1);
+        if (rounded & 0x0080_0000) != 0 {
+            let next_exp = half_exp + 1;
+            return Self(sign | if next_exp >= 31 { 0x7C00 } else { (next_exp as u16) << 10 });
+        }
+        Self(sign | ((half_exp as u16) << 10) | ((rounded >> 13) as u16))
+    }
+
+    #[inline]
+    pub fn from_f32_saturating(val: f32) -> Self {
+        if val.is_nan() { Self(0x7E00) } else { Self::from_f32(val.clamp(-F16_MAX, F16_MAX)) }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FlashAttnError {
