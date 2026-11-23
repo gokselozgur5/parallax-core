@@ -49,7 +49,11 @@ class KVCacheBuffer:
         start_pos: Optional[int] = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Update buffer at start_pos and return active views."""
+        if k_val.shape != v_val.shape:
+            raise ValueError(f"k_val shape {k_val.shape} must match v_val shape {v_val.shape}")
         pos = self.seq_len if start_pos is None else start_pos
+        if pos < 0 or pos > self.seq_len:
+            raise ValueError(f"start_pos {pos} must be 0 <= start_pos <= seq_len {self.seq_len}")
         num_toks = k_val.shape[2]
         if pos + num_toks > self.max_seq_len:
             raise ValueError(
