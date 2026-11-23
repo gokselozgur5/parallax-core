@@ -28,6 +28,28 @@ fn is_aligned_f32<T>(ptr: *const T) -> bool {
     (ptr as usize).is_multiple_of(std::mem::align_of::<f32>())
 }
 #[inline]
+fn is_aligned_usize<T>(ptr: *const T) -> bool {
+    (ptr as usize).is_multiple_of(std::mem::align_of::<usize>())
+}
+
+#[inline]
+fn is_aligned_ptr<T>(ptr: *const T) -> bool {
+    (ptr as usize).is_multiple_of(std::mem::align_of::<*const ()>())
+}
+
+#[inline]
+fn ranges_overlap_u32(p1: usize, len1: usize, p2: usize, len2: usize) -> bool {
+    if len1 == 0 || len2 == 0 {
+        return false;
+    }
+    let Some(size1) = len1.checked_mul(std::mem::size_of::<u32>()) else { return true };
+    let Some(size2) = len2.checked_mul(std::mem::size_of::<u32>()) else { return true };
+    let Some(end1) = p1.checked_add(size1) else { return true };
+    let Some(end2) = p2.checked_add(size2) else { return true };
+    p1 < end2 && p2 < end1
+}
+
+#[inline]
 fn ranges_overlap(p1: usize, len1: usize, p2: usize, len2: usize) -> bool {
     if len1 == 0 || len2 == 0 {
         return false;
@@ -228,14 +250,14 @@ pub unsafe extern "C" fn parallax_flash_attn_f32(
 /// C-ABI export for version check / smoke test.
 #[no_mangle]
 pub extern "C" fn parallax_version() -> u32 {
-    2
+    3
 }
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
     fn test_c_abi_version() {
-        assert_eq!(parallax_version(), 2);
+        assert_eq!(parallax_version(), 3);
     }
     #[test]
     fn test_c_abi_gemm() {
@@ -358,6 +380,9 @@ pub unsafe extern "C" fn parallax_find_bucket(
 ) -> i32 {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         if buckets_ptr.is_null() || out_bucket.is_null() { return STATUS_NULL_POINTER; }
+        if !is_aligned_usize(buckets_ptr) || !is_aligned_usize(out_bucket) {
+            return STATUS_UNALIGNED_POINTER;
+        }
         if buckets_len == 0 { return STATUS_INVALID_DIMENSION; }
         let buckets = slice::from_raw_parts(buckets_ptr, buckets_len);
         let binner = match scheduler::SequenceBinner::new(buckets) {
@@ -382,10 +407,21 @@ pub unsafe extern "C" fn parallax_collate_batch_u32(
     seq_ptrs: *const *const u32, seq_lens: *const usize, num_seqs: usize,
     buckets_ptr: *const usize, buckets_len: usize, pad_token: u32,
     out_tokens: *mut u32, out_mask: *mut u32, out_len: usize,
+    out_bucket_len: *mut usize,
 ) -> i32 {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         if seq_ptrs.is_null() || seq_lens.is_null() || buckets_ptr.is_null()
-            || out_tokens.is_null() || out_mask.is_null() { return STATUS_NULL_POINTER; }
+            || out_tokens.is_null() || out_mask.is_null() || out_bucket_len.is_null() {
+            return STATUS_NULL_POINTER;
+        }
+        if !is_aligned_ptr(seq_ptrs) || !is_aligned_usize(seq_lens)
+            || !is_aligned_usize(buckets_ptr) || !is_aligned_u32(out_tokens)
+            || !is_aligned_u32(out_mask) || !is_aligned_usize(out_bucket_len) {
+            return STATUS_UNALIGNED_POINTER;
+        }
+        if ranges_overlap_u32(out_tokens as usize, out_len, out_mask as usize, out_len) {
+            return STATUS_ALIASING_POINTER;
+        }
         let buckets = slice::from_raw_parts(buckets_ptr, buckets_len);
         let Ok(binner) = scheduler::SequenceBinner::new(buckets) else { return STATUS_INVALID_DIMENSION; };
         let lens = slice::from_raw_parts(seq_lens, num_seqs);
@@ -393,12 +429,18 @@ pub unsafe extern "C" fn parallax_collate_batch_u32(
         let mut seqs = Vec::with_capacity(num_seqs);
         for i in 0..num_seqs {
             if ptrs[i].is_null() { return STATUS_NULL_POINTER; }
+            if !is_aligned_u32(ptrs[i]) { return STATUS_UNALIGNED_POINTER; }
             seqs.push(slice::from_raw_parts(ptrs[i], lens[i]));
         }
         let toks = slice::from_raw_parts_mut(out_tokens, out_len);
         let mask = slice::from_raw_parts_mut(out_mask, out_len);
-        if binner.collate(&seqs, pad_token, toks, mask).is_err() { return STATUS_INVALID_DIMENSION; }
-        STATUS_OK
+        match binner.collate(&seqs, pad_token, toks, mask) {
+            Ok(b) => {
+                *out_bucket_len = b;
+                STATUS_OK
+            }
+            Err(_) => STATUS_INVALID_DIMENSION,
+        }
     })).unwrap_or(STATUS_INVALID_DIMENSION)
 }
 
