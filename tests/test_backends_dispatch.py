@@ -121,3 +121,61 @@ def test_dispatch_unavailable_backend_fallback():
     res = dispatch("gemm", a, a, _environ={"PARALLAX_BACKEND": "rust"})
     assert res is not None
     assert len(get_fallback_history()) == 1
+
+
+def test_dispatch_uses_autotuned_thresholds(tmp_path, monkeypatch):
+    import parallax.backends.dispatch as dd
+    from parallax.backends.autotune import save_cache
+    from parallax.backends.cpuinfo import CpuInfo
+    from parallax.backends.dispatch import candidate_backends
+
+    monkeypatch.setattr(dd, "detect_cpu", lambda: CpuInfo(arch="x86_64", system="Linux", avx2=True))
+    save_cache({"gemm": 4}, path=tmp_path / "autotune.json")
+    cands = candidate_backends("gemm", n_elements=16, environ={"PARALLAX_CACHE_DIR": str(tmp_path)})
+    assert cands[0] == "c-avx"
+
+
+def test_dispatch_quarantines_repeatedly_failing_backend():
+    from parallax.backends.dispatch import candidate_backends
+    from parallax.backends.quarantine import get_default_quarantine
+
+    registry.register("c", FaultyBackend("c", is_avail=True, supports_op=True))
+    registry.register("numpy", CalculatorBackend("numpy", is_avail=True, supports_op=True))
+    a = np.ones((2, 2), dtype=np.float32)
+    for _ in range(3):
+        dispatch("gemm", a, a, _environ={"PARALLAX_BACKEND": "c"})
+    assert get_default_quarantine().is_quarantined("gemm", "c")
+    assert "c" not in candidate_backends("gemm", n_elements=4, environ={"PARALLAX_BACKEND": "c"})
+
+
+def test_dispatch_records_telemetry_and_normalizes_native_layout():
+    from parallax.backends.telemetry import DispatchTelemetry
+
+    seen_contiguous: list[bool] = []
+
+    class ContigBackend(CalculatorBackend):
+        def gemm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+            seen_contiguous.append(bool(a.flags.c_contiguous and b.flags.c_contiguous))
+            return a @ b
+
+    DispatchTelemetry().reset()
+    registry.register("c", ContigBackend("c", is_avail=True, supports_op=True))
+    strided = np.arange(16, dtype=np.float32).reshape(2, 8)[:, ::4]
+    assert not strided.flags.c_contiguous
+    out = dispatch("gemm", strided, strided, _environ={"PARALLAX_BACKEND": "c"})
+    assert seen_contiguous == [True]
+    assert DispatchTelemetry().snapshot()[("gemm", "c")].count == 1
+    np.testing.assert_allclose(out, strided @ strided)
+
+
+def test_dispatch_parity_guard_falls_back_on_drift():
+    class DriftingBackend(CalculatorBackend):
+        def gemm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+            return (a @ b) + 1.0
+
+    registry.register("c", DriftingBackend("c", is_avail=True, supports_op=True))
+    registry.register("numpy", CalculatorBackend("numpy", is_avail=True, supports_op=True))
+    a = np.ones((2, 2), dtype=np.float32)
+    out = dispatch("gemm", a, a, _environ={"PARALLAX_BACKEND": "c", "PARALLAX_CHECK_PARITY": "1"})
+    np.testing.assert_allclose(out, a @ a)
+    assert any("parity check failed" in r.reason for r in get_fallback_history())
