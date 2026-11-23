@@ -7,6 +7,7 @@ import numpy as np
 
 from parallax.native.loader import bind
 
+_has_avx2_gemm = bind("c_has_avx2_gemm", [], ctypes.c_int)
 _c_gemm_avx2 = bind(
     "c_gemm_avx2_f32",
     [
@@ -17,13 +18,13 @@ _c_gemm_avx2 = bind(
         ctypes.c_int,
         ctypes.c_int,
     ],
-    restype=None,
+    restype=ctypes.c_int,
 )
 
 
 def is_avx2_gemm_available() -> bool:
-    """Return True if c_gemm_avx2_f32 symbol is available."""
-    return _c_gemm_avx2 is not None
+    """Return True if AVX2/FMA SGEMM kernel is supported."""
+    return bool(_has_avx2_gemm and _c_gemm_avx2 and _has_avx2_gemm() != 0)
 
 
 def gemm_avx2(a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -45,5 +46,9 @@ def gemm_avx2(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     b_ptr = b_c.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
     c_ptr = c.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
 
-    _c_gemm_avx2(a_ptr, b_ptr, c_ptr, m, n, k)
+    status = _c_gemm_avx2(a_ptr, b_ptr, c_ptr, m, n, k)
+    if status == -5:
+        raise RuntimeError("AVX2/FMA is not supported on this CPU")
+    if status != 0:
+        raise RuntimeError(f"c_gemm_avx2_f32 failed with status {status}")
     return c
