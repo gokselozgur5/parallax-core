@@ -169,6 +169,39 @@ pub fn dot_product_scaled(q: &[f32], k: &[f32], q_scale: f32, k_scale: f32) -> f
 }
 
 #[inline]
+fn vec_scale_add_scalar(out: &mut [f32], alpha: f32, v: &[f32], weight: f32) {
+    for (o_val, &v_val) in out.iter_mut().zip(v.iter()) {
+        *o_val = *o_val * alpha + weight * v_val;
+    }
+}
+
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx512f")]
+unsafe fn vec_scale_add_avx512(out: &mut [f32], alpha: f32, v: &[f32], weight: f32) {
+    use std::arch::x86_64::{
+        _mm512_fmadd_ps, _mm512_loadu_ps, _mm512_mul_ps, _mm512_set1_ps, _mm512_storeu_ps,
+    };
+    let n = out.len().min(v.len());
+    let (va, vw) = (_mm512_set1_ps(alpha), _mm512_set1_ps(weight));
+    let ((oc, or), (vc, vr)) = (out[..n].as_chunks_mut::<16>(), v[..n].as_chunks::<16>());
+    for (ob, vb) in oc.iter_mut().zip(vc.iter()) {
+        let vo = _mm512_mul_ps(_mm512_loadu_ps(ob.as_ptr()), va);
+        _mm512_storeu_ps(ob.as_mut_ptr(), _mm512_fmadd_ps(vw, _mm512_loadu_ps(vb.as_ptr()), vo));
+    }
+    vec_scale_add_scalar(or, alpha, vr, weight);
+}
+
+#[inline]
+fn vec_scale_add(out: &mut [f32], alpha: f32, v: &[f32], weight: f32) {
+    #[cfg(target_arch = "x86_64")]
+    if std::arch::is_x86_feature_detected!("avx512f") {
+        unsafe { vec_scale_add_avx512(out, alpha, v, weight) };
+        return;
+    }
+    vec_scale_add_scalar(out, alpha, v, weight);
+}
+
+#[inline]
 pub fn update_kv_step(
     out: &mut [f32],
     v: &[f32],
@@ -183,15 +216,11 @@ pub fn update_kv_step(
         let alpha = (*m_i - score).exp();
         *m_i = score;
         *l_i = *l_i * alpha + 1.0;
-        for (o_val, &v_val) in out.iter_mut().zip(v.iter()) {
-            *o_val = *o_val * alpha + v_val;
-        }
+        vec_scale_add(out, alpha, v, 1.0);
     } else {
         let p = (score - *m_i).exp();
         *l_i += p;
-        for (o_val, &v_val) in out.iter_mut().zip(v.iter()) {
-            *o_val += p * v_val;
-        }
+        vec_scale_add(out, 1.0, v, p);
     }
 }
 
