@@ -1,19 +1,33 @@
 #include <stddef.h>
 #include <math.h>
 
-#if (defined(__x86_64__) || defined(_M_X64))
+#ifndef PARALLAX_STATUS_OK
+#define PARALLAX_STATUS_OK 0
+#define PARALLAX_STATUS_NULL_POINTER (-1)
+#define PARALLAX_STATUS_INVALID_DIMENSION (-2)
+#define PARALLAX_STATUS_UNSUPPORTED_ISA (-5)
+#endif
+
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+#define PARALLAX_NO_AVX_TARGET __attribute__((noinline, target("no-avx,no-fma")))
+#else
+#define PARALLAX_NO_AVX_TARGET
+#endif
+
+PARALLAX_NO_AVX_TARGET
+int c_has_avx2_softmax(void) {
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+    return __builtin_cpu_supports("avx2") && __builtin_cpu_supports("fma");
+#else
+    return 0;
+#endif
+}
+
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
 #include <immintrin.h>
 
-#if defined(__GNUC__) || defined(__clang__)
-__attribute__((target("avx2,fma")))
-#endif
-void c_softmax_avx2_f32(
-    const float *input,
-    float *output,
-    int rows,
-    int cols
-) {
-    if (!input || !output || rows <= 0 || cols <= 0) return;
+__attribute__((noinline, target("avx2,fma")))
+static void softmax_avx2_kernel(const float *input, float *output, int rows, int cols) {
     const size_t rows_s = (size_t)rows;
     const size_t cols_s = (size_t)cols;
 
@@ -58,33 +72,17 @@ void c_softmax_avx2_f32(
         }
     }
 }
-#else
-void c_softmax_avx2_f32(
-    const float *input,
-    float *output,
-    int rows,
-    int cols
-) {
-    if (!input || !output || rows <= 0 || cols <= 0) return;
-    const size_t rows_s = (size_t)rows;
-    const size_t cols_s = (size_t)cols;
-    for (size_t r = 0; r < rows_s; ++r) {
-        const float *in_row = input + r * cols_s;
-        float *out_row = output + r * cols_s;
-        float max_val = in_row[0];
-        for (size_t c = 1; c < cols_s; ++c) {
-            if (in_row[c] > max_val) max_val = in_row[c];
-        }
-        double sum = 0.0;
-        for (size_t c = 0; c < cols_s; ++c) {
-            float exp_val = expf(in_row[c] - max_val);
-            out_row[c] = exp_val;
-            sum += (double)exp_val;
-        }
-        double inv_sum = 1.0 / sum;
-        for (size_t c = 0; c < cols_s; ++c) {
-            out_row[c] = (float)((double)out_row[c] * inv_sum);
-        }
-    }
-}
 #endif
+
+PARALLAX_NO_AVX_TARGET
+int c_softmax_avx2_f32(const float *input, float *output, int rows, int cols) {
+    if (!input || !output) return PARALLAX_STATUS_NULL_POINTER;
+    if (rows <= 0 || cols <= 0) return PARALLAX_STATUS_INVALID_DIMENSION;
+    if (!c_has_avx2_softmax()) return PARALLAX_STATUS_UNSUPPORTED_ISA;
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+    softmax_avx2_kernel(input, output, rows, cols);
+    return PARALLAX_STATUS_OK;
+#else
+    return PARALLAX_STATUS_UNSUPPORTED_ISA;
+#endif
+}
