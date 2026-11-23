@@ -567,7 +567,11 @@ mod tests {
         assert!(dot_product_f16_scaled(&q[..2], &k[..2], 0.0625, false).is_infinite());
         assert!((dot_product_f16_scaled(&q[..2], &k[..2], 0.0625, true) - 11_250.0).abs() < 1.0);
         let mut out = [F16::ZERO; 4];
-        let cfg = FlashAttnConfig { scale: 0.0625, is_causal: false, f16_scale_correction: true };
+        let cfg = FlashAttnConfig {
+            scale: 0.0625,
+            is_causal: false,
+            f16_scale_correction: true,
+        };
         assert_eq!(flash_attn_f16(&q, &k, &v, &mut out, 2, 2, cfg), Ok(()));
         assert!((out[0].to_f32() - 2.0).abs() < 1e-3 && (out[1].to_f32() - 4.0).abs() < 1e-3);
     }
@@ -575,8 +579,12 @@ mod tests {
     #[test]
     fn test_flash_attn_simd_multilane_with_tail() {
         let (seq_len, d) = (2, 35);
-        let q: Vec<f32> = (0..seq_len * d).map(|i| ((i % 7) as f32 - 3.0) * 0.25).collect();
-        let k: Vec<f32> = (0..seq_len * d).map(|i| ((i % 5) as f32 - 2.0) * 0.3).collect();
+        let q: Vec<f32> = (0..seq_len * d)
+            .map(|i| ((i % 7) as f32 - 3.0) * 0.25)
+            .collect();
+        let k: Vec<f32> = (0..seq_len * d)
+            .map(|i| ((i % 5) as f32 - 2.0) * 0.3)
+            .collect();
         let v: Vec<f32> = (0..seq_len * d).map(|i| (i as f32) * 0.1).collect();
         let (mut out_std, mut out_corr) = (vec![0.0f32; seq_len * d], vec![0.0f32; seq_len * d]);
         assert_eq!(flash_attn(&q, &k, &v, &mut out_std, seq_len, d, FlashAttnConfig::new(d, false, false)), Ok(()));
