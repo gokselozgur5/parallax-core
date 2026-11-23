@@ -39,8 +39,8 @@ class BackendQuarantine:
 
     def filter_backends(self, op: str, backends: Sequence[str]) -> list[str]:
         """Return candidate backends excluding quarantined ones for op."""
-        with self._lock:
-            return [b for b in backends if (op, b) not in self._quarantined]
+        return [b for b in backends if not self.is_quarantined(op, b)]
+
 
 
     def failure_count(self, op: str, backend: str) -> int:
