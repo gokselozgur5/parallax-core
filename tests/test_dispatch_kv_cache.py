@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from python.parallax.dispatch.kv_cache import (
+from parallax.dispatch.kv_cache import (
     KVCacheBuffer,
     KVCacheManager,
     create_kv_cache,
@@ -95,7 +95,7 @@ def test_create_kv_cache_factory_dispatch():
 
 def test_dispatch_kv_cache_package_exports():
     import parallax.dispatch as pd
-    import python.parallax.dispatch as ppd
+    import parallax.dispatch as ppd
 
     for mod in (pd, ppd):
         assert hasattr(mod, "KVCacheBuffer")
