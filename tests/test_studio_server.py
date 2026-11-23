@@ -1,10 +1,13 @@
-"""Regression tests for StudioHandler CORS Origin and Host validation (#830)."""
+"""Regression tests for StudioHandler CORS validation (#830) and quantized RL training (#749)."""
 
 import http.client
+import json
 import socketserver
 import threading
+import numpy as np
 import pytest
 
+import demo.studio_server as studio
 from demo.studio_server import StudioHandler
 
 
@@ -55,3 +58,36 @@ def test_cors_allows_strict_loopback_origins(studio_addr):
     ]:
         status, acao = _request_acao(studio_addr, origin, host)
         assert status == 200 and acao == origin
+
+
+def _post_json(addr, path, payload):
+    conn = http.client.HTTPConnection(addr[0], addr[1], timeout=30)
+    try:
+        conn.request("POST", path, body=json.dumps(payload), headers={"Content-Type": "application/json"})
+        return json.loads(conn.getresponse().read().decode())
+    finally:
+        conn.close()
+
+
+def test_dpo_step_trains_active_model_while_quantized(studio_addr):
+    assert _post_json(studio_addr, "/api/toggle_quant", {"quantize": True})["is_quantized"]
+    params = list(studio.CURRENT_MODEL.parameters()) + list(studio.UNQUANTIZED_MODEL.parameters())
+    before = [p.data.copy() for p in params]
+    reply = _post_json(studio_addr, "/api/rl/dpo_step", {"steps": 2})
+    changed = any(not np.array_equal(b, p.data) for b, p in zip(before, params))
+    _post_json(studio_addr, "/api/toggle_quant", {"quantize": False})
+    assert reply["status"] == "ok"
+    assert studio.IS_QUANTIZED is False
+    assert changed
+
+
+def test_policy_step_trains_active_model_while_quantized(studio_addr):
+    np.random.seed(42)
+    assert _post_json(studio_addr, "/api/toggle_quant", {"quantize": True})["is_quantized"]
+    before = [p.data.copy() for p in studio.UNQUANTIZED_MODEL.parameters()]
+    reply = _post_json(studio_addr, "/api/rl/policy_step", {"prompt": "par"})
+    after = [p.data.copy() for p in studio.CURRENT_MODEL.parameters()]
+    _post_json(studio_addr, "/api/toggle_quant", {"quantize": False})
+    assert reply["advantage"] > 0.0
+    assert studio.IS_QUANTIZED is False
+    assert len(before) == len(after) and any(not np.array_equal(b, a) for b, a in zip(before, after))
