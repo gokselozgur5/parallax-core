@@ -14,7 +14,8 @@ from typing import Dict, List, Optional
 import numpy as np
 
 from parallax.models.gpt import MLP, SwiGLU
-from parallax.nn import Linear, Module
+import parallax.nn as nn
+from parallax.nn import Module
 from parallax.tensor import Tensor, _accumulate_grad
 
 
@@ -49,7 +50,7 @@ class SparseMoE(Module):
         self.aux_loss_coef = aux_loss_coef
 
         # Router / Gating linear projection: [embed_dim -> num_experts]
-        self.gate = Linear(embed_dim, num_experts, bias=False)
+        self.gate = nn.Linear(embed_dim, num_experts, bias=False)
         self.router = self.gate
 
         # Expert networks

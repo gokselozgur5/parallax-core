@@ -10,7 +10,8 @@ import math
 from typing import List, Optional, Tuple, Union
 import numpy as np
 from parallax.attention import CausalSelfAttention
-from parallax.nn import Linear, Module, Parameter, RMSNorm
+import parallax.nn as nn
+from parallax.nn import Module, Parameter, RMSNorm
 from parallax.tensor import Tensor, _accumulate_grad
 
 
@@ -46,8 +47,8 @@ class MLP(Module):
     def __init__(self, embed_dim: int, hidden_dim: Optional[int] = None):
         super().__init__()
         hidden_dim = hidden_dim or 4 * embed_dim
-        self.fc1 = Linear(embed_dim, hidden_dim)
-        self.fc2 = Linear(hidden_dim, embed_dim)
+        self.fc1 = nn.Linear(embed_dim, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, embed_dim)
 
     def forward(self, x: Tensor) -> Tensor:
         h = tensor_gelu(self.fc1(x))
@@ -85,9 +86,9 @@ class SwiGLU(Module):
             hidden_dim = int(2 * (4 * embed_dim) / 3)
             hidden_dim = 64 * ((hidden_dim + 64 - 1) // 64)
 
-        self.w_gate = Linear(embed_dim, hidden_dim, bias=False)
-        self.w_up = Linear(embed_dim, hidden_dim, bias=False)
-        self.w_down = Linear(hidden_dim, embed_dim, bias=False)
+        self.w_gate = nn.Linear(embed_dim, hidden_dim, bias=False)
+        self.w_up = nn.Linear(embed_dim, hidden_dim, bias=False)
+        self.w_down = nn.Linear(hidden_dim, embed_dim, bias=False)
 
     def forward(self, x: Tensor) -> Tensor:
         gate = tensor_silu(self.w_gate(x))
@@ -268,7 +269,7 @@ class ParallaxLM(Module):
             for _ in range(config.num_layers)
         ]
         self.final_norm = RMSNorm(config.embed_dim, eps=config.rms_norm_eps)
-        self.lm_head = Linear(config.embed_dim, config.vocab_size, bias=False)
+        self.lm_head = nn.Linear(config.embed_dim, config.vocab_size, bias=False)
 
         # Weight Tying (Press & Wolf, 2016): share embedding and unembedding weights
         if config.tie_weights:
