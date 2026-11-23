@@ -65,6 +65,30 @@ def test_cross_entropy_ignore_index():
     # The valid samples must have nonzero gradients
     assert not np.allclose(logits.grad[0], [0.0, 0.0, 0.0])
 
+    ref_valid_losses, ref_valid_grads = [], []
+    for row, target in zip(logits.data[:2].tolist(), targets[:2].tolist()):
+        m = max(row)
+        exps = [math.exp(v - m) for v in row]
+        z = sum(exps)
+        probs = [e / z for e in exps]
+        ref_valid_losses.append(-(row[target] - m - math.log(z)))
+        ref_valid_grads.append(
+            [(p - (1.0 if j == target else 0.0)) / 2.0 for j, p in enumerate(probs)]
+        )
+    assert math.isclose(
+        float(loss.data), sum(ref_valid_losses) / 2.0, rel_tol=1e-12, abs_tol=1e-12
+    )
+    assert np.allclose(logits.grad[:2], np.array(ref_valid_grads), rtol=1e-12, atol=1e-12)
+    assert (
+        check_tensor_gradient(
+            lambda x: cross_entropy_loss(x, targets, ignore_index=-100),
+            [logits],
+            eps=1e-5,
+            tol=1e-5,
+        )
+        is True
+    )
+
 
 def test_perplexity_from_loss():
     # Loss 0.0 -> PPL = 1.0
