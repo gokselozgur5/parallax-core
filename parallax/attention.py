@@ -9,7 +9,8 @@ import math
 from typing import Optional, Tuple, Union
 import numpy as np
 from parallax.flash_attn import flash_attention_backward, flash_attention_forward
-from parallax.nn import Linear, Module, RMSNorm
+import parallax.nn as nn
+from parallax.nn import Module, RMSNorm
 from parallax.tensor import Tensor, _accumulate_grad, is_grad_enabled
 
 
@@ -122,10 +123,10 @@ class CausalSelfAttention(Module):
 
         # Q projection: [embed_dim, embed_dim]
         # K, V projections: [embed_dim, kv_dim]
-        self.q_proj = Linear(embed_dim, self.q_dim, bias=qkv_bias)
-        self.k_proj = Linear(embed_dim, self.kv_dim, bias=qkv_bias)
-        self.v_proj = Linear(embed_dim, self.kv_dim, bias=qkv_bias)
-        self.out_proj = Linear(self.q_dim, embed_dim, bias=False)
+        self.q_proj = nn.Linear(embed_dim, self.q_dim, bias=qkv_bias)
+        self.k_proj = nn.Linear(embed_dim, self.kv_dim, bias=qkv_bias)
+        self.v_proj = nn.Linear(embed_dim, self.kv_dim, bias=qkv_bias)
+        self.out_proj = nn.Linear(self.q_dim, embed_dim, bias=False)
         self.q_norm: Optional[RMSNorm] = RMSNorm(self.head_dim, eps=rms_norm_eps) if qk_norm else None
         self.k_norm: Optional[RMSNorm] = RMSNorm(self.head_dim, eps=rms_norm_eps) if qk_norm else None
 
