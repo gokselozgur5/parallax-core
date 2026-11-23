@@ -138,8 +138,8 @@ def flash_decode_split_k_v2(
     Returns:
         Output vector of shape (d,).
     """
-    q_vec = q.squeeze()
     seq_len, d = k.shape
+    q_vec = np.asarray(q, dtype=np.float64).reshape(d)
     if scale is None:
         scale = 1.0 / np.sqrt(d)
 
