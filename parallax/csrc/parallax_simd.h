@@ -29,6 +29,21 @@
 #endif
 #endif
 
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+#define PARALLAX_SCALAR_TARGET __attribute__((noinline, target("no-avx,no-fma")))
+#define PARALLAX_HAS_AVX512_ISA() ( \
+    __builtin_cpu_supports("avx512f") && \
+    __builtin_cpu_supports("avx512dq") && \
+    __builtin_cpu_supports("avx512vl") && \
+    __builtin_cpu_supports("avx512bw"))
+#elif defined(__GNUC__) || defined(__clang__)
+#define PARALLAX_SCALAR_TARGET __attribute__((noinline))
+#define PARALLAX_HAS_AVX512_ISA() 0
+#else
+#define PARALLAX_SCALAR_TARGET
+#define PARALLAX_HAS_AVX512_ISA() 0
+#endif
+
 #define PARALLAX_ALIGN_BYTES 64
 #define PARALLAX_IS_ALIGNED(p, a) (((uintptr_t)(p) & ((uintptr_t)(a) - 1)) == 0)
 

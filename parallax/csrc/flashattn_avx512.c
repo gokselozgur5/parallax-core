@@ -1,27 +1,9 @@
-#include <stddef.h>
-#include <stdint.h>
+#include "parallax_simd.h"
 #include <math.h>
 
-#if __has_include("parallax_simd.h")
-#include "parallax_simd.h"
-#endif
-
-#ifndef PARALLAX_STATUS_OK
-#define PARALLAX_STATUS_OK 0
-#define PARALLAX_STATUS_NULL_POINTER (-1)
-#define PARALLAX_STATUS_INVALID_DIMENSION (-2)
-#define PARALLAX_STATUS_UNSUPPORTED_ISA (-5)
-#endif
-
+PARALLAX_SCALAR_TARGET
 int c_has_avx512_flashattn_f32(void) {
-#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
-    return __builtin_cpu_supports("avx512f") &&
-           __builtin_cpu_supports("avx512dq") &&
-           __builtin_cpu_supports("avx512vl") &&
-           __builtin_cpu_supports("avx512bw");
-#else
-    return 0;
-#endif
+    return PARALLAX_HAS_AVX512_ISA();
 }
 
 
@@ -97,7 +79,7 @@ static void update_kv_step_avx512(float *oi, const float *vj, float score,
 
 
 #if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
-__attribute__((target("avx512f,avx512dq,avx512vl,avx512bw")))
+__attribute__((noinline, target("avx512f,avx512dq,avx512vl,avx512bw")))
 static void flashattn_avx512_kernel(const float *q, const float *k, const float *v,
                                     float *out, int seq_len, int head_dim,
                                     float scale, int is_causal) {
@@ -117,6 +99,7 @@ static void flashattn_avx512_kernel(const float *q, const float *k, const float 
 #endif
 
 
+PARALLAX_SCALAR_TARGET
 int c_flashattn_avx512_f32(const float *q, const float *k, const float *v,
                            float *out, int seq_len, int head_dim,
                            float scale, int is_causal) {

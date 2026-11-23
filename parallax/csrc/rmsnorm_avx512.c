@@ -1,30 +1,9 @@
-#include <stddef.h>
-#include <stdint.h>
+#include "parallax_simd.h"
 #include <math.h>
-
-#ifndef PARALLAX_STATUS_OK
-#define PARALLAX_STATUS_OK 0
-#define PARALLAX_STATUS_NULL_POINTER (-1)
-#define PARALLAX_STATUS_INVALID_DIMENSION (-2)
-#define PARALLAX_STATUS_UNSUPPORTED_ISA (-5)
-#endif
-
-#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
-#define PARALLAX_SCALAR_TARGET __attribute__((noinline, target("no-avx,no-fma")))
-#else
-#define PARALLAX_SCALAR_TARGET __attribute__((noinline))
-#endif
 
 PARALLAX_SCALAR_TARGET
 int c_has_avx512_rmsnorm_f32(void) {
-#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
-    return __builtin_cpu_supports("avx512f") &&
-           __builtin_cpu_supports("avx512dq") &&
-           __builtin_cpu_supports("avx512vl") &&
-           __builtin_cpu_supports("avx512bw");
-#else
-    return 0;
-#endif
+    return PARALLAX_HAS_AVX512_ISA();
 }
 
 #if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
