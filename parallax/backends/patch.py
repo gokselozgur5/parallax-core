@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
-from parallax.backends.linear import DispatchedLinear
+from parallax.nn.linear import DispatchedLinear
 from parallax.nn import Linear, Module
 
 
