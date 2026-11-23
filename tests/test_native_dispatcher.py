@@ -128,3 +128,100 @@ def test_dispatched_ops_numerical_parity_against_independent_reference() -> None
     np.testing.assert_allclose(swiglu(gx, np.full_like(gx, 2.0)), ref_swiglu, rtol=1e-5, atol=1e-6)
 
 
+def test_all_wrappers_import_without_loading_c_library() -> None:
+    code = (
+        "import importlib, parallax.c_engine as ce\n"
+        "calls = []\n"
+        "ce._find_or_build_library = lambda: calls.append(1)\n"
+        "mods = [\n"
+        "  'avx2_rmsnorm', 'avx2_softmax', 'dispatcher', 'flashattn_avx512', 'flashattn_neon',\n"
+        "  'gelu', 'gemm_avx2', 'gemm_avx512', 'gemm_neon', 'gqa_proj', 'layernorm', 'loader',\n"
+        "  'mha_proj', 'neon_rmsnorm', 'rmsnorm_avx512', 'rope', 'rope_cache',\n"
+        "  'softmax_avx512', 'softmax_neon', 'swiglu',\n"
+        "]\n"
+        "for m in mods:\n"
+        "    importlib.import_module(f'parallax.native.{m}')\n"
+        "assert calls == [], f'unexpected import-time loads: {calls}'\n"
+    )
+    repo_root = str(Path(__file__).resolve().parent.parent)
+    subprocess.run([sys.executable, "-c", code], cwd=repo_root, check=True)
+
+
+def test_reset_c_lib_cache_falls_back_to_numpy_and_rebinds(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from parallax.c_engine import reset_c_lib_cache
+    from parallax.native.gqa_proj import is_gqa_proj_available
+    from parallax.native.layernorm import is_layernorm_available
+    from parallax.native.mha_proj import is_mha_proj_available
+    from parallax.native.rope import is_rope_available
+    from parallax.native.rope_cache import is_rope_cache_available
+
+    reset_c_lib_cache()
+    try:
+        assert is_layernorm_available() and is_rope_available() and is_rope_cache_available()
+        assert is_gqa_proj_available() and is_mha_proj_available()
+        assert select_kernel("layernorm").isa == "scalar_c"
+
+        monkeypatch.setenv("PARALLAX_C_LIB", str(tmp_path / "missing_libparallax_c.dylib"))
+        reset_c_lib_cache()
+        assert not is_layernorm_available() and not is_rope_available()
+        assert not is_rope_cache_available() and not is_gqa_proj_available()
+        for op in OPS:
+            assert select_kernel(op).isa == "numpy"
+        x2 = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+        w2 = np.array([1.0, 1.0], dtype=np.float32)
+        assert gemm(x2, x2).shape == (2, 2)
+        assert rmsnorm(x2, w2).shape == (2, 2)
+        assert softmax(x2).shape == (2, 2)
+        assert flashattn(x2, x2, x2).shape == (2, 2)
+        assert layernorm(x2, weight=w2).shape == (2, 2)
+        assert rope(np.ones((2, 1, 4), dtype=np.float32)).shape == (2, 1, 4)
+        assert gelu(x2).shape == (2, 2)
+        assert swiglu(x2, x2).shape == (2, 2)
+
+        monkeypatch.delenv("PARALLAX_C_LIB", raising=False)
+        reset_c_lib_cache()
+        assert is_layernorm_available() and is_rope_available() and is_rope_cache_available()
+        assert select_kernel("layernorm").isa == "scalar_c"
+        assert select_kernel("gelu").isa == "scalar_c"
+        assert select_kernel("swiglu").isa == "scalar_c"
+    finally:
+        monkeypatch.delenv("PARALLAX_C_LIB", raising=False)
+        reset_c_lib_cache()
+
+
+def test_dispatcher_rejects_int32_overflow_across_all_ops() -> None:
+    class _BigArray:
+        def __init__(self, shape: tuple[int, ...]) -> None:
+            self.shape = shape
+            self.ndim = len(shape)
+            self.dtype = np.dtype(np.float32)
+            self.size = math.prod(shape)
+
+    big2d: Any = _BigArray((50000, 50000))
+    b_small: Any = _BigArray((50000, 2))
+    w_big = np.ones((50000,), dtype=np.float32)
+    big3d: Any = _BigArray((1, 2147483648, 4))
+    for call in (
+        lambda: gemm(big2d, b_small),
+        lambda: rmsnorm(big2d, w_big),
+        lambda: softmax(big2d),
+        lambda: flashattn(big2d, big2d, big2d),
+        lambda: layernorm(big2d, weight=w_big),
+        lambda: rope(big3d),
+        lambda: gelu(big2d),
+        lambda: swiglu(big2d, big2d),
+    ):
+        with pytest.raises(ValueError, match="INT32_MAX"):
+            call()
+
+
+def test_csrc_deduplicated_headers_and_isa_files() -> None:
+    csrc = Path(__file__).resolve().parent.parent / "parallax" / "csrc"
+    for c_file in sorted(csrc.glob("*.c")):
+        text = c_file.read_text(encoding="utf-8")
+        assert "#define PARALLAX_STATUS_" not in text, f"{c_file.name} redefines status macros"
+    for dispatch_file in ("rmsnorm.c", "gemm.c", "softmax.c"):
+        text = (csrc / dispatch_file).read_text(encoding="utf-8")
+        assert "USE_NEON" not in text and "USE_AVX" not in text, f"{dispatch_file} duplicates SIMD loops"
