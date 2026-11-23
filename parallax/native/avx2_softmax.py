@@ -7,6 +7,7 @@ import numpy as np
 
 from parallax.native.loader import bind
 
+_has_avx2_softmax = bind("c_has_avx2_softmax", [], ctypes.c_int)
 _c_softmax_avx2 = bind(
     "c_softmax_avx2_f32",
     [
@@ -15,13 +16,13 @@ _c_softmax_avx2 = bind(
         ctypes.c_int,
         ctypes.c_int,
     ],
-    restype=None,
+    restype=ctypes.c_int,
 )
 
 
 def is_avx2_softmax_available() -> bool:
-    """Return True if c_softmax_avx2_f32 symbol is available."""
-    return _c_softmax_avx2 is not None
+    """Return True if AVX2/FMA softmax kernel is supported."""
+    return bool(_has_avx2_softmax and _c_softmax_avx2 and _has_avx2_softmax() != 0)
 
 
 def softmax_avx2(x: np.ndarray, axis: int = -1) -> np.ndarray:
@@ -40,5 +41,9 @@ def softmax_avx2(x: np.ndarray, axis: int = -1) -> np.ndarray:
     in_ptr = x_c.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
     out_ptr = out.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
 
-    _c_softmax_avx2(in_ptr, out_ptr, rows, cols)
+    status = _c_softmax_avx2(in_ptr, out_ptr, rows, cols)
+    if status == -5:
+        raise RuntimeError("AVX2/FMA is not supported on this CPU")
+    if status != 0:
+        raise RuntimeError(f"c_softmax_avx2_f32 failed with status {status}")
     return out
