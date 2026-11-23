@@ -6,7 +6,7 @@ from typing import Optional
 import numpy as np
 
 from parallax.tensor import Tensor, _accumulate_grad
-from python.parallax.dispatch.rope import apply_rotary_emb, precompute_freqs
+from parallax.dispatch.rope import apply_rotary_emb, precompute_freqs
 
 
 def stabilize_theta(theta: float, min_theta: float = 1e-4) -> float:

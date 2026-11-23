@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 import numpy as np
 
+c_swiglu: Any
 try:
     from parallax.native.swiglu import c_swiglu
 except ImportError:

@@ -7,7 +7,7 @@ import numpy as np
 
 from parallax.nn import Module, Parameter
 from parallax.tensor import Tensor, _accumulate_grad
-from python.parallax.dispatch.layernorm import _coerce_norm_shape, _resolve_norm_shape
+from parallax.dispatch.layernorm import _coerce_norm_shape, _resolve_norm_shape
 
 
 def stabilize_epsilon(eps: float, min_eps: float = 1e-12) -> float:

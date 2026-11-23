@@ -16,7 +16,10 @@ def stabilize_epsilon(eps: float, min_eps: float = 1e-12) -> float:
 
 def _coerce_norm_shape(normalized_shape: Union[int, Tuple[int, ...]]) -> Tuple[int, ...]:
     """Normalize shape specification into a validated tuple of dimensions."""
-    if isinstance(normalized_shape, (int, np.integer)) and not isinstance(normalized_shape, bool):
+    shape: Tuple[int, ...]
+    if isinstance(normalized_shape, bool):
+        raise ValueError(f"Invalid normalized_shape: {normalized_shape!r}")
+    if isinstance(normalized_shape, (int, np.integer)):
         shape = (int(normalized_shape),)
     else:
         shape = tuple(int(d) for d in normalized_shape)
@@ -168,8 +171,9 @@ class FusedLayerNorm(Module):
         out_data = fused_layernorm(
             raw_x, raw_w, raw_b, residual=raw_res, eps=eps_val, normalized_shape=self.normalized_shape
         )
+        out_arr = out_data[0] if isinstance(out_data, tuple) else out_data
         parents = [p for p in (x, residual, self.weight, self.bias) if isinstance(p, Tensor)]
-        out = Tensor(out_data, tuple(parents), "FusedLayerNorm")
+        out = Tensor(out_arr, tuple(parents), "FusedLayerNorm")
         if not out.requires_grad:
             return out
         raw_fused = raw_x + raw_res if raw_res is not None else raw_x
