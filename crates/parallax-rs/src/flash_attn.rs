@@ -45,6 +45,30 @@ impl F16 {
     pub fn from_f32_saturating(val: f32) -> Self {
         if val.is_nan() { Self(0x7E00) } else { Self::from_f32(val.clamp(-F16_MAX, F16_MAX)) }
     }
+
+    #[inline]
+    pub fn to_f32(self) -> f32 {
+        let sign = ((self.0 & 0x8000) as u32) << 16;
+        let exp = ((self.0 >> 10) & 0x1F) as u32;
+        let mant = (self.0 & 0x03FF) as u32;
+        let bits = if exp == 0 {
+            if mant == 0 {
+                sign
+            } else {
+                let (mut m, mut e) = (mant, 113u32);
+                while (m & 0x0400) == 0 {
+                    m <<= 1;
+                    e -= 1;
+                }
+                sign | (e << 23) | ((m & 0x03FF) << 13)
+            }
+        } else if exp == 31 {
+            sign | 0x7F80_0000 | (mant << 13)
+        } else {
+            sign | ((exp + 112) << 23) | (mant << 13)
+        };
+        f32::from_bits(bits)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
