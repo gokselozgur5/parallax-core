@@ -38,3 +38,6 @@ class RustBackend(Backend):
 
     def softmax(self, x: np.ndarray, axis: int = -1) -> np.ndarray:
         return rust_softmax(x, axis=axis)
+
+
+RustEngineBackend = RustBackend
