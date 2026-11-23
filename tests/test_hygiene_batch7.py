@@ -175,10 +175,10 @@ def test_license_metadata_consistency():
         cargo_data = tomllib.load(f)
 
     pyproject_license = pyproject_data.get("project", {}).get("license")
-    assert pyproject_license == "LicenseRef-Proprietary"
+    assert pyproject_license == "MIT"
     assert pyproject_data.get("project", {}).get("license-files") == ["LICENSE"]
 
-    # Cargo.toml points to the proprietary repo LICENSE file
+    # Cargo.toml points to the repo LICENSE file
     license_file_rel = cargo_data.get("package", {}).get("license-file")
     assert license_file_rel is not None
     cargo_license_path = (cargo_path.parent / license_file_rel).resolve()
