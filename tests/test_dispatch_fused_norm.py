@@ -142,6 +142,29 @@ def test_fused_rmsnorm_autograd_backward():
     np.testing.assert_allclose(norm.weight.grad, fd_w, rtol=1e-4, atol=1e-4)
 
 
+def test_fused_rmsnorm_backward_3d_nonuniform_weight_and_upstream():
+    rng = np.random.default_rng(7)
+    x_np = rng.normal(size=(2, 3, 4)).astype(np.float32)
+    w_np = np.array([1.5, -0.75, 2.25, 0.5], dtype=np.float32)
+    up_np = rng.normal(size=(2, 3, 4)).astype(np.float32)
+    norm = FusedRMSNorm(dim=4, eps=1e-5)
+    norm.weight.data = w_np.copy()
+    x = Tensor(x_np.copy(), requires_grad=True)
+    out = norm(x)
+    (out * Tensor(up_np)).sum().backward()
+    assert x.grad is not None and norm.weight.grad is not None
+    x64, w64, g64 = x_np.astype(np.float64), w_np.astype(np.float64), up_np.astype(np.float64)
+    rms = np.sqrt(np.mean(x64 * x64, axis=-1, keepdims=True) + norm.eps)
+    x_hat = x64 / rms
+    expected_dx = (1.0 / rms) * (g64 * w64 - x_hat * np.mean(g64 * w64 * x_hat, axis=-1, keepdims=True))
+    expected_dw = np.sum(g64 * x_hat, axis=(0, 1))
+    fd_x, fd_w = _central_fd_rmsnorm_grads(x_np, w_np, norm.eps, upstream=up_np)
+    np.testing.assert_allclose(x.grad, expected_dx, rtol=1e-5, atol=1e-5)
+    np.testing.assert_allclose(norm.weight.grad, expected_dw, rtol=1e-5, atol=1e-5)
+    np.testing.assert_allclose(x.grad, fd_x, rtol=1e-4, atol=1e-4)
+    np.testing.assert_allclose(norm.weight.grad, fd_w, rtol=1e-4, atol=1e-4)
+
+
 def test_fused_norm_exports():
     import python.parallax.dispatch.fused_norm as fn
     assert hasattr(fn, "FusedRMSNorm")
