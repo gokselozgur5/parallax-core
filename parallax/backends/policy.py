@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Protocol
 
 NUMPY = "numpy"
@@ -49,10 +50,16 @@ def native_order(cpu: CpuLike) -> tuple[str, ...]:
     return (NUMPY,)
 
 
-def backend_order(op: str, n_elements: int, cpu: CpuLike) -> tuple[str, ...]:
+def backend_order(
+    op: str,
+    n_elements: int,
+    cpu: CpuLike,
+    thresholds: Mapping[str, int] | None = None,
+) -> tuple[str, ...]:
     """Return the ordered backends to try for ``op`` on ``n_elements`` items."""
     if op not in MIN_ELEMENTS:
         raise ValueError(f"unknown op {op!r}; expected one of {sorted(MIN_ELEMENTS)}")
-    if n_elements < MIN_ELEMENTS[op]:
+    min_elems = thresholds[op] if thresholds is not None and op in thresholds else MIN_ELEMENTS[op]
+    if n_elements < min_elems:
         return (NUMPY,)
     return native_order(cpu)

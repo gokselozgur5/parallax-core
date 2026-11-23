@@ -8,13 +8,16 @@ import threading
 from collections import deque
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from parallax.backends import registry
+from parallax.backends.autotune import get_default_cache_path, load_cache
 from parallax.backends.base import Backend
 from parallax.backends.cpuinfo import detect_cpu as _detect_cpu_raw
 from parallax.backends.env import backend_override
 from parallax.backends.policy import backend_order
+from parallax.backends.quarantine import get_default_quarantine
 from parallax.backends.scope import current_backend
 
 _LOGGER = logging.getLogger(__name__)
@@ -48,9 +51,10 @@ def get_fallback_history() -> list[FallbackRecord]:
 
 
 def clear_fallback_history() -> None:
-    """Clear the recorded fallback history."""
+    """Clear the recorded fallback history and reset quarantine state."""
     with _fallback_lock:
         _fallback_history.clear()
+    get_default_quarantine().reset()
 
 
 def _record_fallback(op: str, backend: str, reason: str, exc: Exception | None = None) -> None:
@@ -106,6 +110,30 @@ def _inspect_inputs(args: tuple[Any, ...]) -> tuple[int, Any, tuple[int, ...]]:
     )
 
 
+_autotune_state: tuple[str, int, dict[str, int] | None] | None = None
+
+
+def _active_thresholds(environ: Mapping[str, str] | None = None) -> dict[str, int] | None:
+    global _autotune_state
+    if environ is not None and "PARALLAX_CACHE_DIR" in environ:
+        path = Path(environ["PARALLAX_CACHE_DIR"]) / "autotune.json"
+    else:
+        path = get_default_cache_path()
+    key = str(path)
+    try:
+        mtime = path.stat().st_mtime_ns
+    except OSError:
+        return None
+    if _autotune_state is not None and _autotune_state[0] == key and _autotune_state[1] == mtime:
+        return _autotune_state[2]
+    try:
+        data = load_cache(path)
+    except Exception:
+        data = None
+    _autotune_state = (key, mtime, data)
+    return data
+
+
 def candidate_backends(
     op: str, n_elements: int = 0, environ: Mapping[str, str] | None = None
 ) -> list[str]:
@@ -117,13 +145,14 @@ def candidate_backends(
     if ov and ov not in c:
         c.append(ov)
     try:
-        for name in backend_order(op, n_elements, detect_cpu()):
+        for name in backend_order(op, n_elements, detect_cpu(), thresholds=_active_thresholds(environ)):
             if name not in c:
                 c.append(name)
     except (ValueError, KeyError):
         if "numpy" not in c:
             c.append("numpy")
-    return c
+    quarantine = get_default_quarantine()
+    return [name for name in c if name == "numpy" or not quarantine.is_quarantined(op, name)]
 
 
 def dispatch(op: str, *args: Any, **kwargs: Any) -> Any:
@@ -141,9 +170,13 @@ def dispatch(op: str, *args: Any, **kwargs: Any) -> Any:
             _record_fallback(op, name, f"backend lacks op {op}")
             continue
         try:
-            return fn(*args, **kwargs)
+            out = fn(*args, **kwargs)
+            get_default_quarantine().record_success(op, name)
+            return out
         except Exception as exc:
             last_err = exc
+            if name != "numpy":
+                get_default_quarantine().record_failure(op, name)
             _record_fallback(op, name, str(exc), exc=exc)
     msg = f"All backends failed for {op}: {candidates}"
     raise RuntimeError(msg) from last_err
