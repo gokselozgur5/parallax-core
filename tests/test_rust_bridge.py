@@ -37,9 +37,9 @@ def rust_lib():
     lib.parallax_version.argtypes = []
     lib.parallax_version.restype = ctypes.c_uint32
     ver = lib.parallax_version()
-    if ver != 2:
+    if ver != 3:
         raise RuntimeError(
-            f"Rust library ABI version mismatch: expected 2, got {ver}. "
+            f"Rust library ABI version mismatch: expected 3, got {ver}. "
             "Please rebuild with: cargo build --manifest-path crates/parallax-rs/Cargo.toml --release"
         )
     
@@ -72,7 +72,7 @@ def rust_lib():
 
 def test_rust_bridge_version(rust_lib):
     ver = rust_lib.parallax_version()
-    assert ver == 2
+    assert ver == 3
 
 
 def test_rust_bridge_version_mismatch_rejected(monkeypatch):
@@ -88,7 +88,7 @@ def test_rust_bridge_version_mismatch_rejected(monkeypatch):
     monkeypatch.setattr(re, "find_rust_lib", lambda: Path("/dummy/libparallax_rs.so"))
     monkeypatch.setattr(ctypes, "CDLL", lambda path: FakeLib())
     try:
-        with pytest.raises(RuntimeError, match="Rust library ABI version mismatch: expected 2, got 1"):
+        with pytest.raises(RuntimeError, match="Rust library ABI version mismatch: expected 3, got 1"):
             re.get_rust_lib()
     finally:
         re.reset_rust_lib_cache()

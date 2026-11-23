@@ -1,6 +1,6 @@
 """Parallax Rust Engine: High-performance Rust C-ABI engine bridge with NumPy fallback.
 
-Enforces parallax_version() == 2, pointer alignment, slice bounds checks, and
+Enforces parallax_version() == 3, pointer alignment, slice bounds checks, and
 graceful fallback to NumPy kernels when the compiled Rust binary is unavailable.
 """
 
@@ -20,7 +20,7 @@ _RUST_LIB: Optional[ctypes.CDLL] = None
 _LIB_LOAD_ATTEMPTED: bool = False
 _LOAD_ERROR_REASON: Optional[str] = None
 _INIT_LOCK = threading.Lock()
-_EXPECTED_ABI_VERSION: int = 2
+_EXPECTED_ABI_VERSION: int = 3
 
 
 def get_rust_lib_load_error() -> Optional[str]:
