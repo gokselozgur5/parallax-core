@@ -96,6 +96,35 @@ def test_fused_rmsnorm_repr_and_from_norm():
     assert cloned.eps == 1e-6
 
 
+def _central_fd_rmsnorm_grads(
+    x_arr: np.ndarray,
+    w_arr: np.ndarray,
+    eps: float,
+    res_arr: np.ndarray | None = None,
+    upstream: np.ndarray | None = None,
+    step: float = 1e-5,
+) -> tuple[np.ndarray, np.ndarray]:
+    g = np.ones_like(x_arr, dtype=np.float64) if upstream is None else upstream.astype(np.float64)
+    xv0, wv0 = x_arr.astype(np.float64), w_arr.astype(np.float64)
+
+    def loss_fn(xv: np.ndarray, wv: np.ndarray) -> float:
+        fused = xv + res_arr.astype(np.float64) if res_arr is not None else xv
+        rms = np.sqrt(np.mean(fused * fused, axis=-1, keepdims=True) + eps)
+        return float(np.sum((fused / rms) * wv * g))
+
+    fd_x = np.zeros_like(xv0)
+    for idx in np.ndindex(xv0.shape):
+        delta = np.zeros_like(xv0)
+        delta[idx] = step
+        fd_x[idx] = (loss_fn(xv0 + delta, wv0) - loss_fn(xv0 - delta, wv0)) / (2.0 * step)
+    fd_w = np.zeros_like(wv0)
+    for idx in np.ndindex(wv0.shape):
+        delta = np.zeros_like(wv0)
+        delta[idx] = step
+        fd_w[idx] = (loss_fn(xv0, wv0 + delta) - loss_fn(xv0, wv0 - delta)) / (2.0 * step)
+    return fd_x, fd_w
+
+
 def test_fused_rmsnorm_autograd_backward():
     norm = FusedRMSNorm(dim=4, eps=1e-5)
     x = Tensor(np.array([[1.0, 2.0, 3.0, 4.0]], dtype=np.float32), requires_grad=True)
@@ -107,6 +136,10 @@ def test_fused_rmsnorm_autograd_backward():
     assert res.grad is not None
     assert norm.weight.grad is not None
     np.testing.assert_allclose(x.grad, res.grad)
+    fd_x, fd_w = _central_fd_rmsnorm_grads(x.data, norm.weight.data, norm.eps, res_arr=res.data)
+    np.testing.assert_allclose(x.grad, fd_x, rtol=1e-4, atol=1e-4)
+    np.testing.assert_allclose(res.grad, fd_x, rtol=1e-4, atol=1e-4)
+    np.testing.assert_allclose(norm.weight.grad, fd_w, rtol=1e-4, atol=1e-4)
 
 
 def test_fused_norm_exports():
