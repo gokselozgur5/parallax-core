@@ -232,32 +232,33 @@ def load_checkpoint(
 
         if optimizer is not None:
             optimizer.params = model.parameters()
+            num_params = len(optimizer.params)
+            if hasattr(optimizer, "m"):
+                optimizer.m = [np.zeros_like(p.data) for p in optimizer.params]
+            if hasattr(optimizer, "v"):
+                optimizer.v = [np.zeros_like(p.data) for p in optimizer.params]
+            if hasattr(optimizer, "m_buffers"):
+                optimizer.m_buffers = [np.zeros_like(p.data) for p in optimizer.params]
             if "__opt_step_count__" in archive:
                 optimizer.step_count = int(archive["__opt_step_count__"])
                 optimizer.lr = float(archive["__opt_lr__"])
-                num_params = len(optimizer.params)
-                # Re-initialize m and v buffers if lengths mismatch
                 if hasattr(optimizer, "m"):
-                    if len(optimizer.m) != num_params:
-                        optimizer.m = [np.zeros_like(p.data) for p in optimizer.params]
                     for i in range(num_params):
                         m_key = f"__opt_m_{i}__"
                         if m_key in archive:
                             optimizer.m[i] = archive[m_key].copy()
                 if hasattr(optimizer, "v"):
-                    if len(optimizer.v) != num_params:
-                        optimizer.v = [np.zeros_like(p.data) for p in optimizer.params]
                     for i in range(num_params):
                         v_key = f"__opt_v_{i}__"
                         if v_key in archive:
                             optimizer.v[i] = archive[v_key].copy()
                 if hasattr(optimizer, "m_buffers"):
-                    if len(optimizer.m_buffers) != num_params:
-                        optimizer.m_buffers = [np.zeros_like(p.data) for p in optimizer.params]
                     for i in range(num_params):
                         buf_key = f"__opt_m_buf_{i}__"
                         if buf_key in archive:
                             optimizer.m_buffers[i] = archive[buf_key].copy()
+            elif hasattr(optimizer, "step_count"):
+                optimizer.step_count = 0
     finally:
         archive.close()
 
