@@ -32,10 +32,14 @@ class MetalBackend(Backend):
         return True
 
     def gemm(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        if not self.available():
+            raise RuntimeError("Metal backend is not available")
         return metal_gemm(a, b)
 
     def rmsnorm(
         self, x: np.ndarray, weight: np.ndarray, eps: float = 1e-5
     ) -> np.ndarray:
+        if not self.available():
+            raise RuntimeError("Metal backend is not available")
         w = np.squeeze(weight) if weight.ndim > 1 else weight
         return metal_rmsnorm(x, w, eps=eps)
