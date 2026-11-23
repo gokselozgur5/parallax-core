@@ -243,10 +243,48 @@ pub fn update_kv_step(
     }
 }
 
+#[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx512f")]
+unsafe fn vec_scale_avx512(out: &mut [f32], scale: f32) {
+    use std::arch::x86_64::{_mm512_loadu_ps, _mm512_mul_ps, _mm512_set1_ps, _mm512_storeu_ps};
+    let vs = _mm512_set1_ps(scale);
+    let (oc, or) = out.as_chunks_mut::<16>();
+    for ob in oc.iter_mut() {
+        _mm512_storeu_ps(ob.as_mut_ptr(), _mm512_mul_ps(_mm512_loadu_ps(ob.as_ptr()), vs));
+    }
+    for val in or.iter_mut() {
+        *val *= scale;
+    }
+}
+
+#[cfg(target_arch = "aarch64")]
+#[target_feature(enable = "neon")]
+unsafe fn vec_scale_neon(out: &mut [f32], scale: f32) {
+    use std::arch::aarch64::{vdupq_n_f32, vld1q_f32, vmulq_f32, vst1q_f32};
+    let vs = vdupq_n_f32(scale);
+    let (oc, or) = out.as_chunks_mut::<4>();
+    for ob in oc.iter_mut() {
+        vst1q_f32(ob.as_mut_ptr(), vmulq_f32(vld1q_f32(ob.as_ptr()), vs));
+    }
+    for val in or.iter_mut() {
+        *val *= scale;
+    }
+}
+
 #[inline]
 pub fn normalize_output_row(out: &mut [f32], l_i: f32) {
     if l_i > 0.0 {
         let inv_l = 1.0 / l_i;
+        #[cfg(target_arch = "x86_64")]
+        if std::arch::is_x86_feature_detected!("avx512f") {
+            unsafe { vec_scale_avx512(out, inv_l) };
+            return;
+        }
+        #[cfg(target_arch = "aarch64")]
+        if std::arch::is_aarch64_feature_detected!("neon") {
+            unsafe { vec_scale_neon(out, inv_l) };
+            return;
+        }
         for val in out.iter_mut() {
             *val *= inv_l;
         }
