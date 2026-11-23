@@ -18,7 +18,7 @@ from parallax.native.gemm_avx2 import gemm_avx2, is_avx2_gemm_available
 from parallax.native.gemm_avx512 import gemm_avx512, is_avx512_available
 from parallax.native.gemm_neon import gemm_neon, is_gemm_neon_available
 from parallax.native.layernorm import c_layernorm, is_layernorm_available
-from parallax.native.loader import lazy_bind
+from parallax.native.loader import check_int32_bounds, lazy_bind
 from parallax.native.neon_rmsnorm import is_neon_rmsnorm_available, rmsnorm_neon
 from parallax.native.rmsnorm_avx512 import is_avx512_rmsnorm_available, rmsnorm_avx512
 from parallax.native.rope import is_rope_available, rope_in_place
@@ -204,3 +204,135 @@ def select_kernel(op: str, cpu: Optional[CpuInfo] = None) -> KernelSelection:
             return KernelSelection("swiglu", "scalar_c", c_swiglu)
         return KernelSelection("swiglu", "numpy", swiglu_numpy)
     raise ValueError(f"Unsupported kernel operation: {op!r}")
+
+
+def _reject_complex(*arrays: Any) -> None:
+    if any(np.iscomplexobj(arr) for arr in arrays):
+        raise TypeError("Complex dtypes are not supported")
+
+
+def gemm(a: np.ndarray, b: np.ndarray, *, cpu: Optional[CpuInfo] = None) -> np.ndarray:
+    """Dispatch float32 2D matrix multiplication to the fastest available ISA."""
+    _reject_complex(a, b)
+    if a.ndim != 2 or b.ndim != 2 or a.shape[1] != b.shape[0]:
+        raise ValueError(f"Incompatible GEMM shapes: {a.shape} and {b.shape}")
+    m, k = a.shape
+    _, n = b.shape
+    check_int32_bounds(m, n, k, m * k, k * n, m * n, label="Matrix dimensions")
+    if m == 0 or n == 0 or k == 0:
+        return np.zeros((m, n), dtype=np.float32)
+    return np.asarray(select_kernel("gemm", cpu).fn(a, b), dtype=np.float32)
+
+
+def rmsnorm(x: np.ndarray, weight: np.ndarray, eps: float = 1e-6, *, cpu: Optional[CpuInfo] = None) -> np.ndarray:
+    """Dispatch RMSNorm along the last axis to the fastest available ISA."""
+    _reject_complex(x, weight)
+    if x.ndim == 0 or x.shape[-1] <= 0:
+        raise ValueError("x must have at least 1 dimension with positive width")
+    cols = x.shape[-1]
+    if weight.shape != (cols,):
+        raise ValueError(f"Weight shape {weight.shape} incompatible with feature dim {cols}")
+    rows = x.size // cols
+    check_int32_bounds(rows, cols, rows * cols)
+    if rows == 0:
+        return np.empty(x.shape, dtype=np.float32)
+    x_2d = np.ascontiguousarray(x, dtype=np.float32).reshape(rows, cols)
+    w_1d = np.ascontiguousarray(weight, dtype=np.float32)
+    return np.asarray(select_kernel("rmsnorm", cpu).fn(x_2d, w_1d, eps), dtype=np.float32).reshape(x.shape)
+
+
+def softmax(x: np.ndarray, axis: int = -1, *, cpu: Optional[CpuInfo] = None) -> np.ndarray:
+    """Dispatch numerically stable softmax to the fastest available ISA."""
+    _reject_complex(x)
+    if x.ndim == 0 or axis < -x.ndim or axis >= x.ndim:
+        raise ValueError(f"Invalid softmax shape={x.shape}, axis={axis}")
+    norm_axis = axis if axis >= 0 else axis + x.ndim
+    cols = x.shape[norm_axis]
+    if cols == 0:
+        raise ValueError("Cannot compute softmax along empty dimension")
+    rows = x.size // cols
+    check_int32_bounds(rows, cols, rows * cols)
+    if rows == 0:
+        return np.empty(x.shape, dtype=np.float32)
+    moved = np.moveaxis(np.asarray(x, dtype=np.float32), norm_axis, -1)
+    flat = np.ascontiguousarray(moved).reshape(rows, cols)
+    out = np.asarray(select_kernel("softmax", cpu).fn(flat), dtype=np.float32).reshape(moved.shape)
+    return np.moveaxis(out, -1, norm_axis)
+
+
+def flashattn(
+    q: np.ndarray, k: np.ndarray, v: np.ndarray,
+    scale: Optional[float] = None, is_causal: bool = False, *, cpu: Optional[CpuInfo] = None,
+) -> np.ndarray:
+    """Dispatch single-head FlashAttention forward pass to the fastest available ISA."""
+    _reject_complex(q, k, v)
+    if q.ndim != 2 or k.shape != q.shape or v.shape != q.shape:
+        raise ValueError("q, k, and v must have matching 2D shape (seq_len, head_dim)")
+    seq_len, head_dim = q.shape
+    if seq_len <= 0 or head_dim <= 0:
+        raise ValueError("seq_len and head_dim must be positive")
+    check_int32_bounds(seq_len, head_dim, seq_len * head_dim)
+    return np.asarray(select_kernel("flashattn", cpu).fn(q, k, v, scale=scale, is_causal=is_causal), dtype=np.float32)
+
+
+def layernorm(
+    x: np.ndarray, weight: Optional[np.ndarray] = None, bias: Optional[np.ndarray] = None,
+    eps: float = 1e-5, *, cpu: Optional[CpuInfo] = None,
+) -> np.ndarray:
+    """Dispatch LayerNorm along the last axis to native C or NumPy."""
+    _reject_complex(x, weight, bias)
+    if x.ndim == 0 or x.shape[-1] <= 0:
+        raise ValueError("x must have at least 1 dimension with positive width")
+    cols = x.shape[-1]
+    rows = x.size // cols
+    if weight is not None and weight.shape != (cols,):
+        raise ValueError(f"weight shape mismatch: expected ({cols},), got {weight.shape}")
+    if bias is not None and bias.shape != (cols,):
+        raise ValueError(f"bias shape mismatch: expected ({cols},), got {bias.shape}")
+    check_int32_bounds(rows, cols, rows * cols)
+    if rows == 0:
+        return np.empty(x.shape, dtype=np.float32)
+    xc = np.ascontiguousarray(x, dtype=np.float32)
+    wc = np.ascontiguousarray(weight, dtype=np.float32) if weight is not None else None
+    bc = np.ascontiguousarray(bias, dtype=np.float32) if bias is not None else None
+    return np.asarray(select_kernel("layernorm", cpu).fn(xc, weight=wc, bias=bc, eps=eps), dtype=np.float32)
+
+
+def rope(
+    x: np.ndarray, start_pos: int = 0, theta: float = 10000.0, interleaved: bool = True,
+    *, in_place: bool = False, cpu: Optional[CpuInfo] = None,
+) -> np.ndarray:
+    """Dispatch RoPE rotation on [T, H, D] tensor to native C or NumPy."""
+    _reject_complex(x)
+    if x.ndim != 3 or x.shape[-1] % 2 != 0:
+        raise ValueError("x must have shape [T, H, D] with even D")
+    t, h, d = x.shape
+    check_int32_bounds(t, h, d, t * h * d, start_pos)
+    if in_place and (x.dtype != np.float32 or not x.flags.c_contiguous):
+        raise ValueError("in_place requires a C-contiguous float32 array")
+    buf = x if in_place else np.array(x, dtype=np.float32, copy=True, order="C")
+    if t == 0 or h == 0 or d == 0:
+        return buf
+    return np.asarray(select_kernel("rope", cpu).fn(buf, start_pos, theta, interleaved), dtype=np.float32)
+
+
+def gelu(x: np.ndarray, *, cpu: Optional[CpuInfo] = None) -> np.ndarray:
+    """Dispatch fused GELU tanh approximation to native C or NumPy."""
+    _reject_complex(x)
+    check_int32_bounds(int(getattr(x, "size", 0)), label="Input size")
+    xc = np.ascontiguousarray(x, dtype=np.float32)
+    if xc.size == 0:
+        return np.empty_like(xc)
+    return np.asarray(select_kernel("gelu", cpu).fn(xc), dtype=np.float32)
+
+
+def swiglu(a: np.ndarray, b: np.ndarray, *, cpu: Optional[CpuInfo] = None) -> np.ndarray:
+    """Dispatch fused SwiGLU activation to native C or NumPy."""
+    _reject_complex(a, b)
+    if a.shape != b.shape:
+        raise ValueError(f"Shape mismatch: {a.shape} vs {b.shape}")
+    check_int32_bounds(int(a.size), label="Input size")
+    ac, bc = np.ascontiguousarray(a, dtype=np.float32), np.ascontiguousarray(b, dtype=np.float32)
+    if ac.size == 0:
+        return np.empty_like(ac)
+    return np.asarray(select_kernel("swiglu", cpu).fn(ac, bc), dtype=np.float32)
