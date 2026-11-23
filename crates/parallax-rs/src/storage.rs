@@ -88,9 +88,7 @@ impl<'a> TensorView<'a> {
         if self.data.len() != count * 4 {
             return Err(StorageError::OffsetOutOfBounds);
         }
-        Ok(unsafe {
-            std::slice::from_raw_parts(self.data.as_ptr() as *const f32, count)
-        })
+        Ok(unsafe { std::slice::from_raw_parts(self.data.as_ptr() as *const f32, count) })
     }
 }
 
@@ -114,7 +112,11 @@ impl<'a> StorageReader<'a> {
             return Err(StorageError::UnsupportedVersion);
         }
         let tensor_count = u32::from_le_bytes(data[8..12].try_into().unwrap()) as usize;
-        let reader = Self { data, tensor_count, header_offset: 16 };
+        let reader = Self {
+            data,
+            tensor_count,
+            header_offset: 16,
+        };
         reader.validate_archive()?;
         Ok(reader)
     }
@@ -129,7 +131,9 @@ impl<'a> StorageReader<'a> {
         if name_len > 256 {
             return Err(StorageError::NameTooLong);
         }
-        let end = offset.checked_add(name_len).ok_or(StorageError::OffsetOutOfBounds)?;
+        let end = offset
+            .checked_add(name_len)
+            .ok_or(StorageError::OffsetOutOfBounds)?;
         if end > self.data.len() {
             return Err(StorageError::UnexpectedEof);
         }
@@ -140,9 +144,15 @@ impl<'a> StorageReader<'a> {
 }
 
 impl<'a> StorageReader<'a> {
-    fn read_dims(&self, mut offset: usize, ndim: usize) -> Result<(Vec<usize>, usize), StorageError> {
+    fn read_dims(
+        &self,
+        mut offset: usize,
+        ndim: usize,
+    ) -> Result<(Vec<usize>, usize), StorageError> {
         let bytes_needed = ndim.checked_mul(8).ok_or(StorageError::OffsetOutOfBounds)?;
-        let end = offset.checked_add(bytes_needed).ok_or(StorageError::OffsetOutOfBounds)?;
+        let end = offset
+            .checked_add(bytes_needed)
+            .ok_or(StorageError::OffsetOutOfBounds)?;
         if end > self.data.len() {
             return Err(StorageError::UnexpectedEof);
         }
