@@ -6,25 +6,23 @@ import ctypes
 from typing import Any, Callable, Optional
 import numpy as np
 
-from parallax.native.loader import INT32_MAX, bind
+from parallax.native.loader import check_int32_bounds, get_c_lib, lazy_bind
 
+_GELU_SYM = lazy_bind(
+    "c_gelu_f32",
+    [ctypes.POINTER(ctypes.c_float), ctypes.POINTER(ctypes.c_float), ctypes.c_int],
+    None,
+)
 _GELU_FN: Optional[Callable[..., Any]] = None
-_GELU_INIT_ATTEMPTED: bool = False
+_GELU_LIB: Optional[ctypes.CDLL] = None
 
 
 def _get_gelu_fn() -> Optional[Callable[..., Any]]:
-    global _GELU_FN, _GELU_INIT_ATTEMPTED
-    if not _GELU_INIT_ATTEMPTED:
-        _GELU_FN = bind(
-            "c_gelu_f32",
-            [
-                ctypes.POINTER(ctypes.c_float),
-                ctypes.POINTER(ctypes.c_float),
-                ctypes.c_int,
-            ],
-            None,
-        )
-        _GELU_INIT_ATTEMPTED = True
+    global _GELU_FN, _GELU_LIB
+    lib = get_c_lib()
+    if lib is not _GELU_LIB:
+        _GELU_LIB = lib
+        _GELU_FN = _GELU_SYM.resolve()
     return _GELU_FN
 
 
@@ -44,8 +42,7 @@ def c_gelu(x: np.ndarray) -> np.ndarray:
     """Compute fused GELU approximation using native C kernel or NumPy."""
     if np.iscomplexobj(x):
         raise TypeError("Complex dtypes are not supported")
-    if getattr(x, "size", 0) > INT32_MAX:
-        raise ValueError(f"Input size exceeds INT32_MAX: {x.size}")
+    check_int32_bounds(int(getattr(x, "size", 0)), label="Input size")
 
     x_f32 = np.ascontiguousarray(x, dtype=np.float32)
     n = x_f32.size

@@ -4,9 +4,9 @@ import ctypes
 from typing import Optional
 import numpy as np
 
-from parallax.native.loader import INT32_MAX, bind
+from parallax.native.loader import check_int32_bounds, lazy_bind
 
-_c_layernorm = bind(
+_c_layernorm = lazy_bind(
     "c_layernorm_f32",
     [
         ctypes.POINTER(ctypes.c_float),
@@ -23,7 +23,7 @@ _c_layernorm = bind(
 
 def is_layernorm_available() -> bool:
     """Return True if native c_layernorm_f32 is bound and callable."""
-    return _c_layernorm is not None
+    return bool(_c_layernorm)
 
 
 def c_layernorm(
@@ -43,11 +43,10 @@ def c_layernorm(
         raise ValueError(f"weight shape mismatch: expected ({cols},), got {weight.shape}")
     if bias is not None and (bias.ndim != 1 or bias.shape[0] != cols):
         raise ValueError(f"bias shape mismatch: expected ({cols},), got {bias.shape}")
-    if max(rows, cols, rows * cols) > INT32_MAX:
-        raise ValueError(f"Dimensions exceed INT32_MAX: rows={rows}, cols={cols}")
+    check_int32_bounds(rows, cols, rows * cols)
     x_c = np.ascontiguousarray(x)
     out = np.empty_like(x_c)
-    if _c_layernorm is None:
+    if not _c_layernorm:
         raise RuntimeError("c_layernorm_f32 is not available")
     w_c = np.ascontiguousarray(weight, dtype=np.float32) if weight is not None else None
     b_c = np.ascontiguousarray(bias, dtype=np.float32) if bias is not None else None

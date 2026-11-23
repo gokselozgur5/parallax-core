@@ -3,9 +3,9 @@ from __future__ import annotations
 import ctypes
 import numpy as np
 
-from parallax.native.loader import INT32_MAX, bind
+from parallax.native.loader import check_int32_bounds, lazy_bind
 
-_c_rope = bind(
+_c_rope = lazy_bind(
     "c_rope_f32",
     [
         ctypes.POINTER(ctypes.c_float),
@@ -22,7 +22,7 @@ _c_rope = bind(
 
 def is_rope_available() -> bool:
     """Return True if native c_rope_f32 is bound and callable."""
-    return _c_rope is not None
+    return bool(_c_rope)
 
 
 def rope_in_place(
@@ -39,11 +39,10 @@ def rope_in_place(
     if x.dtype != np.float32:
         raise TypeError("x must be float32")
     T, H, D = x.shape
-    if max(T, H, D, T * H * D) > INT32_MAX or not (-INT32_MAX - 1 <= start_pos <= INT32_MAX):
-        raise ValueError(f"Dimensions exceed INT32_MAX: shape={x.shape}, start_pos={start_pos}")
+    check_int32_bounds(T, H, D, T * H * D, start_pos)
     if not x.flags.c_contiguous:
         raise ValueError("x must be C-contiguous")
-    if _c_rope is None:
+    if not _c_rope:
         raise RuntimeError("c_rope_f32 is not available")
 
     ptr = x.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
