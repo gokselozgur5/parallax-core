@@ -87,6 +87,24 @@ def test_ppo_policy_step_shapes_and_finite_gradients():
     np.testing.assert_allclose(grad, num_grad, rtol=1e-4, atol=1e-5)
 
 
+def test_ppo_policy_step_finite_difference_gradcheck():
+    logits = np.array(
+        [[0.4, -0.2, 0.1, 0.0], [-0.3, 0.5, 0.2, -0.1], [2.0, -1.0, -1.0, -1.0]],
+        dtype=np.float64,
+    )
+    actions = np.array([0, 2, 0])
+    old_lp = np.array([-1.1, -1.3, -2.0], dtype=np.float64)
+    advantages = np.array([2.0, -1.5, 3.0], dtype=np.float64)
+
+    _, grad = ppo_policy_step(logits, actions, old_lp, advantages, clip_eps=0.2)
+    num_grad = _ppo_finite_diff_grad(logits, actions, old_lp, advantages, clip_eps=0.2)
+
+    assert grad[0, 0] < 0.0
+    assert grad[1, 2] > 0.0
+    np.testing.assert_allclose(grad[2], 0.0, atol=1e-12)
+    np.testing.assert_allclose(grad, num_grad, rtol=1e-6, atol=1e-7)
+
+
 def test_compute_gae_keeps_float64_precision():
     rewards = np.array([1.0, 2.0], dtype=np.float64)
     values = np.array([0.5, 1.0, 2.0], dtype=np.float64)
