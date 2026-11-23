@@ -14,6 +14,42 @@ def stabilize_epsilon(eps: float, min_eps: float = 1e-12) -> float:
     return max(float(eps), min_eps)
 
 
+def _coerce_norm_shape(normalized_shape: Union[int, Tuple[int, ...]]) -> Tuple[int, ...]:
+    """Normalize shape specification into a validated tuple of dimensions."""
+    if isinstance(normalized_shape, (int, np.integer)) and not isinstance(normalized_shape, bool):
+        shape = (int(normalized_shape),)
+    else:
+        shape = tuple(int(d) for d in normalized_shape)
+    if not shape or any(d < 0 for d in shape):
+        raise ValueError(f"Invalid normalized_shape: {normalized_shape!r}")
+    return shape
+
+
+def _resolve_norm_shape(
+    x: np.ndarray,
+    normalized_shape: Optional[Union[int, Tuple[int, ...]]],
+    weight: Optional[np.ndarray],
+    bias: Optional[np.ndarray],
+) -> Tuple[int, ...]:
+    """Resolve and validate trailing normalized dimensions against input and affine params."""
+    if normalized_shape is not None:
+        shape = _coerce_norm_shape(normalized_shape)
+    elif weight is not None:
+        shape = tuple(int(d) for d in weight.shape)
+    elif bias is not None:
+        shape = tuple(int(d) for d in bias.shape)
+    else:
+        if x.ndim < 1:
+            raise ValueError("Expected at least 1D input for LayerNorm")
+        shape = (int(x.shape[-1]),)
+    k = len(shape)
+    if any(d <= 0 for d in shape) or x.ndim < k or x.shape[-k:] != shape:
+        raise ValueError(f"Expected trailing shape {shape}, got input shape {x.shape}")
+    if (weight is not None and weight.shape != shape) or (bias is not None and bias.shape != shape):
+        raise ValueError(f"Affine parameter shape must match normalized_shape {shape}")
+    return shape
+
+
 def _dispatch_layernorm(
     x: np.ndarray,
     weight: Optional[np.ndarray],
