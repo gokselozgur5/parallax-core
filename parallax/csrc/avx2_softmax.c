@@ -1,26 +1,9 @@
-#include <stddef.h>
+#include "parallax_simd.h"
 #include <math.h>
 
-#ifndef PARALLAX_STATUS_OK
-#define PARALLAX_STATUS_OK 0
-#define PARALLAX_STATUS_NULL_POINTER (-1)
-#define PARALLAX_STATUS_INVALID_DIMENSION (-2)
-#define PARALLAX_STATUS_UNSUPPORTED_ISA (-5)
-#endif
-
-#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
-#define PARALLAX_NO_AVX_TARGET __attribute__((noinline, target("no-avx,no-fma")))
-#else
-#define PARALLAX_NO_AVX_TARGET
-#endif
-
-PARALLAX_NO_AVX_TARGET
+PARALLAX_SCALAR_TARGET
 int c_has_avx2_softmax(void) {
-#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
-    return __builtin_cpu_supports("avx2") && __builtin_cpu_supports("fma");
-#else
-    return 0;
-#endif
+    return PARALLAX_HAS_AVX2_ISA();
 }
 
 #if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
@@ -45,7 +28,7 @@ static void softmax_avx2_kernel(const float *input, float *output, int rows, int
             }
             float tmp[8];
             _mm256_storeu_ps(tmp, max_vec);
-            for (int k = 0; k < 8; ++k) {
+            for (size_t k = 0; k < 8; ++k) {
                 if (tmp[k] > max_val) max_val = tmp[k];
             }
         }
@@ -74,7 +57,7 @@ static void softmax_avx2_kernel(const float *input, float *output, int rows, int
 }
 #endif
 
-PARALLAX_NO_AVX_TARGET
+PARALLAX_SCALAR_TARGET
 int c_softmax_avx2_f32(const float *input, float *output, int rows, int cols) {
     if (!input || !output) return PARALLAX_STATUS_NULL_POINTER;
     if (rows <= 0 || cols <= 0) return PARALLAX_STATUS_INVALID_DIMENSION;
