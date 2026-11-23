@@ -97,7 +97,9 @@ def test_issue_270_weight_delegation_unwrap_and_merge_and_unload():
 def test_issue_274_xlora_gate_gradient_and_dx_backward():
     np.random.seed(1337)
     layer = XLoRALinear(in_features=6, out_features=8, num_adapters=3, rank=2, alpha=4.0)
-    layer.lora_B = [np.random.randn(*b.shape).astype(np.float32) * 0.1 for b in layer.lora_B]
+    layer.lora_A = [np.random.randn(*a.shape).astype(np.float32) * 0.5 for a in layer.lora_A]
+    layer.lora_B = [np.random.randn(*b.shape).astype(np.float32) * 0.5 for b in layer.lora_B]
+    layer.gate_weight = np.random.randn(*layer.gate_weight.shape).astype(np.float32) * 1.0
 
     x = np.random.randn(4, 6).astype(np.float32)
     grad_out = np.random.randn(4, 8).astype(np.float32)
@@ -110,21 +112,22 @@ def test_issue_274_xlora_gate_gradient_and_dx_backward():
     assert not np.isnan(d_gate).any()
     assert not np.isnan(dx).any()
 
-    # Numerical verification of gate gradient (eps=5e-3 suitable for float32 precision)
-    eps = 5e-3
+    # Numerical verification of gate gradient (float64 accumulation avoids f32 cancellation)
+    eps = 1e-3
     d_gate_num = np.zeros_like(layer.gate_weight)
     for r in range(layer.gate_weight.shape[0]):
         for c in range(layer.gate_weight.shape[1]):
-            layer.gate_weight[r, c] += eps
+            orig = layer.gate_weight[r, c]
+            layer.gate_weight[r, c] = orig + eps
             y_p, _ = layer.forward(x)
-            layer.gate_weight[r, c] -= 2 * eps
+            layer.gate_weight[r, c] = orig - eps
             y_m, _ = layer.forward(x)
-            layer.gate_weight[r, c] += eps
-            d_gate_num[r, c] = np.sum((y_p - y_m) * grad_out) / (2 * eps)
+            layer.gate_weight[r, c] = orig
+            d_gate_num[r, c] = np.sum((y_p.astype(np.float64) - y_m.astype(np.float64)) * grad_out) / (2 * eps)
 
-    np.testing.assert_allclose(d_gate, d_gate_num, rtol=1e-2, atol=1e-3)
+    np.testing.assert_allclose(d_gate, d_gate_num, rtol=1e-3, atol=5e-4)
 
-    # Numerical verification of dx
+    # Numerical verification of full dx where gate term has O(1) magnitude
     dx_num = np.zeros_like(x)
     for r in range(x.shape[0]):
         for c in range(x.shape[1]):
@@ -134,10 +137,9 @@ def test_issue_274_xlora_gate_gradient_and_dx_backward():
             x_m[r, c] -= eps
             y_p, _ = layer.forward(x_p)
             y_m, _ = layer.forward(x_m)
-            dx_num[r, c] = np.sum((y_p - y_m) * grad_out) / (2 * eps)
+            dx_num[r, c] = np.sum((y_p.astype(np.float64) - y_m.astype(np.float64)) * grad_out) / (2 * eps)
 
-    np.testing.assert_allclose(dx, dx_num, rtol=1e-3, atol=1e-3)
-
+    np.testing.assert_allclose(dx, dx_num, rtol=1e-3, atol=5e-4)
 
 def test_issue_275_dora_dx_backward():
     np.random.seed(2026)
