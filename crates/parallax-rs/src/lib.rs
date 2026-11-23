@@ -137,7 +137,8 @@ pub unsafe extern "C" fn parallax_gemm_f32(
             Ok(()) => STATUS_OK,
             Err(_) => STATUS_INVALID_DIMENSION,
         }
-    })).unwrap_or(STATUS_INVALID_DIMENSION)
+    }))
+    .unwrap_or(STATUS_INVALID_DIMENSION)
 }
 /// C-ABI export for in-place Softmax along last dimension.
 ///
@@ -155,19 +156,31 @@ pub unsafe extern "C" fn parallax_gemm_f32(
 /// 0 on success, negative status code on error.
 #[no_mangle]
 pub unsafe extern "C" fn parallax_softmax_f32(
-    data_ptr: *mut f32, data_len: usize, rows: usize, cols: usize,
+    data_ptr: *mut f32,
+    data_len: usize,
+    rows: usize,
+    cols: usize,
 ) -> i32 {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        if data_ptr.is_null() { return STATUS_NULL_POINTER; }
-        if !is_aligned_f32(data_ptr) { return STATUS_UNALIGNED_POINTER; }
-        let Some(req) = rows.checked_mul(cols) else { return STATUS_INVALID_DIMENSION; };
-        if data_len != req { return STATUS_INVALID_DIMENSION; }
+        if data_ptr.is_null() {
+            return STATUS_NULL_POINTER;
+        }
+        if !is_aligned_f32(data_ptr) {
+            return STATUS_UNALIGNED_POINTER;
+        }
+        let Some(req) = rows.checked_mul(cols) else {
+            return STATUS_INVALID_DIMENSION;
+        };
+        if data_len != req {
+            return STATUS_INVALID_DIMENSION;
+        }
         let data = slice::from_raw_parts_mut(data_ptr, data_len);
         match tensor::softmax_2d(data, rows, cols) {
             Ok(()) => STATUS_OK,
             Err(_) => STATUS_INVALID_DIMENSION,
         }
-    })).unwrap_or(STATUS_INVALID_DIMENSION)
+    }))
+    .unwrap_or(STATUS_INVALID_DIMENSION)
 }
 /// C-ABI export for looking up a single BPE merge rule via binary search.
 ///
