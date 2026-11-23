@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from python.parallax.dispatch.rope import precompute_freqs
+from parallax.dispatch.rope import precompute_freqs
 
 
 def test_precompute_freqs_shape_and_values() -> None:
@@ -23,7 +23,7 @@ def test_precompute_freqs_validation() -> None:
 
 
 def test_precompute_freqs_cis() -> None:
-    from python.parallax.dispatch.rope import precompute_freqs_cis
+    from parallax.dispatch.rope import precompute_freqs_cis
 
     cis = precompute_freqs_cis(dim=8, max_seq_len=16, theta=10000.0)
     assert cis.shape == (16, 4)
@@ -33,7 +33,7 @@ def test_precompute_freqs_cis() -> None:
 
 
 def test_rotate_half() -> None:
-    from python.parallax.dispatch.rope import rotate_half
+    from parallax.dispatch.rope import rotate_half
 
     x = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
     out_non = rotate_half(x, interleaved=False)
@@ -44,7 +44,7 @@ def test_rotate_half() -> None:
 
 
 def test_apply_rotary_emb_identity_at_pos0() -> None:
-    from python.parallax.dispatch.rope import apply_rotary_emb, precompute_freqs
+    from parallax.dispatch.rope import apply_rotary_emb, precompute_freqs
 
     cos, sin = precompute_freqs(dim=4, max_seq_len=8)
     x = np.array([[[1.0, 2.0, 3.0, 4.0]]], dtype=np.float32)
@@ -57,7 +57,7 @@ def test_apply_rotary_emb_identity_at_pos0() -> None:
 
 def test_apply_rotary_emb_parity_with_reference() -> None:
     from parallax.attention import apply_rope
-    from python.parallax.dispatch.rope import apply_rotary_emb, precompute_freqs
+    from parallax.dispatch.rope import apply_rotary_emb, precompute_freqs
 
     rng = np.random.default_rng(42)
     x = rng.standard_normal((8, 2, 16)).astype(np.float32)
@@ -72,7 +72,7 @@ def test_apply_rotary_emb_parity_with_reference() -> None:
 
 
 def test_rope_frequency_table_and_slice() -> None:
-    from python.parallax.dispatch.rope import RoPEFrequencyTable
+    from parallax.dispatch.rope import RoPEFrequencyTable
 
     table = RoPEFrequencyTable(dim=16, max_seq_len=64)
     c, s = table.get_slice(seq_len=8, offset=4)
@@ -86,7 +86,7 @@ def test_rope_frequency_table_and_slice() -> None:
 
 
 def test_dispatch_rope() -> None:
-    from python.parallax.dispatch.rope import dispatch_rope
+    from parallax.dispatch.rope import dispatch_rope
 
     x = np.ones((4, 2, 8), dtype=np.float32)
     out = dispatch_rope(x, start_pos=0, interleaved=True)
@@ -96,7 +96,7 @@ def test_dispatch_rope() -> None:
 
 def test_package_exports() -> None:
     import parallax.dispatch as pd
-    import python.parallax.dispatch as ppd
+    import parallax.dispatch as ppd
 
     for mod in (pd, ppd):
         assert hasattr(mod, "RoPEFrequencyTable")

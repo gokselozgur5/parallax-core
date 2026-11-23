@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 
 from parallax.tensor import Tensor
-from python.parallax.dispatch.rope import apply_rotary_emb, precompute_freqs
-from python.parallax.dispatch.rope_backward import (
+from parallax.dispatch.rope import apply_rotary_emb, precompute_freqs
+from parallax.dispatch.rope_backward import (
     DispatchedRoPEBackward,
     dispatched_rope,
     rope_backward,
@@ -97,7 +97,7 @@ def test_dispatched_rope_backward_container() -> None:
 
 def test_rope_backward_exports() -> None:
     import importlib
-    rb = importlib.import_module("python.parallax.dispatch.rope_backward")
+    rb = importlib.import_module("parallax.dispatch.rope_backward")
     for sym in (
         "DispatchedRoPEBackward",
         "dispatched_rope",
