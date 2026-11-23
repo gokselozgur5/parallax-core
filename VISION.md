@@ -84,29 +84,29 @@ flowchart TD
    - **INT4 Groupwise Affine Quantization:** 4-bit nibble packing (`pack_int4`, `unpack_int4`) delivering 5.33x memory compression in `Linear4Bit`.
    - **FP8 (E4M3 / E5M2):** Block-level micro-scaling matrix multiplication.
 
-6. **Bare-Metal Compute Çekirdekleri (C, Rust & Apple Metal JIT):**
-   - **C-Engine (`parallax/c_engine.py` & `csrc/`):** C ile yazılmış, `ctypes` üzerinden bağlanan `c_gemm_f32`, `c_softmax_f32` ve `c_rmsnorm_f32` (RMSNorm'da NumPy'a karşı **2.57x hızlanma**).
-   - **Rust C-ABI Engine (`crates/parallax-rs/`):** `libparallax_rs.dylib` üzerinden sıfır kopyalı (zero-copy) bellek erişimi ve SIMD matris çarpımı.
-   - **Apple Silicon Metal GPU JIT (`parallax/metal_engine.py`):** macOS Objective-C runtime üzerinden Metal Shading Language (MSL) shader'larını anında derleyip GPU'da koşturan JIT altyapısı (Büyük matrislerde **1.16x GPU hızlanması**).
+6. **Bare-Metal Compute Acceleration (C, Rust, and Apple Metal JIT):**
+   - **C-Engine (`parallax/c_engine.py` & `csrc/`):** Native C library loaded via `ctypes` providing `c_gemm_f32`, `c_softmax_f32`, and `c_rmsnorm_f32` (up to 2.08x speedup on RMSNorm over NumPy CPU).
+   - **Rust C-ABI Engine (`crates/parallax-rs/`):** Zero-copy memory access and SIMD matrix operations via `libparallax_rs.dylib`.
+   - **Apple Silicon Metal GPU JIT (`parallax/metal_engine.py`):** On-the-fly compilation of Metal Shading Language (MSL) compute shaders executed via Objective-C runtime (peak throughput of 0.15x relative to NumPy CPU BLAS baselines).
 
-7. **KV-Cache Budama & Spekülatif Çıkarım (H2O & Eagle-2):**
-   - **H2O Heavy-Hitter Cache Pruner (`parallax/kv_cache_pruner.py`):** Attention Sinks (ilk 4 token), Local Window (son 16 token) ve kümülatif dikkat skoruna göre seçilen Heavy Hitters ile sabit bütçeli KV cache.
-   - **Eagle-2 Tree Drafting v2 (`parallax/tree_drafting_v2.py`):** Vektörize ağaç topolojisi, dinamik ata matrisi (`ancestor_matrix`) ve ağaç dikkat maskesi ile spekülatif doğrulama.
+7. **KV-Cache Pruning and Speculative Decoding (H2O & Eagle-2):**
+   - **H2O Heavy-Hitter Cache Pruner (`parallax/kv_cache_pruner.py`):** Fixed-budget cache retaining Attention Sinks (first 4 tokens), Local Window (recent 16 tokens), and cumulative attention Heavy Hitters.
+   - **Eagle-2 Tree Drafting v2 (`parallax/tree_drafting_v2.py`):** Vectorized tree topology, dynamic ancestor matrix, and tree attention masks for speculative candidate verification.
 
-8. **Optimizasyon & Adaptasyon:**
-   - **Muon Optimizer:** Newton-Schulz matris polar ayrışımıyla modern matris optimizasyonu.
-   - **Q-GaLore:** Düşük rank'li gradyan projeksiyonu ve INT8 simetrik gradyan kuantizasyonu (optimizer RAM tasarrufu).
-   - **MoE & Expert Choice Routing (ECR):** Token'ların uzman seçmesi yerine uzmanların token seçtiği dengeli yönlendirme.
-   - **LoRA, DoRA, X-LoRA:** Ağırlık ayrıştırmalı ve kapılı adaptörler.
+8. **Optimization and Fine-Tuning Adapters:**
+   - **Muon Optimizer:** Matrix optimization via Newton-Schulz polar decomposition.
+   - **Q-GaLore:** Low-rank gradient projection with INT8 symmetric gradient quantization.
+   - **MoE & Expert Choice Routing (ECR):** Balanced token dispatch where experts select top tokens.
+   - **LoRA, DoRA, X-LoRA:** Parameter-efficient adapters with weight decomposition and dynamic gating.
 
-9. **Hizalama & Pekiştirmeli Öğrenme (RL & Preference Alignment):**
-   - Reward Model, DPO (Direct Preference Optimization), KTO, ORPO, SimPO ve IPO.
-   - Uçtan uca tercih eğitim scripti (`scripts/train_dpo_preference.py`).
+9. **Alignment and Reinforcement Learning:**
+   - Reward Model, DPO (Direct Preference Optimization), KTO, ORPO, SimPO, and IPO.
+   - End-to-end preference alignment training pipeline (`scripts/train_dpo_preference.py`).
 
-10. **Açık Kaynak Dağıtım & Gözlemlenebilirlik (Parallax Studio):**
-    - Zero-dependency GGUF v2/v3 okuyucu ve ihracatçısı (`parallax/gguf.py`, `gguf_exporter.py`).
-    - SafeTensors ayrıştırıcı (`parallax/safetensors.py`).
-    - Parallax Studio (`demo/studio_server.py`) ve Eagle-2 Görselleştirici (`parallax/visualizer_server.py`).
+10. **Open Formats and Observability (Parallax Studio):**
+    - Zero-dependency GGUF v2/v3 parser and exporter (`parallax/gguf.py`, `gguf_exporter.py`).
+    - SafeTensors parser (`parallax/safetensors.py`).
+    - Parallax Studio (`demo/studio_server.py`) and Eagle-2 Visualizer (`parallax/visualizer_server.py`).
 
 ---
 
