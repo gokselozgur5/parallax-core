@@ -105,10 +105,7 @@ fn test_parallax_quant_and_backend_null_alignment() {
             parallax_get_device_type(0, std::ptr::null_mut()),
             STATUS_NULL_POINTER
         );
-        assert_eq!(
-            parallax_get_device_type(0, &mut out_dev),
-            STATUS_OK
-        );
+        assert_eq!(parallax_get_device_type(0, &mut out_dev), STATUS_OK);
         assert_eq!(out_dev, DEVICE_TYPE_CPU);
 
         assert_eq!(
