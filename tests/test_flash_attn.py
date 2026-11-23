@@ -220,3 +220,18 @@ def test_flash_attn_scale_correction_requires_multikey():
     assert match is not None, "test_flash_attn_f16_scale_correction_equivalence not found"
     seq_lens = [int(s) for s in re.findall(r"flash_attn\([^)]*,\s*(\d+)\s*,\s*\d+\s*,", match.group(1))]
     assert seq_lens and all(s >= 2 for s in seq_lens), f"equivalence test must use seq_len >= 2, got {seq_lens}"
+
+
+def test_rust_flash_attn_implements_simd_and_f16_overflow_guard():
+    """Verify Rust flash_attn implements std::arch AVX-512/NEON SIMD and IEEE-754 F16 protection."""
+    from pathlib import Path
+
+    rs_path = Path(__file__).resolve().parent.parent / "crates" / "parallax-rs" / "src" / "flash_attn.rs"
+    src = rs_path.read_text(encoding="utf-8")
+    assert "std::arch::x86_64" in src and 'enable = "avx512f"' in src
+    assert "std::arch::aarch64" in src and 'enable = "neon"' in src
+    assert "pub struct F16(pub u16)" in src
+    assert "pub fn from_f32_saturating" in src
+    assert "pub fn flash_attn_f16(" in src
+    assert "dot_product_f16_prescaled" in src
+
