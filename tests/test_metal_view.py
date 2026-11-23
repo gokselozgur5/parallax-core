@@ -37,5 +37,6 @@ def test_wrap_buffer_mutation_reflected() -> None:
 def test_wrap_buffer_unaligned_copy() -> None:
     unaligned = np.ones((5,), dtype=np.float32)
     view = wrap_buffer(unaligned)
-    assert np.all(view.as_numpy()[:5] == 1.0)
+    assert view.as_numpy().shape == unaligned.shape
+    assert np.all(view.as_numpy() == 1.0)
     view.release()
