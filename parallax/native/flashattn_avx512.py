@@ -5,39 +5,23 @@ from __future__ import annotations
 import ctypes
 from typing import Any, Callable, Optional
 import numpy as np
-from parallax.native.loader import INT32_MAX, bind
+from parallax.native.loader import check_int32_bounds, lazy_bind
 
-_FN_FLASHATTN_AVX512: Optional[Callable[..., Any]] = None
-_FN_HAS_AVX512_FLASHATTN: Optional[Callable[..., Any]] = None
+_FN_FLASHATTN_AVX512 = lazy_bind(
+    "c_flashattn_avx512_f32",
+    [ctypes.c_void_p] * 4 + [ctypes.c_int, ctypes.c_int, ctypes.c_float, ctypes.c_int],
+    ctypes.c_int,
+)
+_FN_HAS_AVX512_FLASHATTN = lazy_bind("c_has_avx512_flashattn_f32", [], ctypes.c_int)
 
 
 def _get_flashattn_avx512_fn() -> Optional[Callable[..., Any]]:
-    global _FN_FLASHATTN_AVX512
-    if _FN_FLASHATTN_AVX512 is None:
-        args = [
-            ctypes.c_void_p,
-            ctypes.c_void_p,
-            ctypes.c_void_p,
-            ctypes.c_void_p,
-            ctypes.c_int,
-            ctypes.c_int,
-            ctypes.c_float,
-            ctypes.c_int,
-        ]
-        _FN_FLASHATTN_AVX512 = bind("c_flashattn_avx512_f32", args, ctypes.c_int)
-    return _FN_FLASHATTN_AVX512
+    return _FN_FLASHATTN_AVX512.resolve()
 
 
 def is_avx512_flashattn_available() -> bool:
     """Return True if AVX-512 FlashAttention is supported by CPU."""
-    global _FN_HAS_AVX512_FLASHATTN
-    if _FN_HAS_AVX512_FLASHATTN is None:
-        _FN_HAS_AVX512_FLASHATTN = bind(
-            "c_has_avx512_flashattn_f32", [], ctypes.c_int
-        )
-    if _FN_HAS_AVX512_FLASHATTN is None:
-        return False
-    return bool(_FN_HAS_AVX512_FLASHATTN() != 0)
+    return bool(_FN_HAS_AVX512_FLASHATTN and _FN_HAS_AVX512_FLASHATTN() != 0)
 
 
 def _validate_inputs(q: np.ndarray, k: np.ndarray, v: np.ndarray):
@@ -46,8 +30,7 @@ def _validate_inputs(q: np.ndarray, k: np.ndarray, v: np.ndarray):
     seq_len, head_dim = q.shape
     if k.shape != (seq_len, head_dim) or v.shape != (seq_len, head_dim):
         raise ValueError("q, k, and v shapes must match (seq_len, head_dim)")
-    if max(seq_len, head_dim, seq_len * head_dim) > INT32_MAX:
-        raise ValueError(f"Dimensions exceed INT32_MAX: seq_len={seq_len}, head_dim={head_dim}")
+    check_int32_bounds(seq_len, head_dim, seq_len * head_dim)
     return seq_len, head_dim
 
 
