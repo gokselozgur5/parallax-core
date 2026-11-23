@@ -308,6 +308,27 @@ pub fn validate_attention_dims(
     Ok(())
 }
 
+#[inline]
+pub fn dot_product_f16_prescaled(q: &[f32], k: &[f32], q_scale: f32, k_scale: f32) -> f32 {
+    let n = q.len().min(k.len());
+    let (mut sum, mut offset) = (0.0f32, 0usize);
+    let (mut q_tile, mut k_tile) = ([0.0f32; 16], [0.0f32; 16]);
+    while offset < n {
+        let len = (n - offset).min(16);
+        for ((qt, &qi), (kt, &ki)) in q_tile[..len]
+            .iter_mut()
+            .zip(&q[offset..offset + len])
+            .zip(k_tile[..len].iter_mut().zip(&k[offset..offset + len]))
+        {
+            *qt = F16::from_f32_saturating(qi * q_scale).to_f32();
+            *kt = F16::from_f32_saturating(ki * k_scale).to_f32();
+        }
+        sum += dot_product_scaled(&q_tile[..len], &k_tile[..len], 1.0, 1.0);
+        offset += len;
+    }
+    sum
+}
+
 pub fn flash_attn_forward_kernel(
     q: &[f32],
     k: &[f32],
@@ -328,7 +349,11 @@ pub fn flash_attn_forward_kernel(
         for j in 0..max_j {
             let kj = &k[j * head_dim..(j + 1) * head_dim];
             let vj = &v[j * head_dim..(j + 1) * head_dim];
-            let s = dot_product_scaled(qi, kj, q_scale, k_scale);
+            let s = if config.f16_scale_correction {
+                dot_product_f16_prescaled(qi, kj, q_scale, k_scale)
+            } else {
+                dot_product_scaled(qi, kj, q_scale, k_scale)
+            };
             update_kv_step(oi, vj, s, &mut m_i, &mut l_i);
         }
         normalize_output_row(oi, l_i);
