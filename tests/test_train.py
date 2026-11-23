@@ -1,9 +1,24 @@
+import math
 import numpy as np
 from parallax.generator import CharTokenizer, generate
+from parallax.gradcheck import check_tensor_gradient
 from parallax.loss import cross_entropy_loss
 from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
 from parallax.optim import AdamW
 from parallax.tensor import Tensor
+
+
+def _reference_ce(rows: np.ndarray, targets: np.ndarray) -> tuple[float, np.ndarray]:
+    losses, grads = [], []
+    n = len(targets)
+    for row, target in zip(rows.tolist(), targets.tolist()):
+        m = max(row)
+        exps = [math.exp(v - m) for v in row]
+        z = sum(exps)
+        probs = [e / z for e in exps]
+        losses.append(-(row[target] - m - math.log(z)))
+        grads.append([(p - (1.0 if j == target else 0.0)) / n for j, p in enumerate(probs)])
+    return sum(losses) / n, np.array(grads, dtype=np.float64)
 
 
 def test_cross_entropy_loss_and_backward():
@@ -21,6 +36,14 @@ def test_cross_entropy_loss_and_backward():
     # Sum of gradients per row must be zero for softmax cross-entropy
     row_sums = np.sum(logits.grad, axis=-1)
     assert np.allclose(row_sums, [0.0, 0.0], atol=1e-5)
+
+    expected_loss, expected_grad = _reference_ce(logits.data, targets)
+    assert math.isclose(float(loss.data), expected_loss, rel_tol=1e-12, abs_tol=1e-12)
+    assert np.allclose(logits.grad, expected_grad, rtol=1e-12, atol=1e-12)
+    assert (
+        check_tensor_gradient(lambda x: cross_entropy_loss(x, targets), [logits], eps=1e-5, tol=1e-5)
+        is True
+    )
 
 
 def test_adamw_step_decreases_loss():
