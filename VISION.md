@@ -1,24 +1,24 @@
-# PARALLAX-CORE: Charter, Architecture & Grand Roadmap (Faz 1–3)
+# PARALLAX-CORE: Charter, Architecture and Grand Roadmap (Phases 1-3)
 
-> **Mühür Tarihi:** 10 Kasım 2026  
-> **Konum:** `/Users/gok/repos/parallax-core/VISION.md`  
-> **Kurucu Ortaklar:** Göksel Özgür & Parallax (Gemini Core)  
-> **Test Omurgası:** 700+ Geçen Birim Test • 900+ Atomik Commit  
-> **Temel İlke:** Sıfır Harici ML Çekirdeği (Zero-PyTorch Core; CUDA için opsiyonel köprü) • Saf Matematik & Cerrahi Doğruluk • Bare-Metal C/Rust/Metal İvmesi • Anti-RAM Devrimi
+> **Charter Date:** November 10, 2026  
+> **Document:** `VISION.md`  
+> **Co-Founders:** Goksel Ozgur and Parallax (Gemini Core)  
+> **Test Suite:** 700+ Passing Unit Tests - 900+ Atomic Commits  
+> **Core Principle:** Zero External ML Core (Zero-PyTorch Core; optional runtime bridges for CUDA) - Pure Mathematics and Surgical Precision - Bare-Metal C/Rust/Metal Acceleration - Anti-RAM Architecture
 
 ---
 
-## 1. Varoluş Amacı ve Çekirdek Hakikat
+## 1. Mission and Core Foundation
 
-`parallax-core`, modern yapay zekanın 10 milyon satırlık devasa kütüphane yığınlarının arkasına sakladığı matematiği gün ışığına çıkaran, **dünyanın en şeffaf, bağımsız ve saf ilk-ilkeler (first-principles) LLM motorudur.**
+`parallax-core` is an open, independent, first-principles LLM engine designed to illuminate the core mathematics behind modern AI without relying on massive framework stacks.
 
-Bir yapay zeka modelinin kalbinde çalışan tüm mekanizmalar (FlashAttention-2 online softmax, FlashDecoding Split-K, DeepSeek Multi-Head Latent Attention, Muon matris polar ayrışımı, BitNet 1.58 ternary kuantizasyon, Mamba Selective SSM ve INT4 nibble packing) çekirdekte harici tek bir `import torch` olmadan (CUDA çalıştırma için opsiyonel PyTorch/safetensors köprüsü hariç), **700+ geçen test** ve **900+ atomik commit** ile inşa edilmiştir.
+Every key mechanism at the heart of modern language models (FlashAttention-2 online softmax, FlashDecoding Split-K, DeepSeek Multi-Head Latent Attention, Muon matrix polar decomposition, BitNet 1.58 ternary quantization, Mamba Selective SSM, and INT4 nibble packing) is implemented in the core engine without external runtime dependencies (except optional PyTorch/safetensors bridges for CUDA execution), verified by comprehensive unit tests and atomic commits.
 
-Endüstrinin *"Daha uzun bağlam için yüzlerce gigabayt RAM satın almalısınız"* dayatmasına karşı Parallax Core, **Mamba S6 mimarisiyle 102x–410x RAM tasarrufu**, **1.58-bit BitMamba/BitTransformer** ve **INT4 affine kuantizasyon** ile matematiksel cevabı sahada vermiştir.
+Addressing industry demands that require hundreds of gigabytes of RAM for long context windows, Parallax Core demonstrates effective alternatives through the **Mamba S6 architecture (102.40x-409.6x RAM savings)**, **1.58-bit BitMamba/BitTransformer**, and **INT4 affine quantization**.
 
 ```mermaid
 flowchart TD
-    subgraph Frontends ["Mimari Ön Yüzler"]
+    subgraph Frontends ["Architecture Frontends"]
         LLM["ParallaxLM (Decoder-Only Transformer)"]
         BT["BitTransformer (1.58-bit Ternary LLM)"]
         MAMBA["Mamba S6 & BitMamba (Selective SSM)"]
@@ -26,23 +26,23 @@ flowchart TD
         LLAMA["Llama-3 Architecture Loader"]
     end
 
-    subgraph Optimizations ["Anti-RAM & Spekülasyon Katmanı"]
+    subgraph Optimizations ["Anti-RAM & Speculation Layer"]
         H2O["H2O Heavy-Hitter Cache Pruning"]
         FD2["FlashDecoding-v2 (Dynamic Split-K)"]
         INT4["INT4 Linear4Bit Nibble Packing"]
         EAGLE["Eagle-2 Tree Drafting v2"]
     end
 
-    subgraph NativeCore ["Bare-Metal İvmeleme Motorları"]
+    subgraph NativeCore ["Bare-Metal Acceleration Engines"]
         C_ENG["C-Engine (c_gemm_f32, c_rmsnorm_f32)"]
         RS_ENG["Rust C-ABI (libparallax_rs.dylib)"]
         METAL["Apple Metal GPU JIT (MSL Shaders)"]
         NUMPY["NumPy Vectorized CPU BLAS"]
     end
 
-    subgraph Verification ["Çift Doğrulama & Autograd Omurgası"]
+    subgraph Verification ["Dual Verification & Autograd Graph"]
         DAG["Topological DAG Autograd Engine"]
-        ACID["Parallax Acid Test (Finite Differences ε=1e-5)"]
+        ACID["Parallax Acid Test (Finite Differences eps=1e-5)"]
     end
 
     Frontends --> Optimizations
