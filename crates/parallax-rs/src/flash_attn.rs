@@ -587,8 +587,30 @@ mod tests {
             .collect();
         let v: Vec<f32> = (0..seq_len * d).map(|i| (i as f32) * 0.1).collect();
         let (mut out_std, mut out_corr) = (vec![0.0f32; seq_len * d], vec![0.0f32; seq_len * d]);
-        assert_eq!(flash_attn(&q, &k, &v, &mut out_std, seq_len, d, FlashAttnConfig::new(d, false, false)), Ok(()));
-        assert_eq!(flash_attn(&q, &k, &v, &mut out_corr, seq_len, d, FlashAttnConfig::new(d, false, true)), Ok(()));
+        assert_eq!(
+            flash_attn(
+                &q,
+                &k,
+                &v,
+                &mut out_std,
+                seq_len,
+                d,
+                FlashAttnConfig::new(d, false, false)
+            ),
+            Ok(())
+        );
+        assert_eq!(
+            flash_attn(
+                &q,
+                &k,
+                &v,
+                &mut out_corr,
+                seq_len,
+                d,
+                FlashAttnConfig::new(d, false, true)
+            ),
+            Ok(())
+        );
         for (&a, &b) in out_std.iter().zip(out_corr.iter()) {
             assert!((a - b).abs() < 2e-3);
         }
