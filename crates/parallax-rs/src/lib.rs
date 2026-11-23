@@ -532,13 +532,27 @@ fn test_flash_attn_f32_rejects_slice_over_isize_max() {
     let mut out = [0.0f32; 2];
     unsafe {
         let status_u64_wrap = parallax_flash_attn_f32(
-            q.as_ptr(), k.as_ptr(), v.as_ptr(), out.as_mut_ptr(),
-            1usize << 33, 1usize << 29, 0.5, 0, 0,
+            q.as_ptr(),
+            k.as_ptr(),
+            v.as_ptr(),
+            out.as_mut_ptr(),
+            1usize << 33,
+            1usize << 29,
+            0.5,
+            0,
+            0,
         );
         assert_eq!(status_u64_wrap, STATUS_INVALID_DIMENSION);
         let status_isize_edge = parallax_flash_attn_f32(
-            q.as_ptr(), k.as_ptr(), v.as_ptr(), out.as_mut_ptr(),
-            1usize << 32, 1usize << 29, 0.5, 0, 0,
+            q.as_ptr(),
+            k.as_ptr(),
+            v.as_ptr(),
+            out.as_mut_ptr(),
+            1usize << 32,
+            1usize << 29,
+            0.5,
+            0,
+            0,
         );
         assert_eq!(status_isize_edge, STATUS_INVALID_DIMENSION);
     }
@@ -552,7 +566,10 @@ fn test_flash_attn_f32_rejects_slice_over_isize_max() {
 /// `out_bucket` must be a valid, aligned, non-null pointer to a `usize`.
 #[no_mangle]
 pub unsafe extern "C" fn parallax_find_bucket(
-    seq_len: usize, buckets_ptr: *const usize, buckets_len: usize, out_bucket: *mut usize,
+    seq_len: usize,
+    buckets_ptr: *const usize,
+    buckets_len: usize,
+    out_bucket: *mut usize,
 ) -> i32 {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         if buckets_ptr.is_null() || out_bucket.is_null() { return STATUS_NULL_POINTER; }
