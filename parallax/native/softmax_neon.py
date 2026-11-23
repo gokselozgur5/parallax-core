@@ -6,9 +6,9 @@ import ctypes
 
 import numpy as np
 
-from parallax.native.loader import INT32_MAX, bind
+from parallax.native.loader import check_int32_bounds, lazy_bind
 
-_c_softmax_neon_f32 = bind(
+_c_softmax_neon_f32 = lazy_bind(
     "c_softmax_neon_f32",
     [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int],
     ctypes.c_int,
@@ -17,18 +17,17 @@ _c_softmax_neon_f32 = bind(
 
 def is_softmax_neon_available() -> bool:
     """Return True if the NEON softmax symbol is bound."""
-    return _c_softmax_neon_f32 is not None
+    return bool(_c_softmax_neon_f32)
 
 
 def softmax_neon(x: np.ndarray) -> np.ndarray:
     """Compute softmax along the last dimension using NEON."""
-    if _c_softmax_neon_f32 is None:
+    if not _c_softmax_neon_f32:
         raise RuntimeError("NEON softmax microkernel is not available")
     if x.ndim != 2:
         raise ValueError("Input must be a 2D array")
     rows, cols = x.shape
-    if max(rows, cols, rows * cols) > INT32_MAX:
-        raise ValueError(f"Dimensions exceed INT32_MAX: rows={rows}, cols={cols}")
+    check_int32_bounds(rows, cols, rows * cols)
     x_f32 = np.ascontiguousarray(x, dtype=np.float32)
     out = np.empty((rows, cols), dtype=np.float32)
     status = _c_softmax_neon_f32(

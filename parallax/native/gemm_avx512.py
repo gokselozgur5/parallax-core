@@ -5,26 +5,19 @@ from __future__ import annotations
 import ctypes
 from typing import Any, Callable, Optional
 import numpy as np
-from parallax.native.loader import INT32_MAX, bind
+from parallax.native.loader import check_int32_bounds, lazy_bind
 
-_FN_AVX512: Optional[Callable[..., Any]] = None
-_FN_HAS_AVX512: Optional[Callable[..., Any]] = None
+_FN_AVX512 = lazy_bind("c_gemm_avx512_f32", [ctypes.c_void_p] * 3 + [ctypes.c_int] * 3, ctypes.c_int)
+_FN_HAS_AVX512 = lazy_bind("c_has_avx512_f32", [], ctypes.c_int)
 
 
 def _get_avx512_fn() -> Optional[Callable[..., Any]]:
-    global _FN_AVX512
-    if _FN_AVX512 is None:
-        args = [ctypes.c_void_p] * 3 + [ctypes.c_int] * 3
-        _FN_AVX512 = bind("c_gemm_avx512_f32", args, ctypes.c_int)
-    return _FN_AVX512
+    return _FN_AVX512.resolve()
 
 
 def is_avx512_available() -> bool:
     """Return True if AVX-512 is supported by the CPU."""
-    global _FN_HAS_AVX512
-    if _FN_HAS_AVX512 is None:
-        _FN_HAS_AVX512 = bind("c_has_avx512_f32", [], ctypes.c_int)
-    return bool(_FN_HAS_AVX512() != 0) if _FN_HAS_AVX512 else False
+    return bool(_FN_HAS_AVX512 and _FN_HAS_AVX512() != 0)
 
 
 def gemm_avx512(a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -32,9 +25,8 @@ def gemm_avx512(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     if a.ndim != 2 or b.ndim != 2 or a.shape[1] != b.shape[0]:
         raise ValueError(f"Shape mismatch: {a.shape} vs {b.shape}")
     m, k = a.shape
-    k2, n = b.shape
-    if max(m, n, k, m * k, k * n, m * n) > INT32_MAX:
-        raise ValueError(f"Matrix dimensions exceed INT32_MAX: ({m}, {k}) @ ({k2}, {n})")
+    _, n = b.shape
+    check_int32_bounds(m, n, k, m * k, k * n, m * n, label="Matrix dimensions")
     fn = _get_avx512_fn()
     if fn is None:
         raise RuntimeError("c_gemm_avx512_f32 symbol not available")
