@@ -494,15 +494,29 @@ mod tests {
         let mut out = [0.0f32; 2];
         unsafe {
             let res = parallax_flash_attn_f32(
-                q.as_ptr(), k.as_ptr(), v.as_ptr(), out.as_mut_ptr(),
-                1, 2, 0.5, 0, 1,
+                q.as_ptr(),
+                k.as_ptr(),
+                v.as_ptr(),
+                out.as_mut_ptr(),
+                1,
+                2,
+                0.5,
+                0,
+                1,
             );
             assert_eq!(res, STATUS_OK);
             assert!((out[0] - 3.0).abs() < 1e-4);
             assert!((out[1] - 4.0).abs() < 1e-4);
             let res_overlap = parallax_flash_attn_f32(
-                out.as_ptr(), k.as_ptr(), v.as_ptr(), out.as_mut_ptr(),
-                1, 2, 0.5, 0, 1,
+                out.as_ptr(),
+                k.as_ptr(),
+                v.as_ptr(),
+                out.as_mut_ptr(),
+                1,
+                2,
+                0.5,
+                0,
+                1,
             );
             assert_eq!(res_overlap, STATUS_ALIASING_POINTER);
         }
