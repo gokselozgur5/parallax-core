@@ -142,6 +142,17 @@ def test_partial_reset_lifts_quarantine_after_success() -> None:
     assert not q.is_quarantined("gemm", "c")
 
 
+def test_filter_backends_expired_cooldown(monkeypatch: pytest.MonkeyPatch) -> None:
+    now = 100.0
+    monkeypatch.setattr("time.monotonic", lambda: now)
+    q = BackendQuarantine(failure_threshold=1, cooldown_seconds=0.01)
+    q.record_failure("gemm", "c")
+    assert q.filter_backends("gemm", ["c", "numpy"]) == ["numpy"]
+    now = 100.02
+    assert q.filter_backends("gemm", ["c", "numpy"]) == ["c", "numpy"]
+
+
+
 
 
 
