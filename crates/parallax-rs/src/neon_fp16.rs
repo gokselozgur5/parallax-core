@@ -69,16 +69,28 @@ pub fn fp16_to_f32(bits: u16) -> f32 {
             return if sign == 1 { -0.0 } else { 0.0 };
         }
         let val = (mant as f32 / 1024.0) * (2.0f32).powi(-14);
-        if sign == 1 { -val } else { val }
+        if sign == 1 {
+            -val
+        } else {
+            val
+        }
     } else if exp == 31 {
         if mant == 0 {
-            if sign == 1 { f32::NEG_INFINITY } else { f32::INFINITY }
+            if sign == 1 {
+                f32::NEG_INFINITY
+            } else {
+                f32::INFINITY
+            }
         } else {
             f32::NAN
         }
     } else {
         let val = (1.0 + (mant as f32 / 1024.0)) * (2.0f32).powi((exp as i32) - 15);
-        if sign == 1 { -val } else { val }
+        if sign == 1 {
+            -val
+        } else {
+            val
+        }
     }
 }
 
@@ -134,8 +146,14 @@ mod tests {
     #[test]
     fn test_verify_fp16_alignment() {
         let buf = [0u16; 16];
-        assert_eq!(verify_fp16_alignment(std::ptr::null(), buf.as_ptr(), false), Err(NeonFp16Error::NullPointer));
-        assert_eq!(verify_fp16_alignment(buf.as_ptr(), std::ptr::null(), false), Err(NeonFp16Error::NullPointer));
+        assert_eq!(
+            verify_fp16_alignment(std::ptr::null(), buf.as_ptr(), false),
+            Err(NeonFp16Error::NullPointer)
+        );
+        assert_eq!(
+            verify_fp16_alignment(buf.as_ptr(), std::ptr::null(), false),
+            Err(NeonFp16Error::NullPointer)
+        );
         assert!(verify_fp16_alignment(buf.as_ptr(), buf.as_ptr(), false).is_ok());
     }
 
