@@ -68,3 +68,20 @@ def test_param_identity_and_parity() -> None:
     assert restored.weight is orig_w
     assert restored.bias is orig_b
     assert np.allclose(restored(x).data, y_orig.data, atol=1e-6)
+
+
+def test_patch_linear_reaches_models_built_afterwards():
+    import numpy as np
+    import parallax.nn as nn
+    from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
+    from parallax.nn.patcher import patch_linear, unpatch_linear
+
+    np.random.seed(0)
+    plain_linear = nn.Linear
+    patch_linear()
+    try:
+        model = ParallaxLM(ParallaxLMConfig(vocab_size=8, embed_dim=8, num_heads=2, num_layers=1))
+    finally:
+        unpatch_linear()
+    assert type(model.lm_head) is not plain_linear, type(model.lm_head)
+    assert type(model.lm_head).__name__ == "DispatchedLinear", type(model.lm_head)
