@@ -5,6 +5,7 @@ Unit tests for Loss functions, Label Smoothing, and Perplexity metrics.
 import math
 import numpy as np
 
+from parallax.gradcheck import check_tensor_gradient
 from parallax.loss import cross_entropy_loss, perplexity_from_loss
 from parallax.tensor import Tensor
 
@@ -24,6 +25,31 @@ def test_cross_entropy_label_smoothing():
     loss_smooth.backward()
     assert logits_smooth.grad is not None
     assert np.allclose(np.sum(logits_smooth.grad, axis=-1), [0.0, 0.0], atol=1e-5)
+
+    eps, n_samples, vocab = 0.1, 2, 3
+    ref_losses, ref_grads = [], []
+    for row, target in zip(logits.data.tolist(), targets.tolist()):
+        m = max(row)
+        exps = [math.exp(v - m) for v in row]
+        z = sum(exps)
+        log_p = [v - m - math.log(z) for v in row]
+        probs = [e / z for e in exps]
+        q = [(1.0 - eps if j == target else 0.0) + eps / vocab for j in range(vocab)]
+        ref_losses.append(-sum(qj * lp for qj, lp in zip(q, log_p)))
+        ref_grads.append([(pj - qj) / n_samples for pj, qj in zip(probs, q)])
+    assert math.isclose(
+        float(loss_smooth.data), sum(ref_losses) / n_samples, rel_tol=1e-12, abs_tol=1e-12
+    )
+    assert np.allclose(logits_smooth.grad, np.array(ref_grads), rtol=1e-12, atol=1e-12)
+    assert (
+        check_tensor_gradient(
+            lambda x: cross_entropy_loss(x, targets, label_smoothing=eps),
+            [logits_smooth],
+            eps=1e-5,
+            tol=1e-5,
+        )
+        is True
+    )
 
 
 def test_cross_entropy_ignore_index():
