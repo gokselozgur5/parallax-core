@@ -11,8 +11,8 @@ int c_flashattn_neon_f32(const float *q, const float *k, const float *v,
 }
 #else
 
-static inline float dot_product_neon(const float *a, const float *b, int len) {
-    int d = 0;
+static inline float dot_product_neon(const float *a, const float *b, size_t len) {
+    size_t d = 0;
     float32x4_t sum_vec = vdupq_n_f32(0.0f);
     for (; len - d >= 4; d += 4) {
         float32x4_t va = vld1q_f32(a + d);
@@ -24,8 +24,8 @@ static inline float dot_product_neon(const float *a, const float *b, int len) {
     return total;
 }
 
-static inline void vec_scale_add_neon(float *out, float alpha, const float *v, float p, int len) {
-    int d = 0;
+static inline void vec_scale_add_neon(float *out, float alpha, const float *v, float p, size_t len) {
+    size_t d = 0;
     float32x4_t valpha = vdupq_n_f32(alpha);
     float32x4_t vp = vdupq_n_f32(p);
     for (; len - d >= 4; d += 4) {
@@ -38,8 +38,8 @@ static inline void vec_scale_add_neon(float *out, float alpha, const float *v, f
     for (; d < len; ++d) out[d] = out[d] * alpha + p * v[d];
 }
 
-static inline void vec_scale_neon(float *out, float scale, int len) {
-    int d = 0;
+static inline void vec_scale_neon(float *out, float scale, size_t len) {
+    size_t d = 0;
     float32x4_t vscale = vdupq_n_f32(scale);
     for (; len - d >= 4; d += 4) {
         float32x4_t vo = vld1q_f32(out + d);
@@ -50,7 +50,7 @@ static inline void vec_scale_neon(float *out, float scale, int len) {
 }
 
 static inline void update_kv_step_neon(float *oi, const float *vj, float score,
-                                       float *m_i, float *l_i, int head_dim) {
+                                       float *m_i, float *l_i, size_t head_dim) {
     if (isinf(score) && score < 0.0f) return;
     if (score > *m_i) {
         float alpha = expf(*m_i - score);
@@ -67,17 +67,18 @@ static inline void update_kv_step_neon(float *oi, const float *vj, float score,
 static void flashattn_neon_kernel(const float *q, const float *k, const float *v,
                                   float *out, int seq_len, int head_dim,
                                   float scale, int is_causal) {
-    for (int i = 0; i < seq_len; ++i) {
-        const float *qi = q + i * head_dim;
-        float *oi = out + i * head_dim;
-        for (int d = 0; d < head_dim; ++d) oi[d] = 0.0f;
+    const size_t seq_s = (size_t)seq_len, dim_s = (size_t)head_dim;
+    for (size_t i = 0; i < seq_s; ++i) {
+        const float *qi = q + i * dim_s;
+        float *oi = out + i * dim_s;
+        for (size_t d = 0; d < dim_s; ++d) oi[d] = 0.0f;
         float m_i = -INFINITY, l_i = 0.0f;
-        int max_j = is_causal ? (i + 1) : seq_len;
-        for (int j = 0; j < max_j; ++j) {
-            float s = dot_product_neon(qi, k + j * head_dim, head_dim) * scale;
-            update_kv_step_neon(oi, v + j * head_dim, s, &m_i, &l_i, head_dim);
+        size_t max_j = is_causal ? (i + 1) : seq_s;
+        for (size_t j = 0; j < max_j; ++j) {
+            float s = dot_product_neon(qi, k + j * dim_s, dim_s) * scale;
+            update_kv_step_neon(oi, v + j * dim_s, s, &m_i, &l_i, dim_s);
         }
-        if (l_i > 0.0f) vec_scale_neon(oi, 1.0f / l_i, head_dim);
+        if (l_i > 0.0f) vec_scale_neon(oi, 1.0f / l_i, dim_s);
     }
 }
 
