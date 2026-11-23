@@ -75,15 +75,23 @@ def fused_layernorm(
     residual: Optional[np.ndarray] = None,
     eps: float = 1e-5,
     return_residual: bool = False,
+    normalized_shape: Optional[Union[int, Tuple[int, ...]]] = None,
 ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
     """Compute LayerNorm with optional fused residual and affine parameters."""
     eps_val = stabilize_epsilon(eps)
     fused = x + residual if residual is not None else x
+    norm_shape = _resolve_norm_shape(fused, normalized_shape, weight, bias)
     orig_dtype = fused.dtype
     acc = fused.astype(np.float32) if orig_dtype in (np.float16, np.int32) else fused
     w_acc = weight.astype(acc.dtype) if weight is not None else None
     b_acc = bias.astype(acc.dtype) if bias is not None else None
-    normed = _dispatch_layernorm(acc, w_acc, b_acc, eps_val)
+    if len(norm_shape) == 1:
+        normed = _dispatch_layernorm(acc, w_acc, b_acc, eps_val)
+    else:
+        flat_d = int(np.prod(norm_shape))
+        w_f = w_acc.reshape(flat_d) if w_acc is not None else None
+        b_f = b_acc.reshape(flat_d) if b_acc is not None else None
+        normed = _dispatch_layernorm(acc.reshape(-1, flat_d), w_f, b_f, eps_val).reshape(acc.shape)
     out = normed.astype(orig_dtype)
     if return_residual:
         return out, fused
@@ -98,22 +106,28 @@ def _backward_layernorm(
     bias: Optional[Tensor],
     x: Optional[Tensor],
     residual: Optional[Tensor],
+    normalized_shape: Optional[Tuple[int, ...]] = None,
 ) -> None:
     """Compute and accumulate gradients for LayerNorm operation."""
     eps_val = stabilize_epsilon(eps)
-    mean = np.mean(fused, axis=-1, keepdims=True)
-    var = np.var(fused, axis=-1, keepdims=True)
+    raw_w = weight.data if weight is not None else None
+    raw_b = bias.data if bias is not None else None
+    norm_shape = _resolve_norm_shape(fused, normalized_shape, raw_w, raw_b)
+    flat_d = int(np.prod(norm_shape))
+    f_2d, d_2d = fused.reshape(-1, flat_d), dout.reshape(-1, flat_d)
+    mean = np.mean(f_2d, axis=-1, keepdims=True)
+    var = np.var(f_2d, axis=-1, keepdims=True)
     inv_std = 1.0 / np.sqrt(var + eps_val)
-    x_hat = (fused - mean) * inv_std
-    d = fused.shape[-1]
-    gw = dout * weight.data if weight is not None else dout
-    dvar = np.sum(gw * (fused - mean) * -0.5 * (inv_std ** 3), axis=-1, keepdims=True)
-    dmean = np.sum(gw * -inv_std, axis=-1, keepdims=True) + dvar * np.mean(-2.0 * (fused - mean), axis=-1, keepdims=True)
-    dx = gw * inv_std + dvar * 2.0 * (fused - mean) / d + dmean / d
+    x_hat = (f_2d - mean) * inv_std
+    gw = d_2d * raw_w.reshape(flat_d) if raw_w is not None else d_2d
+    mean_gw = np.mean(gw, axis=-1, keepdims=True)
+    dx = (inv_std * (gw - mean_gw - x_hat * np.mean(gw * x_hat, axis=-1, keepdims=True))).reshape(
+        fused.shape
+    )
     if weight is not None and weight.requires_grad:
-        _accumulate_grad(weight, np.sum(dout * x_hat, axis=tuple(range(dout.ndim - 1))))
+        _accumulate_grad(weight, np.sum(d_2d * x_hat, axis=0).reshape(norm_shape))
     if bias is not None and bias.requires_grad:
-        _accumulate_grad(bias, np.sum(dout, axis=tuple(range(dout.ndim - 1))))
+        _accumulate_grad(bias, np.sum(d_2d, axis=0).reshape(norm_shape))
     if isinstance(x, Tensor) and x.requires_grad:
         _accumulate_grad(x, dx)
     if isinstance(residual, Tensor) and residual.requires_grad:
@@ -131,7 +145,7 @@ class FusedLayerNorm(Module):
         bias: bool = True,
     ) -> None:
         super().__init__()
-        self.normalized_shape = (normalized_shape,) if isinstance(normalized_shape, int) else tuple(normalized_shape)
+        self.normalized_shape = _coerce_norm_shape(normalized_shape)
         self.eps = float(eps)
         self.elementwise_affine = bool(elementwise_affine)
         self.weight: Optional[Parameter] = None
@@ -151,7 +165,9 @@ class FusedLayerNorm(Module):
         raw_w = self.weight.data if self.weight is not None else None
         raw_b = self.bias.data if self.bias is not None else None
         eps_val = stabilize_epsilon(self.eps)
-        out_data = fused_layernorm(raw_x, raw_w, raw_b, residual=raw_res, eps=eps_val)
+        out_data = fused_layernorm(
+            raw_x, raw_w, raw_b, residual=raw_res, eps=eps_val, normalized_shape=self.normalized_shape
+        )
         parents = [p for p in (x, residual, self.weight, self.bias) if isinstance(p, Tensor)]
         out = Tensor(out_data, tuple(parents), "FusedLayerNorm")
         if not out.requires_grad:
@@ -161,6 +177,7 @@ class FusedLayerNorm(Module):
             out.grad, raw_fused, eps_val, self.weight, self.bias,
             x if isinstance(x, Tensor) else None,
             residual if isinstance(residual, Tensor) else None,
+            normalized_shape=self.normalized_shape,
         ) if out.grad is not None else None
         return out
 
