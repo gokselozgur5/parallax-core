@@ -295,7 +295,18 @@ def _init_metal_unlocked() -> bool:
 
 def is_metal_available() -> bool:
     """Return True if running on Apple Silicon / macOS with Metal JIT available."""
+    if sys.platform != "darwin":
+        return False
     return _init_metal()
+
+
+def _active_command_queue() -> Optional[Any]:
+    """Return the active thread-local MetalStream queue, or the default queue."""
+    from parallax.backends.metal_stream import current_stream
+
+    stream = current_stream()
+    queue = getattr(stream, "queue", stream._queue)
+    return queue if queue is not None else _COMMAND_QUEUE
 
 
 def get_metal_device_name() -> Optional[str]:
@@ -369,7 +380,10 @@ def metal_gemm(A: np.ndarray, B: np.ndarray) -> np.ndarray:
         if not buf_A or not buf_B or not buf_C:
             raise RuntimeError("Failed to allocate Metal buffers for GEMM")
 
-        cmd_buf = _objc_send(ctypes.c_void_p, _COMMAND_QUEUE, "commandBuffer")
+        queue = _active_command_queue()
+        if not queue:
+            raise RuntimeError("Failed to obtain Metal command queue")
+        cmd_buf = _objc_send(ctypes.c_void_p, queue, "commandBuffer")
         if not cmd_buf:
             raise RuntimeError("Failed to create Metal command buffer")
         encoder = _objc_send(ctypes.c_void_p, cmd_buf, "computeCommandEncoder")
@@ -479,7 +493,10 @@ def metal_rmsnorm(
         if not buf_x or not buf_w or not buf_out:
             raise RuntimeError("Failed to allocate Metal buffers for RMSNorm")
 
-        cmd_buf = _objc_send(ctypes.c_void_p, _COMMAND_QUEUE, "commandBuffer")
+        queue = _active_command_queue()
+        if not queue:
+            raise RuntimeError("Failed to obtain Metal command queue")
+        cmd_buf = _objc_send(ctypes.c_void_p, queue, "commandBuffer")
         if not cmd_buf:
             raise RuntimeError("Failed to create Metal command buffer")
         encoder = _objc_send(ctypes.c_void_p, cmd_buf, "computeCommandEncoder")
