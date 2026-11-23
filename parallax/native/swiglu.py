@@ -6,27 +6,17 @@ import ctypes
 from typing import Any, Callable, Optional
 import numpy as np
 
-from parallax.native.loader import INT32_MAX, bind
+from parallax.native.loader import check_int32_bounds, lazy_bind
 
-_SWIGLU_FN: Optional[Callable[..., Any]] = None
-_SWIGLU_INIT_ATTEMPTED: bool = False
+_SWIGLU_SYM = lazy_bind(
+    "c_swiglu_f32",
+    [ctypes.POINTER(ctypes.c_float)] * 3 + [ctypes.c_int],
+    None,
+)
 
 
 def _get_swiglu_fn() -> Optional[Callable[..., Any]]:
-    global _SWIGLU_FN, _SWIGLU_INIT_ATTEMPTED
-    if not _SWIGLU_INIT_ATTEMPTED:
-        _SWIGLU_FN = bind(
-            "c_swiglu_f32",
-            [
-                ctypes.POINTER(ctypes.c_float),
-                ctypes.POINTER(ctypes.c_float),
-                ctypes.POINTER(ctypes.c_float),
-                ctypes.c_int,
-            ],
-            None,
-        )
-        _SWIGLU_INIT_ATTEMPTED = True
-    return _SWIGLU_FN
+    return _SWIGLU_SYM.resolve()
 
 
 def swiglu_numpy(a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -48,8 +38,7 @@ def c_swiglu(a: np.ndarray, b: np.ndarray) -> np.ndarray:
         raise TypeError("Complex dtypes are not supported")
     if a.shape != b.shape:
         raise ValueError(f"Shape mismatch: {a.shape} vs {b.shape}")
-    if a.size > INT32_MAX:
-        raise ValueError(f"Input size exceeds INT32_MAX: {a.size}")
+    check_int32_bounds(int(a.size), label="Input size")
 
     a_f32 = np.ascontiguousarray(a, dtype=np.float32)
     b_f32 = np.ascontiguousarray(b, dtype=np.float32)
