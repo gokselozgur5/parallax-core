@@ -36,14 +36,24 @@ impl F16 {
         let rounded = mant + 0x0000_0FFF + ((mant >> 13) & 1);
         if (rounded & 0x0080_0000) != 0 {
             let next_exp = half_exp + 1;
-            return Self(sign | if next_exp >= 31 { 0x7C00 } else { (next_exp as u16) << 10 });
+            return Self(
+                sign | if next_exp >= 31 {
+                    0x7C00
+                } else {
+                    (next_exp as u16) << 10
+                },
+            );
         }
         Self(sign | ((half_exp as u16) << 10) | ((rounded >> 13) as u16))
     }
 
     #[inline]
     pub fn from_f32_saturating(val: f32) -> Self {
-        if val.is_nan() { Self(0x7E00) } else { Self::from_f32(val.clamp(-F16_MAX, F16_MAX)) }
+        if val.is_nan() {
+            Self(0x7E00)
+        } else {
+            Self::from_f32(val.clamp(-F16_MAX, F16_MAX))
+        }
     }
 
     #[inline]
@@ -186,7 +196,10 @@ unsafe fn vec_scale_add_avx512(out: &mut [f32], alpha: f32, v: &[f32], weight: f
     let ((oc, or), (vc, vr)) = (out[..n].as_chunks_mut::<16>(), v[..n].as_chunks::<16>());
     for (ob, vb) in oc.iter_mut().zip(vc.iter()) {
         let vo = _mm512_mul_ps(_mm512_loadu_ps(ob.as_ptr()), va);
-        _mm512_storeu_ps(ob.as_mut_ptr(), _mm512_fmadd_ps(vw, _mm512_loadu_ps(vb.as_ptr()), vo));
+        _mm512_storeu_ps(
+            ob.as_mut_ptr(),
+            _mm512_fmadd_ps(vw, _mm512_loadu_ps(vb.as_ptr()), vo),
+        );
     }
     vec_scale_add_scalar(or, alpha, vr, weight);
 }
@@ -221,13 +234,7 @@ fn vec_scale_add(out: &mut [f32], alpha: f32, v: &[f32], weight: f32) {
 }
 
 #[inline]
-pub fn update_kv_step(
-    out: &mut [f32],
-    v: &[f32],
-    score: f32,
-    m_i: &mut f32,
-    l_i: &mut f32,
-) {
+pub fn update_kv_step(out: &mut [f32], v: &[f32], score: f32, m_i: &mut f32, l_i: &mut f32) {
     if score.is_infinite() && score < 0.0 {
         return;
     }
