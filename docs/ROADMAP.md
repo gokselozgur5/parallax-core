@@ -1,120 +1,40 @@
-# Parallax Core — Roadmap & Atomic Work Breakdown
+# Parallax Core — Roadmap & Architecture Alignment
 
-## Mission
-Build a zero-dependency, mathematically verified Autograd and Decoder-Only Transformer architecture from scratch in pure Python and NumPy. Every single component must be accompanied by mathematical proofs, shape tracking, and automated gradient tests.
+## Overview & Vision Alignment
+Parallax Core has evolved from an initial first-principles autograd prototype into a multi-backend, bare-metal accelerated inference and training engine. The engine provides zero-external-framework neural network primitives, modular model frontends, high-performance attention kernels, native compute backends (C, Rust, Metal JIT), and real-time visualization tooling.
 
----
-
-## Phase 1: Computation Graph & Scalar Autograd Engine (M1)
-
-### [Issue #1] Core Scalar `Value` Primitives & Forward Arithmetic
-- **Scope:** Define `Value(data: float, _children=(), _op='')`.
-- **Operations:** `__add__`, `__mul__`, `__neg__`, `__sub__`, `__truediv__`, `__pow__`.
-- **Deliverables:** `parallax/engine.py`, `tests/test_scalar_forward.py`.
-- **Target Line Delta:** ~50 lines.
-
-### [Issue #2] Topological DAG Traversal & Backward Chain Rule
-- **Scope:** Implement reverse topological sort over DAG nodes and execute local `_backward` closures.
-- **Deliverables:** `Value.backward()`, `tests/test_scalar_backward.py`.
-- **Validation:** Compare against analytical calculus derivatives for composite scalar functions.
-
-### [Issue #3] Automated Finite-Difference Numerical Gradient Checker
-- **Scope:** Implement `numerical_gradient(fn, *inputs, eps=1e-5)` utility to automate gradient cross-checks.
-- **Deliverables:** `parallax/gradcheck.py`, `tests/test_gradcheck.py`.
-- **Verification Rule:** Relative error $< 10^{-5}$.
+This roadmap consolidates the repository roadmap with `VISION.md`, aligning planned architectural milestones with verified repository deliverables.
 
 ---
 
-## Phase 2: Non-Linearities & Scalar Activation Suite (M2)
-
-### [Issue #4] ReLU & GeLU Activations with Backward Closures
-- **Scope:** Piecewise linear ReLU and Gaussian Error Linear Unit (GeLU) approximation.
-- **Deliverables:** `Value.relu()`, `Value.gelu()`, `tests/test_activations.py`.
-
-### [Issue #5] Transcendental Functions: Exp, Log, Tanh, Sigmoid
-- **Scope:** Numerically stable transcendental operations with analytical derivative closures.
-- **Deliverables:** `Value.exp()`, `Value.log()`, `Value.tanh()`, `Value.sigmoid()`.
-
----
-
-## Phase 3: Tensor Engine & Broadcasting (M3)
-
-### [Issue #6] N-Dimensional `Tensor` Class with Strided Memory & Metadata
-- **Scope:** Multi-dimensional tensor wrapper over raw NumPy arrays maintaining DAG graph connections.
-- **Deliverables:** `parallax/tensor.py`, `tests/test_tensor_shapes.py`.
-
-### [Issue #7] Broadcast-Aware Tensor Arithmetic & Matrix Multiplication (`matmul`)
-- **Scope:** Backward pass handling axis expansion, broadcasting sum-reductions, and 2D/3D batch matrix multiplication.
-- **Deliverables:** `Tensor.matmul()`, `Tensor.transpose()`, `tests/test_matmul_backward.py`.
+## Phase 1: Real-World Ingestion & Architecture Frontends (Completed)
+- **Model Formats & Loaders:**
+  - Standard `.safetensors` and binary `.gguf` weight parsers implemented with zero external framework dependencies (`parallax/safetensors.py`, `parallax/gguf.py`, `parallax/gguf_loader.py`, `parallax/hf_loader.py`).
+  - Architecture loaders for contemporary decoder models: Llama 3 (`parallax/models/llama.py`), Qwen 2 and 2.5 (`parallax/models/qwen2.py`), and Qwen 3 (`parallax/models/qwen3.py`).
+- **Tokenization:**
+  - Native BPE tokenization and HuggingFace-compatible tokenizers (`parallax/tokenizer.py`, `parallax/hf_tokenizer.py`, `parallax/gguf_tokenizer.py`, `crates/parallax-rs/src/bpe.rs`).
+- **Autograd & Foundational Modules:**
+  - Reverse-mode automatic differentiation DAG engine and tensor abstractions (`parallax/engine.py`, `parallax/tensor.py`, `parallax/gradcheck.py`).
+  - Autoregressive generation routines, sampling strategies, and evaluation drivers (`parallax/generator.py`, `parallax/min_p.py`, `parallax/top_a.py`, `parallax/eval.py`).
 
 ---
 
-## Phase 4: Neural Network Abstractions & Normalization (M4)
-
-### [Issue #8] Modular Base: `Module`, `Parameter`, and Linear Projection Layer
-- **Scope:** PyTorch-style base class with `parameters()` generator and zero-grad routines.
-- **Deliverables:** `parallax/nn.py` (`Module`, `Parameter`, `Linear`), `tests/test_linear.py`.
-
-### [Issue #9] Normalization Primitives: LayerNorm & RMSNorm
-- **Scope:** Channel-wise standardization, learnable affine scales/biases, backward variance propagation.
-- **Deliverables:** `LayerNorm`, `RMSNorm`, `tests/test_norm.py`.
-
-### [Issue #10] Regularization: Dropout & Residual Connections
-- **Scope:** Inverted dropout with scaling, residual add-norm identity stream stability.
-- **Deliverables:** `Dropout`, `Residual`, `tests/test_residual.py`.
+## Phase 2: Bare-Metal Speed & Native Acceleration (Active Focus)
+- **Automatic Multi-Backend Dispatch:**
+  - Dynamic routing across available execution backends with zero-overhead fallback (`parallax/backends/dispatch.py`, `parallax/backends/registry.py`).
+- **C-Engine SIMD Kernels:**
+  - Optimized CPU kernels targeting NEON and AVX-512 extensions for GEMM, RMSNorm, SwiGLU, and online FlashAttention (`parallax/csrc/gemm.c`, `parallax/csrc/rmsnorm.c`, `parallax/csrc/flashattn_neon.c`, `parallax/csrc/flashattn_avx512.c`, `parallax/backends/c_backend.py`).
+- **Rust Native Acceleration (`crates/parallax-rs`):**
+  - High-performance Rust C-ABI engine exposing FlashAttention, quantized matrix multiplication, and memory-mapped tensor storage (`crates/parallax-rs/Cargo.toml`, `crates/parallax-rs/src/lib.rs`, `crates/parallax-rs/src/flash_attn.rs`, `parallax/backends/rust_backend.py`).
+- **Apple Silicon Metal JIT:**
+  - Zero-copy unified memory buffers and Metal Shading Language compute pipelines (`parallax/backends/metal.py`, `parallax/backends/metal_backend.py`, `parallax/backends/metal_bridge.py`).
+- **Serving & Integration:**
+  - Lightweight OpenAI-compatible HTTP serving endpoint (`parallax/openai_server.py`, `scripts/serve_openai.py`).
 
 ---
 
-## Phase 5: Self-Attention & Positional Dynamics (M5)
-
-### [Issue #11] Scaled Dot-Product Attention & Causal Lower-Triangular Mask
-- **Scope:** Compute $\text{Softmax}(QK^T / \sqrt{d_k}) V$ with autoregressive masking ($-\infty$ upper triangle).
-- **Deliverables:** `parallax/attention.py` (`ScaledDotProductAttention`), `tests/test_causal_mask.py`.
-
-### [Issue #12] Multi-Head Attention (MHA) Projection & Splitting
-- **Scope:** Linear projections for Query, Key, Value; head partitioning; causal execution; output projection.
-- **Deliverables:** `MultiHeadAttention`, `tests/test_mha.py`.
-
-### [Issue #13] Rotary Positional Embedding (RoPE)
-- **Scope:** Complex-valued / 2D rotation of query-key pairs to preserve relative distance.
-- **Deliverables:** `RotaryEmbedding`, `tests/test_rope.py`.
-
----
-
-## Phase 6: Decoder-Only Transformer Architecture (M6)
-
-### [Issue #14] Transformer Block Integration (Pre-LN Architecture)
-- **Scope:** Stacking RMSNorm/LayerNorm -> MHA -> Residual -> SwiGLU FFN -> Residual.
-- **Deliverables:** `parallax/models/transformer_block.py`, `tests/test_transformer_block.py`.
-
-### [Issue #15] Full Decoder-Only Model & Unembedding Head
-- **Scope:** Token embedding lookup table, N-layer transformer stack, final norm, linear logit projection.
-- **Deliverables:** `parallax/models/gpt.py`, `tests/test_gpt_forward.py`.
-
----
-
-## Phase 7: Training Loop, Cross-Entropy & Generation (M7)
-
-### [Issue #16] Numerically Stable Categorical Cross-Entropy Loss
-- **Scope:** Log-sum-exp trick to prevent underflow/overflow; softmax gradient backpropagation.
-- **Deliverables:** `parallax/loss.py`, `tests/test_cross_entropy.py`.
-
-### [Issue #17] AdamW Optimizer from Scratch
-- **Scope:** First and second momentum tracking, bias correction, decoupled weight decay.
-- **Deliverables:** `parallax/optim.py` (`AdamW`), `tests/test_adamw.py`.
-
-### [Issue #18] Character / Byte-Pair Tokenizer & Autoregressive Generator
-- **Scope:** Encoding, decoding, greedy sampling, temperature scaling, top-k / top-p (nucleus) filtering.
-- **Deliverables:** `parallax/tokenizer.py`, `parallax/generate.py`, `tests/test_generation.py`.
-
----
-
-## Phase 8: Execution Tracing, Graphviz DAG & Benchmarking (M8)
-
-### [Issue #19] Visual DAG Exporter (Graphviz & Mermaid)
-- **Scope:** Export computation graphs as DOT and Mermaid format for visual inspection.
-- **Deliverables:** `parallax/viz.py`, `examples/export_graph.py`.
-
-### [Issue #20] Micro-Benchmark Suite & Gradient Sanity Dashboard
-- **Scope:** Throughput (tokens/sec), peak memory consumption, and end-to-end gradient proof documentation.
-- **Deliverables:** `benchmarks/run_benchmarks.py`, `docs/benchmark_report.md`.
+## Phase 3: Parallax Studio & Transparent LLM Inspection (Next Milestone)
+- **Real-Time Attention & Latent Diagnostics:**
+  - Interactive web inspection dashboard and telemetry server (`demo/studio_server.py`, `demo/playground.py`, `demo/visualizer.html`, `parallax/visualizer_server.py`).
+- **MoE Routing & Speculative Decoding Visualizer:**
+  - Real-time visualization for Expert Choice Routing (ECR) and speculative draft-vs-target acceptance verification (`parallax/moe.py`, `parallax/ecr.py`, `parallax/speculative.py`, `parallax/tree_drafting_v2.py`).
