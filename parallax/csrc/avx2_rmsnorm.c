@@ -1,26 +1,9 @@
-#include <stddef.h>
+#include "parallax_simd.h"
 #include <math.h>
 
-#ifndef PARALLAX_STATUS_OK
-#define PARALLAX_STATUS_OK 0
-#define PARALLAX_STATUS_NULL_POINTER (-1)
-#define PARALLAX_STATUS_INVALID_DIMENSION (-2)
-#define PARALLAX_STATUS_UNSUPPORTED_ISA (-5)
-#endif
-
-#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
-#define PARALLAX_NO_AVX_TARGET __attribute__((noinline, target("no-avx,no-fma")))
-#else
-#define PARALLAX_NO_AVX_TARGET
-#endif
-
-PARALLAX_NO_AVX_TARGET
+PARALLAX_SCALAR_TARGET
 int c_has_avx2_rmsnorm(void) {
-#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
-    return __builtin_cpu_supports("avx2") && __builtin_cpu_supports("fma");
-#else
-    return 0;
-#endif
+    return PARALLAX_HAS_AVX2_ISA();
 }
 
 #if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
@@ -43,7 +26,7 @@ static void rmsnorm_avx2_kernel(const float *x, const float *w, float *o, int r,
         }
         double t0[4], t1[4], sum_sq = 0.0;
         _mm256_storeu_pd(t0, sv0); _mm256_storeu_pd(t1, sv1);
-        for (int k = 0; k < 4; ++k) sum_sq += t0[k] + t1[k];
+        for (size_t k = 0; k < 4; ++k) sum_sq += t0[k] + t1[k];
         for (; col < cols; ++col) sum_sq += (double)xr[col] * (double)xr[col];
         float inv_rms = 1.0f / (float)sqrt(sum_sq / (double)cols + (double)eps);
         __m256 inv_vec = _mm256_set1_ps(inv_rms);
@@ -56,7 +39,7 @@ static void rmsnorm_avx2_kernel(const float *x, const float *w, float *o, int r,
 }
 #endif
 
-PARALLAX_NO_AVX_TARGET
+PARALLAX_SCALAR_TARGET
 int c_rmsnorm_avx2_f32(const float *x, const float *w, float *o, int r, int c, float eps) {
     if (!x || !w || !o) return PARALLAX_STATUS_NULL_POINTER;
     if (r <= 0 || c <= 0) return PARALLAX_STATUS_INVALID_DIMENSION;

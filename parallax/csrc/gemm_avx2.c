@@ -1,25 +1,8 @@
-#include <stddef.h>
+#include "parallax_simd.h"
 
-#ifndef PARALLAX_STATUS_OK
-#define PARALLAX_STATUS_OK 0
-#define PARALLAX_STATUS_NULL_POINTER (-1)
-#define PARALLAX_STATUS_INVALID_DIMENSION (-2)
-#define PARALLAX_STATUS_UNSUPPORTED_ISA (-5)
-#endif
-
-#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
-#define PARALLAX_NO_AVX_TARGET __attribute__((noinline, target("no-avx,no-fma")))
-#else
-#define PARALLAX_NO_AVX_TARGET
-#endif
-
-PARALLAX_NO_AVX_TARGET
+PARALLAX_SCALAR_TARGET
 int c_has_avx2_gemm(void) {
-#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
-    return __builtin_cpu_supports("avx2") && __builtin_cpu_supports("fma");
-#else
-    return 0;
-#endif
+    return PARALLAX_HAS_AVX2_ISA();
 }
 
 #if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
@@ -67,7 +50,7 @@ static void gemm_avx2_kernel(const float *A, const float *B, float *C, int M, in
 }
 #endif
 
-PARALLAX_NO_AVX_TARGET
+PARALLAX_SCALAR_TARGET
 int c_gemm_avx2_f32(const float *A, const float *B, float *C, int M, int N, int K) {
     if (!A || !B || !C) return PARALLAX_STATUS_NULL_POINTER;
     if (M <= 0 || N <= 0 || K < 0) return PARALLAX_STATUS_INVALID_DIMENSION;
