@@ -6,7 +6,7 @@ import ctypes
 from typing import Any, Callable, Optional
 import numpy as np
 
-from parallax.native.loader import bind
+from parallax.native.loader import INT32_MAX, bind
 
 _SWIGLU_FN: Optional[Callable[..., Any]] = None
 _SWIGLU_INIT_ATTEMPTED: bool = False
@@ -48,6 +48,8 @@ def c_swiglu(a: np.ndarray, b: np.ndarray) -> np.ndarray:
         raise TypeError("Complex dtypes are not supported")
     if a.shape != b.shape:
         raise ValueError(f"Shape mismatch: {a.shape} vs {b.shape}")
+    if a.size > INT32_MAX:
+        raise ValueError(f"Input size exceeds INT32_MAX: {a.size}")
 
     a_f32 = np.ascontiguousarray(a, dtype=np.float32)
     b_f32 = np.ascontiguousarray(b, dtype=np.float32)

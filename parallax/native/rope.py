@@ -3,7 +3,7 @@ from __future__ import annotations
 import ctypes
 import numpy as np
 
-from parallax.native.loader import bind
+from parallax.native.loader import INT32_MAX, bind
 
 _c_rope = bind(
     "c_rope_f32",
@@ -38,10 +38,11 @@ def rope_in_place(
         raise ValueError("last dimension must be even")
     if x.dtype != np.float32:
         raise TypeError("x must be float32")
+    T, H, D = x.shape
+    if max(T, H, D, T * H * D) > INT32_MAX or not (-INT32_MAX - 1 <= start_pos <= INT32_MAX):
+        raise ValueError(f"Dimensions exceed INT32_MAX: shape={x.shape}, start_pos={start_pos}")
     if not x.flags.c_contiguous:
         raise ValueError("x must be C-contiguous")
-
-    T, H, D = x.shape
     if _c_rope is None:
         raise RuntimeError("c_rope_f32 is not available")
 

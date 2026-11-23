@@ -6,7 +6,7 @@ import ctypes
 from typing import Any, Callable, Optional
 import numpy as np
 
-from parallax.native.loader import bind
+from parallax.native.loader import INT32_MAX, bind
 
 _GELU_FN: Optional[Callable[..., Any]] = None
 _GELU_INIT_ATTEMPTED: bool = False
@@ -44,6 +44,8 @@ def c_gelu(x: np.ndarray) -> np.ndarray:
     """Compute fused GELU approximation using native C kernel or NumPy."""
     if np.iscomplexobj(x):
         raise TypeError("Complex dtypes are not supported")
+    if getattr(x, "size", 0) > INT32_MAX:
+        raise ValueError(f"Input size exceeds INT32_MAX: {x.size}")
 
     x_f32 = np.ascontiguousarray(x, dtype=np.float32)
     n = x_f32.size

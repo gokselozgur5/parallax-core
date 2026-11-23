@@ -4,7 +4,7 @@ import ctypes
 
 import numpy as np
 
-from parallax.native.loader import bind
+from parallax.native.loader import INT32_MAX, bind
 
 _FP = ctypes.POINTER(ctypes.c_float)
 _c_gqa = bind("c_gqa_proj_f32", [_FP] * 8 + [ctypes.c_int] * 5, ctypes.c_int)
@@ -19,6 +19,11 @@ def c_gqa_proj(x, wq, wk, wv, n_heads: int, n_kv: int, head_dim: int):
     """Project x [rows, dim] to Q and KV-replicated K, V, each [rows, n_heads*head_dim]."""
     if _c_gqa is None:
         raise RuntimeError("c_gqa_proj_f32 is not available")
+    if getattr(x, "ndim", None) == 2:
+        r0, d0 = x.shape
+        oc0 = max(n_heads, n_kv) * head_dim
+        if max(r0, d0, n_heads, n_kv, head_dim, oc0, r0 * d0, d0 * oc0, r0 * oc0) > INT32_MAX:
+            raise ValueError("Dimensions exceed INT32_MAX")
     arrs = [np.ascontiguousarray(a, dtype=np.float32) for a in (x, wq, wk, wv)]
     if arrs[0].ndim != 2:
         raise ValueError("x must be a 2D tensor [rows, dim]")

@@ -4,7 +4,7 @@ import ctypes
 from typing import Optional
 import numpy as np
 
-from parallax.native.loader import bind
+from parallax.native.loader import INT32_MAX, bind
 
 _c_layernorm = bind(
     "c_layernorm_f32",
@@ -43,6 +43,8 @@ def c_layernorm(
         raise ValueError(f"weight shape mismatch: expected ({cols},), got {weight.shape}")
     if bias is not None and (bias.ndim != 1 or bias.shape[0] != cols):
         raise ValueError(f"bias shape mismatch: expected ({cols},), got {bias.shape}")
+    if max(rows, cols, rows * cols) > INT32_MAX:
+        raise ValueError(f"Dimensions exceed INT32_MAX: rows={rows}, cols={cols}")
     x_c = np.ascontiguousarray(x)
     out = np.empty_like(x_c)
     if _c_layernorm is None:

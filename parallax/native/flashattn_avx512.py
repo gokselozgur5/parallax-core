@@ -5,7 +5,7 @@ from __future__ import annotations
 import ctypes
 from typing import Any, Callable, Optional
 import numpy as np
-from parallax.native.loader import bind
+from parallax.native.loader import INT32_MAX, bind
 
 _FN_FLASHATTN_AVX512: Optional[Callable[..., Any]] = None
 _FN_HAS_AVX512_FLASHATTN: Optional[Callable[..., Any]] = None
@@ -46,6 +46,8 @@ def _validate_inputs(q: np.ndarray, k: np.ndarray, v: np.ndarray):
     seq_len, head_dim = q.shape
     if k.shape != (seq_len, head_dim) or v.shape != (seq_len, head_dim):
         raise ValueError("q, k, and v shapes must match (seq_len, head_dim)")
+    if max(seq_len, head_dim, seq_len * head_dim) > INT32_MAX:
+        raise ValueError(f"Dimensions exceed INT32_MAX: seq_len={seq_len}, head_dim={head_dim}")
     return seq_len, head_dim
 
 
