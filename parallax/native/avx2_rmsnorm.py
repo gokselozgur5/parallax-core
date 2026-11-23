@@ -12,7 +12,7 @@ _has_avx2 = lazy_bind("c_has_avx2_rmsnorm", [], ctypes.c_int)
 _rmsnorm_avx2 = lazy_bind(
     "c_rmsnorm_avx2_f32",
     [ctypes.POINTER(ctypes.c_float)] * 3 + [ctypes.c_int, ctypes.c_int, ctypes.c_float],
-    None,
+    ctypes.c_int,
 )
 
 
