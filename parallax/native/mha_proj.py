@@ -3,7 +3,7 @@ from __future__ import annotations
 import ctypes
 from typing import Tuple
 import numpy as np
-from parallax.native.loader import bind
+from parallax.native.loader import INT32_MAX, bind
 
 _FP = ctypes.POINTER(ctypes.c_float)
 _c_mha = bind(
@@ -26,6 +26,8 @@ def _check_mha_args(qkv: np.ndarray, hq: int, hkv: int, d: int) -> Tuple[int, in
     b, t, fused_dim = qkv.shape
     if fused_dim != (hq + 2 * hkv) * d or hq <= 0 or hkv <= 0 or d <= 0:
         raise ValueError("dimension mismatch or invalid head counts")
+    if max(b, t, hq, hkv, d, fused_dim, b * t * fused_dim) > INT32_MAX:
+        raise ValueError("Dimensions exceed INT32_MAX")
     return b, t
 
 

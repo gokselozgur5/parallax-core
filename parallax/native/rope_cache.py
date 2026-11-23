@@ -2,7 +2,7 @@ from __future__ import annotations
 import ctypes
 from dataclasses import dataclass
 import numpy as np
-from parallax.native.loader import bind
+from parallax.native.loader import INT32_MAX, bind
 
 _f32_ptr = ctypes.POINTER(ctypes.c_float)
 _c_build_rope_cache = bind(
@@ -41,6 +41,8 @@ class RoPECache:
         if theta <= 0.0:
             raise ValueError(f"theta must be positive, got {theta}")
         half = dim // 2
+        if max(dim, max_seq_len, max_seq_len * half) > INT32_MAX:
+            raise ValueError(f"Dimensions exceed INT32_MAX: max_seq_len={max_seq_len}, dim={dim}")
         cos = np.empty((max_seq_len, half), dtype=np.float32)
         sin = np.empty((max_seq_len, half), dtype=np.float32)
         if _c_build_rope_cache is not None:
@@ -65,13 +67,15 @@ class RoPECache:
             raise ValueError(f"x must have shape [T, H, D], got ndim {x.ndim}")
         if x.dtype != np.float32:
             raise TypeError("x must be float32")
-        if not x.flags.c_contiguous:
-            raise ValueError("x must be C-contiguous")
         T, H, D = x.shape
         if D != self.dim:
             raise ValueError(f"dim mismatch: tensor {D} vs cache {self.dim}")
+        if max(T, H, D, T * H * D, self.max_seq_len) > INT32_MAX:
+            raise ValueError(f"Dimensions exceed INT32_MAX: shape={x.shape}")
         if start_pos < 0 or start_pos + T > self.max_seq_len:
             raise ValueError(f"range [{start_pos}, {start_pos + T}) invalid")
+        if not x.flags.c_contiguous:
+            raise ValueError("x must be C-contiguous")
         if T == 0 or H == 0 or D == 0:
             return x
         if _c_apply_rope_cached is not None:
