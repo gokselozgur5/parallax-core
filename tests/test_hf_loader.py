@@ -301,4 +301,44 @@ def test_hf_config_without_sizes_is_rejected():
         hf_config_to_parallax({"model_type": "llama"})
 
 
+def test_hf_loader_honours_use_sliding_window_false():
+    cfg_sw_disabled = {
+        "model_type": "qwen2",
+        "hidden_size": 16,
+        "num_attention_heads": 2,
+        "num_hidden_layers": 1,
+        "vocab_size": 32,
+        "intermediate_size": 32,
+        "sliding_window": 4,
+        "use_sliding_window": False,
+    }
+    p_cfg = hf_config_to_parallax(cfg_sw_disabled)
+    assert p_cfg.sliding_window is None
+
+
+def test_hf_loader_sliding_window_preserved_when_enabled_or_omitted():
+    cfg_sw_enabled = {
+        "model_type": "qwen2",
+        "hidden_size": 16,
+        "num_attention_heads": 2,
+        "num_hidden_layers": 1,
+        "vocab_size": 32,
+        "intermediate_size": 32,
+        "sliding_window": 4,
+        "use_sliding_window": True,
+    }
+    cfg_sw_default = {
+        "model_type": "mistral",
+        "hidden_size": 16,
+        "num_attention_heads": 2,
+        "num_hidden_layers": 1,
+        "vocab_size": 32,
+        "intermediate_size": 32,
+        "sliding_window": 4096,
+    }
+    assert hf_config_to_parallax(cfg_sw_enabled).sliding_window == 4
+    assert hf_config_to_parallax(cfg_sw_default).sliding_window == 4096
+
+
+
 
