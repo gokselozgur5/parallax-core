@@ -452,8 +452,14 @@ mod tests {
                 parallax_bpe_find_merge(table.as_ptr(), 1, 9, 9, &mut rank, &mut new_id);
             assert_eq!(res_missing, STATUS_NOT_FOUND);
             assert_eq!(parallax_bpe_is_sorted(table.as_ptr(), 1), 1);
-            assert_eq!(parallax_bpe_find_merge(std::ptr::null(), 1, 1, 2, &mut rank, &mut new_id), STATUS_NULL_POINTER);
-            assert_eq!(parallax_bpe_is_sorted(std::ptr::null(), 1), STATUS_NULL_POINTER);
+            assert_eq!(
+                parallax_bpe_find_merge(std::ptr::null(), 1, 1, 2, &mut rank, &mut new_id),
+                STATUS_NULL_POINTER
+            );
+            assert_eq!(
+                parallax_bpe_is_sorted(std::ptr::null(), 1),
+                STATUS_NULL_POINTER
+            );
             // Aliasing checks
             let mut shared = vec![1.0f32; 8];
             let s_ptr = shared.as_mut_ptr();
