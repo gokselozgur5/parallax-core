@@ -42,8 +42,12 @@ impl CircularKvBuffer {
         if num_heads == 0 || head_dim == 0 || capacity == 0 {
             return Err(KvCacheError::InvalidDimension);
         }
-        let per_token = num_heads.checked_mul(head_dim).ok_or(KvCacheError::InvalidDimension)?;
-        let _ = capacity.checked_mul(per_token).ok_or(KvCacheError::InvalidDimension)?;
+        let per_token = num_heads
+            .checked_mul(head_dim)
+            .ok_or(KvCacheError::InvalidDimension)?;
+        let _ = capacity
+            .checked_mul(per_token)
+            .ok_or(KvCacheError::InvalidDimension)?;
         Ok(Self {
             num_heads,
             head_dim,
@@ -86,16 +90,27 @@ impl CircularKvBuffer {
             return Err(KvCacheError::InvalidDimension);
         }
         // Offset: (head * capacity + slot) * head_dim
-        let h_offset = head.checked_mul(self.capacity).ok_or(KvCacheError::InvalidDimension)?;
-        let slot_offset = h_offset.checked_add(slot).ok_or(KvCacheError::InvalidDimension)?;
-        slot_offset.checked_mul(self.head_dim).ok_or(KvCacheError::InvalidDimension)
+        let h_offset = head
+            .checked_mul(self.capacity)
+            .ok_or(KvCacheError::InvalidDimension)?;
+        let slot_offset = h_offset
+            .checked_add(slot)
+            .ok_or(KvCacheError::InvalidDimension)?;
+        slot_offset
+            .checked_mul(self.head_dim)
+            .ok_or(KvCacheError::InvalidDimension)
     }
 
     /// Total expected buffer capacity in float elements (num_heads * capacity * head_dim).
     #[inline]
     pub fn required_buffer_len(&self) -> Result<usize, KvCacheError> {
-        let per_head = self.capacity.checked_mul(self.head_dim).ok_or(KvCacheError::InvalidDimension)?;
-        self.num_heads.checked_mul(per_head).ok_or(KvCacheError::InvalidDimension)
+        let per_head = self
+            .capacity
+            .checked_mul(self.head_dim)
+            .ok_or(KvCacheError::InvalidDimension)?;
+        self.num_heads
+            .checked_mul(per_head)
+            .ok_or(KvCacheError::InvalidDimension)
     }
 
     /// Insert single key-value token slices [num_heads, head_dim] into circular cache.
