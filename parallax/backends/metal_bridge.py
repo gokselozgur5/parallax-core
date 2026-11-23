@@ -23,6 +23,10 @@ class MetalTensorBridge:
         return is_metal_available()
 
     def unwrap_array(self, obj: Any) -> np.ndarray:
+        if isinstance(obj, np.ndarray):
+            return np.ascontiguousarray(obj)
+        if isinstance(obj, np.generic):
+            return np.ascontiguousarray(np.asarray(obj))
         data = getattr(obj, "data", obj)
         if not isinstance(data, np.ndarray):
             data = np.asarray(data, dtype=np.float32)
