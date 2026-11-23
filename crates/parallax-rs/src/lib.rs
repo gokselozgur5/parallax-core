@@ -380,7 +380,19 @@ mod tests {
                 4,
             );
             assert_eq!(res, STATUS_INVALID_DIMENSION);
-            let res = parallax_gemm_f32(usize::MAX, 2, 2, 1.0, buf.as_ptr(), 4, buf.as_ptr(), 4, 0.0, out.as_mut_ptr(), 4);
+            let res = parallax_gemm_f32(
+                usize::MAX,
+                2,
+                2,
+                1.0,
+                buf.as_ptr(),
+                4,
+                buf.as_ptr(),
+                4,
+                0.0,
+                out.as_mut_ptr(),
+                4,
+            );
             assert_eq!(res, STATUS_INVALID_DIMENSION);
             let res = parallax_softmax_f32(out.as_mut_ptr(), 2, 2, 2);
             assert_eq!(res, STATUS_INVALID_DIMENSION);
