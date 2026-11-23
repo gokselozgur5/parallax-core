@@ -311,6 +311,27 @@ mod tests {
     }
 }
 
+#[cfg(test)]
+#[test]
+fn test_flash_attn_f32_rejects_slice_over_isize_max() {
+    let q = [1.0f32; 2];
+    let k = [1.0f32; 2];
+    let v = [1.0f32; 2];
+    let mut out = [0.0f32; 2];
+    unsafe {
+        let status_u64_wrap = parallax_flash_attn_f32(
+            q.as_ptr(), k.as_ptr(), v.as_ptr(), out.as_mut_ptr(),
+            1usize << 33, 1usize << 29, 0.5, 0, 0,
+        );
+        assert_eq!(status_u64_wrap, STATUS_INVALID_DIMENSION);
+        let status_isize_edge = parallax_flash_attn_f32(
+            q.as_ptr(), k.as_ptr(), v.as_ptr(), out.as_mut_ptr(),
+            1usize << 32, 1usize << 29, 0.5, 0, 0,
+        );
+        assert_eq!(status_isize_edge, STATUS_INVALID_DIMENSION);
+    }
+}
+
 /// C-ABI export to find bucket boundary for given sequence length.
 ///
 /// # Safety
