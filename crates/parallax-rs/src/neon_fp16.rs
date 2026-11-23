@@ -172,7 +172,10 @@ mod tests {
         let b = [0x4200, 0x4400]; // 3.0, 4.0
         let res = dot_fp16_scalar(&a, &b).unwrap();
         assert!((res - 11.0).abs() < 1e-4);
-        assert_eq!(dot_fp16_scalar(&a[..1], &b), Err(NeonFp16Error::DimensionMismatch));
+        assert_eq!(
+            dot_fp16_scalar(&a[..1], &b),
+            Err(NeonFp16Error::DimensionMismatch)
+        );
     }
 
     #[test]
