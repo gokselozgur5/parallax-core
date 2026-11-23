@@ -90,7 +90,9 @@ def test_dispatched_rmsnorm_autograd():
 
 
 def test_rmsnorm_backward_exports():
-    import parallax.dispatch.rmsnorm_backward as rb
+    import importlib
+
+    rb = importlib.import_module("parallax.dispatch.rmsnorm_backward")
     for sym in (
         "dispatched_rmsnorm",
         "fused_rmsnorm_backward",
