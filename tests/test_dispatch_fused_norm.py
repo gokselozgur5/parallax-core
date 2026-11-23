@@ -7,7 +7,7 @@ import pytest
 
 from parallax.tensor import Tensor
 
-from python.parallax.dispatch.fused_norm import (
+from parallax.dispatch.fused_norm import (
     FusedRMSNorm,
     fused_rmsnorm,
     stabilize_epsilon,
@@ -166,7 +166,7 @@ def test_fused_rmsnorm_backward_3d_nonuniform_weight_and_upstream():
 
 
 def test_fused_norm_exports():
-    import python.parallax.dispatch.fused_norm as fn
+    import parallax.dispatch.fused_norm as fn
     assert hasattr(fn, "FusedRMSNorm")
     assert hasattr(fn, "fused_rmsnorm")
     assert hasattr(fn, "stabilize_epsilon")

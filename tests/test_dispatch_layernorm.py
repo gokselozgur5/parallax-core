@@ -1,7 +1,7 @@
 """Tests for FusedLayerNorm layer and dispatch layernorm routines."""
 
 import numpy as np
-from python.parallax.dispatch.layernorm import FusedLayerNorm, stabilize_epsilon
+from parallax.dispatch.layernorm import FusedLayerNorm, stabilize_epsilon
 
 
 def test_stabilize_epsilon():
@@ -32,7 +32,7 @@ def test_fused_layernorm_repr():
 
 def test_fused_layernorm_package_exports():
     from parallax.dispatch.layernorm import FusedLayerNorm as LN1
-    from python.parallax.dispatch import FusedLayerNorm as LN2
+    from parallax.dispatch import FusedLayerNorm as LN2
 
     assert LN1 is FusedLayerNorm
     assert LN2 is FusedLayerNorm
@@ -57,7 +57,7 @@ def test_fused_layernorm_forward_parity():
 
 def test_fused_layernorm_residual_addition():
     from parallax.tensor import Tensor
-    from python.parallax.dispatch.layernorm import fused_layernorm
+    from parallax.dispatch.layernorm import fused_layernorm
 
     dim = 8
     x = np.random.randn(2, dim).astype(np.float32)

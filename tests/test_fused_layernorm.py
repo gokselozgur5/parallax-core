@@ -6,7 +6,7 @@ import numpy as np
 
 from parallax.dispatch import dispatched_fused_layernorm
 from parallax.tensor import Tensor
-from python.parallax.dispatch.fused_layernorm import (
+from parallax.dispatch.fused_layernorm import (
     fused_layernorm_backward,
     fused_layernorm_forward,
 )
