@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from parallax.tensor import Tensor
-from python.parallax.dispatch.cross_entropy import (
+from parallax.dispatch.cross_entropy import (
     CrossEntropyLossModule,
     DispatchedCrossEntropyLoss,
     cross_entropy_backward_reference,

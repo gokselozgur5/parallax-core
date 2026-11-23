@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from python.parallax.dispatch.embedding_backward import sparse_embedding_backward
+from parallax.dispatch.embedding_backward import sparse_embedding_backward
 
 
 def test_sparse_embedding_backward_rejects_negative_indices():

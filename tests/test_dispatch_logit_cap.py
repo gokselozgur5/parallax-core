@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from python.parallax.dispatch.logit_cap import (
+from parallax.dispatch.logit_cap import (
     DispatchedLogitCap,
     logit_soft_cap,
     logit_soft_cap_backward,
@@ -96,7 +96,7 @@ def test_dispatched_logit_cap_autograd_backward() -> None:
 
 
 def test_logit_cap_module_exports() -> None:
-    import python.parallax.dispatch.logit_cap as lc
+    import parallax.dispatch.logit_cap as lc
     assert hasattr(lc, "DispatchedLogitCap")
     assert hasattr(lc, "LogitSoftCap")
     assert hasattr(lc, "logit_soft_cap")
