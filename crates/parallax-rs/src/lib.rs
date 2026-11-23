@@ -335,9 +335,17 @@ mod tests {
         let mut c = [0.0f32; 4];
         unsafe {
             let res = parallax_gemm_f32(
-                2, 2, 2, 1.0,
-                a.as_ptr(), a.len(), b.as_ptr(), b.len(),
-                0.0, c.as_mut_ptr(), c.len(),
+                2,
+                2,
+                2,
+                1.0,
+                a.as_ptr(),
+                a.len(),
+                b.as_ptr(),
+                b.len(),
+                0.0,
+                c.as_mut_ptr(),
+                c.len(),
             );
             assert_eq!(res, STATUS_OK);
         }
@@ -358,7 +366,19 @@ mod tests {
         let buf = [1.0f32; 4];
         let mut out = [0.0f32; 4];
         unsafe {
-            let res = parallax_gemm_f32(2, 2, 2, 1.0, buf.as_ptr(), 2, buf.as_ptr(), 4, 0.0, out.as_mut_ptr(), 4);
+            let res = parallax_gemm_f32(
+                2,
+                2,
+                2,
+                1.0,
+                buf.as_ptr(),
+                2,
+                buf.as_ptr(),
+                4,
+                0.0,
+                out.as_mut_ptr(),
+                4,
+            );
             assert_eq!(res, STATUS_INVALID_DIMENSION);
             let res = parallax_gemm_f32(usize::MAX, 2, 2, 1.0, buf.as_ptr(), 4, buf.as_ptr(), 4, 0.0, out.as_mut_ptr(), 4);
             assert_eq!(res, STATUS_INVALID_DIMENSION);
