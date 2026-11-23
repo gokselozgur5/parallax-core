@@ -3,6 +3,7 @@ import pytest
 from parallax.attention import CausalSelfAttention, apply_rope
 from parallax.gradcheck import check_tensor_gradient
 from parallax.tensor import Tensor
+from parallax.yarn import apply_yarn_rope
 
 
 def test_apply_rope_preserves_norm():
@@ -156,4 +157,37 @@ def test_causal_attention_sliding_window_flash_backward():
     assert x.grad is not None
     assert x.grad.shape == (B, T, C)
     assert mha.q_proj.weight.grad is not None
+
+
+def test_apply_rope_honours_seq_dim():
+    rng = np.random.default_rng(0)
+    x = rng.standard_normal((1, 5, 5, 8))
+    moved = np.transpose(x, (0, 2, 1, 3))
+    expected = np.transpose(apply_rope(moved, seq_dim=1), (0, 2, 1, 3))
+    np.testing.assert_allclose(apply_rope(x, seq_dim=2), expected)
+
+
+def test_apply_rope_seq_dim_2_generic_shape():
+    rng = np.random.default_rng(0)
+    x = rng.standard_normal((2, 3, 5, 8))
+    moved = np.transpose(x, (0, 2, 1, 3))
+    expected = np.transpose(apply_rope(moved, seq_dim=1), (0, 2, 1, 3))
+    np.testing.assert_allclose(apply_rope(x, seq_dim=2), expected)
+
+
+def test_apply_yarn_rope_honours_seq_dim():
+    rng = np.random.default_rng(0)
+    x = rng.standard_normal((1, 5, 5, 8))
+    moved = np.transpose(x, (0, 2, 1, 3))
+    expected = np.transpose(apply_yarn_rope(moved, seq_dim=1), (0, 2, 1, 3))
+    np.testing.assert_allclose(apply_yarn_rope(x, seq_dim=2), expected)
+
+
+def test_apply_yarn_rope_seq_dim_2_generic_shape():
+    rng = np.random.default_rng(0)
+    x = rng.standard_normal((2, 3, 5, 8))
+    moved = np.transpose(x, (0, 2, 1, 3))
+    expected = np.transpose(apply_yarn_rope(moved, seq_dim=1), (0, 2, 1, 3))
+    np.testing.assert_allclose(apply_yarn_rope(x, seq_dim=2), expected)
+
 
