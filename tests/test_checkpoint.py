@@ -163,3 +163,24 @@ def test_checkpoint_roundtrip_keeps_qk_norm_weights(tmp_path):
     )
     np.testing.assert_allclose(loaded(idx).data, expected, atol=1e-9)
 
+
+def test_load_checkpoint_without_optimizer_state_sizes_moment_buffers(tmp_path):
+    cfg = ParallaxLMConfig(
+        vocab_size=24, embed_dim=16, num_heads=2, num_layers=1, max_seq_len=8
+    )
+    model = ParallaxLM(cfg)
+    path = save_checkpoint(str(tmp_path / "weights_only.npz"), model)
+
+    opt = AdamW([], lr=1e-3)
+    loaded, _ = load_checkpoint(path, optimizer=opt)
+
+    idx = np.array([[1, 2, 3]])
+    before = loaded.token_embeddings.weight.data.copy()
+    loaded(idx).sum().backward()
+    opt.step()
+
+    assert len(opt.m) == len(loaded.parameters())
+    assert len(opt.v) == len(loaded.parameters())
+    assert not np.allclose(loaded.token_embeddings.weight.data, before)
+
+
