@@ -3,6 +3,13 @@ import pytest
 from parallax.backends.telemetry import CallStats, DispatchTelemetry
 
 
+@pytest.fixture(autouse=True)
+def _reset_shared_telemetry():
+    DispatchTelemetry().reset()
+    yield
+    DispatchTelemetry().reset()
+
+
 def test_record_accumulates_per_op_and_backend():
     tel = DispatchTelemetry()
     tel.record("gemm", "metal", 100)
