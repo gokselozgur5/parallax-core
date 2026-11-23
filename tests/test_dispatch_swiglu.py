@@ -2,7 +2,7 @@
 
 import numpy as np
 import pytest
-from python.parallax.dispatch.swiglu import swiglu_dispatch
+from parallax.dispatch.swiglu import swiglu_dispatch
 
 
 @pytest.fixture(autouse=True)
@@ -36,7 +36,7 @@ def test_swiglu_dispatch_validation() -> None:
 
 
 def test_swiglu_backward_dispatch() -> None:
-    from python.parallax.dispatch.swiglu import swiglu_backward_dispatch
+    from parallax.dispatch.swiglu import swiglu_backward_dispatch
 
     a = np.array([1.0, -1.0], dtype=np.float32)
     b = np.array([2.0, 3.0], dtype=np.float32)
@@ -51,7 +51,7 @@ def test_swiglu_backward_dispatch() -> None:
 
 def test_dispatched_swiglu_tensor_autograd() -> None:
     from parallax.tensor import Tensor
-    from python.parallax.dispatch.swiglu import dispatched_swiglu
+    from parallax.dispatch.swiglu import dispatched_swiglu
 
     g_data = np.array([[1.0, -2.0], [0.5, 1.5]], dtype=np.float32)
     u_data = np.array([[2.0, 3.0], [-1.0, 0.5]], dtype=np.float32)
@@ -65,7 +65,7 @@ def test_dispatched_swiglu_tensor_autograd() -> None:
 
 
 def test_swiglu_activation_module() -> None:
-    from python.parallax.dispatch.swiglu import SwiGLUActivation
+    from parallax.dispatch.swiglu import SwiGLUActivation
     from parallax.tensor import Tensor
 
     act = SwiGLUActivation()
@@ -81,7 +81,7 @@ def test_swiglu_activation_module() -> None:
 
 
 def test_dispatched_swiglu_ffn_forward() -> None:
-    from python.parallax.dispatch.swiglu import DispatchedSwiGLU
+    from parallax.dispatch.swiglu import DispatchedSwiGLU
     from parallax.tensor import Tensor
 
     layer = DispatchedSwiGLU(embed_dim=8, hidden_dim=16)
@@ -94,7 +94,7 @@ def test_dispatched_swiglu_ffn_forward() -> None:
 
 def test_dispatched_swiglu_from_swiglu_and_repr() -> None:
     from parallax.models.gpt import SwiGLU
-    from python.parallax.dispatch.swiglu import DispatchedSwiGLU
+    from parallax.dispatch.swiglu import DispatchedSwiGLU
 
     orig = SwiGLU(embed_dim=8, hidden_dim=16)
     dispatched = DispatchedSwiGLU.from_swiglu(orig)
@@ -104,7 +104,7 @@ def test_dispatched_swiglu_from_swiglu_and_repr() -> None:
 
 
 def test_swiglu_dispatch_native_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
-    from python.parallax.dispatch import swiglu
+    from parallax.dispatch import swiglu
 
     a = np.array([0.5, -0.5], dtype=np.float32)
     b = np.array([2.0, -2.0], dtype=np.float32)
@@ -115,7 +115,7 @@ def test_swiglu_dispatch_native_fallback(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 def test_dispatch_swiglu_package_export() -> None:
-    from python.parallax.dispatch import swiglu as swiglu_mod
+    from parallax.dispatch import swiglu as swiglu_mod
 
     assert hasattr(swiglu_mod, "swiglu_dispatch")
     assert hasattr(swiglu_mod, "swiglu_backward_dispatch")

@@ -2,7 +2,7 @@ import numpy as np
 
 from parallax.backends.c_backend import CBackend
 from parallax.backends.numpy_backend import NumpyBackend
-from python.parallax.dispatch.gelu_fast import gelu_fast_dispatch
+from parallax.dispatch.gelu_fast import gelu_fast_dispatch
 
 
 def _c_backend() -> CBackend:
