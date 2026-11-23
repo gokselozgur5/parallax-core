@@ -6,10 +6,10 @@ import ctypes
 
 import numpy as np
 
-from parallax.native.loader import INT32_MAX, bind
+from parallax.native.loader import check_int32_bounds, lazy_bind
 
-_has_avx2 = bind("c_has_avx2_rmsnorm", [], ctypes.c_int)
-_rmsnorm_avx2 = bind(
+_has_avx2 = lazy_bind("c_has_avx2_rmsnorm", [], ctypes.c_int)
+_rmsnorm_avx2 = lazy_bind(
     "c_rmsnorm_avx2_f32",
     [ctypes.POINTER(ctypes.c_float)] * 3 + [ctypes.c_int, ctypes.c_int, ctypes.c_float],
     None,
@@ -32,12 +32,11 @@ def rmsnorm_avx2(
     if x.ndim != 2 or weight.ndim != 1 or x.shape[1] != weight.shape[0]:
         raise ValueError(f"shape mismatch: x={x.shape}, weight={weight.shape}")
     rows, cols = x.shape
-    if max(rows, cols, rows * cols) > INT32_MAX:
-        raise ValueError(f"Dimensions exceed INT32_MAX: rows={rows}, cols={cols}")
+    check_int32_bounds(rows, cols, rows * cols)
     x_c = np.ascontiguousarray(x, dtype=np.float32)
     w_c = np.ascontiguousarray(weight, dtype=np.float32)
     out = np.empty_like(x_c)
-    _rmsnorm_avx2(  # type: ignore[misc]
+    _rmsnorm_avx2(
         x_c.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
         w_c.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
         out.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),

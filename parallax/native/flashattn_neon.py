@@ -7,31 +7,22 @@ from typing import Any, Callable, Optional
 
 import numpy as np
 
-from parallax.native.loader import INT32_MAX, bind
+from parallax.native.loader import check_int32_bounds, lazy_bind
 
-_FN_FLASHATTN_NEON: Optional[Callable[..., Any]] = None
+_FN_FLASHATTN_NEON = lazy_bind(
+    "c_flashattn_neon_f32",
+    [ctypes.c_void_p] * 4 + [ctypes.c_int, ctypes.c_int, ctypes.c_float, ctypes.c_int],
+    ctypes.c_int,
+)
 
 
 def _get_flashattn_neon_fn() -> Optional[Callable[..., Any]]:
-    global _FN_FLASHATTN_NEON
-    if _FN_FLASHATTN_NEON is None:
-        args = [
-            ctypes.c_void_p,
-            ctypes.c_void_p,
-            ctypes.c_void_p,
-            ctypes.c_void_p,
-            ctypes.c_int,
-            ctypes.c_int,
-            ctypes.c_float,
-            ctypes.c_int,
-        ]
-        _FN_FLASHATTN_NEON = bind("c_flashattn_neon_f32", args, ctypes.c_int)
-    return _FN_FLASHATTN_NEON
+    return _FN_FLASHATTN_NEON.resolve()
 
 
 def is_flashattn_neon_available() -> bool:
     """Return True if the NEON FlashAttention kernel symbol is bound."""
-    return _get_flashattn_neon_fn() is not None
+    return bool(_FN_FLASHATTN_NEON)
 
 
 def _validate_inputs(q: np.ndarray, k: np.ndarray, v: np.ndarray):
@@ -40,8 +31,7 @@ def _validate_inputs(q: np.ndarray, k: np.ndarray, v: np.ndarray):
     seq_len, head_dim = q.shape
     if k.shape != (seq_len, head_dim) or v.shape != (seq_len, head_dim):
         raise ValueError("q, k, and v shapes must match (seq_len, head_dim)")
-    if max(seq_len, head_dim, seq_len * head_dim) > INT32_MAX:
-        raise ValueError(f"Dimensions exceed INT32_MAX: seq_len={seq_len}, head_dim={head_dim}")
+    check_int32_bounds(seq_len, head_dim, seq_len * head_dim)
     return seq_len, head_dim
 
 

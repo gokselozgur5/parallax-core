@@ -5,33 +5,23 @@ from __future__ import annotations
 import ctypes
 from typing import Any, Callable, Optional
 import numpy as np
-from parallax.native.loader import INT32_MAX, bind
+from parallax.native.loader import check_int32_bounds, lazy_bind
 
-_FN_RMSNORM_AVX512: Optional[Callable[..., Any]] = None
-_FN_HAS_AVX512_RMSNORM: Optional[Callable[..., Any]] = None
+_FN_RMSNORM_AVX512 = lazy_bind(
+    "c_rmsnorm_avx512_f32",
+    [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_float],
+    ctypes.c_int,
+)
+_FN_HAS_AVX512_RMSNORM = lazy_bind("c_has_avx512_rmsnorm_f32", [], ctypes.c_int)
 
 
 def is_avx512_rmsnorm_available() -> bool:
     """Return True if AVX-512 RMSNorm is supported by the CPU."""
-    global _FN_HAS_AVX512_RMSNORM
-    if _FN_HAS_AVX512_RMSNORM is None:
-        _FN_HAS_AVX512_RMSNORM = bind("c_has_avx512_rmsnorm_f32", [], ctypes.c_int)
-    return bool(_FN_HAS_AVX512_RMSNORM() != 0) if _FN_HAS_AVX512_RMSNORM else False
+    return bool(_FN_HAS_AVX512_RMSNORM and _FN_HAS_AVX512_RMSNORM() != 0)
 
 
 def _get_rmsnorm_avx512_fn() -> Optional[Callable[..., Any]]:
-    global _FN_RMSNORM_AVX512
-    if _FN_RMSNORM_AVX512 is None:
-        args = [
-            ctypes.c_void_p,
-            ctypes.c_void_p,
-            ctypes.c_void_p,
-            ctypes.c_int,
-            ctypes.c_int,
-            ctypes.c_float,
-        ]
-        _FN_RMSNORM_AVX512 = bind("c_rmsnorm_avx512_f32", args, ctypes.c_int)
-    return _FN_RMSNORM_AVX512
+    return _FN_RMSNORM_AVX512.resolve()
 
 
 def _rmsnorm_scalar_fallback(x_c: np.ndarray, w_c: np.ndarray, eps: float) -> np.ndarray:
@@ -50,8 +40,7 @@ def rmsnorm_avx512(x: np.ndarray, weight: np.ndarray, eps: float = 1e-5) -> np.n
     if cols == 0 or weight.ndim != 1 or weight.shape[0] != cols:
         raise ValueError(f"Weight shape mismatch: expected ({cols},), got {weight.shape}")
     rows = x.size // cols
-    if max(rows, cols, rows * cols) > INT32_MAX:
-        raise ValueError(f"Dimensions exceed INT32_MAX: rows={rows}, cols={cols}")
+    check_int32_bounds(rows, cols, rows * cols)
     if rows == 0:
         return np.empty(orig_shape, dtype=np.float32)
     x_c = np.ascontiguousarray(x.reshape(rows, cols), dtype=np.float32)
