@@ -303,14 +303,16 @@ def test_hf_tokenizer_vocab_size_with_added_token_gap():
 
 
 def test_hf_tokenizer_normalizer_preserves_added_tokens():
-    """Verify normalizer only applies to non-special parts."""
+    """Verify normalizer only applies to non-special parts and preserves non-NFC added tokens."""
     from parallax.hf_tokenizer import _BYTE_TO_UNICODE
     vocab = {u: b for b, u in _BYTE_TO_UNICODE.items()}
     vocab["Ã©"] = 300
-    added = {"<reserved_special>": 301}
+    # Added token contains decomposed e + \u0301 which NFC would normalize to é if applied
+    added_token = "<special_e\u0301>"
+    added = {added_token: 301}
     # NFC normalizer turns e + \u0301 into é (which is bytes C3 A9 -> Ã© in byte-to-unicode)
     tok = HFTokenizer(vocab=vocab, added_tokens=added, normalizer="NFC", merges=["Ã ©"])
-    encoded = tok.encode("<reserved_special>e\u0301")
+    encoded = tok.encode(f"{added_token}e\u0301")
     assert encoded[0] == 301
     assert encoded[1] == 300
 
