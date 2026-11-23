@@ -173,3 +173,32 @@ def test_load_gguf_qwen2_qkv_bias_strict_no_attn_output_bias():
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
 
+
+
+def test_save_parallax_to_gguf_writes_file_type_and_matches_export_v3():
+    from parallax.gguf import load_gguf
+    from parallax.gguf_exporter import export_to_gguf_v3
+    from parallax.gguf_loader import save_parallax_to_gguf
+    from parallax.models.gpt import ParallaxLMConfig
+
+    cfg = ParallaxLMConfig(
+        vocab_size=32,
+        embed_dim=16,
+        num_heads=2,
+        num_layers=1,
+        intermediate_size=32,
+        max_seq_len=64,
+    )
+    model = ParallaxLM(cfg)
+
+    with tempfile.TemporaryDirectory() as td:
+        p1 = os.path.join(td, "wrapper.gguf")
+        p2 = os.path.join(td, "export.gguf")
+        save_parallax_to_gguf(model, p1)
+        export_to_gguf_v3(model, p2, quantization="f32")
+
+        g1 = load_gguf(p1)
+        g2 = load_gguf(p2)
+        assert "general.file_type" in g1.metadata
+        assert g1.metadata["general.file_type"] == 0
+        assert g1.metadata == g2.metadata
