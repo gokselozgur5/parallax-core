@@ -44,10 +44,8 @@ htmlcov/
 Cargo.lock
 
 # Workspace artifacts & downloads
-models/
+/models/
 uv.lock
 
 .mypy_cache/
-.pytest_cache/
 .ruff_cache/
-.venv/
