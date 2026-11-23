@@ -195,3 +195,39 @@ def test_fused_layernorm_package_exports():
         "rms_weight_scale_backward",
     ):
         assert hasattr(pd, sym)
+
+
+def test_dispatched_fused_layernorm_tuple_shape_rms_gradcheck():
+    rng = np.random.default_rng(19)
+    x_np = rng.normal(size=(2, 3, 4))
+    res_np = rng.normal(size=(2, 3, 4))
+    dout = rng.normal(size=(2, 3, 4))
+    for rms in (False, True):
+        mod = DispatchedFusedLayerNorm((3, 4), eps=1e-5, rms_scale=rms)
+        assert mod.weight is not None and mod.bias is not None
+        mod.weight.data = rng.normal(size=(3, 4))
+        mod.bias.data = rng.normal(size=(3, 4))
+        x = Tensor(x_np.copy(), requires_grad=True)
+        res = Tensor(res_np.copy(), requires_grad=True)
+        mod(x, residual=res).backward(dout)
+        for grad, arr in (
+            (x.grad, x_np),
+            (res.grad, res_np),
+            (mod.weight.grad, mod.weight.data),
+            (mod.bias.grad, mod.bias.data),
+        ):
+            fd = np.zeros_like(arr)
+            for idx in np.ndindex(arr.shape):
+                orig = arr[idx]
+                arr[idx] = orig + 1e-6
+                f_p = fused_layernorm_forward(
+                    x_np, mod.weight.data, mod.bias.data, res_np, eps=1e-5, rms_scale=rms
+                )
+                arr[idx] = orig - 1e-6
+                f_m = fused_layernorm_forward(
+                    x_np, mod.weight.data, mod.bias.data, res_np, eps=1e-5, rms_scale=rms
+                )
+                arr[idx] = orig
+                fd[idx] = np.sum((f_p - f_m) / 2e-6 * dout)
+            assert grad is not None
+            np.testing.assert_allclose(grad, fd, rtol=1e-5, atol=1e-6)
