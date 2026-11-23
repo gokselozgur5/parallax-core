@@ -1,18 +1,33 @@
 #include <stddef.h>
 #include <math.h>
 
-#if defined(__x86_64__) || defined(_M_X64)
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC target("avx2,fma")
+#ifndef PARALLAX_STATUS_OK
+#define PARALLAX_STATUS_OK 0
+#define PARALLAX_STATUS_NULL_POINTER (-1)
+#define PARALLAX_STATUS_INVALID_DIMENSION (-2)
+#define PARALLAX_STATUS_UNSUPPORTED_ISA (-5)
 #endif
-#include <immintrin.h>
 
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+#define PARALLAX_NO_AVX_TARGET __attribute__((noinline, target("no-avx,no-fma")))
+#else
+#define PARALLAX_NO_AVX_TARGET
+#endif
+
+PARALLAX_NO_AVX_TARGET
 int c_has_avx2_rmsnorm(void) {
-    return 1;
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+    return __builtin_cpu_supports("avx2") && __builtin_cpu_supports("fma");
+#else
+    return 0;
+#endif
 }
 
-void c_rmsnorm_avx2_f32(const float *x, const float *w, float *o, int r, int c, float eps) {
-    if (!x || !w || !o || r <= 0 || c <= 0) return;
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+#include <immintrin.h>
+
+__attribute__((noinline, target("avx2,fma")))
+static void rmsnorm_avx2_kernel(const float *x, const float *w, float *o, int r, int c, float eps) {
     const size_t rows = (size_t)r, cols = (size_t)c;
     for (size_t row = 0; row < rows; ++row) {
         const float *xr = x + row * cols;
@@ -39,12 +54,18 @@ void c_rmsnorm_avx2_f32(const float *x, const float *w, float *o, int r, int c, 
         for (; col < cols; ++col) orow[col] = (xr[col] * inv_rms) * w[col];
     }
 }
-#else
-int c_has_avx2_rmsnorm(void) {
-    return 0;
-}
-
-void c_rmsnorm_avx2_f32(const float *x, const float *w, float *o, int r, int c, float eps) {
-    (void)x; (void)w; (void)o; (void)r; (void)c; (void)eps;
-}
 #endif
+
+PARALLAX_NO_AVX_TARGET
+int c_rmsnorm_avx2_f32(const float *x, const float *w, float *o, int r, int c, float eps) {
+    if (!x || !w || !o) return PARALLAX_STATUS_NULL_POINTER;
+    if (r <= 0 || c <= 0) return PARALLAX_STATUS_INVALID_DIMENSION;
+    if (!c_has_avx2_rmsnorm()) return PARALLAX_STATUS_UNSUPPORTED_ISA;
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+    rmsnorm_avx2_kernel(x, w, o, r, c, eps);
+    return PARALLAX_STATUS_OK;
+#else
+    (void)eps;
+    return PARALLAX_STATUS_UNSUPPORTED_ISA;
+#endif
+}
