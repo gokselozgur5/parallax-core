@@ -77,20 +77,34 @@ def find_rust_lib() -> Optional[Path]:
     return None
 
 
+def _raise_if_rust_engine_required() -> None:
+    if _RUST_LIB is None and os.environ.get("PARALLAX_REQUIRE_RUST_ENGINE") == "1":
+        reason = _LOAD_ERROR_REASON or "libparallax_rs shared library unavailable"
+        raise RuntimeError(
+            f"PARALLAX_REQUIRE_RUST_ENGINE=1 but Rust engine failed: {reason}"
+        )
+
+
 def get_rust_lib() -> Optional[ctypes.CDLL]:
     """Load and configure the Rust C-ABI CDLL with thread safety and ABI check."""
-    global _RUST_LIB, _LIB_LOAD_ATTEMPTED
+    global _RUST_LIB, _LIB_LOAD_ATTEMPTED, _LOAD_ERROR_REASON
     if _LIB_LOAD_ATTEMPTED:
+        _raise_if_rust_engine_required()
         return _RUST_LIB
 
     with _INIT_LOCK:
         if _LIB_LOAD_ATTEMPTED:
+            _raise_if_rust_engine_required()
             return _RUST_LIB
-        _LIB_LOAD_ATTEMPTED = True
 
         lib_path = find_rust_lib()
         if lib_path is None:
+            _RUST_LIB = None
+            if _LOAD_ERROR_REASON is None:
+                _LOAD_ERROR_REASON = "libparallax_rs shared library not found"
+            _LIB_LOAD_ATTEMPTED = True
             _LOGGER.debug("libparallax_rs shared library not found; using fallback.")
+            _raise_if_rust_engine_required()
             return None
 
         try:
@@ -137,12 +151,18 @@ def get_rust_lib() -> Optional[ctypes.CDLL]:
             lib.parallax_get_device_type.restype = ctypes.c_int32
 
             _RUST_LIB = lib
+            _LOAD_ERROR_REASON = None
+            _LIB_LOAD_ATTEMPTED = True
             return _RUST_LIB
         except Exception as e:
             _LOGGER.warning("Failed to initialize Rust engine: %s; falling back to NumPy", e)
             _RUST_LIB = None
+            _LOAD_ERROR_REASON = str(e)
+            _LIB_LOAD_ATTEMPTED = True
             if os.environ.get("PARALLAX_REQUIRE_RUST_ENGINE") == "1":
-                raise
+                raise RuntimeError(
+                    f"PARALLAX_REQUIRE_RUST_ENGINE=1 but Rust engine failed: {_LOAD_ERROR_REASON}"
+                ) from e
             return None
 
 
