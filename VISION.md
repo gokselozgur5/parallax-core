@@ -110,67 +110,67 @@ flowchart TD
 
 ---
 
-## 3. İlk-İlkeler Matematiksel Formülasyonları
+## 3. First-Principles Mathematical Formulations
 
-### 3.1. BitNet b1.58 ve Düz Geçiş Tahminleyicisi (STE)
-Ağırlıklar ortalama mutlak değer ölçeği ($\gamma$) ile $\{-1, 0, +1\}$ değerlerine yuvarlanır:
+### 3.1. BitNet b1.58 and Straight-Through Estimator (STE)
+Weights are scaled by the mean absolute value ($\gamma$) and rounded to $\{-1, 0, +1\}$:
 
 $$\gamma = \frac{1}{nm} \sum_{i,j} |W_{i,j}| + \epsilon, \quad \widetilde{W} = \text{clip}\left(\text{round}\left(\frac{W}{\gamma}\right), -1, +1\right)$$
 
-Aktivasyonlar her token için mutlak maksimum ölçeği ($\eta$) ile 8-bit tam sayıya sıkıştırılır:
+Activations are scaled per-token by the absolute maximum ($\eta$) into 8-bit signed integers:
 
 $$\eta = \frac{127}{\max_k |X_{i,k}| + \epsilon}, \quad \widetilde{X} = \text{clip}(\text{round}(X \cdot \eta), -128, 127)$$
 
-Matris çarpımı donanım düzeyinde tamsayı toplamaya dönüşür:
+Matrix multiplication executes via integer addition operations:
 
 $$Y = \left( \widetilde{X} \cdot \widetilde{W}^T \right) \cdot \frac{\gamma}{\eta}$$
 
-Geriye yayılımda (backward pass) yuvarlama fonksiyonunun türevi tanımsız olduğundan Straight-Through Estimator (STE) işletilir:
+During backpropagation, the non-differentiable rounding operation is bypassed using the Straight-Through Estimator (STE):
 
 $$\frac{\partial L}{\partial W} \approx \frac{\partial L}{\partial Y}^T \cdot X, \quad \frac{\partial L}{\partial X} \approx \frac{\partial L}{\partial Y} \cdot (\widetilde{W} \cdot \gamma)$$
 
 ---
 
-### 3.2. Mamba S6 Seçici Durum-Uzayı (ZOH Ayrıklaştırması)
-Sürekli zaman dinamik sistemi:
+### 3.2. Mamba S6 Selective State Space (ZOH Discretization)
+Continuous-time state-space dynamics:
 
 $$h'(t) = A h(t) + B x(t), \quad y(t) = C h(t) + D x(t)$$
 
-Girişe duyarlı zaman adımı $\Delta = \text{softplus}(\text{Linear}(x) + \text{bias})$ ile Zero-Order Hold (ZOH) formülü kullanılarak ayrıklaştırılır:
+Discretized with input-dependent timescale $\Delta = \text{softplus}(\text{Linear}(x) + \text{bias})$ via Zero-Order Hold (ZOH):
 
 $$\bar{A} = \exp(\Delta A), \quad \bar{B} = (\Delta A)^{-1}(\exp(\Delta A) - I) \cdot (\Delta B) \approx \Delta B$$
 
-Adım adım yineleme denklemi:
+Step recurrence update:
 
 $$h_t = \bar{A}_t h_{t-1} + \bar{B}_t x_t, \quad y_t = C_t h_t + D x_t$$
 
-Durum matrisi $h_t \in \mathbb{R}^{B \times d_{inner} \times d_{state}}$ boyutunda olduğundan, hafıza ihtiyacı dizi uzunluğundan ($T$) **tamamen bağımsızdır ($O(1)$).**
+Because the recurrent state matrix has fixed dimension $h_t \in \mathbb{R}^{B \times d_{inner} \times d_{state}}$, memory allocation is strictly invariant to sequence length $T$ ($O(1)$).
 
 ---
 
-### 3.3. FlashDecoding-v2: Dinamik Split-K ve LogSumExp İndirgemesi
-$T$ uzunluğundaki bağlam $K$ parçaya bölünür:
+### 3.3. FlashDecoding-v2: Dynamic Split-K and LogSumExp Reduction
+Context of length $T$ is partitioned into $K$ chunks:
 
 $$K = \min\left(K_{\max}, \max\left(1, \left\lfloor \frac{T}{\text{chunk\_size}} \right\rfloor\right)\right)$$
 
-Her bir $k$ bloğu yerel maksimum $m_k$, normalizasyon paydası $l_k$ ve normalize yerel çıktı $O_k$ (veya pay toplamı $V_k = l_k O_k$) üretir:
+Each chunk $k$ computes local maximum $m_k$, normalization denominator $l_k$, and normalized local output $O_k$ (or accumulator $V_k = l_k O_k$):
 
 $$m_k = \max_{j} S_k[j], \quad l_k = \sum_{j} \exp(S_k[j] - m_k), \quad O_k = \sum_{j} \frac{\exp(S_k[j] - m_k)}{l_k} V_k[j]$$
 
-Global birleştirme, $l_k$ ölçekleme çarpanını koruyarak tam LogSumExp indirgemesiyle gerçekleştirilir:
+Global reduction maintains numerical equivalence via exact LogSumExp rescaling:
 
 $$m = \max_k m_k, \quad l = \sum_{k} l_k \exp(m_k - m), \quad O = \sum_{k} \frac{l_k \exp(m_k - m)}{l} O_k = \frac{1}{l} \sum_{k} \exp(m_k - m) V_k$$
 
-Bu sayede $T=4096$'da aşırı split oluşumu engellenir ve **$2.64x$ hızlanma** sağlanır.
+Dynamic Split-K limits partition proliferation at extended context lengths (e.g. capping splits at 8 partitions for $T=4096$), achieving measured speedups up to 4.37x.
 
 ---
 
-## 4. Benchmark ve Kanıt Matrisi
+## 4. Benchmark and Empirical Verification Matrix
 
-### 4.1. Anti-RAM Kanıtı: Transformer KV vs Mamba S6 ($O(N)$ vs $O(1)$)
-*Test ortamı: Apple M2 arm64, FP64 hassasiyet, $d_{model}=64, L=2, H=4$.*
+### 4.1. Anti-RAM Scaling: Transformer KV vs Mamba S6 ($O(N)$ vs $O(1)$)
+*Test environment: Apple M2 arm64, FP64 precision, $d_{model}=64, L=2, H=4$.*
 
-| Dizi Uzunluğu ($T$) | Transformer KV Cache ($O(T)$) | Mamba State Space ($O(1)$) | RAM Tasarruf Çarpanı | Transformer Adım Süresi | Mamba Adım Süresi |
+| Sequence Length ($T$) | Transformer KV Cache ($O(T)$) | Mamba State Space ($O(1)$) | RAM Reduction Ratio | Transformer Step Latency | Mamba Step Latency |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **128** | 256.00 KB | 40.00 KB | **6.40x** | 0.32 ms | **0.51 ms** |
 | **256** | 512.00 KB | 40.00 KB | **12.80x** | 0.30 ms | **0.48 ms** |
@@ -180,17 +180,17 @@ Bu sayede $T=4096$'da aşırı split oluşumu engellenir ve **$2.64x$ hızlanma*
 
 ---
 
-### 4.2. Donanım Hesaplama Matrisi (C-Engine, Rust, Metal JIT)
-*Test ortamı: Apple M2 arm64, FP32 tek duyarlık.*
+### 4.2. Hardware Compute Acceleration Matrix (C-Engine, Rust, Metal JIT)
+*Test environment: Apple M2 arm64, FP32 single precision.*
 
-| Kernel Operasyonu | Matris / Tensör Boyutu | NumPy BLAS | C-Engine | Rust C-ABI | Apple Metal GPU | Cerrahi Hata Farkı |
+| Kernel Operation | Matrix / Tensor Shape | NumPy BLAS | C-Engine | Rust C-ABI | Apple Metal GPU | Parity Max Error |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **GEMM ($M=N=K$)** | $256 \times 256$ | 0.03 ms | 1.28 ms | — | 0.59 ms (0.05x) | `0.00e+00` |
-| **GEMM ($M=N=K$)** | $512 \times 512$ | 0.20 ms | 10.51 ms | — | 2.20 ms (0.09x) | `0.00e+00` |
-| **GEMM ($M=N=K$)** | $1024 \times 1024$ | 1.71 ms | 81.20 ms | — | 11.56 ms (0.15x) | `0.00e+00` |
-| **RMSNorm** | $512 \times 512$ | 0.153 ms | **0.119 ms (1.29x)** | — | 0.589 ms | `2.15e-06` |
-| **RMSNorm** | $1024 \times 1024$ | 1.066 ms | **0.657 ms (1.62x)** | — | 2.000 ms | `3.10e-06` |
-| **RMSNorm** | $1024 \times 2048$ | 2.668 ms | **1.352 ms (1.97x)** | — | 4.300 ms | `4.29e-06` |
+| **GEMM ($M=N=K$)** | $256 \times 256$ | 0.03 ms | 1.28 ms | - | 0.59 ms (0.05x) | `0.00e+00` |
+| **GEMM ($M=N=K$)** | $512 \times 512$ | 0.20 ms | 10.51 ms | - | 2.20 ms (0.09x) | `0.00e+00` |
+| **GEMM ($M=N=K$)** | $1024 \times 1024$ | 1.71 ms | 81.20 ms | - | 11.56 ms (0.15x) | `0.00e+00` |
+| **RMSNorm** | $512 \times 512$ | 0.153 ms | **0.119 ms (1.29x)** | - | 0.589 ms | `2.15e-06` |
+| **RMSNorm** | $1024 \times 1024$ | 1.066 ms | **0.657 ms (1.62x)** | - | 2.000 ms | `3.10e-06` |
+| **RMSNorm** | $1024 \times 2048$ | 2.668 ms | **1.352 ms (1.97x)** | - | 4.300 ms | `4.29e-06` |
 
 ---
 
