@@ -1,6 +1,6 @@
 import numpy as np
 from parallax.backends.base import check_backend_contract
-from parallax.backends.rust_engine import RustEngineBackend
+from parallax.backends.rust_backend import RustBackend, RustEngineBackend
 
 
 def test_rust_backend_contract():
@@ -28,8 +28,6 @@ def test_rust_backend_softmax():
 
 
 def test_rust_backend_supports_and_alias():
-    from parallax.backends.rust_engine import RustBackend
-
     backend = RustBackend()
     assert isinstance(backend, RustEngineBackend)
     if backend.available():
