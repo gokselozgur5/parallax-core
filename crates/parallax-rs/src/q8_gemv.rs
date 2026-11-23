@@ -60,13 +60,7 @@ pub fn vec_dot_q8_0_f32(blocks: &[BlockQ8_0], x: &[f32]) -> f32 {
 }
 
 /// Matrix-vector product: y = A * x where A is in row-major Q8_0 format.
-pub fn gemv_q8_0(
-    rows: usize,
-    cols: usize,
-    a_blocks: &[BlockQ8_0],
-    x: &[f32],
-    y: &mut [f32],
-) {
+pub fn gemv_q8_0(rows: usize, cols: usize, a_blocks: &[BlockQ8_0], x: &[f32], y: &mut [f32]) {
     let blocks_per_row = cols / 32;
     assert_eq!(cols % 32, 0);
     assert_eq!(a_blocks.len(), rows * blocks_per_row);
