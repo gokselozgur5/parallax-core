@@ -367,7 +367,9 @@ fn compute_header_offsets(
     let mut data_offsets = Vec::with_capacity(entries.len());
     for entry in entries {
         data_offsets.push(data_cursor);
-        let next = data_cursor.checked_add(entry.data.len()).ok_or(StorageError::DimensionOverflow)?;
+        let next = data_cursor
+            .checked_add(entry.data.len())
+            .ok_or(StorageError::DimensionOverflow)?;
         data_cursor = (next + STORAGE_ALIGNMENT - 1) & !(STORAGE_ALIGNMENT - 1);
     }
     Ok((data_cursor, data_offsets))
@@ -391,7 +393,10 @@ fn write_entry_metadata(entry: &TensorEntryBuilder, data_offset: usize, out: &mu
     }
 }
 
-fn serialize_storage_into(entries: &[TensorEntryBuilder], out: &mut Vec<u8>) -> Result<(), StorageError> {
+fn serialize_storage_into(
+    entries: &[TensorEntryBuilder],
+    out: &mut Vec<u8>,
+) -> Result<(), StorageError> {
     let (total_size, data_offsets) = compute_header_offsets(entries)?;
     out.reserve(total_size);
     write_storage_header(entries, out);
@@ -407,7 +412,6 @@ fn serialize_storage_into(entries: &[TensorEntryBuilder], out: &mut Vec<u8>) -> 
     Ok(())
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -415,7 +419,8 @@ mod tests {
     #[test]
     fn test_storage_roundtrip() {
         let data = [1.0f32, 2.0, 3.0, 4.0];
-        let bytes = unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 4) };
+        let bytes =
+            unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 4) };
         let entries = [TensorEntryBuilder {
             name: "weight",
             dtype: StorageDType::F32,
