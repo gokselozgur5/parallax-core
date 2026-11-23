@@ -283,12 +283,27 @@ mod tests {
         let mut k_buf = vec![0.0f32; 4];
         let mut v_buf = vec![0.0f32; 3]; // invalid size
 
-        assert_eq!(cache.append(&mut k_buf, &mut v_buf, &[1.0, 2.0], &[3.0, 4.0]).unwrap_err(), KvCacheError::BufferLengthMismatch);
+        assert_eq!(
+            cache
+                .append(&mut k_buf, &mut v_buf, &[1.0, 2.0], &[3.0, 4.0])
+                .unwrap_err(),
+            KvCacheError::BufferLengthMismatch
+        );
 
         let mut v_buf_valid = vec![0.0f32; 4];
-        assert_eq!(cache.append(&mut k_buf, &mut v_buf_valid, &[1.0], &[3.0, 4.0]).unwrap_err(), KvCacheError::BufferLengthMismatch);
+        assert_eq!(
+            cache
+                .append(&mut k_buf, &mut v_buf_valid, &[1.0], &[3.0, 4.0])
+                .unwrap_err(),
+            KvCacheError::BufferLengthMismatch
+        );
 
-        assert_eq!(cache.append(&mut k_buf, &mut v_buf_valid, &[1.0, 2.0], &[3.0, 4.0]).unwrap(), 0);
+        assert_eq!(
+            cache
+                .append(&mut k_buf, &mut v_buf_valid, &[1.0, 2.0], &[3.0, 4.0])
+                .unwrap(),
+            0
+        );
         assert_eq!(cache.active_tokens(), 1);
 
         cache.clear();
