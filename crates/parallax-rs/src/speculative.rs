@@ -89,14 +89,27 @@ pub fn verify_draft_greedy(
     for (i, &cand) in draft_tokens.iter().enumerate() {
         let row = &target_logits[i * vocab_size..(i + 1) * vocab_size];
         let best = argmax_f32(row).ok_or(SpeculativeError::EmptyVocab)? as u32;
-        if cand == best { acc.push(cand); } else { acc.push(best); all_acc = false; break; }
+        if cand == best {
+            acc.push(cand);
+        } else {
+            acc.push(best);
+            all_acc = false;
+            break;
+        }
     }
     let bonus = if all_acc {
         let b_row = &target_logits[gamma * vocab_size..(gamma + 1) * vocab_size];
         Some(argmax_f32(b_row).ok_or(SpeculativeError::EmptyVocab)? as u32)
-    } else { None };
+    } else {
+        None
+    };
     let num_acc = if all_acc { acc.len() } else { acc.len() - 1 };
-    Ok(VerificationResult { accepted_tokens: acc, bonus_token: bonus, num_accepted: num_acc, all_accepted: all_acc })
+    Ok(VerificationResult {
+        accepted_tokens: acc,
+        bonus_token: bonus,
+        num_accepted: num_acc,
+        all_accepted: all_acc,
+    })
 }
 
 /// Verifies single stochastic candidate against target distribution and random roll.
@@ -146,11 +159,15 @@ pub fn compute_residual_distribution(
 
 /// Samples a token index from a discrete probability distribution using a roll in [0, 1).
 pub fn sample_token_from_probs(probs: &[f32], roll: f32) -> Result<u32, SpeculativeError> {
-    if probs.is_empty() { return Err(SpeculativeError::EmptyVocab); }
+    if probs.is_empty() {
+        return Err(SpeculativeError::EmptyVocab);
+    }
     let mut acc = 0.0f32;
     for (idx, &p) in probs.iter().enumerate() {
         acc += p;
-        if roll < acc { return Ok(idx as u32); }
+        if roll < acc {
+            return Ok(idx as u32);
+        }
     }
     Ok((probs.len() - 1) as u32)
 }
