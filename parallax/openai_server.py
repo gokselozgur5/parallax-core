@@ -244,31 +244,35 @@ def create_handler(state: OpenAIServerState):
                         stream_decoder = IncrementalTokenDecoder(state.tokenizer)
                         eos_id = getattr(req, "eos_token_id", None)
                         if max_tokens > 0:
-                            while req.status not in (RequestStatus.FINISHED, RequestStatus.FAILED):
-                                step_outputs = state.engine.step()
-                                for r_id, tok in step_outputs:
-                                    if r_id == req_id:
-                                        last_tok = tok
-                                        if eos_id is not None and tok == eos_id:
-                                            continue
-                                        if state.tokenizer is not None:
-                                            piece = stream_decoder.decode_token(tok)
-                                        else:
-                                            piece = decode_tokens([tok])
-                                        chunk_payload = {
-                                            "id": req_id,
-                                            "object": "chat.completion.chunk",
-                                            "created": int(time.time()),
-                                            "model": state.model_name,
-                                            "choices": [
-                                                {
-                                                    "index": 0,
-                                                    "delta": {"content": piece},
-                                                    "finish_reason": None,
-                                                }
-                                            ],
-                                        }
-                                        self._send_sse_chunk(chunk_payload)
+                            cursor = 0
+                            terminal = (RequestStatus.FINISHED, RequestStatus.FAILED)
+                            while req.status not in terminal or cursor < len(req.generated_tokens):
+                                if req.status not in terminal:
+                                    state.engine.step()
+                                new_tokens = req.generated_tokens[cursor:]
+                                cursor += len(new_tokens)
+                                for tok in new_tokens:
+                                    last_tok = tok
+                                    if eos_id is not None and tok == eos_id:
+                                        continue
+                                    if state.tokenizer is not None:
+                                        piece = stream_decoder.decode_token(tok)
+                                    else:
+                                        piece = decode_tokens([tok])
+                                    chunk_payload = {
+                                        "id": req_id,
+                                        "object": "chat.completion.chunk",
+                                        "created": int(time.time()),
+                                        "model": state.model_name,
+                                        "choices": [
+                                            {
+                                                "index": 0,
+                                                "delta": {"content": piece},
+                                                "finish_reason": None,
+                                            }
+                                        ],
+                                    }
+                                    self._send_sse_chunk(chunk_payload)
 
                             state.engine.pop_completed_request(req_id, clear_kv=True)
 
