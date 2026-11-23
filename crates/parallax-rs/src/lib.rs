@@ -617,20 +617,31 @@ pub unsafe extern "C" fn parallax_collate_batch_u32(
     out_bucket_len: *mut usize,
 ) -> i32 {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        if seq_ptrs.is_null() || seq_lens.is_null() || buckets_ptr.is_null()
-            || out_tokens.is_null() || out_mask.is_null() || out_bucket_len.is_null() {
+        if seq_ptrs.is_null()
+            || seq_lens.is_null()
+            || buckets_ptr.is_null()
+            || out_tokens.is_null()
+            || out_mask.is_null()
+            || out_bucket_len.is_null()
+        {
             return STATUS_NULL_POINTER;
         }
-        if !is_aligned_ptr(seq_ptrs) || !is_aligned_usize(seq_lens)
-            || !is_aligned_usize(buckets_ptr) || !is_aligned_u32(out_tokens)
-            || !is_aligned_u32(out_mask) || !is_aligned_usize(out_bucket_len) {
+        if !is_aligned_ptr(seq_ptrs)
+            || !is_aligned_usize(seq_lens)
+            || !is_aligned_usize(buckets_ptr)
+            || !is_aligned_u32(out_tokens)
+            || !is_aligned_u32(out_mask)
+            || !is_aligned_usize(out_bucket_len)
+        {
             return STATUS_UNALIGNED_POINTER;
         }
         if ranges_overlap_u32(out_tokens as usize, out_len, out_mask as usize, out_len) {
             return STATUS_ALIASING_POINTER;
         }
         let buckets = slice::from_raw_parts(buckets_ptr, buckets_len);
-        let Ok(binner) = scheduler::SequenceBinner::new(buckets) else { return STATUS_INVALID_DIMENSION; };
+        let Ok(binner) = scheduler::SequenceBinner::new(buckets) else {
+            return STATUS_INVALID_DIMENSION;
+        };
         let lens = slice::from_raw_parts(seq_lens, num_seqs);
         let ptrs = slice::from_raw_parts(seq_ptrs, num_seqs);
         let mut seqs = Vec::with_capacity(num_seqs);
