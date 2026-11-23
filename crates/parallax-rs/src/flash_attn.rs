@@ -191,11 +191,30 @@ unsafe fn vec_scale_add_avx512(out: &mut [f32], alpha: f32, v: &[f32], weight: f
     vec_scale_add_scalar(or, alpha, vr, weight);
 }
 
+#[cfg(target_arch = "aarch64")]
+#[target_feature(enable = "neon")]
+unsafe fn vec_scale_add_neon(out: &mut [f32], alpha: f32, v: &[f32], weight: f32) {
+    use std::arch::aarch64::{vdupq_n_f32, vfmaq_f32, vld1q_f32, vmulq_f32, vst1q_f32};
+    let n = out.len().min(v.len());
+    let (va, vw) = (vdupq_n_f32(alpha), vdupq_n_f32(weight));
+    let ((oc, or), (vc, vr)) = (out[..n].as_chunks_mut::<4>(), v[..n].as_chunks::<4>());
+    for (ob, vb) in oc.iter_mut().zip(vc.iter()) {
+        let vo = vmulq_f32(vld1q_f32(ob.as_ptr()), va);
+        vst1q_f32(ob.as_mut_ptr(), vfmaq_f32(vo, vw, vld1q_f32(vb.as_ptr())));
+    }
+    vec_scale_add_scalar(or, alpha, vr, weight);
+}
+
 #[inline]
 fn vec_scale_add(out: &mut [f32], alpha: f32, v: &[f32], weight: f32) {
     #[cfg(target_arch = "x86_64")]
     if std::arch::is_x86_feature_detected!("avx512f") {
         unsafe { vec_scale_add_avx512(out, alpha, v, weight) };
+        return;
+    }
+    #[cfg(target_arch = "aarch64")]
+    if std::arch::is_aarch64_feature_detected!("neon") {
+        unsafe { vec_scale_add_neon(out, alpha, v, weight) };
         return;
     }
     vec_scale_add_scalar(out, alpha, v, weight);
