@@ -1,6 +1,6 @@
 import numpy as np
 from parallax.backends.base import check_backend_contract
-from parallax.backends.numpy import NumpyBackend
+from parallax.backends.numpy_backend import NumpyBackend
 
 
 def test_numpy_backend_contract():
