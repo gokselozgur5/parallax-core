@@ -35,6 +35,38 @@ def test_compute_ppo_clip_loss_bounds():
 from parallax.ppo import ppo_policy_step
 
 
+def _ppo_finite_diff_grad(
+    logits: np.ndarray,
+    actions: np.ndarray,
+    old_lp: np.ndarray,
+    advantages: np.ndarray,
+    clip_eps: float = 0.2,
+    eps: float = 1e-6,
+) -> np.ndarray:
+    base = logits.astype(np.float64, copy=True)
+    adv = np.asarray(advantages, dtype=np.float64)
+    if len(adv) > 1 and np.std(adv) > 1e-8:
+        adv_norm = (adv - np.mean(adv)) / (np.std(adv) + 1e-8)
+    else:
+        adv_norm = adv
+
+    def eval_loss(cand: np.ndarray) -> float:
+        shifted = cand - np.max(cand, axis=-1, keepdims=True)
+        lp = shifted[np.arange(len(actions)), actions] - np.log(np.sum(np.exp(shifted), axis=-1))
+        return compute_ppo_clip_loss(lp, old_lp, adv_norm, clip_eps=clip_eps)[0]
+
+    num_grad = np.zeros_like(base)
+    for idx in np.ndindex(base.shape):
+        orig = base[idx]
+        base[idx] = orig + eps
+        l_pos = eval_loss(base)
+        base[idx] = orig - eps
+        l_neg = eval_loss(base)
+        base[idx] = orig
+        num_grad[idx] = (l_pos - l_neg) / (2.0 * eps)
+    return num_grad
+
+
 def test_ppo_policy_step_shapes_and_finite_gradients():
     np.random.seed(42)
     T = 5
@@ -45,11 +77,14 @@ def test_ppo_policy_step_shapes_and_finite_gradients():
     advantages = np.random.randn(T).astype(np.float32)
 
     loss, grad = ppo_policy_step(logits, actions, old_lp, advantages, clip_eps=0.2)
+    num_grad = _ppo_finite_diff_grad(logits, actions, old_lp, advantages, clip_eps=0.2)
 
     assert isinstance(loss, float)
     assert grad.shape == logits.shape
     assert not np.isnan(loss)
     assert not np.isnan(grad).any()
+    assert not np.allclose(grad, 0.0)
+    np.testing.assert_allclose(grad, num_grad, rtol=1e-4, atol=1e-5)
 
 
 def test_compute_gae_keeps_float64_precision():
