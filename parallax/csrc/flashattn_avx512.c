@@ -11,8 +11,8 @@ int c_has_avx512_flashattn_f32(void) {
 #include <immintrin.h>
 
 __attribute__((target("avx512f,avx512dq,avx512vl,avx512bw")))
-static float dot_product_avx512(const float *a, const float *b, int len) {
-    int d = 0;
+static float dot_product_avx512(const float *a, const float *b, size_t len) {
+    size_t d = 0;
     __m512 sum_vec = _mm512_setzero_ps();
     for (; len - d >= 16; d += 16) {
         __m512 va = _mm512_loadu_ps(a + d);
@@ -28,8 +28,8 @@ static float dot_product_avx512(const float *a, const float *b, int len) {
 
 #if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
 __attribute__((target("avx512f,avx512dq,avx512vl,avx512bw")))
-static void vec_scale_add_avx512(float *out, float alpha, const float *v, float p, int len) {
-    int d = 0;
+static void vec_scale_add_avx512(float *out, float alpha, const float *v, float p, size_t len) {
+    size_t d = 0;
     __m512 valpha = _mm512_set1_ps(alpha);
     __m512 vp = _mm512_set1_ps(p);
     for (; len - d >= 16; d += 16) {
@@ -46,8 +46,8 @@ static void vec_scale_add_avx512(float *out, float alpha, const float *v, float 
 
 #if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
 __attribute__((target("avx512f,avx512dq,avx512vl,avx512bw")))
-static void vec_scale_avx512(float *out, float scale, int len) {
-    int d = 0;
+static void vec_scale_avx512(float *out, float scale, size_t len) {
+    size_t d = 0;
     __m512 vscale = _mm512_set1_ps(scale);
     for (; len - d >= 16; d += 16) {
         __m512 vo = _mm512_loadu_ps(out + d);
@@ -62,7 +62,7 @@ static void vec_scale_avx512(float *out, float scale, int len) {
 #if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
 __attribute__((target("avx512f,avx512dq,avx512vl,avx512bw")))
 static void update_kv_step_avx512(float *oi, const float *vj, float score,
-                                  float *m_i, float *l_i, int head_dim) {
+                                  float *m_i, float *l_i, size_t head_dim) {
     if (isinf(score) && score < 0.0f) return;
     if (score > *m_i) {
         float alpha = expf(*m_i - score);
@@ -83,17 +83,18 @@ __attribute__((noinline, target("avx512f,avx512dq,avx512vl,avx512bw")))
 static void flashattn_avx512_kernel(const float *q, const float *k, const float *v,
                                     float *out, int seq_len, int head_dim,
                                     float scale, int is_causal) {
-    for (int i = 0; i < seq_len; ++i) {
-        const float *qi = q + i * head_dim;
-        float *oi = out + i * head_dim;
-        for (int d = 0; d < head_dim; ++d) oi[d] = 0.0f;
+    const size_t seq_s = (size_t)seq_len, dim_s = (size_t)head_dim;
+    for (size_t i = 0; i < seq_s; ++i) {
+        const float *qi = q + i * dim_s;
+        float *oi = out + i * dim_s;
+        for (size_t d = 0; d < dim_s; ++d) oi[d] = 0.0f;
         float m_i = -INFINITY, l_i = 0.0f;
-        int max_j = is_causal ? (i + 1) : seq_len;
-        for (int j = 0; j < max_j; ++j) {
-            float s = dot_product_avx512(qi, k + j * head_dim, head_dim) * scale;
-            update_kv_step_avx512(oi, v + j * head_dim, s, &m_i, &l_i, head_dim);
+        size_t max_j = is_causal ? (i + 1) : seq_s;
+        for (size_t j = 0; j < max_j; ++j) {
+            float s = dot_product_avx512(qi, k + j * dim_s, dim_s) * scale;
+            update_kv_step_avx512(oi, v + j * dim_s, s, &m_i, &l_i, dim_s);
         }
-        if (l_i > 0.0f) vec_scale_avx512(oi, 1.0f / l_i, head_dim);
+        if (l_i > 0.0f) vec_scale_avx512(oi, 1.0f / l_i, dim_s);
     }
 }
 #endif
