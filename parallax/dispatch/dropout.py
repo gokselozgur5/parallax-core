@@ -117,11 +117,13 @@ class DispatchedDropout(Module):
     def forward(self, x: Tensor | np.ndarray) -> Tensor:
         return dispatched_dropout(x, p=self.p, training=self.training, seed=self.seed)
 
-    def train(self, mode: bool = True) -> None:
+    def train(self, mode: bool = True) -> DispatchedDropout:
         self.training = bool(mode)
+        return self
 
-    def eval(self) -> None:
+    def eval(self) -> DispatchedDropout:
         self.training = False
+        return self
 
     def __repr__(self) -> str:
         return f"DispatchedDropout(p={self.p}, training={self.training})"

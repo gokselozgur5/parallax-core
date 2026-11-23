@@ -62,8 +62,9 @@ class FusedRMSNorm(Module):
         raw_res = residual.data if isinstance(residual, Tensor) else residual
         out_data = fused_rmsnorm(raw_x, self.weight.data, residual=raw_res, eps=self.eps)
         parents = [p for p in (x, residual, self.weight) if isinstance(p, Tensor)]
+        out_arr = out_data[0] if isinstance(out_data, tuple) else out_data
         raw_fused = raw_x + raw_res if raw_res is not None else raw_x
-        out = Tensor(out_data, tuple(parents), "FusedRMSNorm")
+        out = Tensor(out_arr, tuple(parents), "FusedRMSNorm")
         if not out.requires_grad:
             return out
 
