@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pytest
 
@@ -61,12 +63,38 @@ def test_gelu_fast_backward_numerical() -> None:
 
 
 def test_dispatched_gelu_fast_autograd() -> None:
-    t = Tensor(np.array([-1.5, 0.0, 1.5], dtype=np.float32), requires_grad=True)
+    x_np = np.array([-1.5, 0.0, 1.5], dtype=np.float32)
+    t = Tensor(x_np.copy(), requires_grad=True)
     out = dispatched_gelu_fast(t)
     loss = (out * 2.0).sum()
     loss.backward()
     assert t.grad is not None
     assert t.grad.shape == t.shape
+
+    k = math.sqrt(2.0 / math.pi)
+    x64 = x_np.astype(np.float64)
+    th = np.tanh(k * (x64 + 0.044715 * x64**3))
+    dgelu = 0.5 * (1.0 + th) + 0.5 * x64 * (1.0 - th**2) * k * (1.0 + 3.0 * 0.044715 * x64**2)
+    expected = (2.0 * dgelu).astype(np.float32)
+    assert np.allclose(t.grad, expected, rtol=1e-5, atol=1e-6)
+    assert np.allclose(t.grad, gelu_fast_backward(np.full(3, 2.0, dtype=np.float32), t.data), rtol=1e-6, atol=1e-6)
+
+    eps = 1e-3
+    num_grad = np.zeros_like(x_np)
+    for i in range(x_np.size):
+        xp, xm = x_np.copy(), x_np.copy()
+        xp[i] += eps
+        xm[i] -= eps
+        fp = float((dispatched_gelu_fast(Tensor(xp)) * 2.0).sum().data)
+        fm = float((dispatched_gelu_fast(Tensor(xm)) * 2.0).sum().data)
+        num_grad[i] = (fp - fm) / (2.0 * eps)
+    assert np.allclose(t.grad, num_grad, rtol=1e-2, atol=1e-3)
+
+    w = np.array([-1.25, 0.5, 3.0], dtype=np.float32)
+    t2 = Tensor(x_np.copy(), requires_grad=True)
+    (dispatched_gelu_fast(t2) * Tensor(w)).sum().backward()
+    assert t2.grad is not None
+    assert np.allclose(t2.grad, w * dgelu.astype(np.float32), rtol=1e-5, atol=1e-6)
 
 
 def test_dispatched_gelu_fast_module() -> None:
