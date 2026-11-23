@@ -89,3 +89,29 @@ def test_zero_copy_bridge_and_view_cache_share_memory(monkeypatch) -> None:
     assert cache.get_or_create(arr2) is not b1
     np.testing.assert_array_equal(bridge.from_metal_buffer(cache.get_or_create(arr2), shape, dt), arr2)
 
+
+def test_unwrap_array_preserves_ndarray_dtype_and_precision() -> None:
+    bridge = MetalTensorBridge()
+    arr = np.array([1.0 + 2**-40, -3.5], dtype=np.float64)
+    unwrapped = bridge.unwrap_array(arr)
+    assert unwrapped.dtype == np.float64
+    np.testing.assert_array_equal(unwrapped, arr)
+    assert unwrapped.ctypes.data == arr.ctypes.data
+
+    strided = np.arange(6, dtype=np.float64)[::2]
+    unwrapped_strided = bridge.unwrap_array(strided)
+    assert unwrapped_strided.dtype == np.float64
+    assert unwrapped_strided.flags.c_contiguous
+    np.testing.assert_array_equal(unwrapped_strided, strided)
+
+    ints = np.array([10, 20, 30], dtype=np.int64)
+    assert bridge.unwrap_array(ints).dtype == np.int64
+
+    buf, shape, dt = bridge.to_metal_buffer(arr)
+    try:
+        assert shape == arr.shape
+        assert dt == np.float64
+    finally:
+        bridge.release_buffer(buf)
+
+
