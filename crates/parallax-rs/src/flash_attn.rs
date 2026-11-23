@@ -398,6 +398,29 @@ pub fn dot_product_f16_scaled(q: &[F16], k: &[F16], scale: f32, f16_correction: 
     }
 }
 
+pub fn flash_attn_f16(
+    q: &[F16], k: &[F16], v: &[F16], out: &mut [F16],
+    seq_len: usize, head_dim: usize, config: FlashAttnConfig,
+) -> Result<(), FlashAttnError> {
+    if config.scale < 0.0 || config.scale.is_nan() { return Err(FlashAttnError::InvalidScale); }
+    validate_attention_dims(seq_len, head_dim, q, k, v, out)?;
+    let (mut oi, mut vj) = (vec![0.0f32; head_dim], vec![0.0f32; head_dim]);
+    for i in 0..seq_len {
+        let qi = &q[i * head_dim..(i + 1) * head_dim];
+        oi.fill(0.0);
+        let (mut m_i, mut l_i) = (f32::NEG_INFINITY, 0.0f32);
+        let max_j = if config.is_causal { i + 1 } else { seq_len };
+        for j in 0..max_j {
+            let kj = &k[j * head_dim..(j + 1) * head_dim];
+            for (vd, &vs) in vj.iter_mut().zip(&v[j * head_dim..(j + 1) * head_dim]) { *vd = vs.to_f32(); }
+            update_kv_step(&mut oi, &vj, dot_product_f16_scaled(qi, kj, config.scale, config.f16_scale_correction), &mut m_i, &mut l_i);
+        }
+        normalize_output_row(&mut oi, l_i);
+        for (od, &os) in out[i * head_dim..(i + 1) * head_dim].iter_mut().zip(&oi) { *od = F16::from_f32_saturating(os); }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
