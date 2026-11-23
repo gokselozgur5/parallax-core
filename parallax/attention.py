@@ -47,13 +47,12 @@ def apply_rope(
     sin = np.sin(angles)
     cos = np.cos(angles)
 
-    # Reshape sin and cos to match x broadcasting
-    if x.ndim == 4:
-        sin = sin[None, :, None, :]
-        cos = cos[None, :, None, :]
-    elif x.ndim == 3:
-        sin = sin[None, :, :]
-        cos = cos[None, :, :]
+    # Reshape sin and cos to match x broadcasting along seq_dim
+    broadcast_shape = [1] * x.ndim
+    broadcast_shape[seq_dim] = seq_len
+    broadcast_shape[-1] = half_dim
+    sin = sin.reshape(broadcast_shape)
+    cos = cos.reshape(broadcast_shape)
 
     # Split into pairs
     if interleaved:

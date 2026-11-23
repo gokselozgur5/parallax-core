@@ -70,10 +70,11 @@ def apply_yarn_rope(
     sin = np.sin(angles)
     cos = np.cos(angles)
 
-    if x.ndim == 4:
-        sin, cos = sin[None, :, None, :], cos[None, :, None, :]
-    elif x.ndim == 3:
-        sin, cos = sin[None, :, :], cos[None, :, :]
+    broadcast_shape = [1] * x.ndim
+    broadcast_shape[seq_dim] = seq_len
+    broadcast_shape[-1] = half_dim
+    sin = sin.reshape(broadcast_shape)
+    cos = cos.reshape(broadcast_shape)
 
     x1, x2 = x[..., 0::2], x[..., 1::2]
     rx1 = x1 * cos - x2 * sin
