@@ -1,10 +1,12 @@
 #include <math.h>
+#include <stddef.h>
 
 void c_swiglu_f32(const float *a, const float *b, float *out, int n) {
     if (!a || !b || !out || n <= 0) {
         return;
     }
-    for (int i = 0; i < n; ++i) {
+    const size_t ns = (size_t)n;
+    for (size_t i = 0; i < ns; ++i) {
         float x = a[i];
         float silu_val;
         if (x <= -88.0f) {
