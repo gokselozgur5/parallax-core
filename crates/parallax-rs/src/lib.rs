@@ -2,12 +2,12 @@
 
 pub mod bpe;
 pub mod c_abi;
+pub mod flash_attn;
 pub mod kv_cache;
 pub mod neon_fp16;
+pub mod scheduler;
 pub mod speculative;
 pub mod storage;
-pub mod scheduler;
-pub mod flash_attn;
 pub mod tensor;
 
 use std::slice;
@@ -42,10 +42,18 @@ fn ranges_overlap_u32(p1: usize, len1: usize, p2: usize, len2: usize) -> bool {
     if len1 == 0 || len2 == 0 {
         return false;
     }
-    let Some(size1) = len1.checked_mul(std::mem::size_of::<u32>()) else { return true };
-    let Some(size2) = len2.checked_mul(std::mem::size_of::<u32>()) else { return true };
-    let Some(end1) = p1.checked_add(size1) else { return true };
-    let Some(end2) = p2.checked_add(size2) else { return true };
+    let Some(size1) = len1.checked_mul(std::mem::size_of::<u32>()) else {
+        return true;
+    };
+    let Some(size2) = len2.checked_mul(std::mem::size_of::<u32>()) else {
+        return true;
+    };
+    let Some(end1) = p1.checked_add(size1) else {
+        return true;
+    };
+    let Some(end2) = p2.checked_add(size2) else {
+        return true;
+    };
     p1 < end2 && p2 < end1
 }
 
