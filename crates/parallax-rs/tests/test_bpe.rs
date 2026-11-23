@@ -31,15 +31,9 @@ fn test_find_best_merge_and_encode() {
 
 #[test]
 fn test_is_table_sorted() {
-    let unsorted = vec![
-        MergeEntry::new(5, 5, 0, 100),
-        MergeEntry::new(1, 2, 1, 101),
-    ];
+    let unsorted = vec![MergeEntry::new(5, 5, 0, 100), MergeEntry::new(1, 2, 1, 101)];
     assert!(!is_table_sorted(&unsorted));
 
-    let duplicate = vec![
-        MergeEntry::new(1, 2, 0, 100),
-        MergeEntry::new(1, 2, 1, 101),
-    ];
+    let duplicate = vec![MergeEntry::new(1, 2, 0, 100), MergeEntry::new(1, 2, 1, 101)];
     assert!(!is_table_sorted(&duplicate));
 }
