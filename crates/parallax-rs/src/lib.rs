@@ -283,8 +283,12 @@ pub unsafe extern "C" fn parallax_flash_attn_f32(
 ) -> i32 {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let p_status = validate_flash_attn_ptrs(q, k, v, out);
-        if p_status != STATUS_OK { return p_status; }
-        let Some(len) = seq_len.checked_mul(head_dim) else { return STATUS_INVALID_DIMENSION; };
+        if p_status != STATUS_OK {
+            return p_status;
+        }
+        let Some(len) = seq_len.checked_mul(head_dim) else {
+            return STATUS_INVALID_DIMENSION;
+        };
         if len > (isize::MAX as usize) / std::mem::size_of::<f32>() {
             return STATUS_INVALID_DIMENSION;
         }
@@ -294,14 +298,23 @@ pub unsafe extern "C" fn parallax_flash_attn_f32(
         {
             return STATUS_ALIASING_POINTER;
         }
-        let (qs, ks, vs) = (slice::from_raw_parts(q, len), slice::from_raw_parts(k, len), slice::from_raw_parts(v, len));
+        let (qs, ks, vs) = (
+            slice::from_raw_parts(q, len),
+            slice::from_raw_parts(k, len),
+            slice::from_raw_parts(v, len),
+        );
         let outs = slice::from_raw_parts_mut(out, len);
-        let cfg = flash_attn::FlashAttnConfig { scale, is_causal: is_causal != 0, f16_scale_correction: f16_corr != 0 };
+        let cfg = flash_attn::FlashAttnConfig {
+            scale,
+            is_causal: is_causal != 0,
+            f16_scale_correction: f16_corr != 0,
+        };
         match flash_attn::flash_attn(qs, ks, vs, outs, seq_len, head_dim, cfg) {
             Ok(()) => STATUS_OK,
             Err(_) => STATUS_INVALID_DIMENSION,
         }
-    })).unwrap_or(STATUS_INVALID_DIMENSION)
+    }))
+    .unwrap_or(STATUS_INVALID_DIMENSION)
 }
 /// C-ABI export for version check / smoke test.
 #[no_mangle]
