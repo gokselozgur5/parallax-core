@@ -26,9 +26,9 @@ int c_build_rope_cache_f32(
 
 static inline void apply_rope_scalar_step(
     float *head, const float *cos_ptr, const float *sin_ptr,
-    size_t half, int interleaved
+    size_t start, size_t half, int interleaved
 ) {
-    for (size_t i = 0; i < half; ++i) {
+    for (size_t i = start; i < half; ++i) {
         float c = cos_ptr[i], s = sin_ptr[i];
         size_t idx1 = interleaved ? 2 * i : i;
         size_t idx2 = interleaved ? 2 * i + 1 : half + i;
@@ -77,17 +77,9 @@ static inline void apply_rope_vector_step(
 ) {
 #if defined(PARALLAX_HAVE_NEON)
     apply_rope_neon_step(head, cos_ptr, sin_ptr, half, interleaved);
-    size_t tail_start = (half / 4) * 4;
-    for (size_t i = tail_start; i < half; ++i) {
-        float c = cos_ptr[i], s = sin_ptr[i];
-        size_t idx1 = interleaved ? 2 * i : i;
-        size_t idx2 = interleaved ? 2 * i + 1 : half + i;
-        float v1 = head[idx1], v2 = head[idx2];
-        head[idx1] = v1 * c - v2 * s;
-        head[idx2] = v1 * s + v2 * c;
-    }
+    apply_rope_scalar_step(head, cos_ptr, sin_ptr, (half / 4) * 4, half, interleaved);
 #else
-    apply_rope_scalar_step(head, cos_ptr, sin_ptr, half, interleaved);
+    apply_rope_scalar_step(head, cos_ptr, sin_ptr, 0, half, interleaved);
 #endif
 }
 
