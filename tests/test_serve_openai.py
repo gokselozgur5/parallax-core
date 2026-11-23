@@ -4,7 +4,12 @@ import os
 import socket
 import subprocess
 import sys
+import threading
 import time
+from http.server import ThreadingHTTPServer
+
+from parallax.models.gpt import ParallaxLM, ParallaxLMConfig
+from parallax.openai_server import OpenAIServerState, create_handler
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 PAYLOAD = {
@@ -63,4 +68,34 @@ def test_served_checkpoint_never_answers_outside_its_alphabet():
     finally:
         proc.kill()
         proc.wait()
+
+
+def _count_content_chunks(port, counts, i):
+    payload = {"messages": [{"role": "user", "content": f"p{i}"}], "max_tokens": 48, "stream": True}
+    conn = http.client.HTTPConnection("127.0.0.1", port, timeout=60)
+    conn.request("POST", "/v1/chat/completions", body=json.dumps(payload))
+    lines = conn.getresponse().read().decode().split("\n")
+    events = [json.loads(line[6:]) for line in lines if line.startswith("data: {")]
+    counts[i] = sum(1 for e in events if e["choices"][0]["delta"].get("content"))
+
+
+def test_concurrent_streams_receive_every_token():
+    cfg = ParallaxLMConfig(vocab_size=128, embed_dim=32, num_layers=2, num_heads=2, max_seq_len=512)
+    state = OpenAIServerState(model=ParallaxLM(cfg))
+    server = ThreadingHTTPServer(("127.0.0.1", 0), create_handler(state))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    counts = {}
+    threads = [
+        threading.Thread(target=_count_content_chunks, args=(server.server_port, counts, i))
+        for i in range(4)
+    ]
+    try:
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert counts == {0: 48, 1: 48, 2: 48, 3: 48}
 
