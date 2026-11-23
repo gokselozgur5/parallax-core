@@ -52,37 +52,37 @@ flowchart TD
 
 ---
 
-## 2. Mimari Envanter (700+ Testle Mühürlenmiş 10 Temel Sütun)
+## 2. Architectural Pillars (10 Core Subsystems)
 
-1. **Hesaplama & Otomatik Türev Grafiği (Autograd Engine):**
-   - Skaler (`Value`) ve çok boyutlu tensör (`Tensor`) seviyesinde sıfırdan ters yayılım (backward pass).
-   - Thread-safe dinamik hesaplama grafiği (DAG) ve Mermaid/Graphviz DOT görselleştirici.
-   - İki yönlü sayısal gradyan kontrolü: The Parallax Acid Test ($\epsilon=10^{-5}$).
+1. **Computation Graph and Automatic Differentiation (Autograd Engine):**
+   - Reverse-mode automatic differentiation at scalar (`Value`) and multi-dimensional tensor (`Tensor`) levels.
+   - Thread-safe dynamic directed acyclic graph (DAG) with Mermaid and Graphviz DOT visualizers.
+   - Two-sided numerical gradient verification: The Parallax Acid Test ($\epsilon=10^{-5}$).
 
-2. **Temel Transformer & Üretim Modelleri:**
-   - Byte-Pair Encoding (BPE) eğitilebilir tokenizer ve HuggingFace/GGUF tokenizer uyumluluğu.
-   - RoPE (Rotary Positional Embeddings), YaRN ve NTK-aware RoPE (bağlam boyutu genişletme).
-   - SwiGLU aktivasyon fonksiyonu, Grouped-Query Attention (GQA), Weight Tying ve KV Cache.
-   - Greedy, Top-P (Nucleus), Min-P ve Top-A dinamik budama örnekleyicileri.
-   - Qwen2 / Qwen2.5 ve Llama-3 mimari dönüştürücü ve ağırlık yükleyicileri (`parallax/models/`).
+2. **Core Transformer and Generative Models:**
+   - Byte-Pair Encoding (BPE) trainable tokenizer with HuggingFace/GGUF tokenizer compatibility.
+   - RoPE (Rotary Positional Embeddings), YaRN, and NTK-aware RoPE for context extension.
+   - SwiGLU activation function, Grouped-Query Attention (GQA), Weight Tying, and KV Cache.
+   - Greedy, Top-P (Nucleus), Min-P, and Top-A dynamic truncation samplers.
+   - Qwen2 / Qwen2.5 and Llama-3 architecture loaders (`parallax/models/`).
 
-3. **Yüksek Başarımlı Dikkat (Attention) Kernel'ları:**
-   - **FlashAttention-2:** SRAM bellek kısıtlı online softmax ve blok seviyesinde karo yerleşimi (tiling).
-   - **FlashDecoding-v2:** Uzun bağlamlarda Split-K dinamik paralel decodlama ve online LogSumExp indirgemesi ($62\%$ hızlanma).
-   - **PagedAttention:** Sanal sayfalama mantığıyla parçalanmış KV belleği.
-   - **DeepSeek MLA (Multi-Head Latent Attention):** Key/Value matrislerini tek bir latent vektöre sıkıştıran ve RAM tüketimini düşüren mimari.
-   - **ALiBi & Sliding Window Attention:** Geometrik eğimli doğrusal mesafe bias'ı ve pencereli dikkat.
+3. **High-Performance Attention Kernels:**
+   - **FlashAttention-2:** SRAM-constrained online softmax with block tiling.
+   - **FlashDecoding-v2:** Long-context Split-K dynamic parallel decoding and online LogSumExp reduction (up to 4.37x speedup, +60.4% latency gain at T=2048).
+   - **PagedAttention:** Virtual memory paging for non-contiguous KV-cache management.
+   - **DeepSeek MLA (Multi-Head Latent Attention):** Key/Value compression into low-rank latent vectors to reduce memory consumption.
+   - **ALiBi & Sliding Window Attention:** Geometric distance bias and windowed local attention.
 
-4. **Anti-RAM & Seçici Durum-Uzayı (Selective State Space - Mamba):**
-   - **Mamba S6 Discrete-Time Engine:** Girişe duyarlı $\Delta$ zaman ölçeği ile sürekli diferansiyel denklemlerin ZOH ayrıklaştırılması.
-   - **$O(1)$ Durum Alanı (State Space):** Dizi uzunluğu $T=8192$'ye çıktığında Transformer KV belleği 8.00 MB'a çıkarken Mamba durumu **20.00 KB'ta sabit kalır (410x RAM tasarrufu).**
-   - **BitMamba:** Mamba S6 durum uzayı ile 1.58-bit BitNet projeksiyonlarının birleşimi (hem sıfır KV-cache hem sıfır kayan nokta çarpımı).
+4. **Anti-RAM and Selective State-Space Models (Mamba):**
+   - **Mamba S6 Discrete-Time Engine:** Input-dependent $\Delta$ timescale selection with Zero-Order Hold (ZOH) discretization.
+   - **$O(1)$ State Space:** Recurrent state buffer remains invariant at 20.00 KB at sequence length $T=8192$, contrasting with 8.00 MB linear KV-cache growth (up to 409.6x memory reduction).
+   - **BitMamba:** Convergence of Mamba S6 state space and 1.58-bit BitNet projections (zero KV-cache growth and ternary linear weights).
 
-5. **Kuantizasyon & Ternary Matris Operasyonları:**
-   - **BitNet b1.58:** Ağırlıkların $\{-1, 0, +1\}$ değerlerine kuantize edildiği, aktivasyonların INT8 yapıldığı ve çarpımların tamsayı toplamaya dönüştüğü lineer katman (`BitLinear`).
-   - **BitAttention & BitTransformer:** Tüm dikkat projeksiyonları, SwiGLU FFN ve LM head katmanlarının ternary matrislerle çalıştığı uçtan uca mimari.
-   - **INT4 Groupwise Affine Quantization:** 4-bit nibble paketleme (`pack_int4`, `unpack_int4`) ile bellek ayak izinde **5.33x küçülme** sağlayan `Linear4Bit` katmanı.
-   - **FP8 (E4M3 / E5M2):** Blok bazlı micro-scaling faktörlü matris çarpımı.
+5. **Quantization and Low-Bit Operations:**
+   - **BitNet b1.58:** Linear layer (`BitLinear`) quantizing weights to $\{-1, 0, +1\}$ and activations to INT8, transforming multiply-accumulate operations into additions.
+   - **BitAttention & BitTransformer:** End-to-end architecture executing attention projections, SwiGLU FFN, and LM head layers with ternary matrix weights.
+   - **INT4 Groupwise Affine Quantization:** 4-bit nibble packing (`pack_int4`, `unpack_int4`) delivering 5.33x memory compression in `Linear4Bit`.
+   - **FP8 (E4M3 / E5M2):** Block-level micro-scaling matrix multiplication.
 
 6. **Bare-Metal Compute Çekirdekleri (C, Rust & Apple Metal JIT):**
    - **C-Engine (`parallax/c_engine.py` & `csrc/`):** C ile yazılmış, `ctypes` üzerinden bağlanan `c_gemm_f32`, `c_softmax_f32` ve `c_rmsnorm_f32` (RMSNorm'da NumPy'a karşı **2.57x hızlanma**).
