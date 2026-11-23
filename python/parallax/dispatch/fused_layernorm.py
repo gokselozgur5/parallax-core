@@ -7,6 +7,7 @@ import numpy as np
 
 from parallax.nn import Module, Parameter
 from parallax.tensor import Tensor, _accumulate_grad
+from python.parallax.dispatch.layernorm import _coerce_norm_shape, _resolve_norm_shape
 
 
 def stabilize_epsilon(eps: float, min_eps: float = 1e-12) -> float:
@@ -65,17 +66,25 @@ def fused_layernorm_forward(
     eps: float = 1e-5,
     rms_scale: bool = False,
     return_residual: bool = False,
+    normalized_shape: Optional[Union[int, Tuple[int, ...]]] = None,
 ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
     """Compute LayerNorm forward pass with residual addition and bias fusion."""
     eps_val = stabilize_epsilon(eps)
     fused = x + residual if residual is not None else x
+    norm_shape = _resolve_norm_shape(fused, normalized_shape, weight, bias)
     orig_dtype = fused.dtype
     target_dtype = np.float32 if not np.issubdtype(orig_dtype, np.floating) else orig_dtype
     acc = fused.astype(np.float32) if orig_dtype == np.float16 or not np.issubdtype(orig_dtype, np.floating) else fused
     w_eff = rms_weight_scale(weight, eps=eps_val) if weight is not None and rms_scale else weight
     w_acc = w_eff.astype(acc.dtype) if w_eff is not None else None
     b_acc = bias.astype(acc.dtype) if bias is not None else None
-    normed = _dispatch_fused_layernorm(acc, w_acc, b_acc, eps_val)
+    if len(norm_shape) == 1:
+        normed = _dispatch_fused_layernorm(acc, w_acc, b_acc, eps_val)
+    else:
+        flat_d = int(np.prod(norm_shape))
+        w_f = w_acc.reshape(flat_d) if w_acc is not None else None
+        b_f = b_acc.reshape(flat_d) if b_acc is not None else None
+        normed = _dispatch_fused_layernorm(acc.reshape(-1, flat_d), w_f, b_f, eps_val).reshape(acc.shape)
     out = normed.astype(target_dtype)
     if return_residual:
         return out, fused
@@ -87,17 +96,21 @@ def _layernorm_dx(
     fused: np.ndarray,
     w_eff: Optional[np.ndarray],
     eps: float,
+    norm_shape: Optional[Tuple[int, ...]] = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Compute LayerNorm input gradient and normalized activations."""
-    mean = np.mean(fused, axis=-1, keepdims=True)
-    var = np.var(fused, axis=-1, keepdims=True)
+    shape = norm_shape if norm_shape is not None else (int(fused.shape[-1]),)
+    flat_d = int(np.prod(shape))
+    f_2d, d_2d = fused.reshape(-1, flat_d), dout.reshape(-1, flat_d)
+    mean = np.mean(f_2d, axis=-1, keepdims=True)
+    var = np.var(f_2d, axis=-1, keepdims=True)
     inv_std = 1.0 / np.sqrt(var + eps)
-    x_hat = (fused - mean) * inv_std
-    d_xhat = dout * w_eff if w_eff is not None else dout
+    x_hat = (f_2d - mean) * inv_std
+    d_xhat = d_2d * w_eff.reshape(flat_d) if w_eff is not None else d_2d
     mean_d = np.mean(d_xhat, axis=-1, keepdims=True)
     mean_dxhat = np.mean(d_xhat * x_hat, axis=-1, keepdims=True)
     dx = inv_std * (d_xhat - mean_d - x_hat * mean_dxhat)
-    return dx, x_hat
+    return dx.reshape(fused.shape), x_hat.reshape(fused.shape)
 
 
 def _layernorm_param_grads(
@@ -127,12 +140,14 @@ def fused_layernorm_backward(
     residual: Optional[np.ndarray] = None,
     eps: float = 1e-5,
     rms_scale: bool = False,
+    normalized_shape: Optional[Union[int, Tuple[int, ...]]] = None,
 ) -> Tuple[np.ndarray, Optional[np.ndarray], Optional[np.ndarray], Optional[np.ndarray]]:
     """Compute analytical backward pass for fused LayerNorm."""
     eps_val = stabilize_epsilon(eps)
     fused = x + residual if residual is not None else x
+    norm_shape = _resolve_norm_shape(fused, normalized_shape, weight, bias)
     w_eff = rms_weight_scale(weight, eps=eps_val) if weight is not None and rms_scale else weight
-    dx, x_hat = _layernorm_dx(dout, fused, w_eff, eps_val)
+    dx, x_hat = _layernorm_dx(dout, fused, w_eff, eps_val, norm_shape)
     dw, db = _layernorm_param_grads(dout, x_hat, weight, bias, eps_val, rms_scale)
     dres = dx if residual is not None else None
     return dx, dw, db, dres
@@ -165,6 +180,7 @@ def _attach_fused_layernorm_backward(
     residual: Any,
     eps: float,
     rms_scale: bool,
+    normalized_shape: Optional[Union[int, Tuple[int, ...]]] = None,
 ) -> None:
     """Attach autograd backward callback to output Tensor."""
     raw_x = x.data if isinstance(x, Tensor) else x
@@ -175,7 +191,10 @@ def _attach_fused_layernorm_backward(
     def _backward() -> None:
         if out_t.grad is None:
             return
-        grads = fused_layernorm_backward(out_t.grad, raw_x, raw_w, raw_b, residual=raw_r, eps=eps, rms_scale=rms_scale)
+        grads = fused_layernorm_backward(
+            out_t.grad, raw_x, raw_w, raw_b, residual=raw_r, eps=eps,
+            rms_scale=rms_scale, normalized_shape=normalized_shape,
+        )
         _accumulate_norm_grads(x, residual, weight, bias, grads)
 
     out_t._backward = _backward
@@ -205,6 +224,7 @@ def dispatched_fused_layernorm(
     eps: float = 1e-5,
     rms_scale: bool = False,
     return_residual: bool = False,
+    normalized_shape: Optional[Union[int, Tuple[int, ...]]] = None,
 ) -> Tensor | Tuple[Tensor, Tensor] | np.ndarray | Tuple[np.ndarray, np.ndarray]:
     """Execute dispatched LayerNorm with residual, bias, and optional RMS scale."""
     raw_x = x.data if isinstance(x, Tensor) else x
@@ -212,14 +232,17 @@ def dispatched_fused_layernorm(
     raw_b = bias.data if isinstance(bias, Tensor) else bias
     raw_r = residual.data if isinstance(residual, Tensor) else residual
 
-    res_fwd = fused_layernorm_forward(raw_x, raw_w, raw_b, residual=raw_r, eps=eps, rms_scale=rms_scale, return_residual=return_residual)
+    res_fwd = fused_layernorm_forward(
+        raw_x, raw_w, raw_b, residual=raw_r, eps=eps, rms_scale=rms_scale,
+        return_residual=return_residual, normalized_shape=normalized_shape,
+    )
     if not any(isinstance(p, Tensor) for p in (x, residual, weight, bias)):
         return res_fwd
 
     out_arr: np.ndarray = res_fwd[0] if isinstance(res_fwd, tuple) else res_fwd
     parents = tuple(p for p in (x, residual, weight, bias) if isinstance(p, Tensor))
     out_t = Tensor(out_arr, parents, "DispatchedFusedLayerNorm")
-    _attach_fused_layernorm_backward(out_t, x, weight, bias, residual, eps, rms_scale)
+    _attach_fused_layernorm_backward(out_t, x, weight, bias, residual, eps, rms_scale, normalized_shape)
     if return_residual and isinstance(res_fwd, tuple):
         parents_res = tuple(p for p in (x, residual) if isinstance(p, Tensor))
         res_t = Tensor(res_fwd[1], parents_res, "ResidualFused", requires_grad=False)
@@ -240,7 +263,7 @@ class DispatchedFusedLayerNorm(Module):
         rms_scale: bool = False,
     ) -> None:
         super().__init__()
-        self.normalized_shape = (normalized_shape,) if isinstance(normalized_shape, int) else tuple(normalized_shape)
+        self.normalized_shape = _coerce_norm_shape(normalized_shape)
         self.eps = float(eps)
         self.elementwise_affine = bool(elementwise_affine)
         self.rms_scale = bool(rms_scale)
@@ -263,6 +286,7 @@ class DispatchedFusedLayerNorm(Module):
             residual=residual,
             eps=self.eps,
             rms_scale=self.rms_scale,
+            normalized_shape=self.normalized_shape,
         )
         if isinstance(res, Tensor):
             return res
