@@ -141,7 +141,10 @@ impl SequenceBinner {
     ) -> Result<usize, SchedulerError> {
         let max_len = sequences.iter().map(|s| s.len()).max().unwrap_or(0);
         let bucket = self.find_bucket(max_len)?;
-        let req = sequences.len().checked_mul(bucket).ok_or(SchedulerError::BufferTooSmall)?;
+        let req = sequences
+            .len()
+            .checked_mul(bucket)
+            .ok_or(SchedulerError::BufferTooSmall)?;
         if out_tokens.len() < req || out_mask.len() < req {
             return Err(SchedulerError::BufferTooSmall);
         }
