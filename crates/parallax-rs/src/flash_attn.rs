@@ -493,4 +493,44 @@ mod tests {
         let invalid_cfg = FlashAttnConfig { scale: -1.0, is_causal: false, f16_scale_correction: false };
         assert_eq!(flash_attn(&q, &k, &v, &mut out, 1, 2, invalid_cfg), Err(FlashAttnError::InvalidScale));
     }
+
+    #[test]
+    fn test_f16_roundtrip_and_saturation() {
+        assert_eq!(F16::ZERO.to_f32(), 0.0);
+        assert_eq!(F16::from_f32(1.0).to_f32(), 1.0);
+        assert_eq!(F16::from_f32(-2.5).to_f32(), -2.5);
+        assert!((F16::from_f32(5.960_464_5e-8).to_f32() - 5.960_464_5e-8).abs() < 1e-12);
+        assert_eq!(F16::from_f32(F16_MAX).to_f32(), F16_MAX);
+        assert!(F16::from_f32(70_000.0).to_f32().is_infinite());
+        assert_eq!(F16::from_f32_saturating(70_000.0).to_f32(), F16_MAX);
+        assert_eq!(F16::from_f32_saturating(-70_000.0).to_f32(), -F16_MAX);
+        assert!(F16::from_f32_saturating(f32::NAN).to_f32().is_nan());
+    }
+
+    #[test]
+    fn test_flash_attn_f16_overflow_vs_scale_correction() {
+        let q = [F16::from_f32(300.0); 4];
+        let k = [F16::from_f32(300.0), F16::from_f32(300.0), F16::from_f32(250.0), F16::from_f32(250.0)];
+        let v = [F16::from_f32(2.0), F16::from_f32(4.0), F16::from_f32(6.0), F16::from_f32(8.0)];
+        assert!(dot_product_f16_scaled(&q[..2], &k[..2], 0.0625, false).is_infinite());
+        assert!((dot_product_f16_scaled(&q[..2], &k[..2], 0.0625, true) - 11_250.0).abs() < 1.0);
+        let mut out = [F16::ZERO; 4];
+        let cfg = FlashAttnConfig { scale: 0.0625, is_causal: false, f16_scale_correction: true };
+        assert_eq!(flash_attn_f16(&q, &k, &v, &mut out, 2, 2, cfg), Ok(()));
+        assert!((out[0].to_f32() - 2.0).abs() < 1e-3 && (out[1].to_f32() - 4.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn test_flash_attn_simd_multilane_with_tail() {
+        let (seq_len, d) = (2, 35);
+        let q: Vec<f32> = (0..seq_len * d).map(|i| ((i % 7) as f32 - 3.0) * 0.25).collect();
+        let k: Vec<f32> = (0..seq_len * d).map(|i| ((i % 5) as f32 - 2.0) * 0.3).collect();
+        let v: Vec<f32> = (0..seq_len * d).map(|i| (i as f32) * 0.1).collect();
+        let (mut out_std, mut out_corr) = (vec![0.0f32; seq_len * d], vec![0.0f32; seq_len * d]);
+        assert_eq!(flash_attn(&q, &k, &v, &mut out_std, seq_len, d, FlashAttnConfig::new(d, false, false)), Ok(()));
+        assert_eq!(flash_attn(&q, &k, &v, &mut out_corr, seq_len, d, FlashAttnConfig::new(d, false, true)), Ok(()));
+        for (&a, &b) in out_std.iter().zip(out_corr.iter()) {
+            assert!((a - b).abs() < 2e-3);
+        }
+    }
 }
