@@ -1,7 +1,12 @@
-"""Speculative Tree-Drafting (Eagle style) candidate verification kernel."""
+"""Speculative Tree-Drafting module delegating to tree_drafting_v2."""
 
 from typing import List, Optional
 import numpy as np
+
+from parallax.tree_drafting_v2 import (
+    build_vectorized_tree_attention_mask,
+    verify_tree_candidates_v2,
+)
 
 
 class TreeDraftNode:
@@ -11,19 +16,17 @@ class TreeDraftNode:
         self.token_id = int(token_id)
         self.parent_idx = int(parent_idx)
 
+
 def build_tree_attention_mask(parent_indices: List[int]) -> np.ndarray:
-    """Construct causal tree attention mask where each node attends to its ancestors."""
-    n = len(parent_indices)
-    mask = np.zeros((n, n), dtype=int)
-    for i in range(n):
-        curr, visited = i, set()
-        while curr != -1:
-            if curr < -1 or curr >= n or curr in visited:
-                raise ValueError(f"Cycle or invalid parent detected at node {curr}")
-            visited.add(curr)
-            mask[i, curr] = 1
-            curr = parent_indices[curr]
-    return mask
+    """Construct causal tree attention mask delegating to tree_drafting_v2."""
+    try:
+        mask, _ = build_vectorized_tree_attention_mask(parent_indices)
+        return mask
+    except ValueError as e:
+        if "Cycle detected" in str(e):
+            raise ValueError(f"Cycle or invalid parent detected: {e}") from e
+        raise
+
 
 def verify_tree_candidates(
     draft_tokens: List[int],
@@ -31,54 +34,25 @@ def verify_tree_candidates(
     target_logits: np.ndarray,
     context_logits: Optional[np.ndarray] = None,
 ) -> List[int]:
-    """Verify tree candidates greedily against target model predictions and find longest valid path.
+    """Verify tree candidates delegating to verify_tree_candidates_v2."""
+    try:
+        res = verify_tree_candidates_v2(
+            draft_tokens,
+            parent_indices,
+            target_logits,
+            context_logits=context_logits,
+        )
+        if isinstance(res, tuple):
+            return res[0]
+        return res
+    except ValueError as e:
+        if "Length mismatch" in str(e):
+            raise ValueError(f"Mismatch between draft tokens and parent indices: {e}") from e
+        raise
 
-    Args:
-        draft_tokens: List of proposed draft token IDs corresponding to tree nodes.
-        parent_indices: Parent node index for each node, with -1 denoting root nodes.
-        target_logits: Logits from target model for each tree candidate node (shape: [n, vocab_size]).
-        context_logits: Optional target model logits at the prompt/context boundary prior
-            to tree candidates. If provided, roots must match argmax(context_logits) to be accepted.
-            If a root is rejected, the target's correction token (argmax) is returned.
 
-    Returns:
-        The longest verified token sequence (or [correction_token] if root is rejected).
-    """
-    n = len(draft_tokens)
-    if n != len(parent_indices):
-        raise ValueError(f"Mismatch between draft tokens ({n}) and parent indices ({len(parent_indices)})")
-    if n == 0:
-        return []
-
-    target_preds = np.argmax(target_logits, axis=-1)
-    valid_nodes = set()
-
-    context_choice = int(np.argmax(context_logits)) if context_logits is not None else None
-
-    for i in range(n):
-        parent = parent_indices[i]
-        if parent == -1:
-            if context_choice is None or draft_tokens[i] == context_choice:
-                valid_nodes.add(i)
-        elif parent in valid_nodes and target_preds[parent] == draft_tokens[i]:
-            valid_nodes.add(i)
-
-    if not valid_nodes:
-        if context_choice is not None:
-            return [context_choice]
-        return []
-
-    # Find deepest valid branch
-    best_path: List[int] = []
-    for node in valid_nodes:
-        path, visited = [], set()
-        curr = node
-        while curr != -1 and curr in valid_nodes:
-            if curr in visited:
-                raise ValueError(f"Cycle detected in valid nodes at {curr}")
-            visited.add(curr)
-            path.append(draft_tokens[curr])
-            curr = parent_indices[curr]
-        if len(path) > len(best_path):
-            best_path = path[::-1]
-    return best_path
+__all__ = [
+    "TreeDraftNode",
+    "build_tree_attention_mask",
+    "verify_tree_candidates",
+]
