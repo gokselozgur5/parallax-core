@@ -4,23 +4,31 @@ from __future__ import annotations
 
 import functools
 import logging
+import os
 import threading
+import time
 from collections import deque
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from parallax.backends import registry
 from parallax.backends.autotune import get_default_cache_path, load_cache
 from parallax.backends.base import Backend
 from parallax.backends.cpuinfo import detect_cpu as _detect_cpu_raw
 from parallax.backends.env import backend_override
+from parallax.backends.layout import ensure_f32_contiguous
+from parallax.backends.parity import DEFAULT_PARITY_THRESHOLD, check_op_parity
 from parallax.backends.policy import backend_order
 from parallax.backends.quarantine import get_default_quarantine
 from parallax.backends.scope import current_backend
+from parallax.backends.telemetry import DispatchTelemetry
 
 _LOGGER = logging.getLogger(__name__)
+_telemetry = DispatchTelemetry()
 
 
 @functools.lru_cache(maxsize=1)
@@ -155,8 +163,18 @@ def candidate_backends(
     return [name for name in c if name == "numpy" or not quarantine.is_quarantined(op, name)]
 
 
+def _prepare_args(name: str, args: tuple[Any, ...]) -> tuple[Any, ...]:
+    if name == "numpy":
+        return args
+    return tuple(
+        ensure_f32_contiguous(a)[0] if isinstance(a, np.ndarray) and a.dtype == np.float32 else a
+        for a in args
+    )
+
+
 def dispatch(op: str, *args: Any, **kwargs: Any) -> Any:
     env = kwargs.pop("_environ", None)
+    check_par = (env if env is not None else os.environ).get("PARALLAX_CHECK_PARITY") == "1"
     n_elems, dtype, shape = _inspect_inputs(args)
     candidates = candidate_backends(op, n_elements=n_elems, environ=env)
     last_err: Exception | None = None
@@ -170,13 +188,28 @@ def dispatch(op: str, *args: Any, **kwargs: Any) -> Any:
             _record_fallback(op, name, f"backend lacks op {op}")
             continue
         try:
-            out = fn(*args, **kwargs)
-            get_default_quarantine().record_success(op, name)
-            return out
+            call_args = _prepare_args(name, args)
+            t0 = time.perf_counter_ns()
+            out = fn(*call_args, **kwargs)
+            elapsed_ns = time.perf_counter_ns() - t0
         except Exception as exc:
             last_err = exc
             if name != "numpy":
                 get_default_quarantine().record_failure(op, name)
             _record_fallback(op, name, str(exc), exc=exc)
+            continue
+        if check_par and name != "numpy":
+            ref_be = _resolve_backend("numpy")
+            ref_fn = getattr(ref_be, op, None) if ref_be is not None else None
+            if callable(ref_fn):
+                ref_out = ref_fn(*call_args, **kwargs)
+                res = check_op_parity(b, op, ref_out, *call_args, threshold=DEFAULT_PARITY_THRESHOLD, **kwargs)
+                if not res.passed:
+                    get_default_quarantine().record_failure(op, name)
+                    _record_fallback(op, name, f"parity check failed: {res.status}")
+                    continue
+        get_default_quarantine().record_success(op, name)
+        _telemetry.record(op, name, elapsed_ns)
+        return out
     msg = f"All backends failed for {op}: {candidates}"
     raise RuntimeError(msg) from last_err
