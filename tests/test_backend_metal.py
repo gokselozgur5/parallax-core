@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 from parallax.backends.base import check_backend_contract
-from parallax.backends.metal import MetalBackend
+from parallax.backends.metal_backend import MetalBackend, is_metal_available, probe_metal
 
 
 def test_metal_backend_contract():
@@ -12,8 +12,6 @@ def test_metal_backend_contract():
 
 
 def test_metal_backend_probe():
-    from parallax.backends.metal import is_metal_available, probe_metal
-
     info = probe_metal()
     assert isinstance(info, dict)
     assert "available" in info
@@ -30,6 +28,8 @@ def test_metal_backend_supports(monkeypatch):
     monkeypatch.setattr(backend, "available", lambda: True)
     assert backend.supports("gemm", np.float32, (2, 2))
     assert backend.supports("rmsnorm", "float32", (2, 2))
+    assert not backend.supports("softmax", np.float32, (2, 2))
+    assert not hasattr(backend, "softmax")
     assert not backend.supports("unknown_op", np.float32, (2, 2))
     assert not backend.supports("gemm", np.float64, (2, 2))
 
