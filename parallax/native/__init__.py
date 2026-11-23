@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
-from parallax.native.loader import bind, get_c_lib
+from parallax.native.dispatcher import KernelSelection, reset_dispatch_cache, select_kernel
+from parallax.native.loader import bind, check_int32_bounds, get_c_lib, lazy_bind
 
-__all__ = ["bind", "get_c_lib"]
+__all__ = ["KernelSelection", "bind", "check_int32_bounds", "get_c_lib", "lazy_bind", "reset_dispatch_cache", "select_kernel"]
