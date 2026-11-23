@@ -194,70 +194,70 @@ Dynamic Split-K limits partition proliferation at extended context lengths (e.g.
 
 ---
 
-### 4.3. Kuantizasyon Sıkıştırma Başarımı
+### 4.3. Quantization Compression Ratios
 
-| Model Formatı | Parametre Sayısı | Ağırlık Boyutu | Efektif Bit Genişliği | Sıkıştırma Oranı |
+| Model Format | Parameter Count | Weight Footprint | Effective Bit Width | Compression vs FP32 Baseline |
 | :--- | :--- | :--- | :--- | :--- |
-| **Transformer FP32 (Referans)** | 131,328 | 513.00 KB | 32-bit Float | 1.00x |
-| **Transformer INT4 (Grup=32)** | 131,328 | 96.19 KB | 4-bit Nibble | **5.33x** |
+| **Transformer FP32 (Reference)** | 131,328 | 513.00 KB | 32-bit Float | 1.00x |
+| **Transformer INT4 (Group=32)** | 131,328 | 96.19 KB | 4-bit Nibble | **5.33x** |
 | **Mamba S6 FP32** | 98,176 | 383.50 KB | 32-bit Float | 1.00x |
 | **BitMamba 1.58-bit Ternary** | 98,176 | 106.00 KB | 1.58-bit Ternary | **3.62x** |
 | **BitTransformer 1.58-bit** | 131,328 | 114.20 KB | 1.58-bit Ternary | **4.49x** |
 
 ---
 
-## 5. Büyük Yol Haritası (Faz 1 — Faz 3 Güncellemesi)
+## 5. Grand Architectural Roadmap (Phases 1-3)
 
 ```mermaid
 flowchart TD
-    subgraph Faz1["Faz 1: Çıkarım ve Ağırlık Köprüleri (TAMAMLANDI)"]
+    subgraph Phase1["Phase 1: Inference & Model Weight Bridges (COMPLETED)"]
         F1_1["HuggingFace SafeTensors & GGUF Parser"]
-        F1_2["Qwen2 / Qwen2.5 & Llama-3 Ağırlık Yükleyicileri"]
-        F1_3["Akıcı & Mantıklı Yerel Çıkarım Omurgası"]
+        F1_2["Qwen2 / Qwen2.5 & Llama-3 Model Loaders"]
+        F1_3["Zero-Dependency Local Inference Pipeline"]
         F1_1 --> F1_2 --> F1_3
     end
 
-    subgraph Faz2["Faz 2: Bare-Metal Hız & Native Kernel Entegrasyonu (GÜNCEL HEDEF)"]
-        F2_1["C-Engine / Rust FFI Köprülerinin Otomatik Dispatch'e Bağlanması"]
-        F2_2["SIMD NEON / AVX-512 Vektörize Matmul ve FlashAttention Kernel'ları"]
-        F2_3["Apple Metal JIT & MPS Shaders ile Sıfır Kopyalı Unified Memory Çıkarımı"]
-        F2_4["Tek Başına Çalışabilen Bağımsız Binary (Standalone Executable)"]
+    subgraph Phase2["Phase 2: Bare-Metal Speed & Native Kernels (CURRENT FOCUS)"]
+        F2_1["Automatic Dispatch across C-Engine and Rust FFI Bridges"]
+        F2_2["SIMD NEON / AVX-512 Vectorized Matmul & FlashAttention Kernels"]
+        F2_3["Apple Metal JIT & MPS Shaders for Unified Memory Execution"]
+        F2_4["Standalone Native Executable"]
         F2_1 --> F2_2 --> F2_3 --> F2_4
     end
 
-    subgraph Faz3["Faz 3: LLM Röntgen Cihazı (Parallax Studio)"]
-        F3_1["Canlı Dikkat & Latent Vektör Görselleştirici"]
-        F3_2["MoE Uzman Seçimi & Spekülasyon Yarış Paneli"]
-        F3_3["Dünyanın En Şeffaf Açık Kaynak LLM Debugger'ı"]
+    subgraph Phase3["Phase 3: LLM Observability & Inspection (Parallax Studio)"]
+        F3_1["Live Attention & Latent Vector Inspector"]
+        F3_2["MoE Expert Routing & Speculative Race Panel"]
+        F3_3["Transparent Open-Source LLM Debugger"]
         F3_1 --> F3_2 --> F3_3
     end
 
-    Faz1 --> Faz2 --> Faz3
+    Phase1 --> Phase2 --> Phase3
 ```
 
-### Faz 1: "Sessiz Devrim" — Tamamlandı ve Mühürlendi
-- Sıfır harici bağımlılıkla GGUF ve SafeTensors formatları okundu.
-- Qwen2, Qwen2.5 ve Llama-3 mimari sınıfları inşa edildi ve unit testlerle doğrulandı.
-- Tokenizer BPE ve HuggingFace tokenizer uyumluluğu tamamlandı.
+### Phase 1: Foundations - Completed and Validated
+- Zero-dependency parsers for GGUF and SafeTensors model formats.
+- Complete model architecture definitions for Qwen2, Qwen2.5, and Llama-3 verified via unit tests.
+- Byte-Pair Encoding tokenizer with HuggingFace tokenizer compatibility.
 
-### Faz 2: "Bare-Metal Hız" — Native Çekirdek ve Donanım Hakimiyeti (Mevcut Odak)
-1. **Otomatik Dispatch Mekanizması:** Parallax tensör operasyonlarında platforma göre otomatik seçim (Apple Silicon'da Metal/NEON, x86'da AVX-512 C-Engine/Rust, aksi halde saf NumPy).
-2. **FlashAttention C/Metal Kernel'ı:** Python döngüsü olmadan doğrudan C/Metal seviyesinde karo (tile) bazlı SRAM online softmax decodlama.
-3. **Rust `libparallax_rs` Entegrasyonu:** Rust tarafında `rayon` ve SIMD matris çarpımı ile sıfır kopyalı bellek işletimi.
-4. **Standalone Binary:** Tek bir C/Rust ikili dosyası ile harici Python çalışma ortamına bile ihtiyaç duymadan model çalıştırabilme.
+### Phase 2: Bare-Metal Speed - Native Hardware Acceleration (Active Focus)
+1. **Dynamic Backend Dispatch:** Transparent runtime execution routing based on host architecture (Metal/NEON on Apple Silicon, AVX-512 C-Engine/Rust on x86, NumPy baseline fallback).
+2. **FlashAttention Native Kernels:** Block-tiled SRAM online softmax execution in native C and Metal shaders.
+3. **Rust `libparallax_rs` Integration:** Multi-threaded SIMD matrix primitives via C-ABI zero-copy buffers.
+4. **Standalone Binary:** Standalone compiled executable capable of running inference without requiring a Python runtime.
 
-### Faz 3: "LLM Röntgen Cihazı" — Dünyanın En Şeffaf LLM Debugger'ı
-- **Parallax Studio:** Modelin bir token'ı üretirken hangi katmanda ne düşündüğünü, dikkatin nereye aktığını ve MoE uzmanlarının nasıl dağıldığını anlık gösteren interaktif mikroskop.
-- **Eagle-2 Görselleştirici:** Spekülatif ağaç doğrulamasının kabul/red oranlarını canlı akan bir ağaç grafiğinde sunan arayüz.
-
----
-
-## 6. Değişmez Mühendislik İlkeleri (Non-Negotiables)
-
-1. **Harici ML Bağımlılığı Yasağı (Çekirdek):** Çekirdek model, autograd ve katmanlarda PyTorch, TensorFlow, JAX veya ONNX Runtime asla zorunlu kılınmayacak; matematik çıplak kalacak (yalnızca opsiyonel CUDA çalıştırma köprüleri harici kütüphaneleri dinamik import edebilir).
-2. **Kanıt Temelli Doğruluk:** Eklenen her yeni matematiksel mekanizma mutlaka analitik formül ve iki yönlü sonlu farklar testiyle ($\epsilon=10^{-5}$) doğrulanacak.
-3. **Mikro-Atomik Adımlar:** Commitler <30-50 satır sınırını koruyacak, temiz ve izlenebilir rebase-merge omurgası tavizsiz işletilecek.
-4. **Çoklu Backend Tutarlılığı:** C-Engine, Rust, Apple Metal JIT ve NumPy sonuçları birbirleriyle bit düzeyine yakın uyum içinde olacak (hata toleransı $< 10^{-4}$).
+### Phase 3: Observability - Transparent Model Introspection
+- **Parallax Studio:** Interactive inspection environment visualizing layer activations, attention distribution, and MoE routing decisions during token generation.
+- **Eagle-2 Visualizer:** Live display tracking speculative tree candidate drafting and acceptance ratios.
 
 ---
-*Mühürlendi: Parallax Swarm Agent 20 (Documentation & First-Principles Architecture Spec) — 10 Kasım 2026.*
+
+## 6. Core Engineering Principles
+
+1. **Zero External ML Core:** Core engine primitives, autograd graph, and layers require no external frameworks (PyTorch, TensorFlow, JAX, or ONNX Runtime); pure mathematics remains explicit. Optional runtime bridges support CUDA execution.
+2. **Empirical Verification:** Analytical formulations are verified against two-sided finite difference numerical gradient tests ($\epsilon=10^{-5}$).
+3. **Atomic Commits:** Development maintains focused, atomic commits with clear verification.
+4. **Multi-Backend Parity:** C-Engine, Rust, Apple Metal JIT, and NumPy backends produce numerically aligned outputs within tight numerical tolerances ($< 10^{-4}$).
+
+---
+*Charter Architecture Specification - Parallax Core Project.*
