@@ -91,6 +91,8 @@ class DispatchedGELUFast(Module):
             )
 
     def forward(self, x: Tensor | np.ndarray) -> Tensor:
+        if self.approximate == "none":
+            raise ValueError("Exact GeLU (approximate='none') is not supported")
         return dispatched_gelu_fast(x)
 
     @classmethod

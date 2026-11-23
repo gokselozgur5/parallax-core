@@ -64,6 +64,8 @@ def scaled_dot_product_attention(
     scale: Optional[float] = None,
 ) -> np.ndarray:
     """Compute scaled dot-product attention."""
+    if dropout_p > 0.0:
+        raise ValueError("dropout_p > 0.0 is not supported")
     _validate_sdpa_inputs(query, key, value, attn_mask=attn_mask, is_causal=is_causal)
     scores, _, _ = _compute_sdpa_scores(
         query, key, scale=scale, attn_mask=attn_mask, is_causal=is_causal
