@@ -168,7 +168,11 @@ class RMSNorm(Module):
         x_data = x.data
         rms = np.sqrt(np.mean(x_data**2, axis=-1, keepdims=True) + self.eps)
         norm_x = x_data / rms
-        out_data = norm_x * self.weight.data
+        try:
+            from parallax.backends.dispatch import dispatch
+            out_data = dispatch("rmsnorm", x_data, self.weight.data, eps=self.eps)
+        except Exception:
+            out_data = norm_x * self.weight.data
 
         out = Tensor(out_data, (x, self.weight), "RMSNorm")
 
