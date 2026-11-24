@@ -107,6 +107,6 @@ def test_serve_openai_hf_loading(tmp_path):
 
 def test_serve_openai_cli_default_host():
     with unittest.mock.patch("sys.argv", ["serve_openai.py"]):
-        with unittest.mock.patch("scripts.serve_openai.run_server") as mock_run:
+        with unittest.mock.patch("parallax.cli.serve_openai.run_server") as mock_run:
             main()
             assert mock_run.call_args.kwargs["host"] == "127.0.0.1"
