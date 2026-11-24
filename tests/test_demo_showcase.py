@@ -48,8 +48,14 @@ def test_demo_showcase_human_output(capsys) -> None:
 
 def test_experimental_modules_lazy_resolution() -> None:
     """Verify every module declared in EXPERIMENTAL_MODULES resolves cleanly."""
+    import importlib
     import parallax.experimental
 
+    assert len(parallax.experimental.EXPERIMENTAL_MODULES) == 16
     for mod_name in parallax.experimental.EXPERIMENTAL_MODULES:
-        mod = getattr(parallax.experimental, mod_name)
-        assert mod is not None
+        mod_exp = importlib.import_module(f"parallax.experimental.{mod_name}")
+        assert mod_exp is not None
+        mod_root = importlib.import_module(f"parallax.{mod_name}")
+        assert mod_root is not None
+        mod_attr = getattr(parallax.experimental, mod_name)
+        assert mod_attr is not None
