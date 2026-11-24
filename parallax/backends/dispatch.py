@@ -87,6 +87,20 @@ def get_scope_backend() -> str | None:
     return getattr(_scope_local, "backend", None)
 
 
+def get_last_backend(op: str | None = None) -> str | None:
+    """Get the last successfully executed backend name for the thread, optionally by op."""
+    if op is not None:
+        return getattr(_scope_local, "last_backends", {}).get(op)
+    return getattr(_scope_local, "last_backend", None)
+
+
+def _set_last_backend(op: str, backend: str) -> None:
+    if not hasattr(_scope_local, "last_backends"):
+        _scope_local.last_backends = {}
+    _scope_local.last_backends[op] = backend
+    _scope_local.last_backend = backend
+
+
 def _resolve_backend(name: str) -> Backend | None:
     """Resolve backend name from registry or known fallbacks."""
     try:
@@ -99,6 +113,14 @@ def _resolve_backend(name: str) -> Backend | None:
         try:
             return registry.get("c")
         except KeyError:
+            try:
+                from parallax.backends.c_backend import CBackend
+
+                cb = CBackend()
+                if cb.available():
+                    return cb
+            except Exception:
+                pass
             return None
     if name == "numpy":
         from parallax.backends.numpy_backend import NumpyBackend
@@ -215,6 +237,7 @@ def dispatch(op: str, *args: Any, **kwargs: Any) -> Any:
                     _record_fallback(op, name, f"parity check failed: {res.status}")
                     continue
         get_default_quarantine().record_success(op, name)
+        _set_last_backend(op, name)
         _telemetry.record(op, name, elapsed_ns)
         return out
     msg = f"All backends failed for {op}: {candidates}"
