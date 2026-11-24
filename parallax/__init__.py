@@ -1,6 +1,6 @@
 """Parallax Deep Learning Framework."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from parallax.batching import ContinuousBatchEngine, RequestStatus, SequenceRequest
 from parallax.tensor import Tensor, is_grad_enabled, no_grad
