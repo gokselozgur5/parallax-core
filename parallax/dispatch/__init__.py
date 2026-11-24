@@ -1,4 +1,7 @@
-"""Dispatch subsystem modules and kernels."""
+"""Dispatch subsystem modules and kernels.
+
+Canonical dispatch authority and operator dispatch reside in `parallax.backends`.
+"""
 
 from parallax.dispatch.cross_entropy import (
     CrossEntropyLossModule,
