@@ -14,7 +14,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import numpy as np
-from parallax.backends.dispatch import candidate_backends, dispatch
+from parallax.backends.dispatch import dispatch, get_last_backend
 from parallax.tensor import Tensor
 
 
@@ -75,10 +75,11 @@ def benchmark_dispatch_timing(quick: bool = True) -> dict[str, Any]:
     for _ in range(iters):
         _ = dispatch("rmsnorm", a, w, eps=1e-5)
     t_rms = ((time.perf_counter() - t1) / iters) * 1000.0
-    gc, rc = candidate_backends("gemm", dim * dim), candidate_backends("rmsnorm", dim * dim)
+    act_gemm = get_last_backend("gemm") or "numpy"
+    act_rms = get_last_backend("rmsnorm") or "numpy"
     return {
-        "active_gemm_backend": gc[0] if gc else "numpy",
-        "active_rmsnorm_backend": rc[0] if rc else "numpy",
+        "active_gemm_backend": act_gemm,
+        "active_rmsnorm_backend": act_rms,
         "gemm_latency_ms": round(t_gemm, 3),
         "rmsnorm_latency_ms": round(t_rms, 3),
         "matrix_dim": dim,
