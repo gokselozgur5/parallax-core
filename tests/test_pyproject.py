@@ -19,6 +19,9 @@ def test_scripts_entrypoints_importable() -> None:
 
     for script_name, entry_str in scripts.items():
         module_name, func_name = entry_str.split(":")
+        assert module_name.startswith("parallax.cli."), (
+            f"Script {script_name} ({entry_str}) entrypoint must start with 'parallax.cli.'"
+        )
         mod = importlib.import_module(module_name)
         func = getattr(mod, func_name)
         assert callable(func), f"Script {script_name} ({entry_str}) target is not callable"
@@ -42,3 +45,23 @@ def test_gitignore_models_unanchored_regression_829() -> None:
         capture_output=True,
     )
     assert res_weights.returncode == 0, "root models/ directory must be ignored by .gitignore (#829)"
+
+
+def test_scripts_entrypoints_no_scripts_on_sys_path() -> None:
+    """Verify entrypoints import cleanly without repo-root ./scripts on sys.path."""
+    import sys
+    orig_path = list(sys.path)
+    try:
+        sys.path = [p for p in sys.path if not p.endswith("/scripts") and p != "scripts"]
+        repo_root = Path(__file__).resolve().parent.parent
+        with open(repo_root / "pyproject.toml", "rb") as f:
+            config = tomllib.load(f)
+
+        for script_name, entry_str in config.get("project", {}).get("scripts", {}).items():
+            module_name, func_name = entry_str.split(":")
+            assert module_name.startswith("parallax.cli.")
+            mod = importlib.import_module(module_name)
+            func = getattr(mod, func_name)
+            assert callable(func)
+    finally:
+        sys.path = orig_path
