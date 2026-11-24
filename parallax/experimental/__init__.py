@@ -34,7 +34,12 @@ EXPERIMENTAL_MODULES: tuple[str, ...] = (
 
 def __getattr__(name: str) -> Any:
     if name in EXPERIMENTAL_MODULES:
-        return importlib.import_module(f".{name}", __name__)
+        try:
+            return importlib.import_module(f".{name}", __name__)
+        except ModuleNotFoundError as exc:
+            if exc.name == f"{__name__}.{name}":
+                return importlib.import_module(f"parallax.{name}")
+            raise
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
