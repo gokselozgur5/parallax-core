@@ -26,11 +26,11 @@ dev = [
 ]
 
 [project.scripts]
-parallax-eval = "scripts.eval_model:main"
-parallax-quantize = "scripts.quantize_model:main"
-parallax-infer = "scripts.run_inference:main"
-parallax-serve = "scripts.serve_openai:main"
-parallax-demo = "scripts.demo_showcase:main"
+parallax-eval = "parallax.cli.eval_model:main"
+parallax-quantize = "parallax.cli.quantize_model:main"
+parallax-infer = "parallax.cli.run_inference:main"
+parallax-serve = "parallax.cli.serve_openai:main"
+parallax-demo = "parallax.cli.demo_showcase:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
