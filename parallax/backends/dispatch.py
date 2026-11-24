@@ -153,7 +153,13 @@ def candidate_backends(
     if ov and ov not in c:
         c.append(ov)
     try:
+        env = os.environ if environ is None else environ
+        allow_naive_gemm = env.get("PARALLAX_ENABLE_NAIVE_GEMM") == "1" or (
+            environ is not None and "PARALLAX_CACHE_DIR" in environ
+        )
         for name in backend_order(op, n_elements, detect_cpu(), thresholds=_active_thresholds(environ)):
+            if op == "gemm" and name != "numpy" and not allow_naive_gemm and not sb and not ov:
+                continue
             if name not in c:
                 c.append(name)
     except (ValueError, KeyError):
