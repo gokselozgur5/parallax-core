@@ -41,3 +41,12 @@ def test_demo_showcase_human_output(capsys) -> None:
     assert "Autograd" in captured.out
     assert "Memory" in captured.out
     assert "Dispatch" in captured.out
+
+
+def test_experimental_modules_lazy_resolution() -> None:
+    """Verify every module declared in EXPERIMENTAL_MODULES resolves cleanly."""
+    import parallax.experimental
+
+    for mod_name in parallax.experimental.EXPERIMENTAL_MODULES:
+        mod = getattr(parallax.experimental, mod_name)
+        assert mod is not None
