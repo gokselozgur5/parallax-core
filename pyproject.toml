@@ -61,6 +61,7 @@ module = [
     "parallax.metal_engine",
     "parallax.quant",
     "parallax.checkpoint",
+    "parallax.cli.*",
 ]
 ignore_errors = true
 
