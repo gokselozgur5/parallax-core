@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from typing import Protocol
 
 NUMPY = "numpy"
+ENABLE_NAIVE_GEMM_VAR = "PARALLAX_ENABLE_NAIVE_GEMM"
 
 
 class CpuLike(Protocol):
