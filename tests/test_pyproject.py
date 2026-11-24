@@ -15,7 +15,7 @@ def test_scripts_entrypoints_importable() -> None:
         config = tomllib.load(f)
 
     scripts = config.get("project", {}).get("scripts", {})
-    assert len(scripts) == 4, f"Expected 4 scripts, found {len(scripts)}"
+    assert len(scripts) == 5, f"Expected 5 scripts, found {len(scripts)}"
 
     for script_name, entry_str in scripts.items():
         module_name, func_name = entry_str.split(":")

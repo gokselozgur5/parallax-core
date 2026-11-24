@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "parallax"
-version = "0.1.0"
+version = "0.2.0"
 description = "First-principles Autograd and Transformer framework"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -30,6 +30,7 @@ parallax-eval = "scripts.eval_model:main"
 parallax-quantize = "scripts.quantize_model:main"
 parallax-infer = "scripts.run_inference:main"
 parallax-serve = "scripts.serve_openai:main"
+parallax-demo = "scripts.demo_showcase:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
