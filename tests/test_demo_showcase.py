@@ -27,6 +27,9 @@ def test_demo_showcase_main_quick_json(capsys) -> None:
 
     assert "active_gemm_backend" in data["dispatch"]
     assert "active_rmsnorm_backend" in data["dispatch"]
+    from parallax.backends.dispatch import get_last_backend
+    assert data["dispatch"]["active_rmsnorm_backend"] == (get_last_backend("rmsnorm") or "numpy")
+    assert data["dispatch"]["active_gemm_backend"] == (get_last_backend("gemm") or "numpy")
     assert data["dispatch"]["gemm_latency_ms"] >= 0
     assert data["dispatch"]["rmsnorm_latency_ms"] >= 0
 
