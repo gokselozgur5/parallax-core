@@ -200,6 +200,17 @@ $$\text{Score}(t) = \sum_{\tau = t}^{T} A_{\tau, t}$$
 
 ## Quickstart
 
+### Quickstart Demo
+```bash
+pip install -e .
+parallax-demo
+```
+
+### Core vs Experimental Architecture
+Parallax separates hardened core execution from experimental research modules:
+- **Core Engine (`parallax.*`):** Autograd DAG, Transformer/SSM architectures, bare-metal native dispatch backends (`parallax.backends`), and quantization.
+- **Experimental (`parallax.experimental.*`):** Research prototypes for alignment (`dpo`, `ipo`, `kto`, `orpo`, `ppo`, `simpo`), parameter-efficient adapters (`dora`, `xlora`, `qgalore`), and speculative routing (`medusa`, `mod`, `mla`, `ring_attention`, `tree_drafting`, `activation_beacon`, `ecr`).
+
 ### Prerequisites
 - Python 3.11+
 - Virtual environment
