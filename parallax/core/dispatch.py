@@ -1,4 +1,7 @@
-"""Heuristic platform dispatch policy for selecting optimal backend."""
+"""Heuristic platform dispatch policy for selecting optimal backend.
+
+Canonical dispatch authority resides in `parallax.backends`.
+"""
 
 from __future__ import annotations
 
