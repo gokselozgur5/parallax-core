@@ -166,13 +166,13 @@ class RMSNorm(Module):
         # RMS = sqrt(mean(x^2, axis=-1, keepdims=True) + eps)
         # norm_x = x / RMS * weight
         x_data = x.data
-        rms = np.sqrt(np.mean(x_data**2, axis=-1, keepdims=True) + self.eps)
-        norm_x = x_data / rms
         try:
             from parallax.backends.dispatch import dispatch
+
             out_data = dispatch("rmsnorm", x_data, self.weight.data, eps=self.eps)
         except Exception:
-            out_data = norm_x * self.weight.data
+            rms_fallback = np.sqrt(np.mean(x_data**2, axis=-1, keepdims=True) + self.eps)
+            out_data = (x_data / rms_fallback) * self.weight.data
 
         out = Tensor(out_data, (x, self.weight), "RMSNorm")
 
@@ -182,6 +182,8 @@ class RMSNorm(Module):
         def _backward() -> None:
             if out.grad is None:
                 return
+            rms = np.sqrt(np.mean(x_data**2, axis=-1, keepdims=True) + self.eps)
+            norm_x = x_data / rms
             if self.weight.requires_grad:
                 # dL/dWeight = sum(dL/dOut * norm_x)
                 grad_w = out.grad * norm_x
